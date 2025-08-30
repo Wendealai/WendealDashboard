@@ -1,0 +1,308 @@
+.dashboard-page {
+  padding: 24px;
+  background: var(--color-bg-layout, var(--background-color));
+  min-height: calc(100vh - 64px);
+}
+
+.dashboard-header {
+  margin-bottom: 24px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--color-bg-container, var(--card-color));
+  backdrop-filter: blur(10px);
+  padding: 16px 24px;
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-large);
+  border: 1px solid var(--color-border, var(--border-color));
+  color: var(--color-text, var(--text-color));
+}
+
+.stats-section {
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--color-bg-container, var(--card-color));
+  backdrop-filter: blur(10px);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-large);
+  border: 1px solid var(--color-border, var(--border-color));
+  border-left: 4px solid var(--color-primary, var(--primary-color));
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-xl);
+  border-left-color: var(--color-primary-hover, var(--primary-color));
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 184, 0, 0.05) 0%,
+    rgba(255, 165, 0, 0.05) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.stat-card:hover::before {
+  opacity: 1;
+}
+
+.trend-indicator {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.charts-section {
+  margin-bottom: 24px;
+}
+
+.chart-card,
+.status-card {
+  background: var(--color-bg-container, var(--card-color));
+  backdrop-filter: blur(10px);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-large);
+  border: 1px solid var(--color-border, var(--border-color));
+  height: 400px;
+  transition: all 0.3s ease;
+}
+
+.chart-card:hover,
+.status-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+}
+
+.chart-placeholder {
+  height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-container, var(--card-color));
+  border-radius: var(--border-radius);
+  margin: 16px 0;
+  border: 1px solid var(--color-border, var(--border-color));
+}
+
+.chart-content {
+  text-align: center;
+}
+
+.chart-description {
+  margin-top: 16px;
+}
+
+.chart-description p {
+  margin: 4px 0;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-label {
+  font-weight: 500;
+  color: #262626;
+  margin-bottom: 8px;
+}
+
+.activity-section {
+  margin-bottom: 24px;
+}
+
+.activity-card {
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-large);
+  background: var(--color-bg-container, var(--card-color));
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border, var(--border-color));
+}
+
+.activity-card .ant-table {
+  background: transparent;
+}
+
+.activity-card .ant-table-thead > tr > th {
+  background: var(--color-bg-container, var(--card-color));
+  border-bottom: 1px solid var(--color-border, var(--border-color));
+  font-weight: 600;
+  color: var(--color-text, var(--text-color));
+}
+
+.activity-card .ant-table-tbody > tr:hover > td {
+  background: var(--color-bg-text-hover, var(--hover-color));
+}
+
+.activity-card .ant-table-tbody > tr > td {
+  color: var(--color-text, var(--text-color));
+  border-bottom: 1px solid var(--color-border, var(--border-color));
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .dashboard-page {
+    padding: 16px;
+  }
+
+  .header-content {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .header-content .ant-space {
+    justify-content: center;
+  }
+
+  .chart-card,
+  .status-card {
+    height: auto;
+    min-height: 300px;
+  }
+
+  .chart-placeholder {
+    height: 250px;
+  }
+}
+
+@media (max-width: 576px) {
+  .dashboard-page {
+    padding: 12px;
+  }
+
+  .header-content {
+    padding: 12px 16px;
+  }
+
+  .stats-section .ant-col {
+    margin-bottom: 16px;
+  }
+
+  .activity-card .ant-table {
+    font-size: 12px;
+  }
+
+  .activity-card .ant-table-thead > tr > th,
+  .activity-card .ant-table-tbody > tr > td {
+    padding: 8px 4px;
+  }
+}
+
+/* 深色主题样式 */
+[data-theme='dark'] .dashboard-page {
+  background: var(--color-bg-layout, var(--background-color));
+}
+
+[data-theme='dark'] .stat-card,
+[data-theme='dark'] .chart-card,
+[data-theme='dark'] .status-card,
+[data-theme='dark'] .activity-card {
+  background: var(--color-bg-container, var(--card-color));
+  border-color: var(--color-border, var(--border-color));
+}
+
+[data-theme='dark'] .header-content {
+  background: var(--color-bg-container, var(--card-color));
+  color: var(--color-text, var(--text-color));
+}
+
+/* 金融仪表板特定样式 */
+.metric-card {
+  background: var(--color-bg-container, var(--card-color));
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-large);
+  border: 1px solid var(--color-border, var(--border-color));
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+}
+
+.metric-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--color-text, var(--text-color));
+  margin: 0;
+}
+
+.metric-label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, var(--text-secondary));
+  margin-bottom: var(--spacing-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metric-change {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+}
+
+.metric-change.positive {
+  color: var(--color-success, var(--success-color));
+}
+
+.metric-change.negative {
+  color: var(--color-error, var(--error-color));
+}
+
+.metric-change.neutral {
+  color: var(--color-text-secondary, var(--text-secondary));
+}
+
+/* 动画效果 */
+.stat-card .ant-statistic-content {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.trend-indicator {
+  animation: slideInRight 0.8s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

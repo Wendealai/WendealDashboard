@@ -1,0 +1,12 @@
+{
+  "id": "approval_1756515244966_m1xjljrfi",
+  "title": "信息展示模块 - 需求文档审批",
+  "filePath": ".spec-workflow/specs/information-dashboard/requirements.md",
+  "type": "document",
+  "status": "rejected",
+  "createdAt": "2025-08-30T00:54:04.966Z",
+  "category": "spec",
+  "categoryName": "information-dashboard",
+  "response": "先从dashboard模块设计的层面进行任务规划，不涉及具体工作流和变量，模块开发完成以后我们再逐一根据具体的工作流实现子模块的规划和开发，但是先制定通用框架和布局",
+  "respondedAt": "2025-08-30T00:57:17.660Z"
+}

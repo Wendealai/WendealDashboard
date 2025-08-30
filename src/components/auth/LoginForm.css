@@ -1,0 +1,138 @@
+.login-form-container {
+  width: 100%;
+}
+
+.login-form-card {
+  width: 100%;
+  box-shadow: none;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+}
+
+.login-form-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-title {
+  margin-bottom: 8px !important;
+  color: #2c3e50;
+  font-weight: 600;
+  font-size: 24px;
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: #666;
+}
+
+.login-error-alert {
+  margin-bottom: 24px;
+  border-radius: 8px;
+}
+
+.login-form {
+  margin-bottom: 24px;
+}
+
+.login-form .ant-form-item-label > label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.login-form .ant-input-affix-wrapper,
+.login-form .ant-input {
+  border-radius: 6px;
+  border: 1px solid #d9d9d9;
+  padding: 12px 16px;
+  transition: all 0.2s ease;
+}
+
+.login-form .ant-input-affix-wrapper:hover,
+.login-form .ant-input:hover {
+  border-color: #667eea;
+}
+
+.login-form .ant-input-affix-wrapper:focus,
+.login-form .ant-input-affix-wrapper-focused,
+.login-form .ant-input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.login-form-actions {
+  margin-bottom: 0 !important;
+}
+
+.login-submit-btn {
+  height: 48px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.login-submit-btn:hover {
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.login-form-footer {
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  margin-bottom: 20px;
+}
+
+.register-link {
+  padding: 0;
+  font-weight: 500;
+  color: #667eea;
+}
+
+.register-link:hover {
+  color: #5a67d8;
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+  .login-form-container {
+    padding: 16px;
+  }
+
+  .login-form-card {
+    max-width: 100%;
+  }
+
+  .login-title {
+    font-size: 24px !important;
+  }
+}
+
+/* 暗色主题支持 - 保持白色背景 */
+@media (prefers-color-scheme: dark) {
+  .login-form-card {
+    background: #ffffff;
+    color: #2c3e50;
+  }
+
+  .login-title {
+    color: #2c3e50;
+  }
+
+  .login-subtitle {
+    color: #666;
+  }
+
+  .login-form .ant-form-item-label > label {
+    color: #374151;
+  }
+
+  .login-demo-accounts {
+    background: #f5f5f5;
+  }
+}
