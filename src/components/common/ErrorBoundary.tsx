@@ -6,7 +6,7 @@ import { withTranslation } from 'react-i18next';
 import type { WithTranslation } from 'react-i18next';
 import i18n from '../../locales';
 
-interface Props extends WithTranslation {
+export interface ErrorBoundaryProps extends WithTranslation {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
@@ -17,8 +17,8 @@ interface State {
   error?: Error | undefined;
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }

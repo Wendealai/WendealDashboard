@@ -5,8 +5,9 @@ export { default as Button } from './Button';
 export { default as Input } from './Input';
 export { default as Modal } from './Modal';
 
-// Re-export types if needed
-export type { default as LoadingProps } from './Loading';
-export type { default as ButtonProps } from './Button';
-export type { default as InputProps } from './Input';
-export type { default as ModalProps } from './Modal';
+// 导出组件的 Props 接口
+export type { LoadingProps } from './Loading';
+export type { ErrorBoundaryProps } from './ErrorBoundary';
+export type { ButtonProps } from './Button';
+export type { InputProps, TextAreaProps } from './Input';
+export type { ModalProps } from './Modal';

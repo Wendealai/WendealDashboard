@@ -1,4 +1,4 @@
-import React, { Suspense, ComponentType } from 'react';
+import React, { Suspense, type ComponentType } from 'react';
 import { Spin } from 'antd';
 import type { LazyExoticComponent } from 'react';
 
@@ -74,7 +74,7 @@ class LazyLoadErrorBoundary extends React.Component<
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('LazyLoad Error:', error, errorInfo);
   }
 
@@ -86,7 +86,7 @@ class LazyLoadErrorBoundary extends React.Component<
     this.props.onRetry?.();
   };
 
-  render() {
+  override render(): React.ReactNode {
     if (this.state.hasError) {
       return (
         <div
@@ -171,7 +171,7 @@ export function lazyLoad<T extends ComponentType<any>>(
 
     const content = (
       <Suspense fallback={<FallbackComponent />}>
-        <LazyComponent {...props} ref={ref} />
+        <LazyComponent {...(props as any)} ref={ref} />
       </Suspense>
     );
 
@@ -183,9 +183,9 @@ export function lazyLoad<T extends ComponentType<any>>(
   });
 
   // 保持组件名称
-  WrappedComponent.displayName = `LazyLoad(${LazyComponent.displayName || 'Component'})`;
+  WrappedComponent.displayName = `LazyLoad(${(LazyComponent as any).displayName || 'Component'})`;
 
-  return WrappedComponent as LazyExoticComponent<T>;
+  return WrappedComponent as unknown as LazyExoticComponent<T>;
 }
 
 // 页面级别懒加载

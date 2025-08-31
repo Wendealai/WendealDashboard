@@ -3,7 +3,7 @@ import { Button as AntButton } from 'antd';
 import type { ButtonProps as AntButtonProps } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 
-interface CustomButtonProps extends AntButtonProps {
+export interface ButtonProps extends AntButtonProps {
   /** Custom loading text */
   loadingText?: string;
   /** Confirm before action */
@@ -14,7 +14,7 @@ interface CustomButtonProps extends AntButtonProps {
   loadingIcon?: React.ReactNode;
 }
 
-const Button: React.FC<CustomButtonProps> = ({
+const Button: React.FC<ButtonProps> = ({
   children,
   loading,
   loadingText,
@@ -56,4 +56,5 @@ const Button: React.FC<CustomButtonProps> = ({
   );
 };
 
-export default Button;
+export { Button as default };
+export { Button };

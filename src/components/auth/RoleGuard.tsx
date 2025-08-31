@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts';
 import { PermissionService } from '@/services/auth/PermissionService';
 import type { UserRole, Permission } from '@/types/auth';
 
-interface RoleGuardProps {
+export interface RoleGuardProps {
   /** 子组件 */
   children: React.ReactNode;
   /** 允许访问的角色列表 */
@@ -155,7 +155,7 @@ const RoleGuard: React.FC<RoleGuardProps> = ({
 };
 
 // 便捷的角色检查组件
-interface RequireRoleProps {
+export interface RequireRoleProps {
   children: React.ReactNode;
   role: UserRole;
   fallback?: React.ReactNode;
@@ -174,7 +174,7 @@ export const RequireRole: React.FC<RequireRoleProps> = ({
 };
 
 // 便捷的权限检查组件
-interface RequirePermissionProps {
+export interface RequirePermissionProps {
   children: React.ReactNode;
   permission: Permission;
   fallback?: React.ReactNode;
@@ -193,7 +193,7 @@ export const RequirePermission: React.FC<RequirePermissionProps> = ({
 };
 
 // 便捷的管理员检查组件
-interface RequireAdminProps {
+export interface RequireAdminProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }
@@ -210,7 +210,7 @@ export const RequireAdmin: React.FC<RequireAdminProps> = ({
 };
 
 // 便捷的多角色检查组件
-interface RequireAnyRoleProps {
+export interface RequireAnyRoleProps {
   children: React.ReactNode;
   roles: UserRole[];
   fallback?: React.ReactNode;
@@ -229,7 +229,7 @@ export const RequireAnyRole: React.FC<RequireAnyRoleProps> = ({
 };
 
 // 便捷的多权限检查组件
-interface RequireAllPermissionsProps {
+export interface RequireAllPermissionsProps {
   children: React.ReactNode;
   permissions: Permission[];
   fallback?: React.ReactNode;
@@ -247,4 +247,5 @@ export const RequireAllPermissions: React.FC<RequireAllPermissionsProps> = ({
   );
 };
 
-export default RoleGuard;
+export { RoleGuard as default };
+export { RoleGuard };

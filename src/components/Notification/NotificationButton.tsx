@@ -3,7 +3,7 @@ import { Badge, Button, Tooltip } from 'antd';
 import { BellOutlined } from '@ant-design/icons';
 import './NotificationButton.scss';
 
-interface NotificationButtonProps {
+export interface NotificationButtonProps {
   count: number;
   onClick: () => void;
   className?: string;
@@ -33,4 +33,5 @@ const NotificationButton: React.FC<NotificationButtonProps> = ({
   );
 };
 
-export default NotificationButton;
+export { NotificationButton as default };
+export { NotificationButton };

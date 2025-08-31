@@ -46,7 +46,7 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
-interface ThemeCustomizerProps {
+export interface ThemeCustomizerProps {
   visible: boolean;
   onClose: () => void;
 }
@@ -643,4 +643,5 @@ const ThemeCustomizer: React.FC<ThemeCustomizerProps> = ({
   );
 };
 
-export default ThemeCustomizer;
+export { ThemeCustomizer as default };
+export { ThemeCustomizer };

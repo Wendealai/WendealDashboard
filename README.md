@@ -170,6 +170,224 @@ npx jest src/components/common/__tests__/Button.test.tsx
 - 使用 Prettier 进行代码格式化
 - 组件使用函数式组件 + Hooks
 
+### 导出/导入最佳实践
+
+#### 模块导出规范
+
+**推荐的导出方式：**
+
+```typescript
+// ✅ 推荐：命名导出
+export const MyComponent: React.FC = () => {
+  return <div>My Component</div>;
+};
+
+export const utils = {
+  formatDate,
+  validateEmail,
+};
+
+// ✅ 推荐：接口和类型导出
+export interface UserData {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export type UserRole = 'admin' | 'user' | 'guest';
+```
+
+**避免的导出方式：**
+
+```typescript
+// ❌ 避免：混合默认导出和命名导出
+export default MyComponent;
+export const utils = { ... }; // 容易造成导入混乱
+
+// ❌ 避免：导出未命名的函数
+export default function() { ... }
+
+// ❌ 避免：重复导出
+export { MyComponent };
+export { MyComponent as Component }; // 重复导出
+```
+
+#### 导入规范
+
+```typescript
+// ✅ 推荐：明确的命名导入
+import { MyComponent, UserData } from './components/MyComponent';
+import { formatDate, validateEmail } from './utils';
+
+// ✅ 推荐：类型导入
+import type { UserRole } from './types';
+
+// ✅ 推荐：别名导入（避免命名冲突）
+import { Button as AntButton } from 'antd';
+import { Button as CustomButton } from './components/Button';
+```
+
+#### 索引文件（index.ts）规范
+
+```typescript
+// ✅ 推荐：清晰的重新导出
+export { MyComponent } from './MyComponent';
+export { AnotherComponent } from './AnotherComponent';
+export type { UserData, UserRole } from './types';
+
+// ✅ 推荐：分组导出
+// 组件导出
+export { Button } from './Button';
+export { Modal } from './Modal';
+export { Form } from './Form';
+
+// 工具函数导出
+export { formatDate, validateEmail } from './utils';
+
+// 类型导出
+export type { ComponentProps, FormData } from './types';
+```
+
+### 常见导出错误及解决方案
+
+#### 1. 循环依赖错误
+
+**错误示例：**
+
+```typescript
+// fileA.ts
+import { functionB } from './fileB';
+export const functionA = () => functionB();
+
+// fileB.ts
+import { functionA } from './fileA'; // 循环依赖
+export const functionB = () => functionA();
+```
+
+**解决方案：**
+
+```typescript
+// 创建共享模块 shared.ts
+export const sharedFunction = () => { ... };
+
+// fileA.ts
+import { sharedFunction } from './shared';
+export const functionA = () => sharedFunction();
+
+// fileB.ts
+import { sharedFunction } from './shared';
+export const functionB = () => sharedFunction();
+```
+
+#### 2. 类型导入错误
+
+**错误示例：**
+
+```typescript
+// ❌ 运行时导入类型
+import { UserData } from './types'; // 如果 UserData 只是类型
+const user: UserData = { ... };
+```
+
+**解决方案：**
+
+```typescript
+// ✅ 使用 type 关键字
+import type { UserData } from './types';
+const user: UserData = { ... };
+```
+
+#### 3. 默认导出不一致
+
+**错误示例：**
+
+```typescript
+// component.ts
+const MyComponent = () => <div>Hello</div>;
+export default MyComponent;
+
+// index.ts
+export { default as MyComponent } from './component'; // 不一致的导出
+```
+
+**解决方案：**
+
+```typescript
+// component.ts
+export const MyComponent = () => <div>Hello</div>;
+
+// index.ts
+export { MyComponent } from './component'; // 一致的命名导出
+```
+
+#### 4. 未导出的依赖
+
+**错误示例：**
+
+```typescript
+// utils.ts
+const helperFunction = () => { ... }; // 未导出
+export const mainFunction = () => helperFunction();
+
+// 其他文件尝试使用
+import { helperFunction } from './utils'; // 错误：未导出
+```
+
+**解决方案：**
+
+```typescript
+// utils.ts
+export const helperFunction = () => { ... }; // 导出需要的函数
+export const mainFunction = () => helperFunction();
+```
+
+#### 5. 路径解析错误
+
+**错误示例：**
+
+```typescript
+// ❌ 相对路径错误
+import { Component } from '../../../components/Component';
+```
+
+**解决方案：**
+
+```typescript
+// ✅ 使用路径别名（在 vite.config.ts 中配置）
+import { Component } from '@/components/Component';
+
+// vite.config.ts
+export default defineConfig({
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+});
+```
+
+### 导出一致性检查工具
+
+项目包含自动化的导出一致性检查工具，位于 `src/utils/` 目录：
+
+- **exportDetector.ts**: 检测文件中的导出声明
+- **consistencyAnalyzer.ts**: 分析项目导出一致性
+- **autoFixer.ts**: 自动修复常见导出问题
+- **reportGenerator.ts**: 生成导出分析报告
+
+**使用方法：**
+
+```typescript
+import { analyzeProjectConsistency } from '@/utils/consistencyAnalyzer';
+import { generateConsoleReport } from '@/utils/reportGenerator';
+
+// 分析项目导出一致性
+const issues = await analyzeProjectConsistency('./src');
+
+// 生成报告
+generateConsoleReport(issues);
+```
+
 ### 提交规范
 
 ```bash

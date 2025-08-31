@@ -26,7 +26,7 @@ const { Title, Text, Paragraph } = Typography;
 /**
  * Reddit帖子卡片组件的属性接口
  */
-interface RedditPostCardProps {
+export interface RedditPostCardProps {
   /** Reddit帖子数据 */
   post: RedditPost;
   /** 是否显示完整内容 */
@@ -248,4 +248,5 @@ const RedditPostCard: React.FC<RedditPostCardProps> = ({
   );
 };
 
-export default RedditPostCard;
+export { RedditPostCard as default };
+export { RedditPostCard };

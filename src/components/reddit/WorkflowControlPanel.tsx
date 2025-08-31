@@ -285,4 +285,5 @@ const WorkflowControlPanel: React.FC = () => {
   );
 };
 
-export default WorkflowControlPanel;
+export { WorkflowControlPanel as default };
+export { WorkflowControlPanel };

@@ -128,17 +128,20 @@ export const mockNotifications = [
   },
 ];
 
+// 模拟API响应函数
+function mockApiResponse<T>(data: T, delay = 100): Promise<T> {
+  return new Promise<T>((resolve) => {
+    setTimeout(() => resolve(data), delay);
+  });
+}
+
 // 测试工具函数
 export const testUtils = {
   // 等待异步操作完成
   waitFor: (ms: number) => new Promise(resolve => setTimeout(resolve, ms)),
   
   // 模拟API响应
-  mockApiResponse: <T>(data: T, delay = 100) => {
-    return new Promise<T>((resolve) => {
-      setTimeout(() => resolve(data), delay);
-    });
-  },
+  mockApiResponse,
   
   // 模拟API错误
   mockApiError: (message = 'API Error', delay = 100) => {

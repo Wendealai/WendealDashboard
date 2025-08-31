@@ -16,7 +16,7 @@ export interface TabDataItem {
 /**
  * TabsDataDisplay组件属性接口
  */
-interface TabsDataDisplayProps {
+export interface TabsDataDisplayProps {
   /** 标签页数据列表 */
   tabs: TabDataItem[];
   /** 当前激活的标签页key */
@@ -164,4 +164,5 @@ const TabsDataDisplay: React.FC<TabsDataDisplayProps> = ({
   );
 };
 
-export default TabsDataDisplay;
+export { TabsDataDisplay as default };
+export { TabsDataDisplay };

@@ -18,7 +18,7 @@ import {
   Divider,
 } from 'antd';
 import { useTranslation } from 'react-i18next';
-import ExportButton from '@/components/common/ExportButton';
+import { ExportButton } from '@/components/Layout';
 import type { ExportColumn } from '@/utils/export';
 import { Line, Column, Pie, Area, DualAxes } from '@ant-design/charts';
 import ReactECharts from 'echarts-for-react';

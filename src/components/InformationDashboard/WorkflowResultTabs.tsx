@@ -6,7 +6,7 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
-import TabsDataDisplay, { TabDataItem } from './TabsDataDisplay';
+import { TabsDataDisplay, type TabDataItem } from './TabsDataDisplay';
 import type {
   Workflow,
   WorkflowExecution,
@@ -16,7 +16,7 @@ import type { ParsedSubredditData } from '@/services/redditWebhookService';
 /**
  * WorkflowResultTabs组件属性接口
  */
-interface WorkflowResultTabsProps {
+export interface WorkflowResultTabsProps {
   /** 工作流执行列表 */
   workflowExecutions: WorkflowExecution[];
   /** 当前Reddit数据（向后兼容） */
@@ -140,4 +140,5 @@ const WorkflowResultTabs: React.FC<WorkflowResultTabsProps> = ({
   );
 };
 
-export default WorkflowResultTabs;
+export { WorkflowResultTabs as default };
+export { WorkflowResultTabs };

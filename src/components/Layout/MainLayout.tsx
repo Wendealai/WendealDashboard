@@ -344,4 +344,5 @@ const MainLayout: React.FC = () => {
   );
 };
 
-export default MainLayout;
+export { MainLayout as default };
+export { MainLayout };

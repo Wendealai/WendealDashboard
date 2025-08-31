@@ -7,7 +7,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 
-interface CustomModalProps extends AntModalProps {
+export interface ModalProps extends AntModalProps {
   /** Modal type for different styles */
   type?: 'default' | 'confirm' | 'info' | 'success' | 'warning' | 'error';
   /** Auto close after specified time (in seconds) */
@@ -22,7 +22,7 @@ interface CustomModalProps extends AntModalProps {
   footerButtons?: React.ReactNode[];
 }
 
-const Modal: React.FC<CustomModalProps> = ({
+const Modal: React.FC<ModalProps> = ({
   type = 'default',
   autoClose,
   okLoading = false,
@@ -148,7 +148,7 @@ const Modal: React.FC<CustomModalProps> = ({
 };
 
 // Define Modal with static methods
-interface ModalComponent extends React.FC<CustomModalProps> {
+interface ModalComponent extends React.FC<ModalProps> {
   confirm: (props: ModalFuncProps) => void;
   info: (props: ModalFuncProps) => void;
   success: (props: ModalFuncProps) => void;

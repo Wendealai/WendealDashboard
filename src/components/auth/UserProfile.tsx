@@ -30,7 +30,7 @@ import './UserProfile.css';
 
 const { Title, Text } = Typography;
 
-interface UserProfileProps {
+export interface UserProfileProps {
   className?: string;
 }
 
@@ -360,4 +360,5 @@ const UserProfile: React.FC<UserProfileProps> = ({ className }) => {
   );
 };
 
-export default UserProfile;
+export { UserProfile as default };
+export { UserProfile };

@@ -3,7 +3,7 @@ import { Input as AntInput } from 'antd';
 import type { InputProps as AntInputProps } from 'antd';
 import { EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
 
-interface CustomInputProps extends Omit<AntInputProps, 'onChange'> {
+export interface InputProps extends Omit<AntInputProps, 'onChange'> {
   /** Input label */
   label?: string;
   /** Error message */
@@ -25,7 +25,7 @@ interface CustomInputProps extends Omit<AntInputProps, 'onChange'> {
   ) => void;
 }
 
-const Input: React.FC<CustomInputProps> = ({
+const Input: React.FC<InputProps> = ({
   label,
   error,
   success,
@@ -129,7 +129,7 @@ const Input: React.FC<CustomInputProps> = ({
 };
 
 // Password Input Component
-const Password: React.FC<CustomInputProps> = ({
+const Password: React.FC<InputProps> = ({
   label,
   error,
   success,
@@ -183,7 +183,7 @@ const Password: React.FC<CustomInputProps> = ({
 };
 
 // TextArea Component
-interface TextAreaProps extends CustomInputProps {
+export interface TextAreaProps extends InputProps {
   rows?: number;
   autoSize?: boolean | { minRows?: number; maxRows?: number };
 }
@@ -205,8 +205,8 @@ const TextArea: React.FC<TextAreaProps> = ({
 };
 
 // Define Input with static methods
-interface InputComponent extends React.FC<CustomInputProps> {
-  Password: React.FC<CustomInputProps>;
+interface InputComponent extends React.FC<InputProps> {
+  Password: React.FC<InputProps>;
   TextArea: React.FC<TextAreaProps>;
 }
 

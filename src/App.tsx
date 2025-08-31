@@ -32,6 +32,7 @@ const AntThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   const { state } = useTheme();
   const { currentTheme } = state;
   const [i18nReady, setI18nReady] = useState(i18n.isInitialized);
+  const { i18n: i18nInstance } = useTranslation();
 
   useEffect(() => {
     if (i18n.isInitialized) {
@@ -59,8 +60,6 @@ const AntThemeProvider: React.FC<{ children: React.ReactNode }> = ({
       </div>
     );
   }
-
-  const { i18n: i18nInstance } = useTranslation();
 
   // 根据当前语言获取Ant Design语言包
   const getAntdLocale = () => {

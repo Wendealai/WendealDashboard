@@ -11,14 +11,14 @@ import './WhatsNewPanel.css';
 
 const { Text } = Typography;
 
-interface WhatsNewItem {
+export interface WhatsNewItem {
   id: string;
   title: string;
   type: 'security' | 'feature' | 'report';
   isNew?: boolean;
 }
 
-interface WhatsNewPanelProps {
+export interface WhatsNewPanelProps {
   collapsed?: boolean;
 }
 
@@ -142,4 +142,5 @@ const WhatsNewPanel: React.FC<WhatsNewPanelProps> = ({ collapsed = false }) => {
   );
 };
 
-export default WhatsNewPanel;
+export { WhatsNewPanel as default };
+export { WhatsNewPanel };

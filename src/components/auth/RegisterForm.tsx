@@ -18,7 +18,7 @@ import './RegisterForm.css';
 
 const { Title, Text } = Typography;
 
-interface RegisterFormProps {
+export interface RegisterFormProps {
   onSuccess?: () => void;
   onLoginClick?: () => void;
   showLoginLink?: boolean;
@@ -334,4 +334,5 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   );
 };
 
-export default RegisterForm;
+export { RegisterForm as default };
+export { RegisterForm };

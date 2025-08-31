@@ -9,9 +9,9 @@ import {
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useTheme, PRESET_THEMES } from '@/contexts/ThemeContext';
-import ThemeCustomizer from './ThemeCustomizer';
+import { ThemeCustomizer } from '@/components/Layout';
 
-interface ThemeToggleProps {
+export interface ThemeToggleProps {
   size?: 'small' | 'middle' | 'large';
   type?: 'primary' | 'default' | 'dashed' | 'link' | 'text';
   showText?: boolean;
@@ -179,4 +179,5 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
   );
 };
 
-export default ThemeToggle;
+export { ThemeToggle as default };
+export { ThemeToggle };

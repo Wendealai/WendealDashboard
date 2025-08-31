@@ -6,7 +6,7 @@ import {
   EyeOutlined,
 } from '@ant-design/icons';
 
-interface PerformanceMetrics {
+export interface PerformanceMetrics {
   fcp: number; // First Contentful Paint
   lcp: number; // Largest Contentful Paint
   fid: number; // First Input Delay
@@ -18,7 +18,7 @@ interface PerformanceMetrics {
   };
 }
 
-interface PerformanceMonitorProps {
+export interface PerformanceMonitorProps {
   showDetails?: boolean;
   onMetricsUpdate?: (metrics: PerformanceMetrics) => void;
 }
@@ -319,5 +319,6 @@ const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
   );
 };
 
-export default PerformanceMonitor;
+export { PerformanceMonitor as default };
+export { PerformanceMonitor };
 export type { PerformanceMetrics };

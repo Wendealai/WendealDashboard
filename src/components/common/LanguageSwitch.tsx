@@ -9,7 +9,7 @@ import {
   getCurrentLanguageInfo,
 } from '@/locales';
 
-interface LanguageSwitchProps {
+export interface LanguageSwitchProps {
   size?: 'small' | 'middle' | 'large';
   type?: 'primary' | 'default' | 'dashed' | 'link' | 'text';
   showText?: boolean;
@@ -114,4 +114,5 @@ const LanguageSwitch: React.FC<LanguageSwitchProps> = ({
   );
 };
 
-export default LanguageSwitch;
+export { LanguageSwitch as default };
+export { LanguageSwitch };

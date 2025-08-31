@@ -66,7 +66,7 @@ const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Text, Link } = Typography;
 
-interface DataDisplayGridProps {
+export interface DataDisplayGridProps {
   /** 是否显示统计信息 */
   showStats?: boolean;
   /** 是否显示操作按钮 */
@@ -945,4 +945,5 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
   );
 };
 
-export default DataDisplayGrid;
+export { DataDisplayGrid as default };
+export { DataDisplayGrid };

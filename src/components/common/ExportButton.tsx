@@ -21,7 +21,7 @@ import ExportUtils, {
   type ExportOptions,
 } from '@/utils/export';
 
-interface ExportButtonProps {
+export interface ExportButtonProps {
   data: any[];
   columns: ExportColumn[];
   filename?: string;
@@ -261,4 +261,5 @@ const ExportButton: React.FC<ExportButtonProps> = ({
   );
 };
 
-export default ExportButton;
+export { ExportButton as default };
+export { ExportButton };

@@ -49,3 +49,31 @@ export type {
   AuthErrorType,
   AuthError,
 } from './auth';
+
+// 导出一致性系统相关类型
+export type {
+  SourceLocation,
+  ExportInfo,
+  ConsistencyIssue,
+  ConsistencyIssueType,
+  IssueSeverity,
+  FileChange,
+  FixSuggestion,
+  FixResult,
+  AnalysisSummary,
+  ProjectAnalysisResult,
+  ScanOptions,
+  FileInfo,
+  FileMetadata,
+  ExportRule,
+  ExportConfig,
+  ValidationResult,
+  ParsedExport,
+  NamingIssue,
+  MatchingIssue,
+  ProjectInfo,
+  ConsistencyReport,
+  FixOptions,
+  ReportFormat,
+  ReportSummary,
+} from './export';

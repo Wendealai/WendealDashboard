@@ -10,7 +10,7 @@ import type { UserRole, Permission } from '../../types/auth';
 /**
  * 受保护路由组件的属性接口
  */
-interface ProtectedRouteProps {
+export interface ProtectedRouteProps {
   /** 子组件 */
   children: React.ReactNode;
   /** 需要的用户角色 */
@@ -173,4 +173,4 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   );
 };
 
-export default ProtectedRoute;
+export { ProtectedRoute as default };

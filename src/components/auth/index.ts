@@ -1,7 +1,7 @@
-// 从小写auth目录导出认证组件
-export { default as LoginForm } from '../auth/LoginForm';
-export { default as RegisterForm } from '../auth/RegisterForm';
-export { default as UserProfile } from '../auth/UserProfile';
+// Export all authentication components
+export { default as LoginForm } from './LoginForm';
+export { default as RegisterForm } from './RegisterForm';
+export { default as UserProfile } from './UserProfile';
 export {
   default as RoleGuard,
   RequireRole,
@@ -9,7 +9,19 @@ export {
   RequireAdmin,
   RequireAnyRole,
   RequireAllPermissions,
-} from '../auth/RoleGuard';
-
-// 导出ProtectedRoute组件
+} from './RoleGuard';
 export { default as ProtectedRoute } from './ProtectedRoute';
+
+// Export component Props interfaces
+export type { LoginFormProps } from './LoginForm';
+export type { RegisterFormProps } from './RegisterForm';
+export type { UserProfileProps } from './UserProfile';
+export type {
+  RoleGuardProps,
+  RequireRoleProps,
+  RequirePermissionProps,
+  RequireAdminProps,
+  RequireAnyRoleProps,
+  RequireAllPermissionsProps,
+} from './RoleGuard';
+export type { ProtectedRouteProps } from './ProtectedRoute';

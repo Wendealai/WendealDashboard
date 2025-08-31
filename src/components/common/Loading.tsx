@@ -3,7 +3,7 @@ import { Spin } from 'antd';
 import type { SpinProps } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 
-interface LoadingProps extends SpinProps {
+export interface LoadingProps extends SpinProps {
   /** Loading text */
   text?: string;
   /** Full screen loading */
@@ -62,4 +62,5 @@ const Loading: React.FC<LoadingProps> = ({
   );
 };
 
-export default Loading;
+export { Loading as default };
+export { Loading };
