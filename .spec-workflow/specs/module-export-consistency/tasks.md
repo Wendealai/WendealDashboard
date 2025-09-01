@@ -56,7 +56,7 @@
   - _Leverage: src/utils/export.ts_
   - _Requirements: 2.6_
 
-- [-] 8. Fix current TabDataItem export issue
+- [x] 8. Fix current TabDataItem export issue
   - File: src/components/InformationDashboard/TabsDataDisplay.tsx
   - Verify and ensure proper export of TabDataItem interface
   - Check import statements in WorkflowResultTabs.tsx
@@ -64,7 +64,7 @@
   - _Leverage: existing component structure_
   - _Requirements: 1.3_
 
-- [ ] 9. Create CLI interface in scripts/check-exports.js
+- [-] 9. Create CLI interface in scripts/check-exports.js
   - File: scripts/check-exports.js
   - Implement command-line interface for export consistency checking
   - Add options for scan, fix, and report generation

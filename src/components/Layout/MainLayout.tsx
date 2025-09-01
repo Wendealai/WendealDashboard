@@ -18,6 +18,7 @@ import NotificationButton from '../Notification/NotificationButton';
 import { useNotifications } from '../../hooks/useNotifications';
 import ThemeToggle from '../common/ThemeToggle';
 import LanguageSwitcher from '../common/LanguageSwitcher';
+import { WorkflowSettingsButton, WorkflowSettingsModal } from '../workflow';
 import './index.css';
 import {
   MenuFoldOutlined,
@@ -54,6 +55,7 @@ const MainLayout: React.FC = () => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [mobileDrawerVisible, setMobileDrawerVisible] = useState(false);
   const [notificationVisible, setNotificationVisible] = useState(false);
+  const [workflowSettingsVisible, setWorkflowSettingsVisible] = useState(false);
 
   // 通知相关状态和方法
   const {
@@ -264,6 +266,11 @@ const MainLayout: React.FC = () => {
             {/* Theme Toggle */}
             <ThemeToggle size='small' />
 
+            {/* Workflow Settings */}
+            <WorkflowSettingsButton
+              onSettingsClick={() => setWorkflowSettingsVisible(true)}
+            />
+
             {/* Notifications */}
             <NotificationButton
               count={unreadCount}
@@ -340,9 +347,15 @@ const MainLayout: React.FC = () => {
         onDelete={deleteNotification}
         onClearAll={clearAllNotifications}
       />
+
+      {/* Workflow Settings Modal */}
+      <WorkflowSettingsModal
+        visible={workflowSettingsVisible}
+        onClose={() => setWorkflowSettingsVisible(false)}
+      />
     </AntLayout>
   );
 };
 
-export { MainLayout as default };
 export { MainLayout };
+export default MainLayout;

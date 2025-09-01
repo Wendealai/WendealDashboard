@@ -1,4 +1,5 @@
-import ApiService, { PaginatedResponse } from './api';
+import ApiService from './api';
+import type { PaginatedResponse } from '@/pages/InformationDashboard/types';
 
 // 通知类型
 export type NotificationType =

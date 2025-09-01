@@ -3,7 +3,8 @@
  * 定义信息展示相关的接口和类型
  */
 
-import type { ApiResponse, PaginatedResponse } from '@/services/api';
+// 重新导出API类型以保持一致性
+export type { ApiResponse, PaginatedResponse } from '../../services/api';
 
 /**
  * 页面路由参数类型

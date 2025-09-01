@@ -4,6 +4,27 @@ export { default as AuthService } from './auth';
 export { default as DashboardService } from './dashboard';
 export { default as NotificationService } from './notification';
 
+// 导出工作流验证服务
+export {
+  WorkflowValidationService,
+  workflowValidationService,
+  validateWorkflowSettings,
+  validateWorkflowName,
+  validateWebhookUrl,
+  validateWebhookConnectivity,
+} from './workflowValidationService';
+
+// Workflow settings service
+export {
+  WorkflowSettingsService,
+  workflowSettingsService,
+  getWorkflowSettings,
+  saveWorkflowSettings,
+  updateWorkflowSettings,
+  validateWorkflowSettings as validateWorkflowSettingsData,
+  resetWorkflowSettings,
+} from './workflowSettingsService';
+
 export * from './api';
 export * from './auth';
 export * from './dashboard';

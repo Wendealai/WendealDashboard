@@ -46,6 +46,7 @@ export default defineConfig({
       overlay: false, // 禁用错误覆盖层
     },
   },
+
   build: {
     // 构建优化
     target: 'es2015',
@@ -124,10 +125,11 @@ export default defineConfig({
     include: [
       'react',
       'react-dom',
+      'react-router-dom',
+      '@ant-design/icons',
       'antd',
       '@reduxjs/toolkit',
       'react-redux',
-      'react-router-dom',
       'dayjs',
       'axios',
     ],

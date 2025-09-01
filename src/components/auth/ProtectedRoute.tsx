@@ -35,7 +35,7 @@ export interface ProtectedRouteProps {
  * 受保护路由组件
  * 用于保护需要特定权限或角色才能访问的路由
  */
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requiredRole,
   allowedRoles = [],
@@ -173,4 +173,5 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   );
 };
 
-export { ProtectedRoute as default };
+export { ProtectedRoute };
+export default ProtectedRoute;

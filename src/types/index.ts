@@ -4,6 +4,21 @@
 // export type { ApiResponse } from './api';
 // export type { Theme } from './theme';
 
+// 工作流设置相关类型
+export type {
+  WorkflowSettings,
+  ValidationResult,
+  ValidationError,
+  ValidationWarning,
+  WorkflowSettingsModalState,
+  WorkflowSettingsFormData,
+  WorkflowSettingsResponse,
+  UpdateWorkflowSettingsRequest,
+  WorkflowSettingsConfig,
+  WorkflowSettingsEventType,
+  WorkflowSettingsEvent,
+} from './workflow';
+
 // 通知相关类型
 export {
   type NotificationItem,

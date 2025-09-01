@@ -19,6 +19,7 @@ import {
   Progress,
   Empty,
   Spin,
+  message,
 } from 'antd';
 import {
   PlayCircleOutlined,
@@ -43,6 +44,10 @@ import { workflowService } from '@/services/workflowService';
 import type { Workflow, WorkflowStatus } from '../types';
 import type { ParsedSubredditData } from '@/services/redditWebhookService';
 import { redditWebhookService } from '@/services/redditWebhookService';
+import {
+  WorkflowSettingsButton,
+  WorkflowSettingsModal,
+} from '@/components/workflow';
 
 const { Text, Title } = Typography;
 
@@ -115,6 +120,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
       return {};
     }
   });
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
 
   /**
    * 初始化加载工作流列表
@@ -249,9 +255,49 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
     dispatch(fetchWorkflows());
   };
 
+  /**
+   * 打开设置模态框
+   */ // 处理设置模态框
+  const handleOpenSettings = () => {
+    setSettingsModalVisible(true);
+  };
+
+  // Reddit工作流的设置状态
+  const [redditWorkflowSettings, setRedditWorkflowSettings] = useState({
+    name: 'Reddit 热门帖子',
+    webhookUrl: 'https://api.example.com/webhook/reddit',
+    enabled: true,
+  });
+
+  /**
+   * 关闭设置模态框
+   */
+  const handleCloseSettings = () => {
+    setSettingsModalVisible(false);
+  };
+
+  /**
+   * 保存设置
+   */
+  const handleSaveSettings = (settings: any) => {
+    console.log('保存工作流设置:', settings);
+
+    // 更新Reddit工作流的设置
+    setRedditWorkflowSettings({
+      name: settings.name || redditWorkflowSettings.name,
+      webhookUrl: settings.webhookUrl || redditWorkflowSettings.webhookUrl,
+      enabled: settings.enabled ?? redditWorkflowSettings.enabled,
+    });
+
+    // 显示保存成功消息
+    message.success('工作流设置已保存');
+
+    setSettingsModalVisible(false);
+  };
+
   return (
     <div
-      className={`${className} compact-layout`}
+      className={`workflow-sidebar ${className} compact-layout`}
       style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
     >
       {/* 工作流统计 */}
@@ -322,15 +368,17 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
           </Space>
         }
         extra={
-          <Tooltip title={t('informationDashboard.actions.refresh')}>
-            <Button
-              type='text'
-              icon={<ReloadOutlined />}
-              onClick={handleRefresh}
-              loading={loading}
-              size='small'
-            />
-          </Tooltip>
+          <Space>
+            <Tooltip title={t('informationDashboard.actions.refresh')}>
+              <Button
+                type='text'
+                icon={<ReloadOutlined />}
+                onClick={handleRefresh}
+                loading={loading}
+                size='small'
+              />
+            </Tooltip>
+          </Space>
         }
         style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
         bodyStyle={{ flex: 1, padding: 0 }}
@@ -353,7 +401,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
             onClick={() =>
               handleWorkflowSelect({
                 id: 'reddit-workflow',
-                name: 'Reddit 热门帖子',
+                name: redditWorkflowSettings.name,
                 description: '获取Reddit热门帖子数据',
                 status: 'active' as WorkflowStatus,
                 nodeCount: 3,
@@ -368,7 +416,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                 <Space>
                   <RedditOutlined style={{ color: '#ff4500' }} />
                   <Text strong style={{ fontSize: 14 }}>
-                    Reddit 热门帖子
+                    {redditWorkflowSettings.name}
                   </Text>
                   <Tag color='#52c41a' size='small'>
                     active
@@ -427,25 +475,38 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                         )}
                       </Text>
                     )}
-                    <Button
-                      type='primary'
-                      size='small'
-                      icon={
-                        redditLoading ? (
-                          <LoadingOutlined />
-                        ) : (
-                          <ThunderboltOutlined />
-                        )
-                      }
-                      loading={redditLoading}
-                      onClick={e => {
-                        e.stopPropagation();
-                        handleRedditWorkflowStart();
-                      }}
-                      style={{ marginTop: 4 }}
-                    >
-                      {redditLoading ? '获取中...' : '启动 Reddit 工作流'}
-                    </Button>
+                    <Space style={{ marginTop: 4 }}>
+                      <Button
+                        type='primary'
+                        size='small'
+                        icon={
+                          redditLoading ? (
+                            <LoadingOutlined />
+                          ) : (
+                            <ThunderboltOutlined />
+                          )
+                        }
+                        loading={redditLoading}
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleRedditWorkflowStart();
+                        }}
+                      >
+                        {redditLoading ? '获取中...' : '启动 Reddit 工作流'}
+                      </Button>
+                      <Tooltip title='工作流设置'>
+                        <Button
+                          type='text'
+                          icon={<SettingOutlined />}
+                          size='small'
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleOpenSettings();
+                          }}
+                          style={{ color: '#1890ff' }}
+                        />
+                      </Tooltip>
+                    </Space>
                   </Space>
                 </Space>
               }
@@ -562,6 +623,14 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
           )}
         </Spin>
       </Card>
+
+      {/* 工作流设置模态框 */}
+      <WorkflowSettingsModal
+        visible={settingsModalVisible}
+        onClose={handleCloseSettings}
+        onSave={handleSaveSettings}
+        initialSettings={redditWorkflowSettings}
+      />
     </div>
   );
 };

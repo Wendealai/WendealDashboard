@@ -334,5 +334,5 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   );
 };
 
-export { RegisterForm as default };
 export { RegisterForm };
+export default RegisterForm;

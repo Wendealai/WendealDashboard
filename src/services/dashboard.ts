@@ -1,4 +1,5 @@
-import ApiService, { PaginatedResponse } from './api';
+import ApiService from './api';
+import type { PaginatedResponse } from '@/pages/InformationDashboard/types';
 
 // 统计数据接口
 export interface DashboardStats {

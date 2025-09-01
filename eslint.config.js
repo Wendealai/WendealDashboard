@@ -1,5 +1,6 @@
 import js from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 
@@ -20,6 +21,7 @@ export default [
       },
     },
     plugins: {
+      '@typescript-eslint': tsPlugin,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
@@ -32,6 +34,25 @@ export default [
       'no-console': 'warn',
       'no-debugger': 'error',
       'no-duplicate-imports': 'error',
+      
+      // TypeScript导出相关规则
+      '@typescript-eslint/consistent-type-exports': 'error',
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        {
+          prefer: 'type-imports',
+          disallowTypeAnnotations: false,
+        },
+      ],
+      '@typescript-eslint/no-duplicate-enum-values': 'error',
+      '@typescript-eslint/no-duplicate-type-constituents': 'error',
+      '@typescript-eslint/no-import-type-side-effects': 'error',
+      
+      // 导出一致性规则
+      'import/no-duplicates': 'error',
+      'import/export': 'error',
+      'import/no-named-as-default': 'warn',
+      'import/no-named-as-default-member': 'warn',
     },
   },
   {

@@ -4,23 +4,20 @@ import App from './App.tsx';
 import './locales';
 
 // 在开发环境中启动MSW
-async function startApp() {
-  if (import.meta.env.DEV) {
-    const { worker } = await import('./mocks');
-    await worker.start({
+if (import.meta.env.DEV) {
+  import('./mocks').then(({ worker }) => {
+    worker.start({
       onUnhandledRequest: 'bypass',
       serviceWorker: {
         url: '/mockServiceWorker.js',
       },
       quiet: false, // 显示启动信息
     });
-  }
-
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
-    </StrictMode>
-  );
+  });
 }
 
-startApp();
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
