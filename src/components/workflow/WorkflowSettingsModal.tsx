@@ -51,7 +51,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
   initialSettings,
   readonly = false,
   title = 'Workflow Settings',
-  width = 600,
+  width = Math.min(600, window.innerWidth * 0.9), // 确保不超出页面范围
   workflowId,
   ...modalProps
 }) => {

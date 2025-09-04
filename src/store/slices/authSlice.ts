@@ -10,8 +10,9 @@ import type {
   UpdateProfileRequest,
   ChangePasswordRequest,
   AuthError,
-  AuthErrorType,
+  AuthErrorTypeValue,
 } from '../../types/auth';
+import { AuthErrorType } from '../../types/auth';
 import { LocalAuthService } from '../../services/auth/LocalAuthService';
 import { ClerkAuthService } from '../../services/auth/ClerkAuthService';
 import type { IAuthService } from '../../services/auth/IAuthService';

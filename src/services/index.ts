@@ -26,6 +26,7 @@ export {
 } from './workflowSettingsService';
 
 export * from './api';
+export type { ApiResponse, PaginatedResponse } from './api';
 export * from './auth';
 export * from './dashboard';
 export * from './notification';
@@ -53,3 +54,16 @@ export {
   isManagerOrAbove,
   isEmployeeOrAbove,
 } from './auth/PermissionService';
+
+// 导出RAG API服务
+export { ragApiService } from './ragApi';
+export type { RAGMessage, RAGResponse, FileUploadResponse } from './ragApi';
+
+// 导出其他服务
+export { invoiceOCRService } from './invoiceOCRService';
+export { workflowService } from './workflowService';
+export { informationService } from './informationService';
+export { redditWebhookService } from './redditWebhookService';
+export { n8nWebhookService } from './n8nWebhookService';
+export type { ParsedSubredditData } from './redditWebhookService';
+export type { ActivityItem } from './dashboardService';

@@ -93,7 +93,7 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
       centered
       maskClosable={false}
       keyboard={false}
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ marginTop: 16 }}>
         <Paragraph>

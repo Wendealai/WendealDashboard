@@ -9,8 +9,9 @@ import type {
   AuthConfig,
   ClerkUserData,
   AuthError,
-  AuthErrorType,
+  AuthErrorTypeValue,
 } from '../../types/auth';
+import { AuthErrorType } from '../../types/auth';
 import { UserRole } from '../../types/auth';
 import type { IAuthService } from './IAuthService';
 import { LocalAuthService } from './LocalAuthService';
@@ -417,7 +418,7 @@ export class ClerkAuthService implements IAuthService {
   }
 
   private createAuthError(
-    type: AuthErrorType,
+    type: AuthErrorTypeValue,
     message: string,
     details?: any
   ): AuthError {

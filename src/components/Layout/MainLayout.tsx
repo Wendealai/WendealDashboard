@@ -30,6 +30,7 @@ import {
   DashboardOutlined,
   ProfileOutlined,
   LoginOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import WhatsNewPanel from './WhatsNewPanel';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -154,6 +155,8 @@ const MainLayout: React.FC = () => {
         return <UserOutlined />;
       case 'SettingOutlined':
         return <SettingOutlined />;
+      case 'BarChartOutlined':
+        return <BarChartOutlined />;
       default:
         return null;
     }

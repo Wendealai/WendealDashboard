@@ -32,6 +32,7 @@ import {
   LoadingOutlined,
   ClockCircleOutlined,
   ExclamationCircleOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
@@ -552,6 +553,65 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
         >
           <Spin spinning={loading}>
             <Row gutter={[6, 6]} style={{ padding: '6px' }}>
+              {/* RedNote Content Generator workflow card */}
+              <Col xs={24} sm={24} md={12} lg={24} xl={12}>
+                <WorkflowCard
+                  workflow={{
+                    id: 'rednote-content-generator',
+                    name: '小红书文案生成器',
+                    description:
+                      'AI智能生成小红书文案，支持多种内容类型和语调风格',
+                    status: 'active' as WorkflowStatus,
+                    nodeCount: 2,
+                    lastExecution: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  }}
+                  selected={
+                    selectedWorkflow?.id === 'rednote-content-generator'
+                  }
+                  loading={false}
+                  error={null}
+                  progressStatus=''
+                  onClick={() =>
+                    handleWorkflowSelect({
+                      id: 'rednote-content-generator',
+                      name: '小红书文案生成器',
+                      description:
+                        'AI智能生成小红书文案，支持多种内容类型和语调风格',
+                      status: 'active' as WorkflowStatus,
+                      nodeCount: 2,
+                      lastExecution: new Date().toISOString(),
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    })
+                  }
+                  onTrigger={() => {
+                    // Select RedNote Content Generator workflow, display on the right side
+                    handleWorkflowSelect({
+                      id: 'rednote-content-generator',
+                      name: '小红书文案生成器',
+                      description:
+                        'AI智能生成小红书文案，支持多种内容类型和语调风格',
+                      status: 'active' as WorkflowStatus,
+                      nodeCount: 2,
+                      lastExecution: new Date().toISOString(),
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    });
+                  }}
+                  onSettings={() => {
+                    // Open settings modal for RedNote Content Generator
+                    handleOpenSettings(
+                      'rednote-content-generator',
+                      '小红书文案生成器'
+                    );
+                  }}
+                  size='small'
+                  icon={<EditOutlined />}
+                />
+              </Col>
+
               {/* Reddit workflow card */}
               <Col xs={24} sm={24} md={12} lg={24} xl={12}>
                 <WorkflowCard

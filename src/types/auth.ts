@@ -202,11 +202,12 @@ export const AuthErrorType = {
   UNKNOWN_ERROR: 'unknown_error',
 } as const;
 
-export type AuthErrorType = (typeof AuthErrorType)[keyof typeof AuthErrorType];
+export type AuthErrorTypeValue =
+  (typeof AuthErrorType)[keyof typeof AuthErrorType];
 
 // 认证错误接口
 export interface AuthError {
-  type: AuthErrorType;
+  type: AuthErrorTypeValue;
   message: string;
   details?: any;
   timestamp: string;

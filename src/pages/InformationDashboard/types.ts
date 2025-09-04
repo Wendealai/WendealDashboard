@@ -4,7 +4,7 @@
  */
 
 // Re-export API types for consistency
-export type { ApiResponse, PaginatedResponse } from '../../services/api';
+export type { ApiResponse, PaginatedResponse } from '../../services';
 
 /**
  * Page route parameter types

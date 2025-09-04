@@ -1,0 +1,163 @@
+/* RAG System 页面样式 */
+.rag-system-layout {
+  height: 100%; /* 使用父容器的高度 */
+  max-height: 100%; /* 限制最大高度 */
+  background: #f5f5f5;
+  overflow: hidden; /* 防止页面滚动 */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.rag-system-content {
+  padding: 4px; /* 进一步减少内边距 */
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.rag-system-container {
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* 工具栏区域 */
+.rag-toolbar-section {
+  background: #fff;
+  border-radius: 6px;
+  padding: 2px 8px; /* 进一步减少内边距 */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
+  margin-bottom: 2px; /* 进一步减少底部间距 */
+  flex-shrink: 0;
+  min-height: auto;
+  height: auto;
+}
+
+/* 主要内容区域 - 包含侧边栏和对话区域 */
+.rag-main-section {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 聊天侧边栏 */
+.chat-sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 对话区域 */
+.rag-chat-section {
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  margin-left: 8px; /* 与侧边栏的间距 */
+  min-width: 0; /* 允许flex收缩 */
+}
+
+/* 工具栏样式 */
+.rag-toolbar {
+  width: 100%;
+  min-height: 32px; /* 设置最小高度 */
+  height: auto;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 2px; /* 进一步减少间距 */
+  height: 32px; /* 固定高度 */
+}
+
+.section-title {
+  font-weight: 500;
+  color: #262626;
+  margin-right: 4px; /* 减少右边距 */
+  font-size: 12px; /* 减小字体 */
+  line-height: 1;
+}
+
+/* 对话组件样式 - 简化版本 */
+.rag-chat {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0; /* 移除内边距，让组件自己控制 */
+}
+
+.loading-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  margin: 4px 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .rag-system-content {
+    padding: 6px;
+  }
+
+  .rag-toolbar-section {
+    padding: 6px 12px;
+  }
+
+  .toolbar-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .section-title {
+    margin-bottom: 2px;
+  }
+
+  .rag-chat-section {
+    margin-left: 4px;
+    min-width: 0; /* 移动端适配 */
+  }
+
+  .chat-sidebar {
+    width: 240px;
+    min-width: 240px;
+  }
+}
+
+@media (max-width: 576px) {
+  .rag-system-content {
+    padding: 4px;
+  }
+
+  .rag-toolbar-section {
+    padding: 4px 8px;
+  }
+
+  .rag-chat-section {
+    margin-bottom: 4px;
+  }
+}

@@ -135,6 +135,8 @@ export default {
     profile: '个人资料',
     notifications: '通知中心',
     help: '帮助中心',
+    refreshData: '刷新数据',
+    exportData: '导出数据',
     logout: '退出登录',
     login: '登录',
     register: '注册',
@@ -195,10 +197,51 @@ export default {
     profile: '个人资料',
     admin: '管理面板',
     informationDashboard: '信息展示模块',
+    socialMedia: '社交媒体',
+    ragSystem: 'RAG系统',
     redditWorkflow: 'Reddit工作流',
     logout: '退出登录',
-    login: '登录',
-    register: '注册',
+  },
+
+  // 新功能介绍
+  whatsNew: {
+    title: '新功能介绍',
+    subtitle: '最新更新和功能',
+    version: '版本 {{version}}',
+    releaseDate: '发布于 {{date}}',
+    features: '新功能',
+    improvements: '改进',
+    bugFixes: '错误修复',
+    viewDetails: '查看详情',
+    dismiss: '关闭',
+    markAsRead: '标记为已读',
+    showOnStartup: '启动时显示',
+    changelog: '更新日志',
+    releaseNotes: '发布说明',
+    newBadge: '新',
+    updatedBadge: '已更新',
+    betaBadge: '测试版',
+    comingSoonBadge: '即将推出',
+    categories: {
+      feature: '功能',
+      improvement: '改进',
+      bugfix: '错误修复',
+      security: '安全',
+      performance: '性能',
+      ui: '界面/体验',
+      api: 'API',
+      documentation: '文档',
+    },
+    noUpdates: '暂无新更新',
+    checkForUpdates: '检查更新',
+    lastChecked: '上次检查：{{time}}',
+    updateAvailable: '有可用更新',
+    upToDate: '已是最新版本',
+    items: {
+      '2faSecurityTitle': '双因素认证安全',
+      bareTrustsTitle: '裸信托和SPV',
+      reportingTitle: '报告功能',
+    },
   },
 
   // 信息网格
@@ -1062,16 +1105,6 @@ export default {
     },
   },
 
-  // 新功能面板
-  whatsNew: {
-    title: '最新功能',
-    items: {
-      '2faSecurityTitle': '双因素认证',
-      bareTrustsTitle: '信托与SPV管理',
-      reportingTitle: '报表功能',
-    },
-  },
-
   // 错误信息
   error: {
     network: '网络连接失败',
@@ -1336,6 +1369,42 @@ export default {
       viewGoogleSheets: '🔗 查看 Google Sheets',
       processNewFiles: '处理新文件',
       tip: '💡 提示：您可以在 Google Sheets 中查看和编辑提取的发票数据',
+    },
+  },
+
+  // RAG System
+  ragSystem: {
+    title: 'RAG系统',
+    toolbar: {
+      uploadFile: '上传文件',
+      viewKnowledgeBase: '查看知识库',
+      fileManagement: '文件管理',
+      uploadSuccess: '文件上传成功',
+      uploadError: '文件上传失败',
+      fileSizeLimit: '文件大小不能超过10MB',
+      supportedFormats: '支持的格式：PDF、Word、TXT、Markdown',
+    },
+    chat: {
+      welcome:
+        '欢迎使用RAG系统！请输入您的问题，我将基于企业知识库为您提供准确的答案。',
+      placeholder: '请输入您的问题...',
+      send: '发送',
+      clear: '清空对话',
+      you: '您',
+      assistant: 'AI助手',
+      thinking: 'AI正在思考中...',
+      error: '抱歉，处理您的请求时出现了错误，请稍后重试。',
+      sessionId: '会话ID',
+      newSession: '新会话',
+      currentSession: '当前会话',
+    },
+    sidebar: {
+      title: '对话历史',
+      newConversation: '新建对话',
+      noConversations: '暂无对话记录',
+      messages: '条消息',
+      deleteConfirm: '删除对话',
+      deleteDescription: '确定要删除这个对话吗？此操作无法撤销。',
     },
   },
 };

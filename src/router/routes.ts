@@ -28,6 +28,12 @@ const InformationDashboard = lazy(
   () => import('@/pages/InformationDashboard/InformationDashboard')
 );
 
+// Social Media
+const SocialMedia = lazy(() => import('@/pages/SocialMedia'));
+
+// RAG System
+const RAGSystem = lazy(() => import('@/pages/RAGSystem'));
+
 export const routes: RouteConfig[] = [
   // Routes without layout (login, register)
   {
@@ -110,6 +116,26 @@ export const routes: RouteConfig[] = [
           requiresAuth: true,
           roles: ['admin', 'user'],
           icon: 'DashboardOutlined',
+        },
+      },
+      {
+        path: 'social-media',
+        element: SocialMedia,
+        meta: {
+          title: 'navigation.socialMedia',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'BarChartOutlined',
+        },
+      },
+      {
+        path: 'rag-system',
+        element: RAGSystem,
+        meta: {
+          title: 'navigation.ragSystem',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'DatabaseOutlined',
         },
       },
     ],
