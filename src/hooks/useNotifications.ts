@@ -1,6 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
-import { message } from 'antd';
 import type { NotificationItem } from '../types/notification';
+
+/**
+ * useNotifications hook 的选项接口
+ */
+export interface UseNotificationsOptions {
+  /** 消息API，用于显示通知消息 */
+  messageApi?: {
+    success: (content: any) => void;
+    error: (content: any) => void;
+    warning: (content: any) => void;
+    info: (content: any) => void;
+  };
+}
 
 // 模拟通知数据
 const mockNotifications: NotificationItem[] = [
@@ -77,7 +89,8 @@ const mockNotifications: NotificationItem[] = [
   },
 ];
 
-export const useNotifications = () => {
+export const useNotifications = (options: UseNotificationsOptions = {}) => {
+  const { messageApi } = options;
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -92,36 +105,44 @@ export const useNotifications = () => {
   }, []);
 
   // 标记单个通知为已读
-  const markAsRead = useCallback((id: string) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id ? { ...notification, read: true } : notification
-      )
-    );
-    message.success('已标记为已读');
-  }, []);
+  const markAsRead = useCallback(
+    (id: string) => {
+      setNotifications(prev =>
+        prev.map(notification =>
+          notification.id === id
+            ? { ...notification, read: true }
+            : notification
+        )
+      );
+      messageApi?.success('已标记为已读');
+    },
+    [messageApi]
+  );
 
   // 标记所有通知为已读
   const markAllAsRead = useCallback(() => {
     setNotifications(prev =>
       prev.map(notification => ({ ...notification, read: true }))
     );
-    message.success('所有通知已标记为已读');
-  }, []);
+    messageApi?.success('所有通知已标记为已读');
+  }, [messageApi]);
 
   // 删除单个通知
-  const deleteNotification = useCallback((id: string) => {
-    setNotifications(prev =>
-      prev.filter(notification => notification.id !== id)
-    );
-    message.success('通知已删除');
-  }, []);
+  const deleteNotification = useCallback(
+    (id: string) => {
+      setNotifications(prev =>
+        prev.filter(notification => notification.id !== id)
+      );
+      messageApi?.success('通知已删除');
+    },
+    [messageApi]
+  );
 
   // 清空所有通知
   const clearAllNotifications = useCallback(() => {
     setNotifications([]);
-    message.success('所有通知已清空');
-  }, []);
+    messageApi?.success('所有通知已清空');
+  }, [messageApi]);
 
   // 添加新通知
   const addNotification = useCallback(
@@ -142,19 +163,19 @@ export const useNotifications = () => {
 
       switch (notification.type) {
         case 'success':
-          message.success(notificationConfig);
+          messageApi?.success(notificationConfig);
           break;
         case 'warning':
-          message.warning(notificationConfig);
+          messageApi?.warning(notificationConfig);
           break;
         case 'error':
-          message.error(notificationConfig);
+          messageApi?.error(notificationConfig);
           break;
         default:
-          message.info(notificationConfig);
+          messageApi?.info(notificationConfig);
       }
     },
-    []
+    [messageApi]
   );
 
   // 获取未读通知数量

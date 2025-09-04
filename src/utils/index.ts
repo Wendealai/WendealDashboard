@@ -47,16 +47,16 @@ export {
   createConfigManager,
 } from './exportConfig';
 
-// 文件扫描工具
-export {
-  FileScanner,
-  createFileScanner,
-  scanSingleFile,
-  quickScanDirectory,
-  isTypeScriptFile,
-  getRelativePath,
-  normalizePath,
-} from './fileScanner';
+// 文件扫描工具 - Removed fileScanner module
+// export {
+//   FileScanner,
+//   createFileScanner,
+//   scanSingleFile,
+//   quickScanDirectory,
+//   isTypeScriptFile,
+//   getRelativePath,
+//   normalizePath,
+// } from './fileScanner'; // Removed - fileScanner deleted
 
 // 导出检测工具
 export {

@@ -5,7 +5,6 @@ import {
   Alert,
   Typography,
   List,
-  message,
   Empty,
   Space,
   Progress,
@@ -14,6 +13,7 @@ import {
   Tag,
   Divider,
 } from 'antd';
+import { useMessage } from '@/hooks';
 import {
   ThunderboltOutlined,
   ExportOutlined,
@@ -28,33 +28,34 @@ import type { ParsedSubredditData } from '../../services/redditWebhookService';
 const { Text } = Typography;
 
 /**
- * Reddit数据展示面板组件
- * 简洁的启动按钮和内容展示
+ * Reddit data display panel component
+ * Simple start button and content display
  */
 const WorkflowControlPanel: React.FC = () => {
-  // 本地状态管理
+  // Local state management
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
   const [progressStatus, setProgressStatus] = useState<string>('');
+  const message = useMessage();
 
   /**
-   * 获取Reddit数据
+   * Get Reddit data
    */
   const handleStart = async () => {
     setLoading(true);
     setError(null);
-    setProgressStatus('准备启动工作流...');
+    setProgressStatus('Preparing to start workflow...');
 
     try {
-      // 使用新的进度回调机制
+      // Use new progress callback mechanism
       const response = await workflowService.triggerRedditWebhook(
         (status: string) => {
           setProgressStatus(status);
         }
       );
 
-      console.log('WorkflowControlPanel收到响应:', {
+      console.log('WorkflowControlPanel received response:', {
         success: response.success,
         hasData: !!response.data,
         dataKeys: response.data ? Object.keys(response.data) : [],
@@ -64,7 +65,7 @@ const WorkflowControlPanel: React.FC = () => {
       });
 
       if (response.success && response.data) {
-        console.log('设置Reddit数据:', {
+        console.log('Setting Reddit data:', {
           postsArray: response.data.posts,
           postsLength: response.data.posts?.length || 0,
           subredditsArray: response.data.subreddits,
@@ -73,13 +74,13 @@ const WorkflowControlPanel: React.FC = () => {
           firstSubreddit: response.data.subreddits?.[0],
         });
 
-        // 使用subreddits数据而不是posts数组，因为UI期望的是按subreddit分组的数据
+        // Use subreddits data instead of posts array, as UI expects data grouped by subreddit
         const subredditsData = response.data.subreddits || [];
         setRedditData(subredditsData);
-        setProgressStatus('数据获取完成！');
-        message.success('数据获取成功！');
+        setProgressStatus('Data retrieval completed!');
+        message.success('Data retrieved successfully!');
 
-        console.log('Reddit数据已设置，当前状态:', {
+        console.log('Reddit data has been set, current state:', {
           redditDataLength: subredditsData.length,
           totalPosts: subredditsData.reduce(
             (sum, sub) => sum + (sub.posts?.length || 0),
@@ -87,23 +88,25 @@ const WorkflowControlPanel: React.FC = () => {
           ),
         });
       } else {
-        console.error('响应失败或无数据:', { response });
-        throw new Error(response.error || '获取失败');
+        console.error('Response failed or no data:', { response });
+        throw new Error(response.error || 'Retrieval failed');
       }
     } catch (error) {
-      console.error('WorkflowControlPanel错误详情:', {
+      console.error('WorkflowControlPanel error details:', {
         error,
-        errorMessage: error instanceof Error ? error.message : '获取失败',
+        errorMessage:
+          error instanceof Error ? error.message : 'Retrieval failed',
         errorStack: error instanceof Error ? error.stack : undefined,
       });
 
-      const errorMessage = error instanceof Error ? error.message : '获取失败';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Retrieval failed';
       setError(errorMessage);
       setProgressStatus('');
       message.error(errorMessage);
     } finally {
       setLoading(false);
-      // 清除进度状态（延迟3秒）
+      // Clear progress status (3 second delay)
       setTimeout(() => {
         setProgressStatus('');
       }, 3000);
@@ -112,7 +115,7 @@ const WorkflowControlPanel: React.FC = () => {
 
   return (
     <div className='reddit-panel'>
-      {/* 启动按钮 */}
+      {/* Start button */}
       <div style={{ marginBottom: 16, textAlign: 'center' }}>
         <Button
           type='primary'
@@ -122,16 +125,16 @@ const WorkflowControlPanel: React.FC = () => {
           loading={loading}
           disabled={loading}
         >
-          {loading ? '工作流执行中...' : '启动获取数据'}
+          {loading ? 'Workflow executing...' : 'Start Data Retrieval'}
         </Button>
       </div>
 
-      {/* 进度显示 */}
+      {/* Progress display */}
       {(loading || progressStatus) && (
         <div style={{ marginBottom: 16 }}>
           <Card size='small'>
             <Space direction='vertical' style={{ width: '100%' }}>
-              <Text type='secondary'>{progressStatus || '正在处理...'}</Text>
+              <Text type='secondary'>{progressStatus || 'Processing...'}</Text>
               {loading && (
                 <Progress
                   percent={100}
@@ -148,8 +151,8 @@ const WorkflowControlPanel: React.FC = () => {
         </div>
       )}
 
-      {/* 内容展示框 */}
-      <Card title='Reddit 热门内容' style={{ minHeight: 400 }}>
+      {/* Content display box */}
+      <Card title='Reddit Hot Content' style={{ minHeight: 400 }}>
         {error && (
           <Alert
             message={error}
@@ -170,7 +173,7 @@ const WorkflowControlPanel: React.FC = () => {
                   <Space>
                     <RedditOutlined style={{ color: '#ff4500' }} />
                     <Text strong>r/{subreddit.name}</Text>
-                    <Tag color='blue'>{subreddit.posts?.length || 0} 帖子</Tag>
+                    <Tag color='blue'>{subreddit.posts?.length || 0} posts</Tag>
                   </Space>
                 }
                 style={{
@@ -252,7 +255,7 @@ const WorkflowControlPanel: React.FC = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                               }}
-                              title='查看原帖'
+                              title='View original post'
                             >
                               <ExportOutlined />
                             </a>
@@ -270,9 +273,10 @@ const WorkflowControlPanel: React.FC = () => {
             <Empty
               description={
                 <Space direction='vertical' size='small'>
-                  <Text type='secondary'>暂无数据</Text>
+                  <Text type='secondary'>No data available</Text>
                   <Text type='secondary' style={{ fontSize: '12px' }}>
-                    点击上方"启动获取数据"按钮获取 Reddit 热门内容
+                    Click the "Start Data Retrieval" button above to get Reddit
+                    hot content
                   </Text>
                 </Space>
               }

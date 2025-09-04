@@ -420,8 +420,8 @@ describe('LoginForm', () => {
       </TestWrapper>
     );
 
-    const usernameInput = screen.getByLabelText('用户名');
-    const passwordInput = screen.getByLabelText('密码');
+    const usernameInput = screen.getByLabelText('Username');
+    const passwordInput = screen.getByLabelText('Password');
     const loginButton = screen.getByRole('button', { name: '登录' });
 
     await user.type(usernameInput, 'ab'); // 用户名太短
@@ -442,8 +442,8 @@ describe('LoginForm', () => {
       </TestWrapper>
     );
 
-    const usernameInput = screen.getByLabelText('用户名');
-    const passwordInput = screen.getByLabelText('密码');
+    const usernameInput = screen.getByLabelText('Username');
+    const passwordInput = screen.getByLabelText('Password');
     const loginButton = screen.getByRole('button', { name: '登录' });
 
     await user.type(usernameInput, 'testuser');
@@ -633,7 +633,7 @@ describe('RegisterForm', () => {
       </TestWrapper>
     );
 
-    const emailInput = screen.getByLabelText('邮箱');
+    const emailInput = screen.getByLabelText('Email');
     const registerButton = screen.getByRole('button', { name: '创建账户' });
 
     await user.type(emailInput, 'invalid-email');
@@ -654,7 +654,7 @@ describe('RegisterForm', () => {
     );
 
     const passwordInput = screen.getByLabelText('密码');
-    const confirmPasswordInput = screen.getByLabelText('确认密码');
+    const confirmPasswordInput = screen.getByLabelText('Confirm Password');
     const registerButton = screen.getByRole('button', { name: '创建账户' });
 
     await user.type(passwordInput, 'Test123!@#');
@@ -662,7 +662,9 @@ describe('RegisterForm', () => {
     await user.click(registerButton);
 
     await waitFor(() => {
-      expect(screen.getByText('两次输入的密码不一致')).toBeInTheDocument();
+      expect(
+        screen.getByText('Password confirmation does not match')
+      ).toBeInTheDocument();
     });
   });
 
@@ -701,9 +703,9 @@ describe('RegisterForm', () => {
     );
 
     const usernameInput = screen.getByLabelText('用户名');
-    const emailInput = screen.getByLabelText('邮箱');
+    const emailInput = screen.getByLabelText('Email');
     const passwordInput = screen.getByLabelText('密码');
-    const confirmPasswordInput = screen.getByLabelText('确认密码');
+    const confirmPasswordInput = screen.getByLabelText('Confirm Password');
     const registerButton = screen.getByRole('button', { name: '创建账户' });
 
     await user.type(usernameInput, 'newuser');
@@ -713,7 +715,9 @@ describe('RegisterForm', () => {
     await user.click(registerButton);
 
     await waitFor(() => {
-      expect(mockMessage.success).toHaveBeenCalledWith('注册成功');
+      expect(mockMessage.success).toHaveBeenCalledWith(
+        'Registration successful'
+      );
     });
   });
 
@@ -955,7 +959,7 @@ describe('UserProfile', () => {
   });
 });
 
-// 集成测试
+// Integration tests
 describe('Auth Components Integration', () => {
   let mockDispatch: jest.Mock;
   let mockUseAppDispatch: jest.Mock;
@@ -1030,7 +1034,7 @@ describe('Auth Components Integration', () => {
   it('should handle authentication flow correctly', async () => {
     const user = userEvent.setup();
 
-    // 渲染注册表单
+    // Render register form
     const mockOnSuccess = jest.fn();
     const { rerender } = render(
       <TestWrapper>
@@ -1038,12 +1042,14 @@ describe('Auth Components Integration', () => {
       </TestWrapper>
     );
 
-    // 填写注册表单
+    // Fill register form
     const usernameInput = screen.getByLabelText('用户名');
     const emailInput = screen.getByLabelText('邮箱');
     const passwordInput = screen.getByLabelText('密码');
     const confirmPasswordInput = screen.getByLabelText('确认密码');
-    const registerButton = screen.getByRole('button', { name: /创建账户/ });
+    const registerButton = screen.getByRole('button', {
+      name: /Create Account/,
+    });
 
     await user.type(usernameInput, 'newuser');
     await user.type(emailInput, 'newuser@example.com');
@@ -1051,7 +1057,7 @@ describe('Auth Components Integration', () => {
     await user.type(confirmPasswordInput, 'Test123!@#');
     await user.click(registerButton);
 
-    // 验证注册成功消息
+    // Verify registration success message
     await waitFor(
       () => {
         expect(mockDispatch).toHaveBeenCalled();
@@ -1061,7 +1067,7 @@ describe('Auth Components Integration', () => {
       { timeout: 3000 }
     );
 
-    // 验证注册表单已正确提交
+    // Verify registration form submitted correctly
     expect(mockDispatch).toHaveBeenCalled();
   });
 
@@ -1075,7 +1081,7 @@ describe('Auth Components Integration', () => {
       </TestWrapper>
     );
 
-    // 填写注册表单
+    // Fill registration form
     const usernameInput = screen.getByLabelText('用户名');
     const emailInput = screen.getByLabelText('邮箱');
     const passwordInput = screen.getByLabelText('密码');
@@ -1087,34 +1093,34 @@ describe('Auth Components Integration', () => {
     await user.type(passwordInput, 'Test123!@#');
     await user.type(confirmPasswordInput, 'Test123!@#');
 
-    // 确保表单验证通过
+    // Ensure form validation passes
     await waitFor(() => {
       expect(registerButton).not.toBeDisabled();
     });
 
     await user.click(registerButton);
 
-    // 等待一下让表单提交处理
+    // Wait for form submission processing
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // 检查是否有表单验证错误
+    // Check for form validation errors
     const errorElements = screen.queryAllByRole('alert');
 
-    // 如果有调用，则验证
+    // If called, verify
     if (mockDispatch.mock.calls.length > 0) {
       expect(mockMessage.success).toHaveBeenCalledWith('注册成功');
       expect(mockOnSuccess).toHaveBeenCalled();
     } else {
-      // 如果没有调用，说明表单提交失败
-      expect(mockDispatch).toHaveBeenCalled(); // 这会失败并显示原因
+      // If not called, form submission failed
+      expect(mockDispatch).toHaveBeenCalled(); // This will fail and show the reason
     }
   });
 });
 
-// Redux Store Integration 测试
+// Redux Store Integration tests
 describe('Redux Store Integration', () => {
   it('should properly access auth state from store', () => {
-    // 创建一个最简单的测试包装器，完全不使用任何其他 Provider
+    // Create a minimal test wrapper without any other Providers
     const VeryMinimalTestWrapper: React.FC<{ children: React.ReactNode }> = ({
       children,
     }) => {
@@ -1140,7 +1146,7 @@ describe('Redux Store Integration', () => {
       return <Provider store={store}>{children}</Provider>;
     };
 
-    // 创建一个最简单的测试组件，不使用任何 hooks
+    // Create a minimal test component without any hooks
     const VeryMinimalTestComponent = () => {
       return (
         <div>

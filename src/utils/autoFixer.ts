@@ -470,7 +470,7 @@ export class AutoFixer {
    * @returns 修复结果列表
    */
   private async applyFileOperations(
-    filePath: string,
+    _filePath: string,
     operations: FixOperation[],
     backupPath?: string
   ): Promise<FixResult[]> {
@@ -573,7 +573,6 @@ export class AutoFixer {
   ): Promise<string> {
     const relativePath = filePath.replace(/^.*[\\\/]/, ''); // Get filename only
     const backupPath = `${backupDirectory}/${relativePath}`;
-    const backupDir = backupPath.substring(0, backupPath.lastIndexOf('/'));
 
     // Browser environment doesn't support file system operations
     console.warn('File backup operations not supported in browser environment');

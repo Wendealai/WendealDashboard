@@ -1,40 +1,40 @@
 import { server } from '@/mocks/server';
 import 'whatwg-fetch';
 
-// 启动MSW服务器
+// Start MSW server
 beforeAll(() => {
   server.listen({
     onUnhandledRequest: 'bypass',
   });
 });
 
-// 每个测试后重置处理器
+// Reset handlers after each test
 afterEach(() => {
   server.resetHandlers();
-  // 清理本地存储
+  // Clear local storage
   localStorage.clear();
   sessionStorage.clear();
-  // 清理cookies
+  // Clear cookies
   document.cookie.split(';').forEach(cookie => {
     const eqPos = cookie.indexOf('=');
     const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
     document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
   });
-  // 清理DOM
+  // Clear DOM
   document.body.innerHTML = '';
-  // 重置URL
+  // Reset URL
   window.history.replaceState({}, '', '/');
-  // 清理事件监听器
+  // Clear event listeners
   window.removeEventListener('beforeunload', () => {});
   window.removeEventListener('unload', () => {});
 });
 
-// 关闭MSW服务器
+// Close MSW server
 afterAll(() => {
   server.close();
 });
 
-// 全局错误处理
+// Global error handling
 process.on('unhandledRejection', reason => {
   console.error('Unhandled Rejection in E2E test:', reason);
 });
@@ -43,7 +43,7 @@ process.on('uncaughtException', error => {
   console.error('Uncaught Exception in E2E test:', error);
 });
 
-// 模拟浏览器API
+// Mock browser APIs
 global.IntersectionObserver = class IntersectionObserver {
   constructor(callback: any, options: any = {}) {
     this.callback = callback;
@@ -94,7 +94,7 @@ global.MutationObserver = class MutationObserver {
   }
 };
 
-// 模拟window.matchMedia
+// Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: jest.fn().mockImplementation(query => ({
@@ -109,25 +109,25 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// 模拟window.scrollTo
+// Mock window.scrollTo
 Object.defineProperty(window, 'scrollTo', {
   writable: true,
   value: jest.fn(),
 });
 
-// 模拟window.scroll
+// Mock window.scroll
 Object.defineProperty(window, 'scroll', {
   writable: true,
   value: jest.fn(),
 });
 
-// 模拟window.scrollBy
+// Mock window.scrollBy
 Object.defineProperty(window, 'scrollBy', {
   writable: true,
   value: jest.fn(),
 });
 
-// 模拟window.getComputedStyle
+// Mock window.getComputedStyle
 Object.defineProperty(window, 'getComputedStyle', {
   writable: true,
   value: jest.fn().mockImplementation(() => ({
@@ -138,31 +138,31 @@ Object.defineProperty(window, 'getComputedStyle', {
   })),
 });
 
-// 模拟window.requestAnimationFrame
+// Mock window.requestAnimationFrame
 Object.defineProperty(window, 'requestAnimationFrame', {
   writable: true,
   value: jest.fn().mockImplementation(cb => setTimeout(cb, 16)),
 });
 
-// 模拟window.cancelAnimationFrame
+// Mock window.cancelAnimationFrame
 Object.defineProperty(window, 'cancelAnimationFrame', {
   writable: true,
   value: jest.fn().mockImplementation(id => clearTimeout(id)),
 });
 
-// 模拟window.requestIdleCallback
+// Mock window.requestIdleCallback
 Object.defineProperty(window, 'requestIdleCallback', {
   writable: true,
   value: jest.fn().mockImplementation(cb => setTimeout(cb, 1)),
 });
 
-// 模拟window.cancelIdleCallback
+// Mock window.cancelIdleCallback
 Object.defineProperty(window, 'cancelIdleCallback', {
   writable: true,
   value: jest.fn().mockImplementation(id => clearTimeout(id)),
 });
 
-// 模拟navigator.clipboard
+// Mock navigator.clipboard
 Object.defineProperty(navigator, 'clipboard', {
   writable: true,
   value: {
@@ -171,7 +171,7 @@ Object.defineProperty(navigator, 'clipboard', {
   },
 });
 
-// 模拟navigator.geolocation
+// Mock navigator.geolocation
 Object.defineProperty(navigator, 'geolocation', {
   writable: true,
   value: {
@@ -189,7 +189,7 @@ Object.defineProperty(navigator, 'geolocation', {
   },
 });
 
-// 模拟Performance API
+// Mock Performance API
 Object.defineProperty(window, 'performance', {
   writable: true,
   value: {
@@ -204,7 +204,7 @@ Object.defineProperty(window, 'performance', {
   },
 });
 
-// 模拟WebSocket
+// Mock WebSocket
 global.WebSocket = class WebSocket {
   constructor(url: string) {
     this.url = url;
@@ -228,7 +228,7 @@ global.WebSocket = class WebSocket {
   onerror: ((event: Event) => void) | null = null;
 
   send(data: any) {
-    // 模拟发送数据
+    // Mock sending data
   }
 
   close() {
@@ -245,7 +245,7 @@ global.WebSocket = class WebSocket {
   }
 };
 
-// 设置测试超时
+// Set test timeout
 jest.setTimeout(60000);
 
 // 模拟fetch API

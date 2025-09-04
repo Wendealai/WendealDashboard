@@ -1,9 +1,9 @@
 /**
- * 信息展示模块主页面组件
- * 集成n8n工作流系统的数据展示平台
+ * Information Dashboard main page component
+ * Data display platform integrated with n8n workflow system
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { Card, Row, Col, Typography, Space, Divider } from 'antd';
 import {
   DashboardOutlined,
@@ -11,127 +11,103 @@ import {
   FilterOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import WorkflowSidebar from './components/WorkflowSidebar';
+import WorkflowPanel from './components/WorkflowPanel';
+import ResultPanel from './components/ResultPanel';
+import InvoiceOCRPage from './InvoiceOCRPage';
+import type { ParsedSubredditData } from '@/services/redditWebhookService';
+import type { Workflow } from './types';
 
 const { Title, Paragraph } = Typography;
 
 /**
- * 信息展示模块主页面
- * 提供统一的信息聚合和展示界面
+ * Information Dashboard main page component
+ * Provides unified information aggregation and display interface
  */
 const InformationDashboard: React.FC = () => {
   const { t } = useTranslation();
 
+  // Reddit data state
+  const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
+
+  // Currently selected workflow state
+  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(
+    null
+  );
+
+  /**
+   * Handle Reddit data reception
+   */
+  const handleRedditDataReceived = useCallback(
+    (data: ParsedSubredditData[]) => {
+      console.log('InformationDashboard: Received Reddit data:', data);
+      setRedditData(data);
+    },
+    []
+  );
+
+  /**
+   * Handle workflow selection
+   */
+  const handleWorkflowSelect = useCallback((workflow: Workflow) => {
+    console.log('InformationDashboard: Selected workflow:', workflow);
+    setSelectedWorkflow(workflow);
+  }, []);
+
   return (
     <div className='information-dashboard'>
-      {/* 页面标题 */}
+      {/* Page title */}
       <div className='page-header'>
         <Title level={2}>
-          <DashboardOutlined /> 信息展示模块
+          <DashboardOutlined /> {t('informationDashboard.title')}
         </Title>
-        <Paragraph>
-          集成n8n工作流系统的数据展示平台，提供统一的信息聚合和展示界面
-        </Paragraph>
+        <Paragraph>{t('informationDashboard.subtitle')}</Paragraph>
       </div>
 
       <Divider />
 
-      {/* 主要内容区域 */}
+      {/* Main content area */}
       <Row gutter={[24, 24]}>
-        {/* 工作流管理面板 */}
+        {/* Workflow management panel */}
         <Col xs={24} lg={8}>
           <Card
             title={
               <Space>
                 <ApiOutlined />
-                工作流管理
+                {t('informationDashboard.workflowManagement')}
               </Space>
             }
             className='workflow-panel-card'
           >
-            <div
-              style={{
-                minHeight: 400,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Paragraph type='secondary'>工作流面板组件开发中...</Paragraph>
-            </div>
+            <WorkflowSidebar
+              onRedditDataReceived={handleRedditDataReceived}
+              onWorkflowSelect={handleWorkflowSelect}
+            />
           </Card>
         </Col>
 
-        {/* 数据展示区域 */}
+        {/* Data display area */}
         <Col xs={24} lg={16}>
           <Card
             title={
               <Space>
                 <FilterOutlined />
-                信息展示
+                {selectedWorkflow?.id === 'invoice-ocr-workflow'
+                  ? t('informationDashboard.invoiceOCRRecognition')
+                  : t('informationDashboard.title')}
               </Space>
             }
             className='data-display-card'
-            extra={
-              <Space>
-                {/* 过滤控制组件将在这里 */}
-                <span style={{ color: '#999' }}>过滤控制开发中...</span>
-              </Space>
-            }
           >
-            <div
-              style={{
-                minHeight: 400,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Paragraph type='secondary'>数据展示网格组件开发中...</Paragraph>
-            </div>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* 统计信息区域 */}
-      <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        <Col xs={12} sm={6}>
-          <Card size='small'>
-            <div style={{ textAlign: 'center' }}>
-              <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
-                0
-              </Title>
-              <Paragraph style={{ margin: 0 }}>活跃工作流</Paragraph>
-            </div>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size='small'>
-            <div style={{ textAlign: 'center' }}>
-              <Title level={3} style={{ margin: 0, color: '#52c41a' }}>
-                0
-              </Title>
-              <Paragraph style={{ margin: 0 }}>今日信息</Paragraph>
-            </div>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size='small'>
-            <div style={{ textAlign: 'center' }}>
-              <Title level={3} style={{ margin: 0, color: '#faad14' }}>
-                0
-              </Title>
-              <Paragraph style={{ margin: 0 }}>待处理</Paragraph>
-            </div>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card size='small'>
-            <div style={{ textAlign: 'center' }}>
-              <Title level={3} style={{ margin: 0, color: '#f5222d' }}>
-                0
-              </Title>
-              <Paragraph style={{ margin: 0 }}>错误数量</Paragraph>
-            </div>
+            {selectedWorkflow?.id === 'invoice-ocr-workflow' ? (
+              <InvoiceOCRPage />
+            ) : (
+              <>
+                <WorkflowPanel />
+                <Divider />
+                <ResultPanel redditData={redditData} />
+              </>
+            )}
           </Card>
         </Col>
       </Row>

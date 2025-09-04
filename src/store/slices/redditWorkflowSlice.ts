@@ -7,17 +7,26 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type {
   RedditPost,
-  WorkflowStatus,
   WorkflowLog,
   RedditWorkflowConfig,
   RedditWorkflowStats,
   RedditDataFilter,
   RedditDataSort,
-  RedditWorkflowPageState,
-  RedditApiResponse,
+  // RedditWorkflowPageState,
+  // RedditApiResponse,
   WorkflowAction,
   WorkflowEvent,
 } from '@/types';
+
+// 定义工作流状态类型
+type WorkflowStatus =
+  | 'idle'
+  | 'running'
+  | 'paused'
+  | 'stopped'
+  | 'error'
+  | 'completed'
+  | 'failed';
 import { workflowService } from '@/services/workflowService';
 import { informationService } from '@/services/informationService';
 
@@ -85,19 +94,18 @@ const initialState: RedditWorkflowState = {
     },
     filters: {
       subreddits: [],
-      dateRange: undefined,
-      minScore: undefined,
-      maxScore: undefined,
+      // dateRange: undefined, // 移除不存在的属性
+      // minScore: undefined, // 移除不存在的属性
+      // maxScore: undefined, // 移除不存在的属性
       includeNsfw: false,
-      includeStickied: false,
-      keywords: [],
+      // includeStickied: false, // 移除不存在的属性
+      searchKeyword: '', // 使用正确的属性名
       authors: [],
-      domains: [],
+      // domains: [], // 移除不存在的属性
     },
     sort: {
       field: 'score',
-      order: 'desc',
-      timeRange: 'day',
+      direction: 'desc',
     },
   },
   ui: {
@@ -259,13 +267,41 @@ export const searchRedditPosts = createAsyncThunk(
  */
 export const fetchRedditStats = createAsyncThunk(
   'redditWorkflow/fetchRedditStats',
-  async (dateRange?: { start: string; end: string }, { rejectWithValue }) => {
+  async (
+    dateRange: { start: string; end: string } | undefined,
+    { rejectWithValue }
+  ) => {
     try {
       const response = await informationService.getRedditStats(dateRange);
       if (!response.success) {
         throw new Error(response.error || '获取Reddit统计失败');
       }
-      return response.data;
+
+      // 将 RedditApiResponse 数据转换为 RedditWorkflowStats 格式
+      const apiData = response.data;
+
+      if (!apiData) {
+        return rejectWithValue('No data received from API');
+      }
+
+      const workflowStats: RedditWorkflowStats = {
+        totalExecutions: 0, // 默认值，因为API不提供此数据
+        successfulExecutions: 0, // 默认值
+        failedExecutions: 0, // 默认值
+        totalPostsFetched: apiData.totalPosts || 0,
+        averageExecutionTime: 0, // 默认值
+        lastExecutionTime: 0, // 默认值
+        lastSuccessTime: 0, // 默认值
+        errorRate: 0, // 默认值
+        successRate: 100, // 默认值
+        totalUpvotes: 0, // 默认值，API不提供此数据
+        totalComments: 0, // 默认值，API不提供此数据
+        validSubreddits: apiData.totalSubreddits || 0,
+        totalSubreddits: apiData.totalSubreddits || 0,
+        messageLength: 0, // 默认值
+      };
+
+      return workflowStats;
     } catch (error) {
       return rejectWithValue(
         error instanceof Error ? error.message : '获取Reddit统计失败'
@@ -322,7 +358,7 @@ const redditWorkflowSlice = createSlice({
     // UI状态管理
     setActiveTab: (
       state,
-      action: PayloadAction<RedditWorkflowPageState['activeTab']>
+      action: PayloadAction<'overview' | 'data' | 'config' | 'logs'>
     ) => {
       state.ui.activeTab = action.payload;
     },
@@ -428,9 +464,10 @@ const redditWorkflowSlice = createSlice({
       })
       .addCase(fetchWorkflowStatus.fulfilled, (state, action) => {
         state.workflow.loading = false;
-        state.workflow.status = action.payload.status;
-        state.workflow.config = action.payload.config;
-        state.workflow.logs = action.payload.logs || [];
+        if (action.payload) {
+          state.workflow.status = action.payload.status;
+          state.workflow.logs = action.payload.logs || [];
+        }
       })
       .addCase(fetchWorkflowStatus.rejected, (state, action) => {
         state.workflow.loading = false;
@@ -444,7 +481,7 @@ const redditWorkflowSlice = createSlice({
       })
       .addCase(fetchWorkflowStats.fulfilled, (state, action) => {
         state.workflow.loading = false;
-        state.workflow.stats = action.payload;
+        state.workflow.stats = action.payload || null;
       })
       .addCase(fetchWorkflowStats.rejected, (state, action) => {
         state.workflow.loading = false;
@@ -527,7 +564,7 @@ const redditWorkflowSlice = createSlice({
       })
       .addCase(fetchRedditStats.fulfilled, (state, action) => {
         state.workflow.loading = false;
-        state.workflow.stats = action.payload;
+        state.workflow.stats = action.payload || null;
       })
       .addCase(fetchRedditStats.rejected, (state, action) => {
         state.workflow.loading = false;

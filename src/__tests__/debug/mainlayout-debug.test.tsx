@@ -12,14 +12,14 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
-        'common.user': '用户',
-        'common.notLoggedIn': '未登录',
-        'navigation.profile': '个人资料',
-        'navigation.settings': '设置',
-        'navigation.logout': '退出登录',
-        'navigation.login': '登录',
-        'navigation.register': '注册',
-        'navigation.menu': '菜单',
+        'common.user': 'User',
+        'common.notLoggedIn': 'Not logged in',
+        'navigation.profile': 'Profile',
+        'navigation.settings': 'Settings',
+        'navigation.logout': 'Logout',
+        'navigation.login': 'Login',
+        'navigation.register': 'Register',
+        'navigation.menu': 'Menu',
       };
       return translations[key] || key;
     },
@@ -138,6 +138,6 @@ describe('MainLayout Debug', () => {
     renderWithProviders(<MainLayout />, { authenticated: false });
 
     // Check if not logged in message is displayed
-    expect(screen.getByTestId('user-info')).toHaveTextContent('未登录');
+    expect(screen.getByTestId('user-info')).toHaveTextContent('Not logged in');
   });
 });

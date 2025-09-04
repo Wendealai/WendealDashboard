@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, Alert, Card, Typography, Space } from 'antd';
+import {
+  Form,
+  Input,
+  Button,
+  Alert,
+  Card,
+  Typography,
+  Space,
+  Checkbox,
+} from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts';
-import type { LoginCredentials } from '../../types/auth';
+import type { LoginRequest } from '../../types/auth';
 import './LoginForm.css';
 
 const { Title, Text } = Typography;
@@ -24,7 +33,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
   const { login, isLoading, error } = useAuth();
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const handleSubmit = async (values: LoginCredentials) => {
+  const handleSubmit = async (values: LoginRequest) => {
     console.log('🔐 LoginForm.handleSubmit called with:', values);
     try {
       setLoginError(null);
@@ -123,6 +132,14 @@ const LoginForm: React.FC<LoginFormProps> = ({
               placeholder={t('auth.login.password')}
               autoComplete='current-password'
             />
+          </Form.Item>
+
+          <Form.Item
+            name='rememberMe'
+            valuePropName='checked'
+            initialValue={false}
+          >
+            <Checkbox>{t('auth.login.rememberMe')}</Checkbox>
           </Form.Item>
 
           <Form.Item className='login-form-actions'>

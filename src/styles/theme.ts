@@ -74,7 +74,6 @@ export const lightTheme: ThemeConfig = {
       controlHeightLG: 44,
       controlHeightSM: 28,
       primaryColor: '#ffffff',
-      primaryBg: '#17A2B8',
     },
     Input: {
       borderRadius: 8,
@@ -151,7 +150,6 @@ export const darkTheme: ThemeConfig = {
     Button: {
       ...lightTheme.components?.Button,
       primaryColor: '#1a1a1a',
-      primaryBg: '#FFB800',
     },
   },
 };

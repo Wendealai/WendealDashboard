@@ -14,13 +14,13 @@ import {
   Slider,
   ColorPicker,
   Select,
-  message,
   Popconfirm,
   Upload,
   Modal,
   Form,
   Tooltip,
 } from 'antd';
+import { useMessage } from '@/hooks';
 import {
   SettingOutlined,
   BgColorsOutlined,
@@ -65,6 +65,7 @@ const ThemeCustomizer: React.FC<ThemeCustomizerProps> = ({
     exportTheme,
     importTheme,
   } = useTheme();
+  const message = useMessage();
 
   const [editingTheme, setEditingTheme] = useState<CustomTheme>(
     state.currentTheme
@@ -191,12 +192,14 @@ const ThemeCustomizer: React.FC<ThemeCustomizerProps> = ({
       const existingTheme = getAllThemes().find(t => t.id === values.id);
       if (existingTheme && !PRESET_THEMES.find(t => t.id === values.id)) {
         updateCustomTheme(newTheme);
-        message.success('主题已更新');
+        message.success('Theme updated successfully');
       } else if (!existingTheme) {
         addCustomTheme(newTheme);
-        message.success('主题已保存');
+        message.success('Theme saved successfully');
       } else {
-        message.error('不能覆盖预设主题，请使用不同的ID');
+        message.error(
+          'Cannot override preset theme, please use a different ID'
+        );
         return;
       }
 
@@ -211,7 +214,7 @@ const ThemeCustomizer: React.FC<ThemeCustomizerProps> = ({
   // 删除自定义主题
   const handleDeleteTheme = (themeId: string) => {
     deleteCustomTheme(themeId);
-    message.success('主题已删除');
+    message.success('Theme deleted successfully');
   };
 
   // 导出主题
@@ -226,13 +229,13 @@ const ThemeCustomizer: React.FC<ThemeCustomizerProps> = ({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    message.success('主题已导出');
+    message.success('Theme exported successfully');
   };
 
   // 导入主题
   const handleImportTheme = () => {
     if (!importData.trim()) {
-      message.error('请输入主题数据');
+      message.error('Please enter theme data');
       return;
     }
 
@@ -252,9 +255,9 @@ const ThemeCustomizer: React.FC<ThemeCustomizerProps> = ({
       }
       setImportModalVisible(false);
       setImportData('');
-      message.success('主题导入成功');
+      message.success('Theme imported successfully');
     } else {
-      message.error('主题数据格式错误');
+      message.error('Invalid theme data format');
     }
   };
 

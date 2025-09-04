@@ -8,8 +8,8 @@ import {
   Typography,
   Space,
   Progress,
-  message,
 } from 'antd';
+import { useMessage } from '@/hooks';
 import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts';
@@ -54,6 +54,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   const { t, i18n } = useTranslation();
   const [form] = Form.useForm();
   const { register, isLoading, error } = useAuth();
+  const message = useMessage();
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [passwordStrength, setPasswordStrength] = useState({
     score: 0,

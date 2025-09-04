@@ -7,10 +7,10 @@ import {
   Select,
   Button,
   Divider,
-  message,
   Space,
   Typography,
 } from 'antd';
+import { useMessage } from '@/hooks';
 import {
   SettingOutlined,
   BgColorsOutlined,
@@ -33,6 +33,7 @@ const SettingsPage: React.FC<SettingsPageProps> = () => {
   const dispatch = useAppDispatch();
   const { theme, language } = useAppSelector(state => state.ui);
   const [loading, setLoading] = useState(false);
+  const message = useMessage();
 
   // 主题切换处理
   const handleThemeChange = (checked: boolean) => {

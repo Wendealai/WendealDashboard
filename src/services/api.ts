@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
-import { message } from 'antd';
+import { App } from 'antd';
 
 // API响应接口
 export interface ApiResponse<T = any> {
@@ -50,7 +50,7 @@ const createApiInstance = (): AxiosInstance => {
       // 如果API返回success为false，抛出错误
       if (data.success === false) {
         const errorMessage = data.message || '请求失败';
-        message.error(errorMessage);
+        App.message?.error(errorMessage);
         return Promise.reject(new Error(errorMessage));
       }
 
@@ -63,27 +63,27 @@ const createApiInstance = (): AxiosInstance => {
 
         switch (status) {
           case 401:
-            message.error('未授权，请重新登录');
+            App.message?.error('未授权，请重新登录');
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
             window.location.href = '/login';
             break;
           case 403:
-            message.error('权限不足');
+            App.message?.error('权限不足');
             break;
           case 404:
-            message.error('请求的资源不存在');
+            App.message?.error('请求的资源不存在');
             break;
           case 500:
-            message.error('服务器内部错误');
+            App.message?.error('服务器内部错误');
             break;
           default:
-            message.error(data?.message || '请求失败');
+            App.message?.error(data?.message || '请求失败');
         }
       } else if (error.request) {
-        message.error('网络错误，请检查网络连接');
+        App.message?.error('网络错误，请检查网络连接');
       } else {
-        message.error('请求配置错误');
+        App.message?.error('请求配置错误');
       }
 
       return Promise.reject(error);

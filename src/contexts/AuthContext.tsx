@@ -15,9 +15,12 @@ import {
   selectIsLoading,
   selectAuthError,
   initializeAuth,
+  setUser,
+  setTokens,
+  clearAuthState,
 } from '@/store';
 import type {
-  LoginCredentials,
+  LoginRequest,
   RegisterData,
   UpdateProfileData,
   ChangePasswordData,
@@ -32,7 +35,7 @@ interface AuthContextType {
   error: string | null;
 
   // 方法
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginRequest) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
@@ -69,19 +72,80 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const isLoading = useAppSelector(selectIsLoading);
   const error = useAppSelector(selectAuthError);
 
+  // Token 验证处理函数
+  const handleValidateToken = async (token?: string) => {
+    try {
+      const tokenToValidate = token || localStorage.getItem('auth_token');
+      if (!tokenToValidate) return;
+
+      const result = await dispatch(validateToken(tokenToValidate));
+      // 如果 token 验证失败，尝试使用 refresh token 刷新
+      if (
+        validateToken.rejected.match(result) ||
+        (validateToken.fulfilled.match(result) && !result.payload)
+      ) {
+        const refreshTokenValue = localStorage.getItem('auth_refresh_token');
+        if (refreshTokenValue && user) {
+          try {
+            await handleRefreshToken();
+            return;
+          } catch (refreshError) {
+            console.warn(
+              'Token refresh failed, clearing auth state:',
+              refreshError
+            );
+          }
+        }
+        // 如果刷新失败或没有 refresh token，清除认证状态
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_refresh_token');
+        dispatch(clearAuthState());
+      }
+    } catch (error) {
+      console.error('Token validation error:', error);
+    }
+  };
+
   // 初始化认证服务
   useEffect(() => {
     dispatch(initializeAuth(useClerk ? 'clerk' : 'local'));
-
-    // 检查本地存储的token
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      dispatch(validateToken(token));
-    }
   }, [dispatch, useClerk]);
 
+  // 检查本地存储的认证状态
+  useEffect(() => {
+    const initializeAuthState = async () => {
+      const token = localStorage.getItem('auth_token');
+      const userData = localStorage.getItem('auth_user');
+
+      if (token && userData) {
+        try {
+          const user = JSON.parse(userData);
+          dispatch(setUser(user));
+          dispatch(
+            setTokens({
+              token,
+              refreshToken: localStorage.getItem('auth_refresh_token'),
+            })
+          );
+
+          // 验证 token 是否仍然有效
+          await handleValidateToken(token);
+        } catch (error) {
+          console.error('Failed to restore auth state:', error);
+          // 清除无效的存储数据
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+          localStorage.removeItem('auth_refresh_token');
+        }
+      }
+    };
+
+    initializeAuthState();
+  }, []);
+
   // 包装异步操作
-  const handleLogin = async (credentials: LoginCredentials) => {
+  const handleLogin = async (credentials: LoginRequest) => {
     await dispatch(login(credentials)).unwrap();
   };
 
@@ -117,12 +181,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     await dispatch(changePassword(data)).unwrap();
   };
 
-  const handleValidateToken = async () => {
-    await dispatch(validateToken()).unwrap();
+  const handleValidateTokenWrapper = async () => {
+    await handleValidateToken();
   };
 
   const handleInitializeAuth = (useClerk?: boolean) => {
-    dispatch(initializeAuth(useClerk || false));
+    dispatch(initializeAuth(useClerk ? 'clerk' : 'local'));
   };
 
   // 上下文值
@@ -141,7 +205,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     getCurrentUser: handleGetCurrentUser,
     updateProfile: handleUpdateProfile,
     changePassword: handleChangePassword,
-    validateToken: handleValidateToken,
+    validateToken: handleValidateTokenWrapper,
     initializeAuth: handleInitializeAuth,
   };
 
@@ -151,47 +215,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 };
 
 // 使用认证上下文的Hook
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-
   return context;
 };
 
-// 认证状态Hook（简化版）
-export const useAuthState = () => {
-  const { user, isAuthenticated, isLoading, error } = useAuth();
-  return { user, isAuthenticated, isLoading, error };
-};
-
-// 认证操作Hook（简化版）
-export const useAuthActions = () => {
-  const {
-    login,
-    register,
-    logout,
-    refreshToken,
-    getCurrentUser,
-    updateProfile,
-    changePassword,
-    validateToken,
-    initializeAuth,
-  } = useAuth();
-
-  return {
-    login,
-    register,
-    logout,
-    refreshToken,
-    getCurrentUser,
-    updateProfile,
-    changePassword,
-    validateToken,
-    initializeAuth,
-  };
-};
-
-export default AuthContext;
+// 默认导出
+export default AuthProvider;

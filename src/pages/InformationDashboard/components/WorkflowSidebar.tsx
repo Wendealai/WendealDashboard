@@ -1,9 +1,9 @@
 /**
- * 工作流侧边栏组件
- * 提供工作流选择、控制和状态监控功能
+ * Workflow Sidebar Component
+ * Provides workflow selection, control and status monitoring functionality
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Card,
@@ -14,13 +14,14 @@ import {
   Tooltip,
   Typography,
   Divider,
-  Badge,
   Alert,
   Progress,
   Empty,
   Spin,
-  message,
+  Row,
+  Col,
 } from 'antd';
+import { useMessage } from '@/hooks';
 import {
   PlayCircleOutlined,
   ReloadOutlined,
@@ -48,11 +49,12 @@ import {
   WorkflowSettingsButton,
   WorkflowSettingsModal,
 } from '@/components/workflow';
+import WorkflowCard from '@/components/workflow/WorkflowCard';
 
 const { Text, Title } = Typography;
 
 /**
- * 工作流侧边栏组件属性接口
+ * Workflow Sidebar Component Props Interface
  */
 interface WorkflowSidebarProps {
   className?: string;
@@ -62,7 +64,7 @@ interface WorkflowSidebarProps {
 }
 
 /**
- * 获取工作流状态颜色
+ * Get workflow status color
  */
 const getWorkflowStatusColor = (status: WorkflowStatus): string => {
   switch (status) {
@@ -78,561 +80,632 @@ const getWorkflowStatusColor = (status: WorkflowStatus): string => {
 };
 
 /**
- * 工作流侧边栏组件
+ * Workflow Sidebar Component
  */
-const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
-  className,
-  onWorkflowSelect,
-  onWorkflowTriggered,
-  onRedditDataReceived,
-}) => {
-  const { t } = useTranslation();
-  const dispatch = useAppDispatch();
-  const workflows = useAppSelector(selectWorkflowsList);
-  const workflowStats = useAppSelector(selectWorkflowStats);
-  const loading = useAppSelector(selectLoading);
+const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
+  ({
+    className,
+    onWorkflowSelect,
+    onWorkflowTriggered,
+    onRedditDataReceived,
+  }) => {
+    const { t } = useTranslation();
+    const dispatch = useAppDispatch();
+    const message = useMessage();
+    const workflows = useAppSelector(selectWorkflowsList);
+    const workflowStats = useAppSelector(selectWorkflowStats);
+    const loading = useAppSelector(selectLoading);
 
-  // 组件状态
-  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(
-    null
-  );
-  const [redditLoading, setRedditLoading] = useState(false);
-  const [redditProgressStatus, setRedditProgressStatus] = useState('');
-  const [redditError, setRedditError] = useState<string | null>(null);
-  const [lastUpdatedTimes, setLastUpdatedTimes] = useState<
-    Record<string, Date>
-  >(() => {
-    // 从localStorage加载Last Updated时间
-    try {
-      const savedTimes = localStorage.getItem('lastUpdatedTimes');
-      if (savedTimes) {
-        const parsed = JSON.parse(savedTimes);
-        // 将字符串转换回Date对象
-        const converted: Record<string, Date> = {};
-        Object.keys(parsed).forEach(key => {
-          converted[key] = new Date(parsed[key]);
+    // Component state
+    const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(
+      null
+    );
+    const [redditLoading, setRedditLoading] = useState(false);
+    const [redditProgressStatus, setRedditProgressStatus] = useState('');
+    const [redditError, setRedditError] = useState<string | null>(null);
+
+    const [lastUpdatedTimes, setLastUpdatedTimes] = useState<
+      Record<string, Date>
+    >(() => {
+      // Load Last Updated times from localStorage
+      try {
+        const savedTimes = localStorage.getItem('lastUpdatedTimes');
+        if (savedTimes) {
+          const parsed = JSON.parse(savedTimes);
+          // Convert strings back to Date objects
+          const converted: Record<string, Date> = {};
+          Object.keys(parsed).forEach(key => {
+            converted[key] = new Date(parsed[key]);
+          });
+          return converted;
+        }
+        return {};
+      } catch (error) {
+        console.error('Failed to load Last Updated times:', error);
+        return {};
+      }
+    });
+    const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+    const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(
+      null
+    );
+    const [currentWorkflowSettings, setCurrentWorkflowSettings] =
+      useState<any>(null);
+    const [workflowLoadingStates, setWorkflowLoadingStates] = useState<
+      Record<string, boolean>
+    >({});
+    const [workflowErrors, setWorkflowErrors] = useState<
+      Record<string, string | null>
+    >({});
+    const [workflowProgressStates, setWorkflowProgressStates] = useState<
+      Record<string, string>
+    >({});
+
+    // Workflow settings cache
+    const [workflowSettingsCache, setWorkflowSettingsCache] = useState<
+      Map<string, any>
+    >(new Map());
+
+    /**
+     * Initialize and load workflow list
+     */
+    useEffect(() => {
+      dispatch(fetchWorkflows());
+    }, [dispatch]);
+
+    /**
+     * Persist Last Updated times to localStorage
+     */
+    useEffect(() => {
+      try {
+        localStorage.setItem(
+          'lastUpdatedTimes',
+          JSON.stringify(lastUpdatedTimes)
+        );
+      } catch (error) {
+        console.error('Failed to save Last Updated times:', error);
+      }
+    }, [lastUpdatedTimes]);
+
+    /**
+     * Handle workflow selection
+     */
+    const handleWorkflowSelect = useCallback(
+      (workflow: Workflow) => {
+        setSelectedWorkflow(workflow);
+        onWorkflowSelect?.(workflow);
+      },
+      [onWorkflowSelect]
+    );
+
+    /**
+     * Handle workflow trigger
+     */
+    const handleTriggerWorkflow = useCallback(
+      async (workflow: Workflow) => {
+        try {
+          const result = await dispatch(
+            triggerWorkflow({
+              workflowId: workflow.id,
+              data: {},
+              waitTill: 'EXECUTED',
+            })
+          ).unwrap();
+
+          // Update Last Updated time
+          setLastUpdatedTimes(prev => ({
+            ...prev,
+            [workflow.id]: new Date(),
+          }));
+
+          onWorkflowTriggered?.(workflow.id, result.executionId);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          const detailedError = `工作流执行失败：\n工作流：${workflow.name}\n文件：WorkflowSidebar.tsx\n错误详情：${errorMessage}`;
+          console.error('Failed to trigger workflow:', detailedError);
+        }
+      },
+      [dispatch, onWorkflowTriggered]
+    );
+
+    /**
+     * Handle workflow trigger (for WorkflowCard component)
+     */
+    const handleWorkflowTrigger = useCallback(
+      async (workflow: Workflow) => {
+        // Set loading state
+        setWorkflowLoadingStates(prev => ({ ...prev, [workflow.id]: true }));
+        setWorkflowErrors(prev => ({ ...prev, [workflow.id]: null }));
+        setRedditProgressStates(prev => ({
+          ...prev,
+          [workflow.id]: t('informationDashboard.workflow.triggeringWorkflow'),
+        }));
+
+        try {
+          const result = await dispatch(
+            triggerWorkflow({
+              workflowId: workflow.id,
+              data: {},
+              waitTill: 'EXECUTED',
+            })
+          ).unwrap();
+
+          // Update Last Updated time
+          setLastUpdatedTimes(prev => ({
+            ...prev,
+            [workflow.id]: new Date(),
+          }));
+
+          setRedditProgressStates(prev => ({
+            ...prev,
+            [workflow.id]: t('informationDashboard.workflow.workflowCompleted'),
+          }));
+          onWorkflowTriggered?.(workflow.id, result.executionId);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          const detailedError = `工作流 "${workflow.name}" 触发失败：\n文件：WorkflowSidebar.tsx\n错误详情：${errorMessage}`;
+          console.error('Failed to trigger workflow:', detailedError);
+          setWorkflowErrors(prev => ({
+            ...prev,
+            [workflow.id]: detailedError,
+          }));
+        } finally {
+          setWorkflowLoadingStates(prev => ({ ...prev, [workflow.id]: false }));
+          // Clear progress status (delayed 3 seconds)
+          setTimeout(() => {
+            setWorkflowProgressStates(prev => ({ ...prev, [workflow.id]: '' }));
+          }, 3000);
+        }
+      },
+      [dispatch, onWorkflowTriggered]
+    );
+
+    /**
+     * Handle Reddit workflow startup - use redditWebhookService to parse data
+     */
+    const handleRedditWorkflowStart = useCallback(async () => {
+      setRedditLoading(true);
+      setRedditError(null);
+      setRedditProgressStatus(
+        t('informationDashboard.workflow.connectingRedditWebhook')
+      );
+
+      try {
+        // 检查是否配置了webhook URL，如果没有配置则使用默认URL
+        let webhookUrl = redditWorkflowSettings.webhookUrl;
+
+        // 如果用户没有配置webhook URL或使用示例URL，则使用默认的正确URL
+        if (
+          !webhookUrl ||
+          webhookUrl.trim() === '' ||
+          webhookUrl === 'https://api.example.com/reddit-webhook'
+        ) {
+          webhookUrl = 'https://n8n.wendealai.com/webhook/reddithot'; // 使用用户提供的正确默认URL
+          console.log('使用默认Reddit webhook URL:', webhookUrl);
+        }
+
+        // 使用redditWebhookService触发webhook，传入配置的URL或默认URL
+        const webhookResponse = await redditWebhookService.triggerWebhook(
+          (status: string) => {
+            setRedditProgressStatus(status);
+          },
+          webhookUrl
+        );
+
+        console.log('Webhook raw response:', webhookResponse);
+
+        // Use redditWebhookService to process webhook response
+        const processedData =
+          redditWebhookService.processWebhookResponse(webhookResponse);
+
+        console.log('Processed data:', {
+          postsCount: processedData.posts?.length || 0,
+          subredditsCount: processedData.subreddits?.length || 0,
         });
-        return converted;
+
+        // Convert to format expected by WorkflowSidebar
+        const parsedData: ParsedSubredditData[] = processedData.subreddits.map(
+          subreddit => ({
+            subreddit: subreddit.name,
+            category: t('informationDashboard.reddit.category'),
+            posts: subreddit.posts.map(post => ({
+              title: post.title,
+              score: post.upvotes,
+              comments: post.comments,
+              url: post.url,
+              author: 'u/reddit_user',
+              created: new Date().toLocaleString('en-US'),
+            })),
+          })
+        );
+
+        console.log('Converted data:', {
+          subredditsCount: parsedData.length,
+          totalPosts: parsedData.reduce(
+            (sum, sub) => sum + sub.posts.length,
+            0
+          ),
+        });
+
+        setRedditProgressStatus(
+          t('informationDashboard.workflow.dataFetchCompleted')
+        );
+
+        // Update Reddit workflow Last Updated time
+        setLastUpdatedTimes(prev => ({
+          ...prev,
+          'reddit-workflow': new Date(),
+        }));
+
+        onRedditDataReceived?.(parsedData);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        // 如果是WebhookError，直接使用详细的错误信息
+        if (error instanceof Error && error.name === 'WebhookError') {
+          console.error('Reddit工作流Webhook错误:', errorMessage);
+          setRedditError(errorMessage);
+        } else {
+          // 其他类型的错误，提供通用的错误信息
+          const detailedError = `Reddit工作流执行失败：\n\n❌ 错误详情：\n${errorMessage}\n\n📁 文件位置：WorkflowSidebar.tsx\n\n🔍 调试信息：\n• 请检查网络连接\n• 确认工作流配置是否正确\n• 验证服务是否正常运行`;
+          console.error('Reddit工作流执行失败:', detailedError);
+          setRedditError(detailedError);
+        }
+      } finally {
+        setRedditLoading(false);
+        setTimeout(() => {
+          setRedditProgressStatus('');
+        }, 2000);
       }
-      return {};
-    } catch (error) {
-      console.error('加载Last Updated时间失败:', error);
-      return {};
-    }
-  });
-  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+    }, [onRedditDataReceived]);
 
-  /**
-   * 初始化加载工作流列表
-   */
-  useEffect(() => {
-    dispatch(fetchWorkflows());
-  }, [dispatch]);
+    /**
+     * Refresh workflow list
+     */
+    const handleRefresh = useCallback(() => {
+      dispatch(fetchWorkflows());
+    }, [dispatch]);
 
-  /**
-   * 持久化Last Updated时间到localStorage
-   */
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        'lastUpdatedTimes',
-        JSON.stringify(lastUpdatedTimes)
-      );
-    } catch (error) {
-      console.error('保存Last Updated时间失败:', error);
-    }
-  }, [lastUpdatedTimes]);
+    /**
+     * Open settings modal for a specific workflow
+     */
+    const handleOpenSettings = useCallback(
+      (workflowId: string, workflowName?: string) => {
+        setCurrentWorkflowId(workflowId);
+        setSettingsModalVisible(true);
+        // Load settings for this specific workflow
+        loadWorkflowSettings(workflowId, workflowName);
+      },
+      []
+    );
 
-  /**
-   * 处理工作流选择
-   */
-  const handleWorkflowSelect = (workflow: Workflow) => {
-    setSelectedWorkflow(workflow);
-    onWorkflowSelect?.(workflow);
-  };
-
-  /**
-   * 处理工作流触发
-   */
-  const handleTriggerWorkflow = async (workflow: Workflow) => {
-    try {
-      const result = await dispatch(
-        triggerWorkflow({
-          workflowId: workflow.id,
-          data: {},
-          waitTill: 'EXECUTED',
-        })
-      ).unwrap();
-
-      // 更新Last Updated时间
-      setLastUpdatedTimes(prev => ({
-        ...prev,
-        [workflow.id]: new Date(),
-      }));
-
-      onWorkflowTriggered?.(workflow.id, result.executionId);
-    } catch (error) {
-      console.error('工作流触发失败:', error);
-    }
-  };
-
-  /**
-   * 处理Reddit工作流启动 - 使用redditWebhookService解析数据
-   */
-  const handleRedditWorkflowStart = async () => {
-    setRedditLoading(true);
-    setRedditError(null);
-    setRedditProgressStatus('正在连接Reddit Webhook...');
-
-    try {
-      // 调用真实的Reddit webhook
-      const response = await fetch(
-        'https://n8n.wendealai.com/webhook/reddithot'
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      setRedditProgressStatus('正在解析数据...');
-      const data = await response.json();
-
-      console.log('Webhook原始响应:', data);
-
-      // 使用redditWebhookService处理webhook响应
-      const processedData = redditWebhookService.processWebhookResponse(data);
-
-      console.log('处理后的数据:', {
-        postsCount: processedData.posts?.length || 0,
-        subredditsCount: processedData.subreddits?.length || 0,
-      });
-
-      // 转换为WorkflowSidebar期望的格式
-      const parsedData: ParsedSubredditData[] = processedData.subreddits.map(
-        subreddit => ({
-          subreddit: subreddit.name,
-          category: '热门',
-          posts: subreddit.posts.map(post => ({
-            title: post.title,
-            score: post.upvotes,
-            comments: post.comments,
-            url: post.url,
-            author: 'u/reddit_user',
-            created: new Date().toLocaleString('zh-CN'),
-          })),
-        })
-      );
-
-      console.log('转换后的数据:', {
-        subredditsCount: parsedData.length,
-        totalPosts: parsedData.reduce((sum, sub) => sum + sub.posts.length, 0),
-      });
-
-      setRedditProgressStatus('数据获取完成!');
-
-      // 更新Reddit工作流的Last Updated时间
-      setLastUpdatedTimes(prev => ({
-        ...prev,
-        'reddit-workflow': new Date(),
-      }));
-
-      onRedditDataReceived?.(parsedData);
-    } catch (error) {
-      console.error('Reddit工作流执行失败:', error);
-      setRedditError('Reddit数据获取失败，请检查网络连接或稍后重试');
-    } finally {
-      setRedditLoading(false);
-      setTimeout(() => {
-        setRedditProgressStatus('');
-      }, 2000);
-    }
-  };
-
-  /**
-   * 刷新工作流列表
-   */
-  const handleRefresh = () => {
-    dispatch(fetchWorkflows());
-  };
-
-  /**
-   * 打开设置模态框
-   */ // 处理设置模态框
-  const handleOpenSettings = () => {
-    setSettingsModalVisible(true);
-  };
-
-  // Reddit工作流的设置状态
-  const [redditWorkflowSettings, setRedditWorkflowSettings] = useState({
-    name: 'Reddit 热门帖子',
-    webhookUrl: 'https://api.example.com/webhook/reddit',
-    enabled: true,
-  });
-
-  /**
-   * 关闭设置模态框
-   */
-  const handleCloseSettings = () => {
-    setSettingsModalVisible(false);
-  };
-
-  /**
-   * 保存设置
-   */
-  const handleSaveSettings = (settings: any) => {
-    console.log('保存工作流设置:', settings);
-
-    // 更新Reddit工作流的设置
-    setRedditWorkflowSettings({
-      name: settings.name || redditWorkflowSettings.name,
-      webhookUrl: settings.webhookUrl || redditWorkflowSettings.webhookUrl,
-      enabled: settings.enabled ?? redditWorkflowSettings.enabled,
+    // Reddit workflow settings state
+    const [redditWorkflowSettings, setRedditWorkflowSettings] = useState({
+      name: t('informationDashboard.reddit.dataCollection'),
+      webhookUrl: 'https://n8n.wendealai.com/webhook/reddithot', // 使用正确的默认webhook URL
+      enabled: true,
     });
 
-    // 显示保存成功消息
-    message.success('工作流设置已保存');
+    // Load workflow settings function
+    const loadWorkflowSettings = useCallback(
+      async (workflowId: string, workflowName?: string) => {
+        try {
+          const { workflowSettingsService } = await import(
+            '@/services/workflowSettingsService'
+          );
+          const response =
+            await workflowSettingsService.getSettings(workflowId);
 
-    setSettingsModalVisible(false);
-  };
-
-  return (
-    <div
-      className={`workflow-sidebar ${className} compact-layout`}
-      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-    >
-      {/* 工作流统计 */}
-      <Card
-        size='small'
-        className='compact-spacing'
-        style={{ marginBottom: 8 }}
-      >
-        <Space direction='vertical' style={{ width: '100%' }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <Text strong>
-              {t('informationDashboard.statistics.totalWorkflows')}
-            </Text>
-            <Badge
-              count={(workflowStats?.totalWorkflows || 0) + 1}
-              showZero
-              color='#1890ff'
-            />
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <Text strong>
-              {t('informationDashboard.statistics.activeWorkflows')}
-            </Text>
-            <Badge
-              count={(workflowStats?.activeWorkflows || 0) + 1}
-              showZero
-              color='#52c41a'
-            />
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <Text strong>
-              {t('informationDashboard.statistics.todayExecutions')}
-            </Text>
-            <Badge
-              count={workflowStats?.todayExecutions || 0}
-              showZero
-              color='#722ed1'
-            />
-          </div>
-        </Space>
-      </Card>
-
-      {/* 工作流列表 */}
-      <Card
-        size='small'
-        title={
-          <Space>
-            <SettingOutlined />
-            <span>{t('informationDashboard.workflowPanel.workflowList')}</span>
-          </Space>
-        }
-        extra={
-          <Space>
-            <Tooltip title={t('informationDashboard.actions.refresh')}>
-              <Button
-                type='text'
-                icon={<ReloadOutlined />}
-                onClick={handleRefresh}
-                loading={loading}
-                size='small'
-              />
-            </Tooltip>
-          </Space>
-        }
-        style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
-        bodyStyle={{ flex: 1, padding: 0 }}
-      >
-        <Spin spinning={loading}>
-          {/* Reddit工作流 */}
-          <List.Item
-            style={{
-              padding: '4px 8px',
-              cursor: 'pointer',
-              backgroundColor:
-                selectedWorkflow?.id === 'reddit-workflow'
-                  ? '#e6f7ff'
-                  : 'transparent',
-              borderLeft:
-                selectedWorkflow?.id === 'reddit-workflow'
-                  ? '3px solid #1890ff'
-                  : '3px solid transparent',
-            }}
-            onClick={() =>
-              handleWorkflowSelect({
-                id: 'reddit-workflow',
-                name: redditWorkflowSettings.name,
-                description: '获取Reddit热门帖子数据',
-                status: 'active' as WorkflowStatus,
-                nodeCount: 3,
-                lastExecution: new Date().toISOString(),
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              })
+          let settings;
+          if (response.success && response.data) {
+            settings = response.data;
+          } else {
+            // Default settings for different workflows
+            if (workflowId === 'reddit-workflow') {
+              settings = {
+                name:
+                  workflowName ||
+                  t('informationDashboard.reddit.dataCollection'),
+                webhookUrl: 'https://n8n.wendealai.com/webhook/reddithot', // 使用正确的默认webhook URL
+                enabled: true,
+              };
+            } else {
+              settings = {
+                name: workflowName || 'Workflow',
+                enabled: true,
+              };
             }
-          >
-            <List.Item.Meta
-              title={
-                <Space>
-                  <RedditOutlined style={{ color: '#ff4500' }} />
-                  <Text strong style={{ fontSize: 14 }}>
-                    {redditWorkflowSettings.name}
-                  </Text>
-                  <Tag color='#52c41a' size='small'>
-                    active
-                  </Tag>
-                </Space>
-              }
-              description={
-                <Space direction='vertical' size={4} style={{ width: '100%' }}>
-                  <Text type='secondary' style={{ fontSize: 12 }}>
-                    获取Reddit热门帖子数据
-                  </Text>
-                  <Space size={8}>
-                    <Text type='secondary' style={{ fontSize: 11 }}>
-                      <SettingOutlined style={{ marginRight: 2 }} />3 节点
-                    </Text>
-                    <Text type='secondary' style={{ fontSize: 11 }}>
-                      <ClockCircleOutlined style={{ marginRight: 2 }} />
-                      {new Date().toLocaleDateString()}
-                    </Text>
-                  </Space>
-                  {redditError && (
-                    <Alert
-                      message={redditError}
-                      type='error'
-                      size='small'
-                      closable
-                      style={{ marginTop: 4, fontSize: 10 }}
-                      onClose={() => setRedditError(null)}
-                    />
-                  )}
-                  {redditProgressStatus && (
-                    <div style={{ marginTop: 4 }}>
-                      <Text type='secondary' style={{ fontSize: 10 }}>
-                        {redditProgressStatus}
-                      </Text>
-                      <Progress
-                        percent={redditLoading ? undefined : 100}
-                        status={redditLoading ? 'active' : 'success'}
-                        size='small'
-                        showInfo={false}
-                        style={{ marginTop: 2 }}
-                      />
-                    </div>
-                  )}
-                  <Space
-                    direction='vertical'
-                    size={2}
-                    style={{ width: '100%' }}
-                  >
-                    {lastUpdatedTimes['reddit-workflow'] && (
-                      <Text type='secondary' style={{ fontSize: 11 }}>
-                        <ClockCircleOutlined style={{ marginRight: 2 }} />
-                        Last Updated:{' '}
-                        {lastUpdatedTimes['reddit-workflow'].toLocaleString(
-                          'zh-CN'
-                        )}
-                      </Text>
-                    )}
-                    <Space style={{ marginTop: 4 }}>
-                      <Button
-                        type='primary'
-                        size='small'
-                        icon={
-                          redditLoading ? (
-                            <LoadingOutlined />
-                          ) : (
-                            <ThunderboltOutlined />
-                          )
-                        }
-                        loading={redditLoading}
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleRedditWorkflowStart();
-                        }}
-                      >
-                        {redditLoading ? '获取中...' : '启动 Reddit 工作流'}
-                      </Button>
-                      <Tooltip title='工作流设置'>
-                        <Button
-                          type='text'
-                          icon={<SettingOutlined />}
-                          size='small'
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleOpenSettings();
-                          }}
-                          style={{ color: '#1890ff' }}
-                        />
-                      </Tooltip>
-                    </Space>
-                  </Space>
-                </Space>
-              }
-            />
-          </List.Item>
+          }
 
-          {/* 其他工作流 */}
-          {workflows && workflows.length > 0 ? (
-            <List
-              dataSource={workflows.filter(w => w.name !== '数据同步工作流')}
-              renderItem={workflow => (
-                <List.Item
-                  style={{
-                    padding: '4px 8px',
-                    cursor: 'pointer',
-                    backgroundColor:
-                      selectedWorkflow?.id === workflow.id
-                        ? '#e6f7ff'
-                        : 'transparent',
-                    borderLeft:
-                      selectedWorkflow?.id === workflow.id
-                        ? '3px solid #1890ff'
-                        : '3px solid transparent',
+          setCurrentWorkflowSettings(settings);
+          setWorkflowSettingsCache(
+            prev => new Map(prev.set(workflowId, settings))
+          );
+
+          // Update reddit workflow settings if it's the reddit workflow
+          if (workflowId === 'reddit-workflow') {
+            setRedditWorkflowSettings(settings);
+          }
+        } catch (error) {
+          console.error('Failed to load workflow settings:', error);
+        }
+      },
+      [t]
+    );
+
+    // Load reddit workflow settings on component mount
+    useEffect(() => {
+      loadWorkflowSettings(
+        'reddit-workflow',
+        t('informationDashboard.reddit.dataCollection')
+      );
+    }, [loadWorkflowSettings, t]);
+
+    // Use useMemo to optimize computed values
+    const filteredWorkflows = useMemo(() => {
+      return workflows.filter(
+        workflow => workflow.id !== 'invoice-ocr-workflow'
+      );
+    }, [workflows]);
+
+    const hasWorkflows = useMemo(() => {
+      return workflows.length > 0;
+    }, [workflows.length]);
+
+    const redditWorkflowStatus = useMemo(() => {
+      if (redditLoading) return 'loading';
+      if (redditError) return 'error';
+      return 'idle';
+    }, [redditLoading, redditError]);
+
+    /**
+     * Close settings modal
+     */
+    const handleCloseSettings = useCallback(() => {
+      setSettingsModalVisible(false);
+    }, []);
+
+    /**
+     * Save settings
+     */
+    const handleSaveSettings = useCallback(
+      async (settings: any) => {
+        console.log('Save workflow settings:', settings);
+
+        if (!currentWorkflowId) {
+          message.error('No workflow selected');
+          return;
+        }
+
+        try {
+          // Save to workflowSettingsService
+          const { workflowSettingsService } = await import(
+            '@/services/workflowSettingsService'
+          );
+          const response = await workflowSettingsService.saveSettings(
+            currentWorkflowId,
+            settings
+          );
+
+          if (response.success && response.data) {
+            // Update cache
+            setWorkflowSettingsCache(
+              prev => new Map(prev.set(currentWorkflowId, response.data))
+            );
+
+            // Update reddit workflow settings if it's the reddit workflow
+            if (currentWorkflowId === 'reddit-workflow') {
+              setRedditWorkflowSettings(response.data);
+            }
+
+            // Show save success message
+            message.success(t('informationDashboard.workflow.settingsSaved'));
+          } else {
+            message.error(response.error || 'Failed to save settings');
+          }
+        } catch (error) {
+          console.error('Failed to save workflow settings:', error);
+          message.error('Error occurred while saving settings');
+        }
+
+        setSettingsModalVisible(false);
+        setCurrentWorkflowId(null);
+        setCurrentWorkflowSettings(null);
+      },
+      [currentWorkflowId, message, t]
+    );
+
+    return (
+      <div
+        className={`workflow-sidebar ${className} compact-layout`}
+        style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+      >
+        {/* Workflow list */}
+        <Card
+          size='small'
+          title={
+            <Space>
+              <SettingOutlined />
+              <span>
+                {t('informationDashboard.workflowPanel.workflowList')}
+              </span>
+            </Space>
+          }
+          extra={
+            <Space>
+              <Tooltip title={t('informationDashboard.actions.refresh')}>
+                <Button
+                  type='text'
+                  icon={<ReloadOutlined />}
+                  onClick={handleRefresh}
+                  loading={loading}
+                  size='small'
+                />
+              </Tooltip>
+            </Space>
+          }
+          style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+          styles={{ body: { flex: 1, padding: 0 } }}
+        >
+          <Spin spinning={loading}>
+            <Row gutter={[6, 6]} style={{ padding: '6px' }}>
+              {/* Reddit workflow card */}
+              <Col xs={24} sm={24} md={12} lg={24} xl={12}>
+                <WorkflowCard
+                  workflow={{
+                    id: 'reddit-workflow',
+                    name: redditWorkflowSettings.name,
+                    description: t('informationDashboard.reddit.getHotPosts'),
+                    status: 'active' as WorkflowStatus,
+                    nodeCount: 3,
+                    lastExecution: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
                   }}
-                  onClick={() => handleWorkflowSelect(workflow)}
-                >
-                  <List.Item.Meta
-                    title={
-                      <Space>
-                        <Text strong style={{ fontSize: 14 }}>
-                          {workflow.name}
-                        </Text>
-                        <Tag
-                          color={getWorkflowStatusColor(workflow.status)}
-                          size='small'
-                        >
-                          {workflow.status === 'active'
-                            ? t(
-                                'informationDashboard.workflowPanel.status.active'
-                              )
-                            : workflow.status === 'inactive'
-                              ? t(
-                                  'informationDashboard.workflowPanel.status.inactive'
-                                )
-                              : t(
-                                  'informationDashboard.workflowPanel.status.error'
-                                )}
-                        </Tag>
-                      </Space>
-                    }
-                    description={
-                      <Space
-                        direction='vertical'
-                        size={4}
-                        style={{ width: '100%' }}
-                      >
-                        <Text type='secondary' style={{ fontSize: 12 }}>
-                          {workflow.description || t('common.noDescription')}
-                        </Text>
-                        <Space size={8}>
-                          <Text type='secondary' style={{ fontSize: 11 }}>
-                            <SettingOutlined style={{ marginRight: 2 }} />
-                            {workflow.nodeCount || 0} 节点
-                          </Text>
-                          <Text type='secondary' style={{ fontSize: 11 }}>
-                            <ClockCircleOutlined style={{ marginRight: 2 }} />
-                            {workflow.lastExecution
-                              ? new Date(
-                                  workflow.lastExecution
-                                ).toLocaleDateString()
-                              : t(
-                                  'informationDashboard.workflowPanel.neverExecuted'
-                                )}
-                          </Text>
-                        </Space>
-                        {lastUpdatedTimes[workflow.id] && (
-                          <Text type='secondary' style={{ fontSize: 11 }}>
-                            <ClockCircleOutlined style={{ marginRight: 2 }} />
-                            Last Updated:{' '}
-                            {lastUpdatedTimes[workflow.id].toLocaleString(
-                              'zh-CN'
-                            )}
-                          </Text>
-                        )}
-                        <Button
-                          type='primary'
-                          size='small'
-                          icon={<PlayCircleOutlined />}
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleTriggerWorkflow(workflow);
-                          }}
-                          disabled={workflow.status !== 'active'}
-                          style={{ marginTop: 4 }}
-                        >
-                          {t('informationDashboard.actions.trigger')}
-                        </Button>
-                      </Space>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-          ) : (
-            <div style={{ padding: 16 }}>
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={t(
-                  'informationDashboard.workflowPanel.noWorkflows'
-                )}
-                style={{ margin: 0 }}
-              />
-            </div>
-          )}
-        </Spin>
-      </Card>
+                  selected={selectedWorkflow?.id === 'reddit-workflow'}
+                  loading={redditLoading}
+                  error={redditError}
+                  progressStatus={redditProgressStatus}
+                  onClick={() =>
+                    handleWorkflowSelect({
+                      id: 'reddit-workflow',
+                      name: redditWorkflowSettings.name,
+                      description: t('informationDashboard.reddit.getHotPosts'),
+                      status: 'active' as WorkflowStatus,
+                      nodeCount: 3,
+                      lastExecution: new Date().toISOString(),
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    })
+                  }
+                  onTrigger={() => handleRedditWorkflowStart()}
+                  onSettings={() =>
+                    handleOpenSettings(
+                      'reddit-workflow',
+                      redditWorkflowSettings.name
+                    )
+                  }
+                  size='small'
+                />
+              </Col>
 
-      {/* 工作流设置模态框 */}
-      <WorkflowSettingsModal
-        visible={settingsModalVisible}
-        onClose={handleCloseSettings}
-        onSave={handleSaveSettings}
-        initialSettings={redditWorkflowSettings}
-      />
-    </div>
-  );
-};
+              {/* Invoice OCR workflow card */}
+              <Col xs={24} sm={24} md={12} lg={24} xl={12}>
+                <WorkflowCard
+                  workflow={{
+                    id: 'invoice-ocr-workflow',
+                    name: t('invoiceOCR.title'),
+                    description: t('invoiceOCR.subtitle'),
+                    status: 'active' as WorkflowStatus,
+                    nodeCount: 4,
+                    lastExecution: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  }}
+                  selected={selectedWorkflow?.id === 'invoice-ocr-workflow'}
+                  loading={false}
+                  error={null}
+                  progressStatus=''
+                  onClick={() =>
+                    handleWorkflowSelect({
+                      id: 'invoice-ocr-workflow',
+                      name: t('invoiceOCR.title'),
+                      description: t('invoiceOCR.subtitle'),
+                      status: 'active' as WorkflowStatus,
+                      nodeCount: 4,
+                      lastExecution: new Date().toISOString(),
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    })
+                  }
+                  onTrigger={() => {
+                    // Select Invoice OCR workflow, display on the right side
+                    handleWorkflowSelect({
+                      id: 'invoice-ocr-workflow',
+                      name: t('invoiceOCR.title'),
+                      description: t('invoiceOCR.subtitle'),
+                      status: 'active' as WorkflowStatus,
+                      nodeCount: 4,
+                      lastExecution: new Date().toISOString(),
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    });
+                  }}
+                  onSettings={() => {
+                    // Open settings modal
+                    handleOpenSettings(
+                      'invoice-ocr-workflow',
+                      t('invoiceOCR.title')
+                    );
+                  }}
+                  size='small'
+                />
+              </Col>
+
+              {/* Other workflow cards */}
+              {filteredWorkflows
+                .filter(w => w.name !== 'Data Sync Workflow')
+                .map(workflow => (
+                  <Col
+                    key={workflow.id}
+                    xs={24}
+                    sm={24}
+                    md={12}
+                    lg={24}
+                    xl={12}
+                  >
+                    <WorkflowCard
+                      workflow={workflow}
+                      selected={selectedWorkflow?.id === workflow.id}
+                      loading={workflowLoadingStates[workflow.id] || false}
+                      error={workflowErrors[workflow.id]}
+                      progressStatus={workflowProgressStates[workflow.id]}
+                      lastUpdated={lastUpdatedTimes[workflow.id]}
+                      onClick={() => handleWorkflowSelect(workflow)}
+                      onTrigger={() => handleWorkflowTrigger(workflow)}
+                      onSettings={() =>
+                        handleOpenSettings(workflow.id, workflow.name)
+                      }
+                      size='small'
+                    />
+                  </Col>
+                ))}
+
+              {/* If no workflows, show empty state */}
+              {!hasWorkflows && (
+                <Col span={24}>
+                  <div style={{ padding: 16, textAlign: 'center' }}>
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description={t(
+                        'informationDashboard.workflowPanel.noWorkflows'
+                      )}
+                      style={{ margin: 0 }}
+                    />
+                  </div>
+                </Col>
+              )}
+            </Row>
+          </Spin>
+        </Card>
+
+        {/* Workflow settings modal */}
+        <WorkflowSettingsModal
+          visible={settingsModalVisible}
+          onClose={handleCloseSettings}
+          onSave={handleSaveSettings}
+          initialSettings={currentWorkflowSettings || redditWorkflowSettings}
+          workflowId={currentWorkflowId}
+        />
+      </div>
+    );
+  }
+);
 
 export default WorkflowSidebar;
+
+// Display name for debugging
+WorkflowSidebar.displayName = 'WorkflowSidebar';

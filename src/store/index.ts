@@ -5,6 +5,7 @@ import dashboardSlice from './slices/dashboardSlice';
 import authSlice from './slices/authSlice';
 import informationDashboardSlice from './slices/informationDashboardSlice';
 import redditWorkflowSlice from './slices/redditWorkflowSlice';
+import invoiceOCRSlice from './slices/invoiceOCRSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,12 +15,14 @@ export const store = configureStore({
     auth: authSlice,
     informationDashboard: informationDashboardSlice,
     redditWorkflow: redditWorkflowSlice,
+    invoiceOCR: invoiceOCRSlice,
   },
   middleware: getDefaultMiddleware =>
     getDefaultMiddleware({
       serializableCheck: {
         ignoredActions: [
           'persist/PERSIST',
+          'auth/login/fulfilled',
           'auth/login/rejected',
           'auth/register/rejected',
           'auth/logout/rejected',
@@ -29,9 +32,23 @@ export const store = configureStore({
           'auth/changePassword/rejected',
           'auth/validateToken/rejected',
           'auth/initialize/rejected',
+          'auth/initialize/fulfilled',
         ],
-        ignoredActionsPaths: ['payload.details'],
-        ignoredPaths: ['auth.error.details'],
+        ignoredActionsPaths: [
+          'payload.details',
+          'payload.user.createdAt',
+          'payload.user.updatedAt',
+          'payload.user.lastLoginAt',
+          'payload.sessionExpiry',
+        ],
+        ignoredPaths: [
+          'auth.error.details',
+          'auth.user.createdAt',
+          'auth.user.updatedAt',
+          'auth.user.lastLoginAt',
+          'auth.sessionExpiry',
+          'auth.lastActivity',
+        ],
       },
     }),
 });
@@ -190,3 +207,47 @@ export {
   selectIsSessionExpiringSoon,
   getAuthService,
 } from './slices/authSlice';
+
+// Export Invoice OCR slice and actions
+export {
+  default as invoiceOCRSlice,
+  fetchInvoiceOCRWorkflows,
+  createInvoiceOCRWorkflow,
+  updateInvoiceOCRWorkflow,
+  deleteInvoiceOCRWorkflow,
+  uploadAndProcessFiles,
+  fetchInvoiceOCRResults,
+  fetchInvoiceOCRStatistics,
+  fetchInvoiceOCRExecutions,
+  // Actions
+  setSelectedWorkflow,
+  setSelectedResults,
+  toggleResultSelection,
+  setFilterParams,
+  setPagination,
+  updateUploadProgress,
+  clearUploadProgress,
+  setCurrentWorkflow,
+  setCurrentResult,
+  setCurrentBatchTask,
+  clearErrors,
+  resetState as resetInvoiceOCRState,
+  // Selectors
+  selectInvoiceOCRState,
+  selectInvoiceOCRState as selectInvoiceOCR,
+  selectInvoiceOCRWorkflows,
+  selectCurrentInvoiceOCRWorkflow,
+  selectCurrentInvoiceOCRWorkflow as selectActiveWorkflow,
+  selectInvoiceOCRResults,
+  selectCurrentInvoiceOCRResult,
+  selectCurrentInvoiceOCRResult as selectCurrentResult,
+  selectInvoiceOCRStatistics,
+  selectInvoiceOCRExecutions,
+  selectInvoiceOCRBatchTasks,
+  selectCurrentInvoiceOCRBatchTask,
+  selectCurrentInvoiceOCRBatchTask as selectCurrentBatchTask,
+  selectInvoiceOCRLoading,
+  selectInvoiceOCRErrors,
+  selectInvoiceOCRErrors as selectInvoiceOCRError,
+  selectUploadProgress,
+} from './slices/invoiceOCRSlice';

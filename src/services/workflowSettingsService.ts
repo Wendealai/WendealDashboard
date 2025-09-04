@@ -7,33 +7,45 @@ import type {
 import { workflowValidationService } from './workflowValidationService';
 import { delay } from '../utils';
 
-// 本地存储键名
+// Local storage key names
 const WORKFLOW_SETTINGS_KEY = 'wendeal_workflow_settings';
 const WORKFLOW_SETTINGS_VERSION_KEY = 'wendeal_workflow_settings_version';
 
-// 当前设置版本
+// Current settings version
 const CURRENT_VERSION = '1.0.0';
 
-// 默认工作流设置
-const DEFAULT_SETTINGS: WorkflowSettings = {
-  name: '默认工作流',
-  webhookUrl: '',
-  enabled: true,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
+// Default workflow settings factory
+const getDefaultSettings = (
+  workflowId: string,
+  workflowName?: string
+): WorkflowSettings => {
+  // 为Reddit工作流提供默认的webhook URL
+  const defaultWebhookUrl =
+    workflowId === 'reddit-workflow'
+      ? 'https://n8n.wendealai.com/webhook/reddithot'
+      : ''; // 其他工作流仍需要用户配置
+
+  return {
+    name: workflowName || `${workflowId} Workflow`,
+    webhookUrl: defaultWebhookUrl,
+    enabled: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
 };
 
 /**
- * 工作流设置服务类
- * 管理工作流配置数据的持久化和操作
+ * Workflow Settings Service Class
+ * Manages workflow configuration data persistence and operations
+ * Now supports multiple workflows with independent settings
  */
 export class WorkflowSettingsService {
-  private settings: WorkflowSettings | null = null;
+  private settingsMap: Map<string, WorkflowSettings> = new Map();
   private isInitialized = false;
 
   /**
-   * 初始化服务
-   * 从本地存储加载设置
+   * Initialize service
+   * Load settings from local storage
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
@@ -45,57 +57,67 @@ export class WorkflowSettingsService {
       this.isInitialized = true;
     } catch (error) {
       console.error('Failed to initialize workflow settings service:', error);
-      // 使用默认设置
-      this.settings = { ...DEFAULT_SETTINGS };
+      // Initialize with empty map
+      this.settingsMap.clear();
       this.isInitialized = true;
     }
   }
 
   /**
-   * 获取当前工作流设置
-   * @returns Promise<WorkflowSettingsResponse>
+   * Get workflow settings for a specific workflow
+   * @param workflowId - The ID of the workflow
+   * @param workflowName - Optional name for default settings
+   * @returns Current settings or default settings for the workflow
    */
-  async getSettings(): Promise<WorkflowSettingsResponse> {
+  async getSettings(
+    workflowId: string,
+    workflowName?: string
+  ): Promise<WorkflowSettingsResponse> {
     try {
       await this.ensureInitialized();
 
-      // 模拟API延迟
+      // Simulate API delay
       await delay(200 + Math.random() * 300);
 
-      if (!this.settings) {
-        return {
-          success: false,
-          error: '工作流设置未找到',
-          errorCode: 'SETTINGS_NOT_FOUND',
-        };
+      let settings = this.settingsMap.get(workflowId);
+      if (!settings) {
+        // Create default settings for this workflow
+        settings = getDefaultSettings(workflowId, workflowName);
+        this.settingsMap.set(workflowId, settings);
+        await this.saveToStorage();
       }
 
       return {
         success: true,
-        data: { ...this.settings },
+        data: { ...settings },
       };
     } catch (error) {
       console.error('Failed to get workflow settings:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : '获取设置失败',
+        error:
+          error instanceof Error ? error.message : 'Failed to get settings',
         errorCode: 'GET_SETTINGS_FAILED',
       };
     }
   }
 
   /**
-   * 保存工作流设置
-   * @param settings 要保存的设置
+   * Save workflow settings for a specific workflow
+   * @param workflowId - The ID of the workflow
+   * @param settings - Settings to save
+   * @param workflowName - Optional name for default settings
    * @returns Promise<WorkflowSettingsResponse>
    */
   async saveSettings(
-    settings: Partial<WorkflowSettings>
+    workflowId: string,
+    settings: Partial<WorkflowSettings>,
+    workflowName?: string
   ): Promise<WorkflowSettingsResponse> {
     try {
       await this.ensureInitialized();
 
-      // 验证设置
+      // Validate settings
       const validation = await this.validateSettings(settings);
       if (!validation.isValid) {
         return {
@@ -105,21 +127,26 @@ export class WorkflowSettingsService {
         };
       }
 
-      // 模拟API延迟
+      // Simulate API delay
       await delay(500 + Math.random() * 500);
 
-      // 更新设置
+      // Get existing settings or create default
+      const currentSettings =
+        this.settingsMap.get(workflowId) ||
+        getDefaultSettings(workflowId, workflowName);
+
+      // Update settings
       const now = new Date().toISOString();
       const updatedSettings: WorkflowSettings = {
-        ...this.settings,
+        ...currentSettings,
         ...settings,
         updatedAt: now,
-        // 如果是新创建的设置，设置创建时间
-        createdAt: this.settings?.createdAt || now,
+        // Set creation time if this is a new setting
+        createdAt: currentSettings?.createdAt || now,
       };
 
-      // 保存到内存和本地存储
-      this.settings = updatedSettings;
+      // Save to memory and local storage
+      this.settingsMap.set(workflowId, updatedSettings);
       await this.saveToStorage();
 
       return {
@@ -130,15 +157,16 @@ export class WorkflowSettingsService {
       console.error('Failed to save workflow settings:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : '保存设置失败',
+        error:
+          error instanceof Error ? error.message : 'Failed to save settings',
         errorCode: 'SAVE_SETTINGS_FAILED',
       };
     }
   }
 
   /**
-   * 更新工作流设置
-   * @param updates 要更新的字段
+   * Update workflow settings
+   * @param updates Fields to update
    * @returns Promise<WorkflowSettingsResponse>
    */
   async updateSettings(
@@ -150,12 +178,12 @@ export class WorkflowSettingsService {
       if (!this.settings) {
         return {
           success: false,
-          error: '工作流设置未找到',
+          error: 'Workflow settings not found',
           errorCode: 'SETTINGS_NOT_FOUND',
         };
       }
 
-      // 合并更新
+      // Merge updates
       const updatedSettings = {
         ...this.settings,
         ...updates,
@@ -166,22 +194,23 @@ export class WorkflowSettingsService {
       console.error('Failed to update workflow settings:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : '更新设置失败',
+        error:
+          error instanceof Error ? error.message : 'Failed to update settings',
         errorCode: 'UPDATE_SETTINGS_FAILED',
       };
     }
   }
 
   /**
-   * 验证工作流设置
-   * @param settings 要验证的设置
+   * Validate workflow settings
+   * @param settings Settings to validate
    * @returns Promise<ValidationResult>
    */
   async validateSettings(
     settings: Partial<WorkflowSettings>
   ): Promise<ValidationResult> {
     try {
-      // 基本验证
+      // Basic validation
       const basicValidation =
         workflowValidationService.validateWorkflowSettings(settings);
 
@@ -189,21 +218,21 @@ export class WorkflowSettingsService {
         return basicValidation;
       }
 
-      // 如果有webhook URL，进行连通性验证
+      // If webhook URL exists, perform connectivity validation
       if (settings.webhookUrl && settings.webhookUrl.trim()) {
         const connectivityValidation =
           await workflowValidationService.validateWebhookConnectivity(
             settings.webhookUrl.trim()
           );
 
-        // 合并验证结果
+        // Merge validation results
         return {
           isValid: connectivityValidation.isValid,
           errors: [...basicValidation.errors, ...connectivityValidation.errors],
           warnings: [
             ...(basicValidation.warnings || []),
             ...(connectivityValidation.warnings || []),
-          ].filter(w => w), // 过滤掉undefined
+          ].filter(w => w), // Filter out undefined
         };
       }
 
@@ -215,7 +244,7 @@ export class WorkflowSettingsService {
         errors: [
           {
             field: 'general',
-            message: '验证过程中发生错误',
+            message: 'Error occurred during validation',
             code: 'VALIDATION_ERROR',
           },
         ],
@@ -224,31 +253,49 @@ export class WorkflowSettingsService {
   }
 
   /**
-   * 重置工作流设置为默认值
+   * Reset workflow settings to default for a specific workflow
+   * @param workflowId - The ID of the workflow
+   * @param workflowName - Optional name for default settings
    * @returns Promise<WorkflowSettingsResponse>
    */
-  async resetSettings(): Promise<WorkflowSettingsResponse> {
+  async resetSettings(
+    workflowId: string,
+    workflowName?: string
+  ): Promise<WorkflowSettingsResponse> {
     try {
+      await this.ensureInitialized();
+
+      // Simulate API delay
+      await delay(300 + Math.random() * 200);
+
+      // Reset to default settings
       const defaultSettings = {
-        ...DEFAULT_SETTINGS,
+        ...getDefaultSettings(workflowId, workflowName),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      return await this.saveSettings(defaultSettings);
+      this.settingsMap.set(workflowId, defaultSettings);
+      await this.saveToStorage();
+
+      return {
+        success: true,
+        data: { ...defaultSettings },
+      };
     } catch (error) {
       console.error('Failed to reset workflow settings:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : '重置设置失败',
+        error:
+          error instanceof Error ? error.message : 'Failed to reset settings',
         errorCode: 'RESET_SETTINGS_FAILED',
       };
     }
   }
 
   /**
-   * 导出工作流设置
-   * @returns Promise<string> JSON字符串
+   * Export workflow settings
+   * @returns Promise<string> JSON string
    */
   async exportSettings(): Promise<string> {
     await this.ensureInitialized();
@@ -263,8 +310,8 @@ export class WorkflowSettingsService {
   }
 
   /**
-   * 导入工作流设置
-   * @param jsonData JSON字符串
+   * Import workflow settings
+   * @param jsonData JSON string
    * @returns Promise<WorkflowSettingsResponse>
    */
   async importSettings(jsonData: string): Promise<WorkflowSettingsResponse> {
@@ -274,7 +321,7 @@ export class WorkflowSettingsService {
       if (!importData.settings) {
         return {
           success: false,
-          error: '导入数据格式无效',
+          error: 'Invalid import data format',
           errorCode: 'INVALID_IMPORT_FORMAT',
         };
       }
@@ -284,14 +331,15 @@ export class WorkflowSettingsService {
       console.error('Failed to import workflow settings:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : '导入设置失败',
+        error:
+          error instanceof Error ? error.message : 'Failed to import settings',
         errorCode: 'IMPORT_SETTINGS_FAILED',
       };
     }
   }
 
   /**
-   * 确保服务已初始化
+   * Ensure service is initialized
    */
   private async ensureInitialized(): Promise<void> {
     if (!this.isInitialized) {
@@ -300,7 +348,7 @@ export class WorkflowSettingsService {
   }
 
   /**
-   * 从本地存储加载设置
+   * Load settings from local storage
    */
   private async loadFromStorage(): Promise<void> {
     try {
@@ -308,78 +356,107 @@ export class WorkflowSettingsService {
       const storedVersion = localStorage.getItem(WORKFLOW_SETTINGS_VERSION_KEY);
 
       if (!storedSettings) {
-        // 首次使用，创建默认设置
-        this.settings = { ...DEFAULT_SETTINGS };
+        // No stored settings, initialize empty map
+        this.settingsMap.clear();
         await this.saveToStorage();
         return;
       }
 
-      const parsedSettings = JSON.parse(storedSettings);
-
-      // 检查版本兼容性
+      // Check version compatibility
       if (storedVersion !== CURRENT_VERSION) {
         console.warn('Settings version mismatch, migrating to current version');
-        // 这里可以添加版本迁移逻辑
-        this.settings = { ...DEFAULT_SETTINGS, ...parsedSettings };
+        this.settingsMap.clear();
         await this.saveToStorage();
+        return;
+      }
+
+      // Parse and validate stored settings
+      const parsedData = JSON.parse(storedSettings);
+
+      // Handle both old single-workflow format and new multi-workflow format
+      if (parsedData && typeof parsedData === 'object') {
+        if (Array.isArray(parsedData)) {
+          // New multi-workflow format stored as array of [key, value] pairs
+          this.settingsMap = new Map(parsedData);
+        } else if (parsedData.name && typeof parsedData.enabled === 'boolean') {
+          // Old single-workflow format - migrate to new format
+          console.log(
+            'Migrating old single-workflow settings to new multi-workflow format'
+          );
+          this.settingsMap.set(
+            'default-workflow',
+            parsedData as WorkflowSettings
+          );
+        } else {
+          // Invalid format
+          console.warn('Invalid stored settings format. Using empty map.');
+          this.settingsMap.clear();
+        }
       } else {
-        this.settings = parsedSettings;
+        this.settingsMap.clear();
       }
     } catch (error) {
       console.error('Failed to load settings from storage:', error);
-      // 加载失败时使用默认设置
-      this.settings = { ...DEFAULT_SETTINGS };
+      this.settingsMap.clear();
       await this.saveToStorage();
     }
   }
 
   /**
-   * 保存设置到本地存储
+   * Save settings to local storage
    */
   private async saveToStorage(): Promise<void> {
     try {
-      if (this.settings) {
-        localStorage.setItem(
-          WORKFLOW_SETTINGS_KEY,
-          JSON.stringify(this.settings)
-        );
-        localStorage.setItem(WORKFLOW_SETTINGS_VERSION_KEY, CURRENT_VERSION);
-      }
+      // Convert Map to array for JSON serialization
+      const settingsArray = Array.from(this.settingsMap.entries());
+      localStorage.setItem(
+        WORKFLOW_SETTINGS_KEY,
+        JSON.stringify(settingsArray)
+      );
+      localStorage.setItem(WORKFLOW_SETTINGS_VERSION_KEY, CURRENT_VERSION);
     } catch (error) {
       console.error('Failed to save settings to storage:', error);
-      throw new Error('保存设置到本地存储失败');
+      throw new Error('Failed to save settings to local storage');
     }
   }
 
   /**
-   * 清除所有设置数据
+   * Clear all settings data
    */
   async clearAllData(): Promise<void> {
     try {
       localStorage.removeItem(WORKFLOW_SETTINGS_KEY);
       localStorage.removeItem(WORKFLOW_SETTINGS_VERSION_KEY);
-      this.settings = null;
+      this.settingsMap.clear();
       this.isInitialized = false;
     } catch (error) {
       console.error('Failed to clear settings data:', error);
-      throw new Error('清除设置数据失败');
+      throw new Error('Failed to clear settings data');
     }
   }
 }
 
-// 创建默认实例
+// Create default instance
 export const workflowSettingsService = new WorkflowSettingsService();
 
-// 导出便捷函数
-export const getWorkflowSettings =
-  async (): Promise<WorkflowSettingsResponse> => {
-    return workflowSettingsService.getSettings();
-  };
+// Export convenience functions
+export const getWorkflowSettings = async (
+  workflowId: string,
+  workflowName?: string
+): Promise<WorkflowSettingsResponse> => {
+  return workflowSettingsService.getSettings(workflowId, workflowName);
+};
 
 export const saveWorkflowSettings = async (
-  settings: Partial<WorkflowSettings>
+  workflowId: string,
+  settings: Partial<WorkflowSettings>,
+  workflowName?: string
 ): Promise<WorkflowSettingsResponse> => {
-  return workflowSettingsService.saveSettings(settings);
+  return workflowSettingsService.saveSettings(
+    workflowId,
+    settings,
+    workflowName
+  );
 };
 
 export const updateWorkflowSettings = async (
@@ -394,7 +471,9 @@ export const validateWorkflowSettings = async (
   return workflowSettingsService.validateSettings(settings);
 };
 
-export const resetWorkflowSettings =
-  async (): Promise<WorkflowSettingsResponse> => {
-    return workflowSettingsService.resetSettings();
-  };
+export const resetWorkflowSettings = async (
+  workflowId: string,
+  workflowName?: string
+): Promise<WorkflowSettingsResponse> => {
+  return workflowSettingsService.resetSettings(workflowId, workflowName);
+};

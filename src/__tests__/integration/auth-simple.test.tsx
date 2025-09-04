@@ -12,7 +12,7 @@ import ProtectedRoute from '../../components/auth/ProtectedRoute';
 import MainLayout from '../../components/Layout/MainLayout';
 import authSlice from '../../store/slices/authSlice';
 
-// 简化的测试包装器
+// Simplified test wrapper
 const SimpleTestWrapper: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -60,8 +60,8 @@ describe('Simple Auth Test', () => {
       </SimpleTestWrapper>
     );
 
-    // LoginForm应该渲染成功，查找登录按钮
-    expect(screen.getByText(/sign in|登录/i)).toBeInTheDocument();
+    // LoginForm should render successfully, look for login button
+    expect(screen.getByText(/sign in|login/i)).toBeInTheDocument();
   });
 
   it('should render RegisterForm without errors', () => {
@@ -73,8 +73,8 @@ describe('Simple Auth Test', () => {
       </SimpleTestWrapper>
     );
 
-    // RegisterForm应该渲染成功，查找注册相关文本
-    expect(screen.getByText(/register|注册|sign up/i)).toBeInTheDocument();
+    // RegisterForm should render successfully, look for registration related text
+    expect(screen.getByText(/register|sign up/i)).toBeInTheDocument();
   });
 
   it('should render UserProfile without errors', () => {
@@ -86,8 +86,10 @@ describe('Simple Auth Test', () => {
       </SimpleTestWrapper>
     );
 
-    // UserProfile应该渲染成功
-    expect(screen.getByText(/profile|个人资料|用户信息/i)).toBeInTheDocument();
+    // UserProfile should render successfully
+    expect(
+      screen.getByText(/profile|user info|user profile/i)
+    ).toBeInTheDocument();
   });
 
   it('should render ProtectedRoute without errors', () => {
@@ -106,7 +108,7 @@ describe('Simple Auth Test', () => {
       </SimpleTestWrapper>
     );
 
-    // ProtectedRoute应该渲染成功（可能显示登录页面或受保护内容）
+    // ProtectedRoute should render successfully (may show login page or protected content)
     expect(document.body).toBeInTheDocument();
   });
 
@@ -119,7 +121,7 @@ describe('Simple Auth Test', () => {
       </SimpleTestWrapper>
     );
 
-    // MainLayout应该渲染成功，检查是否有基本的布局结构
+    // MainLayout should render successfully, check for basic layout structure
     expect(document.body).toBeInTheDocument();
   });
 });

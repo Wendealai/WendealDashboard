@@ -14,14 +14,14 @@ import type {
 import type { ParsedSubredditData } from '@/services/redditWebhookService';
 
 /**
- * WorkflowResultTabs组件属性接口
+ * WorkflowResultTabs component props interface
  */
 export interface WorkflowResultTabsProps {
-  /** 工作流执行列表 */
+  /** Workflow execution list */
   workflowExecutions: WorkflowExecution[];
-  /** 当前Reddit数据（向后兼容） */
+  /** Current Reddit data (backward compatibility) */
   redditData?: ParsedSubredditData[];
-  /** 多工作流Reddit数据 */
+  /** Multi-workflow Reddit data */
   workflowRedditData?: Record<
     string,
     {
@@ -30,23 +30,22 @@ export interface WorkflowResultTabsProps {
       workflowId: string;
     }
   >;
-  /** 获取工作流Reddit数据的函数 */
+  /** Function to get workflow Reddit data */
   getWorkflowRedditData?: (workflowId: string) => ParsedSubredditData[];
-  /** 加载状态 */
+  /** Loading state */
   loading?: boolean;
-  /** 渲染Reddit数据的函数 */
+  /** Function to render Reddit data */
   renderRedditData?: () => React.ReactNode;
-  /** 渲染工作流执行的函数 */
+  /** Function to render workflow execution */
   renderWorkflowExecution?: () => React.ReactNode;
-  /** 渲染信息统计的函数 */
-  renderInformationStats?: () => React.ReactNode;
-  /** 组件样式类名 */
+
+  /** Component style class name */
   className?: string;
 }
 
 /**
- * 工作流结果标签页组件
- * 允许用户同时查看多个工作流的执行结果
+ * Workflow result tabs component
+ * Allows users to view multiple workflow execution results simultaneously
  */
 const WorkflowResultTabs: React.FC<WorkflowResultTabsProps> = ({
   workflowExecutions,
@@ -56,44 +55,36 @@ const WorkflowResultTabs: React.FC<WorkflowResultTabsProps> = ({
   loading = false,
   renderRedditData,
   renderWorkflowExecution,
-  renderInformationStats,
+
   className = '',
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<string>('reddit-data');
 
   /**
-   * 创建标签页数据项
+   * Create tab data items
    */
   const createTabItems = (): TabDataItem[] => {
     const tabs: TabDataItem[] = [
       {
         key: 'reddit-data',
-        label: 'Reddit 数据',
+        label: t('informationDashboard.tabs.redditData'),
         content: renderRedditData ? (
           renderRedditData()
         ) : (
-          <Empty description='暂无Reddit数据' />
+          <Empty description={t('informationDashboard.tabs.noRedditData')} />
         ),
         closable: false,
       },
       {
         key: 'workflow-details',
-        label: '工作流详情',
+        label: t('informationDashboard.tabs.workflowDetails'),
         content: renderWorkflowExecution ? (
           renderWorkflowExecution()
         ) : (
-          <Empty description='暂无工作流详情' />
-        ),
-        closable: false,
-      },
-      {
-        key: 'information-stats',
-        label: '信息统计',
-        content: renderInformationStats ? (
-          renderInformationStats()
-        ) : (
-          <Empty description='暂无统计信息' />
+          <Empty
+            description={t('informationDashboard.tabs.noWorkflowDetails')}
+          />
         ),
         closable: false,
       },
@@ -103,13 +94,13 @@ const WorkflowResultTabs: React.FC<WorkflowResultTabsProps> = ({
   };
 
   /**
-   * 处理标签页切换
+   * Handle tab change
    */
   const handleTabChange = useCallback((tabId: string) => {
     setActiveTab(tabId);
   }, []);
 
-  // 如果正在加载，显示加载状态
+  // If loading, show loading state
   if (loading) {
     return (
       <div
@@ -126,7 +117,7 @@ const WorkflowResultTabs: React.FC<WorkflowResultTabsProps> = ({
     );
   }
 
-  // 创建标签页数据
+  // Create tab data
   const tabItems = createTabItems();
 
   return (

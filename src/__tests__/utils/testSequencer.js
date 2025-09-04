@@ -2,12 +2,12 @@ const Sequencer = require('@jest/test-sequencer').default;
 
 class CustomSequencer extends Sequencer {
   /**
-   * 自定义测试执行顺序
-   * 优先级：单元测试 > 集成测试 > E2E测试
-   * 在同一类型中，按文件名字母顺序排序
+   * Custom test execution order
+   * Priority: Unit tests > Integration tests > E2E tests
+   * Within the same type, sort by filename alphabetically
    */
   sort(tests) {
-    // 按测试类型分组
+    // Group by test type
     const unitTests = [];
     const integrationTests = [];
     const e2eTests = [];
@@ -36,7 +36,7 @@ class CustomSequencer extends Sequencer {
       }
     });
 
-    // 在每个组内按文件名排序
+    // Sort by filename within each group
     const sortByPath = (a, b) => a.path.localeCompare(b.path);
 
     unitTests.sort(sortByPath);
@@ -44,19 +44,19 @@ class CustomSequencer extends Sequencer {
     e2eTests.sort(sortByPath);
     otherTests.sort(sortByPath);
 
-    // 返回排序后的测试列表
+    // Return sorted test list
     return [...unitTests, ...integrationTests, ...e2eTests, ...otherTests];
   }
 
   /**
-   * 确定测试是否应该并行运行
-   * E2E测试和集成测试应该串行运行
+   * Determine if tests should run in parallel
+   * E2E tests and integration tests should run serially
    */
   allFailedTests(tests) {
-    // 失败的测试优先运行
+    // Failed tests run first
     return tests.sort((a, b) => {
       if (a.duration && b.duration) {
-        return a.duration - b.duration; // 快速失败的测试先运行
+        return a.duration - b.duration; // Fast-failing tests run first
       }
       return 0;
     });

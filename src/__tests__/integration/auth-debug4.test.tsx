@@ -87,25 +87,25 @@ describe('MainLayout User Display Debug', () => {
       </TestWrapper>
     );
 
-    // Debug: 打印整个DOM结构
+    // Debug: Print entire DOM structure
     console.log('=== DOM Structure ===');
     console.log(document.body.innerHTML);
 
-    // Debug: 查找所有包含testuser的元素
+    // Debug: Find all elements containing testuser
     const elementsWithTestuser = screen.queryAllByText(/testuser/i);
     console.log(
       'Elements with "testuser":',
       elementsWithTestuser.map(el => el.textContent)
     );
 
-    // Debug: 查找所有包含用户相关文本的元素
+    // Debug: Find all elements containing user-related text
     const userElements = screen.queryAllByText(/user|admin|logged/i);
     console.log(
       'User-related elements:',
       userElements.map(el => el.textContent)
     );
 
-    // 尝试查找testuser文本
+    // Try to find testuser text
     const testUserElement = screen.queryByText('testuser');
     console.log('testuser element found:', !!testUserElement);
 
@@ -113,7 +113,7 @@ describe('MainLayout User Display Debug', () => {
       console.log('testuser element content:', testUserElement.textContent);
     }
 
-    // 验证用户名是否显示
+    // Verify if username is displayed
     expect(screen.getByText('testuser')).toBeInTheDocument();
   });
 });

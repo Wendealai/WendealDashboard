@@ -14,6 +14,17 @@ import type {
   WorkflowListResponse,
   WorkflowExecutionResponse,
   TriggerWorkflowApiResponse,
+  // Invoice OCR 相关类型
+  type InvoiceOCRWorkflow,
+  type InvoiceOCRResult,
+  type InvoiceOCRExecution,
+  type InvoiceOCRBatchTask,
+  type CreateInvoiceOCRWorkflowRequest,
+  type UpdateInvoiceOCRWorkflowRequest,
+  type InvoiceOCRUploadRequest,
+  type InvoiceOCRApiResponse,
+  type InvoiceOCRPaginatedResponse,
+  type InvoiceOCRQueryParams,
 } from '@/pages/InformationDashboard/types';
 import type {
   RedditWorkflowConfig,
@@ -27,8 +38,8 @@ import type {
 /**
  * 工作流服务类
  */
-class WorkflowService {
-  private readonly baseUrl = '/api/workflows';
+export class WorkflowService {
+  private readonly baseUrl = '/workflows';
   private readonly n8nBaseUrl =
     process.env.REACT_APP_N8N_BASE_URL || 'http://localhost:5678';
   private readonly n8nApiKey = process.env.REACT_APP_N8N_API_KEY || '';
@@ -1060,6 +1071,322 @@ class WorkflowService {
         return 'failed';
       default:
         return 'idle';
+    }
+  }
+
+  // ==================== Invoice OCR 相关方法 ====================
+
+  /**
+   * 创建 Invoice OCR 工作流
+   * @param request 创建请求
+   * @returns 创建的工作流信息
+   */
+  async createInvoiceOCRWorkflow(
+    request: CreateInvoiceOCRWorkflowRequest
+  ): Promise<InvoiceOCRApiResponse<InvoiceOCRWorkflow>> {
+    try {
+      const response = await api.post<
+        InvoiceOCRApiResponse<InvoiceOCRWorkflow>
+      >(`${this.baseUrl}/invoice-ocr`, request);
+      return response.data;
+    } catch (error) {
+      console.error('创建 Invoice OCR 工作流失败:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '创建 Invoice OCR 工作流失败'
+      );
+    }
+  }
+
+  /**
+   * 更新 Invoice OCR 工作流
+   * @param workflowId 工作流ID
+   * @param request 更新请求
+   * @returns 更新的工作流信息
+   */
+  async updateInvoiceOCRWorkflow(
+    workflowId: string,
+    request: UpdateInvoiceOCRWorkflowRequest
+  ): Promise<InvoiceOCRApiResponse<InvoiceOCRWorkflow>> {
+    try {
+      const response = await api.put<InvoiceOCRApiResponse<InvoiceOCRWorkflow>>(
+        `${this.baseUrl}/invoice-ocr/${workflowId}`,
+        request
+      );
+      return response.data;
+    } catch (error) {
+      console.error('更新 Invoice OCR 工作流失败:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '更新 Invoice OCR 工作流失败'
+      );
+    }
+  }
+
+  /**
+   * 获取 Invoice OCR 工作流详情
+   * @param workflowId 工作流ID
+   * @returns 工作流详情
+   */
+  async getInvoiceOCRWorkflow(
+    workflowId: string
+  ): Promise<InvoiceOCRApiResponse<InvoiceOCRWorkflow>> {
+    try {
+      const response = await api.get<InvoiceOCRApiResponse<InvoiceOCRWorkflow>>(
+        `${this.baseUrl}/invoice-ocr/${workflowId}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('获取 Invoice OCR 工作流失败:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '获取 Invoice OCR 工作流失败'
+      );
+    }
+  }
+
+  /**
+   * 获取 Invoice OCR 工作流列表
+   * @param params 查询参数
+   * @returns 工作流列表
+   */
+  async getInvoiceOCRWorkflows(
+    params: InvoiceOCRQueryParams = {}
+  ): Promise<
+    InvoiceOCRApiResponse<InvoiceOCRPaginatedResponse<InvoiceOCRWorkflow>>
+  > {
+    try {
+      const response = await api.get<
+        InvoiceOCRApiResponse<InvoiceOCRPaginatedResponse<InvoiceOCRWorkflow>>
+      >(`${this.baseUrl}/invoice-ocr`, {
+        params,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('获取 Invoice OCR 工作流列表失败:', error);
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : '获取 Invoice OCR 工作流列表失败'
+      );
+    }
+  }
+
+  /**
+   * 删除 Invoice OCR 工作流
+   * @param workflowId 工作流ID
+   * @returns 删除结果
+   */
+  async deleteInvoiceOCRWorkflow(
+    workflowId: string
+  ): Promise<InvoiceOCRApiResponse<void>> {
+    try {
+      const response = await api.delete<InvoiceOCRApiResponse<void>>(
+        `${this.baseUrl}/invoice-ocr/${workflowId}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('删除 Invoice OCR 工作流失败:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '删除 Invoice OCR 工作流失败'
+      );
+    }
+  }
+
+  /**
+   * 上传文件进行 Invoice OCR 处理
+   * @param request 上传请求
+   * @returns 处理任务信息
+   */
+  async uploadInvoiceFiles(
+    request: InvoiceOCRUploadRequest
+  ): Promise<InvoiceOCRApiResponse<InvoiceOCRBatchTask>> {
+    try {
+      const formData = new FormData();
+
+      // 添加文件
+      request.files.forEach((file, index) => {
+        formData.append(`files`, file);
+      });
+
+      // 添加其他参数
+      formData.append('workflowId', request.workflowId);
+      if (request.batchName) {
+        formData.append('batchName', request.batchName);
+      }
+      if (request.processingOptions) {
+        formData.append(
+          'processingOptions',
+          JSON.stringify(request.processingOptions)
+        );
+      }
+
+      const response = await api.post<
+        InvoiceOCRApiResponse<InvoiceOCRBatchTask>
+      >(`${this.baseUrl}/invoice-ocr/${request.workflowId}/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('上传 Invoice 文件失败:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '上传 Invoice 文件失败'
+      );
+    }
+  }
+
+  /**
+   * 获取 Invoice OCR 处理结果
+   * @param workflowId 工作流ID
+   * @param resultId 结果ID
+   * @returns 处理结果
+   */
+  async getInvoiceOCRResult(
+    workflowId: string,
+    resultId: string
+  ): Promise<InvoiceOCRApiResponse<InvoiceOCRResult>> {
+    try {
+      const response = await api.get<InvoiceOCRApiResponse<InvoiceOCRResult>>(
+        `${this.baseUrl}/invoice-ocr/${workflowId}/results/${resultId}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('获取 Invoice OCR 结果失败:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '获取 Invoice OCR 结果失败'
+      );
+    }
+  }
+
+  /**
+   * 获取 Invoice OCR 处理结果列表
+   * @param workflowId 工作流ID
+   * @param params 查询参数
+   * @returns 结果列表
+   */
+  async getInvoiceOCRResults(
+    workflowId: string,
+    params: InvoiceOCRQueryParams = {}
+  ): Promise<
+    InvoiceOCRApiResponse<InvoiceOCRPaginatedResponse<InvoiceOCRResult>>
+  > {
+    try {
+      const response = await api.get<
+        InvoiceOCRApiResponse<InvoiceOCRPaginatedResponse<InvoiceOCRResult>>
+      >(`${this.baseUrl}/invoice-ocr/${workflowId}/results`, {
+        params,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('获取 Invoice OCR 结果列表失败:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '获取 Invoice OCR 结果列表失败'
+      );
+    }
+  }
+
+  /**
+   * 获取批处理任务状态
+   * @param workflowId 工作流ID
+   * @param batchId 批处理ID
+   * @returns 批处理任务信息
+   */
+  async getInvoiceOCRBatchTask(
+    workflowId: string,
+    batchId: string
+  ): Promise<InvoiceOCRApiResponse<InvoiceOCRBatchTask>> {
+    try {
+      const response = await api.get<
+        InvoiceOCRApiResponse<InvoiceOCRBatchTask>
+      >(`${this.baseUrl}/invoice-ocr/${workflowId}/batches/${batchId}`);
+      return response.data;
+    } catch (error) {
+      console.error('获取批处理任务状态失败:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '获取批处理任务状态失败'
+      );
+    }
+  }
+
+  /**
+   * 取消批处理任务
+   * @param workflowId 工作流ID
+   * @param batchId 批处理ID
+   * @returns 取消结果
+   */
+  async cancelInvoiceOCRBatchTask(
+    workflowId: string,
+    batchId: string
+  ): Promise<InvoiceOCRApiResponse<void>> {
+    try {
+      const response = await api.post<InvoiceOCRApiResponse<void>>(
+        `${this.baseUrl}/invoice-ocr/${workflowId}/batches/${batchId}/cancel`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('取消批处理任务失败:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '取消批处理任务失败'
+      );
+    }
+  }
+
+  /**
+   * 下载 Invoice OCR 结果文件
+   * @param workflowId 工作流ID
+   * @param resultId 结果ID
+   * @param format 文件格式
+   * @returns 文件下载链接
+   */
+  async downloadInvoiceOCRResult(
+    workflowId: string,
+    resultId: string,
+    format: 'json' | 'csv' | 'excel'
+  ): Promise<string> {
+    try {
+      const response = await api.get(
+        `${this.baseUrl}/invoice-ocr/${workflowId}/results/${resultId}/download`,
+        {
+          params: { format },
+          responseType: 'blob',
+        }
+      );
+
+      // 创建下载链接
+      const blob = new Blob([response.data]);
+      const downloadUrl = window.URL.createObjectURL(blob);
+      return downloadUrl;
+    } catch (error) {
+      console.error('下载 Invoice OCR 结果失败:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '下载 Invoice OCR 结果失败'
+      );
+    }
+  }
+
+  /**
+   * 获取 Invoice OCR 工作流执行历史
+   * @param workflowId 工作流ID
+   * @param params 查询参数
+   * @returns 执行历史列表
+   */
+  async getInvoiceOCRExecutions(
+    workflowId: string,
+    params: InvoiceOCRQueryParams = {}
+  ): Promise<
+    InvoiceOCRApiResponse<InvoiceOCRPaginatedResponse<InvoiceOCRExecution>>
+  > {
+    try {
+      const response = await api.get<
+        InvoiceOCRApiResponse<InvoiceOCRPaginatedResponse<InvoiceOCRExecution>>
+      >(`${this.baseUrl}/invoice-ocr/${workflowId}/executions`, {
+        params,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('获取 Invoice OCR 执行历史失败:', error);
+      throw new Error(
+        error instanceof Error ? error.message : '获取 Invoice OCR 执行历史失败'
+      );
     }
   }
 }

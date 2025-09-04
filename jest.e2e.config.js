@@ -11,7 +11,7 @@ module.exports = {
     '<rootDir>/src/setupTests.ts',
     '<rootDir>/src/__tests__/setup/e2e.setup.ts'
   ],
-  testTimeout: 60000, // E2E测试需要更长时间
+  testTimeout: 60000, // E2E tests need more time
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
@@ -28,10 +28,10 @@ module.exports = {
       statements: 60
     }
   },
-  // E2E测试特定配置
-  maxWorkers: 1, // 串行运行E2E测试
+  // E2E test specific configuration
+  maxWorkers: 1, // Run E2E tests serially
   testSequencer: '<rootDir>/src/__tests__/utils/testSequencer.js',
-  // 模拟浏览器环境
+  // Simulate browser environment
   testEnvironmentOptions: {
     url: 'http://localhost:3000'
   }

@@ -97,7 +97,7 @@ describe('LocalAuthService', () => {
       const result = await authService.login(invalidCredentials);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('用户名或密码错误');
+      expect(result.error).toBe('Invalid username or password');
       expect(result.user).toBeUndefined();
       expect(result.token).toBeUndefined();
     });
@@ -111,7 +111,7 @@ describe('LocalAuthService', () => {
       const result = await authService.login(invalidCredentials);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('用户名或密码错误');
+      expect(result.error).toBe('Invalid username or password');
     });
 
     it('should fail login with empty credentials', async () => {
@@ -123,7 +123,7 @@ describe('LocalAuthService', () => {
       const result = await authService.login(emptyCredentials);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('用户名和密码不能为空');
+      expect(result.error).toBe('Username and password cannot be empty');
     });
   });
 
@@ -142,25 +142,25 @@ describe('LocalAuthService', () => {
     it('should fail registration with existing username', async () => {
       const existingUserData = {
         ...mockRegisterData,
-        username: 'testuser', // 已存在的用户名
+        username: 'testuser', // Existing username
       };
 
       const result = await authService.register(existingUserData);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('用户名已存在');
+      expect(result.error).toBe('Username already exists');
     });
 
     it('should fail registration with existing email', async () => {
       const existingEmailData = {
         ...mockRegisterData,
-        email: 'test@example.com', // 已存在的邮箱
+        email: 'test@example.com', // Existing email
       };
 
       const result = await authService.register(existingEmailData);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('邮箱已被注册');
+      expect(result.error).toBe('Email already registered');
     });
 
     it('should fail registration with mismatched passwords', async () => {
@@ -172,7 +172,7 @@ describe('LocalAuthService', () => {
       const result = await authService.register(mismatchedPasswordData);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('两次输入的密码不一致');
+      expect(result.error).toBe('Password confirmation does not match');
     });
 
     it('should fail registration with invalid email format', async () => {
@@ -184,7 +184,7 @@ describe('LocalAuthService', () => {
       const result = await authService.register(invalidEmailData);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('邮箱格式不正确');
+      expect(result.error).toBe('Invalid email format');
     });
 
     it('should fail registration with weak password', async () => {
@@ -197,13 +197,13 @@ describe('LocalAuthService', () => {
       const result = await authService.register(weakPasswordData);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('密码');
+      expect(result.error).toContain('password');
     });
   });
 
   describe('logout', () => {
     it('should logout successfully', async () => {
-      // 模拟已登录状态
+      // Mock logged in state
       localStorageMock.getItem.mockImplementation(key => {
         if (key === 'wendeal_auth_token') return mockToken;
         if (key === 'wendeal_refresh_token') return mockRefreshToken;
@@ -266,7 +266,7 @@ describe('LocalAuthService', () => {
       const result = await authService.refreshToken();
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('刷新令牌不存在');
+      expect(result.error).toBe('Refresh token not found');
     });
   });
 
@@ -298,7 +298,7 @@ describe('LocalAuthService', () => {
       const result = await authService.updateProfile(updateData);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('用户未登录');
+      expect(result.error).toBe('User not logged in');
     });
   });
 
@@ -331,7 +331,7 @@ describe('LocalAuthService', () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('当前密码错误');
+      expect(result.error).toBe('Current password is incorrect');
     });
 
     it('should fail to change password when not logged in', async () => {
@@ -341,7 +341,7 @@ describe('LocalAuthService', () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('用户未登录');
+      expect(result.error).toBe('User not logged in');
     });
   });
 });

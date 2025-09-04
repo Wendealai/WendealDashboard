@@ -1,36 +1,36 @@
 import { server } from '@/mocks/server';
 import 'whatwg-fetch';
 
-// 启动MSW服务器
+// Start MSW server
 beforeAll(() => {
   server.listen({
     onUnhandledRequest: 'warn',
   });
 });
 
-// 每个测试后重置处理器
+// Reset handlers after each test
 afterEach(() => {
   server.resetHandlers();
-  // 清理本地存储
+  // Clear local storage
   localStorage.clear();
   sessionStorage.clear();
-  // 清理DOM
+  // Clear DOM
   document.body.innerHTML = '';
-  // 重置URL
+  // Reset URL
   window.history.replaceState({}, '', '/');
 });
 
-// 关闭MSW服务器
+// Close MSW server
 afterAll(() => {
   server.close();
 });
 
-// 全局错误处理
+// Global error handling
 process.on('unhandledRejection', reason => {
   console.error('Unhandled Rejection in integration test:', reason);
 });
 
-// 模拟IntersectionObserver
+// Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
   constructor() {}
   observe() {
@@ -44,7 +44,7 @@ global.IntersectionObserver = class IntersectionObserver {
   }
 };
 
-// 模拟ResizeObserver
+// Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
   constructor() {}
   observe() {
@@ -58,7 +58,7 @@ global.ResizeObserver = class ResizeObserver {
   }
 };
 
-// 模拟MutationObserver
+// Mock MutationObserver
 global.MutationObserver = class MutationObserver {
   constructor() {}
   observe() {
@@ -72,7 +72,7 @@ global.MutationObserver = class MutationObserver {
   }
 };
 
-// 模拟window.matchMedia
+// Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: jest.fn().mockImplementation(query => ({
@@ -87,13 +87,13 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// 模拟window.scrollTo
+// Mock window.scrollTo
 Object.defineProperty(window, 'scrollTo', {
   writable: true,
   value: jest.fn(),
 });
 
-// 模拟console方法以减少测试输出噪音
+// Mock console methods to reduce test output noise
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
@@ -127,15 +127,15 @@ afterAll(() => {
   console.warn = originalConsoleWarn;
 });
 
-// 设置测试超时
+// Set test timeout
 jest.setTimeout(30000);
 
-// 模拟fetch API
+// Mock fetch API
 if (!global.fetch) {
   global.fetch = require('whatwg-fetch').fetch;
 }
 
-// 模拟URL API
+// Mock URL API
 if (!global.URL.createObjectURL) {
   global.URL.createObjectURL = jest.fn(() => 'mock-url');
 }
@@ -144,7 +144,7 @@ if (!global.URL.revokeObjectURL) {
   global.URL.revokeObjectURL = jest.fn();
 }
 
-// 模拟FileReader
+// Mock FileReader
 global.FileReader = class FileReader {
   result: any = null;
   error: any = null;
@@ -186,7 +186,7 @@ global.FileReader = class FileReader {
   }
 };
 
-// 模拟Blob
+// Mock Blob
 if (!global.Blob) {
   global.Blob = class Blob {
     constructor(parts: any[], options: any = {}) {
@@ -201,7 +201,7 @@ if (!global.Blob) {
   };
 }
 
-// 模拟File
+// Mock File
 if (!global.File) {
   global.File = class File extends Blob {
     constructor(parts: any[], name: string, options: any = {}) {

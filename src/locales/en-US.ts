@@ -58,6 +58,7 @@ export default {
     stop: 'Stop',
     enable: 'Enable',
     comingSoon: 'Coming Soon',
+    unknownError: 'Unknown Error',
     priority: {
       urgent: 'Urgent',
       high: 'High',
@@ -76,6 +77,87 @@ export default {
     unit: {
       minutes: 'minutes',
       items: 'items',
+    },
+    ready: 'Ready',
+    start: 'Start',
+    processing: 'Processing',
+    lastUpdated: 'Last Updated',
+    nodes: 'nodes',
+  },
+
+  // Information Dashboard
+  informationDashboard: {
+    title: 'Information Display Module',
+    subtitle:
+      'Integrated n8n workflow data display platform, providing unified information aggregation and display interface',
+    workflowManagement: 'Workflow Management',
+    invoiceOCRRecognition: 'Invoice OCR Recognition',
+    tabs: {
+      redditData: 'Reddit Data',
+      workflowDetails: 'Workflow Details',
+      noRedditData: 'No Reddit data available',
+      noWorkflowDetails: 'No workflow details available',
+    },
+    workflowList: 'Workflow List',
+    redditDataCollection: 'Reddit Data Collection',
+    collectRedditHotData: 'Collect Reddit hot site data',
+    invoiceOCR: 'Invoice OCR',
+    intelligentInvoiceRecognition:
+      'Intelligent Invoice Recognition & Data Extraction',
+    start: 'Start',
+    settings: 'Settings',
+    documentsProcessed: 'Documents Processed',
+    successfullyProcessed: 'Successfully Processed',
+    successRate: 'Success Rate',
+    totalCost: 'Total Cost',
+    uploadDocument: 'Upload Document',
+    documentValidation: 'Document Validation',
+    ocrProcessing: 'OCR Processing',
+    viewResults: 'View Results',
+    uploadFiles: 'Click or drag files to this area to upload',
+    supportedFormats:
+      'Support PDF, JPEG, PNG, TIFF, BMP formats, single file max 10MB, max 20 files',
+    usageTips: 'Usage Tips',
+    supportBatchUpload: 'Support batch upload of multiple invoice files',
+    supportPdfAndImages:
+      'Support PDF and common image formats (JPEG, PNG, TIFF, BMP)',
+    buildInQualityCheck:
+      'Built-in quality check to ensure optimal recognition results',
+    autoOcrAndExtraction:
+      'Automatic OCR recognition and data extraction after upload',
+    version:
+      'Invoice OCR v1.0.0 | Intelligent Invoice Recognition and Processing',
+    workflowPanel: {
+      workflowList: 'Workflow List',
+      noWorkflows: 'No workflows available',
+      triggerWorkflow: 'Trigger Workflow',
+      status: {
+        active: 'Active',
+        inactive: 'Inactive',
+        running: 'Running',
+        stopped: 'Stopped',
+        error: 'Error',
+      },
+    },
+    actions: {
+      refresh: 'Refresh',
+      trigger: 'Trigger',
+    },
+    workflow: {
+      triggeringWorkflow: 'Triggering workflow...',
+      workflowCompleted: 'Workflow execution completed',
+      workflowTriggerFailed: 'Workflow trigger failed',
+      connectingRedditWebhook: 'Connecting to Reddit Webhook...',
+      parsingData: 'Parsing data...',
+      dataFetchCompleted: 'Data fetch completed!',
+      redditDataFetchFailed:
+        'Reddit data fetch failed, please check network connection or try again later',
+      settingsSaved: 'Workflow settings saved',
+    },
+    reddit: {
+      dataCollection: 'Reddit Data Collection',
+      getHotPosts: 'Get Reddit hot posts data',
+      category: 'Hot',
     },
   },
 
@@ -209,7 +291,7 @@ export default {
       product: 'Product',
       data: 'Data',
     },
-    messages: {
+    informationMessages: {
       updateSuccess: 'Information updated successfully',
       updateFailed: 'Update failed',
       deleteSuccess: 'Deleted successfully',
@@ -476,116 +558,64 @@ export default {
     register: 'Sign Up',
     informationDashboard: 'Information Dashboard',
     redditWorkflow: 'Reddit Workflow',
+    refreshData: 'Refresh Data',
+    exportData: 'Export Data',
+    viewDetails: 'View Details',
+    lastUpdated: 'Last Updated',
+    dataSource: 'Data Source',
+    category: 'Category',
+    priority: 'Priority',
+    tags: 'Tags',
   },
 
-  // Information Dashboard Module
-  informationDashboard: {
-    title: 'Information Dashboard',
-    subtitle: 'Integrated workflow management and data display functionality',
-
-    // Workflow Panel
-    workflowPanel: {
-      title: 'Workflow Management',
-      subtitle: 'Manage and trigger your workflows',
-      createWorkflow: 'Create Workflow',
-      editWorkflow: 'Edit Workflow',
-      deleteWorkflow: 'Delete Workflow',
-      triggerWorkflow: 'Trigger Workflow',
-      workflowStatus: 'Workflow Status',
-      lastExecution: 'Last Execution',
-      executionCount: 'Execution Count',
-      successRate: 'Success Rate',
-      nodeCount: 'Node Count',
-      neverExecuted: 'Never Executed',
-      workflowList: 'Workflow List',
-      totalWorkflows: 'Total {{count}} workflows',
-      inputData: 'Input Data (JSON format)',
-      inputDataHelp: 'Optional, provide input data for the workflow',
-      waitForCompletion: 'Wait for Completion',
-      waitForCompletionHelp:
-        'Whether to wait for workflow execution to complete before returning results',
-      asyncExecution: 'Async Execution (Default)',
-      noWorkflows: 'No workflows available',
-      workflowName: 'Workflow Name',
-      workflowDescription: 'Workflow Description',
-      status: {
-        active: 'Active',
-        inactive: 'Inactive',
-        running: 'Running',
-        stopped: 'Stopped',
-        error: 'Error',
-      },
-    },
-
-    // Information Grid
-    informationGrid: {
-      title: 'Information Display',
-      subtitle: 'View and manage your information data',
-      totalItems: 'Total Items',
-      filteredItems: 'Filtered Items',
-      searchPlaceholder: 'Search information...',
-      noData: 'No information data available',
-      loadMore: 'Load More',
-      refreshData: 'Refresh Data',
-      exportData: 'Export Data',
-      viewDetails: 'View Details',
-      lastUpdated: 'Last Updated',
-      dataSource: 'Data Source',
-      category: 'Category',
-      priority: 'Priority',
-      tags: 'Tags',
-    },
-
-    // Statistics
-    statistics: {
-      totalWorkflows: 'Total Workflows',
-      activeWorkflows: 'Active Workflows',
-      totalExecutions: 'Total Executions',
-      successfulExecutions: 'Successful Executions',
-      failedExecutions: 'Failed Executions',
-      averageExecutionTime: 'Average Execution Time',
-      dataPoints: 'Data Points',
-      lastSyncTime: 'Last Sync Time',
-      trends: 'Recent Trends',
-      dataCollected:
-        'Data from the last {{days}} days has been collected and is available for chart display',
-      totalInformation: 'Total Information',
-      activeInformation: 'Active Information',
-      recentUpdates: 'Recent Updates',
-      categoryDistribution: 'Category Distribution',
-      priorityDistribution: 'Priority Distribution',
-      todayExecutions: 'Today Executions',
-    },
-
-    // Action Buttons
-    actions: {
-      refresh: 'Refresh',
-      filter: 'Filter',
-      sort: 'Sort',
-      export: 'Export',
-      import: 'Import',
-      settings: 'Settings',
-      fullscreen: 'Fullscreen',
-      minimize: 'Minimize',
-      trigger: 'Trigger',
-      viewDetails: 'View Details',
-      details: 'Details',
-    },
-
-    // Messages
-    messages: {
-      workflowTriggered: 'Workflow triggered successfully',
-      workflowStopped: 'Workflow stopped',
-      dataRefreshed: 'Data refreshed successfully',
-      exportCompleted: 'Export completed',
-      importCompleted: 'Import completed',
-      operationFailed: 'Operation failed',
-      noPermission: 'Insufficient permissions',
-      networkError: 'Network error occurred',
-    },
+  // Statistics
+  statistics: {
+    totalWorkflows: 'Total Workflows',
+    activeWorkflows: 'Active Workflows',
+    totalExecutions: 'Total Executions',
+    successfulExecutions: 'Successful Executions',
+    failedExecutions: 'Failed Executions',
+    averageExecutionTime: 'Average Execution Time',
+    dataPoints: 'Data Points',
+    lastSyncTime: 'Last Sync Time',
+    trends: 'Recent Trends',
+    dataCollected:
+      'Data from the last {{days}} days has been collected and is available for chart display',
+    totalInformation: 'Total Information',
+    activeInformation: 'Active Information',
+    recentUpdates: 'Recent Updates',
+    categoryDistribution: 'Category Distribution',
+    priorityDistribution: 'Priority Distribution',
+    todayExecutions: 'Today Executions',
   },
 
-  // Dashboard
+  // Action Buttons
+  actions: {
+    refresh: 'Refresh',
+    filter: 'Filter',
+    sort: 'Sort',
+    export: 'Export',
+    import: 'Import',
+    settings: 'Settings',
+    fullscreen: 'Fullscreen',
+    minimize: 'Minimize',
+    trigger: 'Trigger',
+    viewDetails: 'View Details',
+    details: 'Details',
+  },
+
+  // Messages
+  redditWorkflowMessages: {
+    workflowTriggered: 'Workflow triggered successfully',
+    workflowStopped: 'Workflow stopped',
+    dataRefreshed: 'Data refreshed successfully',
+    exportCompleted: 'Export completed',
+    importCompleted: 'Import completed',
+    operationFailed: 'Operation failed',
+    noPermission: 'Insufficient permissions',
+    networkError: 'Network error occurred',
+  },
+
   dashboard: {
     title: 'Dashboard',
     welcome: 'Welcome back, {{username}}! Your role: {{role}}',
@@ -707,7 +737,7 @@ export default {
       onlineUsers: 'Online Users',
       systemLoad: 'System Load',
     },
-    messages: {
+    dashboardMessages: {
       refreshSuccess: 'Data refreshed successfully',
       refreshFailed: 'Failed to refresh data',
       exporting: 'Exporting data...',
@@ -848,7 +878,7 @@ export default {
       passwordMismatch: 'Passwords do not match',
       agreeTermsRequired: 'You must agree to the Terms of Service',
     },
-    messages: {
+    authMessages: {
       loginSuccess: 'Login successful',
       loginFailed: 'Login failed. Please check your credentials.',
       registerSuccess: 'Registration successful',
@@ -908,6 +938,7 @@ export default {
 
   // Error
   error: {
+    title: 'Error',
     network: 'Connection failed. Please check your internet.',
     server: 'Something went wrong on our end',
     notFound: "The page you're looking for doesn't exist",
@@ -1084,7 +1115,7 @@ export default {
       securityAlerts: 'Security Alerts',
       securityDescription: 'Receive security-related notifications',
     },
-    messages: {
+    profileMessages: {
       updateSuccess: 'Profile updated successfully',
       updateFailed: 'Failed to update profile',
       avatarUploadSuccess: 'Avatar uploaded successfully',
@@ -1142,7 +1173,7 @@ export default {
       save: 'Save Settings',
       reset: 'Reset to Default',
     },
-    messages: {
+    settingsMessages: {
       dark: 'dark',
       light: 'light',
       themeChanged: 'Theme switched to {{mode}} mode',
@@ -1178,6 +1209,41 @@ export default {
     welcomeBack: 'Welcome back, {username}!',
     welcomeGuest: 'Welcome! Please sign in to access all features.',
     quickActions: 'Quick Actions',
+    gettingStarted: 'Getting Started',
+    firstTimeUser:
+      'If you are using this system for the first time, we recommend:',
+    actions: {
+      dashboard: {
+        title: 'Dashboard',
+        description: 'View your overview and key metrics',
+      },
+      dataAnalysis: {
+        title: 'Data Analysis',
+        description: 'Analyze your data and generate insights',
+      },
+      userManagement: {
+        title: 'User Management',
+        description: 'Manage user accounts and permissions',
+      },
+      systemSettings: {
+        title: 'System Settings',
+        description: 'Configure system preferences',
+      },
+    },
+    steps: {
+      dashboard: 'First visit the dashboard to understand the system overview',
+      userManagement:
+        'Check user management features to understand permission settings',
+      systemSettings: 'Configure personal preferences in system settings',
+      dataAnalysis:
+        'Explore data analysis features to discover business insights',
+    },
+    buttons: {
+      goToDashboard: 'Go to Dashboard',
+      profile: 'Profile',
+      loginNow: 'Login Now',
+      registerAccount: 'Register Account',
+    },
   },
 
   // Error Boundary
@@ -1210,8 +1276,8 @@ export default {
     requireSpecialChar: 'Password must contain at least one special character',
   },
 
-  // Messages
-  messages: {
+  // Global Messages
+  globalMessages: {
     success: 'Operation successful',
     error: 'Operation failed',
     warning: 'Warning',
@@ -1238,5 +1304,139 @@ export default {
     operationCancelled: 'Operation cancelled',
     accessDenied: 'Access denied',
     sessionExpired: 'Session expired, please sign in again',
+  },
+
+  // Invoice OCR
+  invoiceOCR: {
+    title: 'Invoice OCR',
+    subtitle: 'Intelligent Invoice Recognition & Data Extraction',
+    upload: {
+      title: 'Upload Invoice',
+      dragText: 'Click or drag files to this area to upload',
+      hint: 'Support single or batch upload, supports PDF, JPG, PNG formats',
+      maxSize: 'File size cannot exceed 10MB',
+      supportedFormats: 'Supported formats: PDF, JPG, PNG',
+      selectFiles: 'Select Files',
+      uploading: 'Uploading...',
+      uploadSuccess: 'Upload successful',
+      uploadFailed: 'Upload failed',
+      processing: 'Processing...',
+      processSuccess: 'OCR recognition completed',
+      processFailed: 'OCR recognition failed',
+    },
+    results: {
+      title: 'Recognition Results',
+      noResults: 'No recognition results',
+      totalFiles: 'Total Files',
+      successCount: 'Successfully Recognized',
+      failedCount: 'Recognition Failed',
+      processingCount: 'Processing',
+      downloadAll: 'Batch Download',
+      exportToSheets: 'Export to Google Sheets',
+      refresh: 'Refresh Results',
+      viewDetails: 'View Details',
+      downloadResult: 'Download Result',
+      deleteResult: 'Delete Result',
+      retryProcess: 'Retry Process',
+      fileName: 'File Name',
+      status: 'Status',
+      processTime: 'Process Time',
+      confidence: 'Confidence',
+      actions: 'Actions',
+      preview: 'Preview',
+      extractedData: 'Extracted Data',
+    },
+    settings: {
+      title: 'Invoice OCR Settings',
+      basicConfig: 'Basic Configuration',
+      advancedConfig: 'Advanced Configuration',
+      workflowName: 'Workflow Name',
+      workflowNamePlaceholder: 'Enter workflow name',
+      webhookUrl: 'Webhook URL',
+      webhookUrlPlaceholder: 'Enter webhook URL',
+      webhookUrlHelp: 'OCR results will be sent to this URL after processing',
+      apiKey: 'API Key',
+      apiKeyPlaceholder: 'Enter API key',
+      apiKeyHelp: 'For Webhook authentication (optional)',
+      timeout: 'Timeout (seconds)',
+      timeoutPlaceholder: 'Enter timeout',
+      retryAttempts: 'Retry Attempts',
+      enableNotifications: 'Enable Notifications',
+      outputFormat: 'Output Format',
+      selectOutputFormat: 'Select output format',
+      description: 'Description',
+      descriptionPlaceholder: 'Enter workflow description (optional)',
+      testConnection: 'Test Connection',
+      saveConfig: 'Save Configuration',
+      reset: 'Reset',
+      resetSettings: 'Configuration reset',
+      connectionSuccess: 'Connection test successful',
+      connectionFailed: 'Connection test failed',
+      connectionNormal: 'Connection Normal',
+      connectionFailedDesc:
+        'Webhook URL connection test failed, please check if the URL is correct',
+      settingsSaved: 'Configuration saved successfully',
+      settingsFailed: 'Failed to save configuration',
+      seconds: 'seconds',
+      times: 'times',
+      enabled: 'Enabled',
+      disabled: 'Disabled',
+      validation: {
+        workflowNameRequired: 'Please enter workflow name',
+        workflowNameLength:
+          'Workflow name length should be between 2-50 characters',
+        webhookUrlRequired: 'Please enter Webhook URL',
+        webhookUrlInvalid: 'Please enter a valid HTTP/HTTPS URL',
+        timeoutRequired: 'Please enter timeout',
+        timeoutRange: 'Timeout should be between 10-300 seconds',
+        retryAttemptsRequired: 'Please enter retry attempts',
+        retryAttemptsRange: 'Retry attempts should be between 0-10 times',
+      },
+    },
+    status: {
+      pending: 'Pending',
+      processing: 'Processing',
+      completed: 'Completed',
+      failed: 'Failed',
+      cancelled: 'Cancelled',
+    },
+    errors: {
+      uploadFailed: 'File upload failed',
+      processFailed: 'OCR processing failed',
+      networkError: 'Network connection error',
+      serverError: 'Server error',
+      invalidFile: 'Invalid file format',
+      fileTooLarge: 'File size exceeds limit',
+      quotaExceeded: 'Processing quota exceeded',
+      unauthorized: 'Unauthorized access',
+      loadConfigFailed: 'Failed to load configuration',
+    },
+    completion: {
+      title: 'Invoice Scanning Completed',
+      message:
+        'Invoice scanning and registration has been completed successfully!',
+      summary: 'Processing Summary',
+      itemsProcessed: 'Items Processed: {{count}}',
+      invoiceDetails: 'Invoice Details:',
+      invoiceNumber: 'Invoice Number: {{number}}',
+      invoiceDate: 'Invoice Date: {{date}}',
+      vendor: 'Vendor: {{vendor}}',
+      customer: 'Customer: {{customer}}',
+      totalAmount: 'Total Amount: ${{amount}}',
+      viewInSheets: 'View in Google Sheets',
+      sheetsDescription:
+        'Click the button below to view the processed data in Google Sheets',
+      openSheets: 'Open Google Sheets',
+      close: 'Close',
+      // Processing completed notification
+      processingCompleted: '🎉 Invoice Processing Completed!',
+      processingCompletedMessage:
+        'Your invoices have been successfully processed and uploaded to Google Sheets',
+      executionId: 'Execution ID',
+      processedFiles: 'Processed Files',
+      viewGoogleSheets: '🔗 View Google Sheets',
+      processNewFiles: 'Process New Files',
+      tip: '💡 Tip: You can view and edit the extracted invoice data in Google Sheets',
+    },
   },
 };

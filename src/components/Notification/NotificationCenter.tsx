@@ -36,7 +36,6 @@ dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
 
 import type {
   NotificationItem,
@@ -143,14 +142,19 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
       className='notification-center'
     >
       <div className='notification-content'>
-        <Tabs activeKey={activeTab} onChange={setActiveTab} size='small'>
-          <TabPane tab={`全部 (${notifications.length})`} key='all' />
-          <TabPane tab={`未读 (${unreadCount})`} key='unread' />
-          <TabPane tab='系统' key='system' />
-          <TabPane tab='安全' key='security' />
-          <TabPane tab='更新' key='update' />
-          <TabPane tab='消息' key='message' />
-        </Tabs>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          size='small'
+          items={[
+            { key: 'all', label: `全部 (${notifications.length})` },
+            { key: 'unread', label: `未读 (${unreadCount})` },
+            { key: 'system', label: '系统' },
+            { key: 'security', label: '安全' },
+            { key: 'update', label: '更新' },
+            { key: 'message', label: '消息' },
+          ]}
+        />
 
         <div className='notification-list'>
           {filteredNotifications.length === 0 ? (

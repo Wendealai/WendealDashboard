@@ -10,7 +10,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import userReducer from '@/store/slices/userSlice';
 import uiReducer from '@/store/slices/uiSlice';
 
-// 创建测试用的store
+// Create test store
 export function createTestStore(initialState?: Partial<RootState>) {
   return configureStore({
     reducer: {
@@ -25,7 +25,7 @@ export function createTestStore(initialState?: Partial<RootState>) {
   });
 }
 
-// 自定义渲染函数
+// Custom render function
 interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
   initialState?: Partial<RootState>;
   store?: ReturnType<typeof createTestStore>;
@@ -37,7 +37,7 @@ function AllTheProviders({ children, testStore, route = '/' }: {
   testStore: ReturnType<typeof createTestStore>;
   route?: string;
 }) {
-  // 设置初始路由
+  // Set initial route
   window.history.pushState({}, 'Test page', route);
   
   return (
@@ -74,7 +74,7 @@ export function renderWithProviders(
   };
 }
 
-// 模拟用户数据
+// Mock user data
 export const mockUser = {
   id: '1',
   username: 'testuser',
@@ -90,7 +90,7 @@ export const mockUser = {
   },
 };
 
-// 模拟仪表板数据
+// Mock dashboard data
 export const mockDashboardData = {
   statistics: {
     totalUsers: 1234,
@@ -114,7 +114,7 @@ export const mockDashboardData = {
   ],
 };
 
-// 模拟通知数据
+// Mock notification data
 export const mockNotifications = [
   {
     id: '1',
@@ -128,53 +128,53 @@ export const mockNotifications = [
   },
 ];
 
-// 模拟API响应函数
+// Mock API response function
 function mockApiResponse<T>(data: T, delay = 100): Promise<T> {
   return new Promise<T>((resolve) => {
     setTimeout(() => resolve(data), delay);
   });
 }
 
-// 测试工具函数
+// Test utility functions
 export const testUtils = {
-  // 等待异步操作完成
+  // Wait for async operations to complete
   waitFor: (ms: number) => new Promise(resolve => setTimeout(resolve, ms)),
   
-  // 模拟API响应
+  // Mock API response
   mockApiResponse,
   
-  // 模拟API错误
+  // Mock API error
   mockApiError: (message = 'API Error', delay = 100) => {
     return new Promise((_, reject) => {
       setTimeout(() => reject(new Error(message)), delay);
     });
   },
   
-  // 创建模拟事件
+  // Create mock event
   createMockEvent: (type: string, data: any = {}) => {
     return new CustomEvent(type, { detail: data });
   },
   
-  // 模拟文件
+  // Mock file
   createMockFile: (name = 'test.txt', content = 'test content', type = 'text/plain') => {
     return new File([content], name, { type });
   },
 };
 
-// 常用的测试断言
+// Common test assertions
 export const assertions = {
-  // 检查元素是否可见
+  // Check if element is visible
   toBeVisible: (element: HTMLElement) => {
     expect(element).toBeInTheDocument();
     expect(element).toBeVisible();
   },
   
-  // 检查加载状态
+  // Check loading state
   toBeLoading: (container: HTMLElement) => {
     expect(container.querySelector('.ant-spin')).toBeInTheDocument();
   },
   
-  // 检查错误状态
+  // Check error state
   toShowError: (container: HTMLElement, message?: string) => {
     const errorElement = container.querySelector('.ant-alert-error, .error-message');
     expect(errorElement).toBeInTheDocument();
@@ -183,7 +183,7 @@ export const assertions = {
     }
   },
   
-  // 检查成功状态
+  // Check success state
   toShowSuccess: (container: HTMLElement, message?: string) => {
     const successElement = container.querySelector('.ant-alert-success, .success-message');
     expect(successElement).toBeInTheDocument();
@@ -193,7 +193,7 @@ export const assertions = {
   },
 };
 
-// 重新导出常用的测试库函数
+// Re-export common testing library functions
 export * from '@testing-library/react';
 export * from '@testing-library/user-event';
 export { renderWithProviders as render };

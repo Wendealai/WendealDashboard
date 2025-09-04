@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { message } from 'antd';
 import {
   workflowSettingsService,
   getWorkflowSettings,
@@ -21,6 +20,11 @@ export interface UseWorkflowSettingsOptions {
   showSuccessMessages?: boolean;
   /** Show error messages */
   showErrorMessages?: boolean;
+  /** Message API instance for notifications */
+  messageApi?: {
+    success: (content: string) => void;
+    error: (content: string) => void;
+  };
 }
 
 export interface UseWorkflowSettingsReturn {
@@ -71,6 +75,7 @@ export const useWorkflowSettings = ({
   autoSaveDelay = 1000,
   showSuccessMessages = true,
   showErrorMessages = true,
+  messageApi,
 }: UseWorkflowSettingsOptions = {}): UseWorkflowSettingsReturn => {
   // State management
   const [settings, setSettings] = useState<WorkflowSettings | null>(null);
@@ -98,13 +103,13 @@ export const useWorkflowSettings = ({
   const showSuccess = useCallback(
     (msg: string) => {
       setSuccess(msg);
-      if (showSuccessMessages) {
-        message.success(msg);
+      if (showSuccessMessages && messageApi) {
+        messageApi.success(msg);
       }
       // Auto-clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     },
-    [showSuccessMessages]
+    [showSuccessMessages, messageApi]
   );
 
   /**
@@ -113,11 +118,11 @@ export const useWorkflowSettings = ({
   const showError = useCallback(
     (msg: string) => {
       setError(msg);
-      if (showErrorMessages) {
-        message.error(msg);
+      if (showErrorMessages && messageApi) {
+        messageApi.error(msg);
       }
     },
-    [showErrorMessages]
+    [showErrorMessages, messageApi]
   );
 
   /**

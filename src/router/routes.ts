@@ -24,7 +24,9 @@ const SettingsPage = lazy(() => import('@/pages/Settings'));
 const NotFoundPage = lazy(() => import('@/pages/NotFound'));
 
 // Information Dashboard
-const InformationDashboard = lazy(() => import('@/pages/InformationDashboard'));
+const InformationDashboard = lazy(
+  () => import('@/pages/InformationDashboard/InformationDashboard')
+);
 
 export const routes: RouteConfig[] = [
   // Routes without layout (login, register)

@@ -1,43 +1,49 @@
-import React, { useState, ReactNode } from 'react';
-import { Card, Space, Button } from 'antd';
+import React, { useState } from 'react';
+import { Card, Button, Space } from 'antd';
 import { PlusOutlined, CloseOutlined } from '@ant-design/icons';
 
 /**
- * 标签页数据项接口
+ * Tab data item interface
  */
 export interface TabDataItem {
   key: string;
   label: string;
-  icon?: ReactNode;
-  content: ReactNode;
+  content: React.ReactNode;
+  icon?: React.ReactNode;
   closable?: boolean;
 }
 
 /**
- * TabsDataDisplay组件属性接口
+ * TabsDataDisplay component props
  */
 export interface TabsDataDisplayProps {
-  /** 标签页数据列表 */
   tabs: TabDataItem[];
-  /** 当前激活的标签页key */
   activeKey?: string;
-  /** 标签页切换回调 */
   onChange?: (key: string) => void;
-  /** 标签页关闭回调 */
   onClose?: (key: string) => void;
-  /** 添加新标签页回调 */
   onAdd?: () => void;
-  /** 是否显示添加按钮 */
   showAddButton?: boolean;
-  /** 组件样式类名 */
   className?: string;
-  /** 是否紧凑模式 */
   compact?: boolean;
 }
 
 /**
- * 标签页数据展示组件
- * 为多个工作流结果提供标签页展示框架
+ * TabsDataDisplay component
+ * Custom tab display component for workflow results
+ * Supports tab switching, closing, and adding new tabs
+ * Optimized for compact layout and responsive design
+ *
+ * @param props - Component props
+ * @returns React component
+ *
+ * Features:
+ * - Custom tab button design
+ * - Support for closable tabs
+ * - Add new tab functionality
+ * - Compact layout mode
+ * - Responsive design
+ *
+ * Provides tab display framework for multiple workflow results
  */
 const TabsDataDisplay: React.FC<TabsDataDisplayProps> = ({
   tabs,
@@ -49,16 +55,16 @@ const TabsDataDisplay: React.FC<TabsDataDisplayProps> = ({
   className = '',
   compact = true,
 }) => {
-  // 内部状态管理当前激活的标签页
+  // Internal state management for currently active tab
   const [internalActiveKey, setInternalActiveKey] = useState<string>(
     activeKey || (tabs.length > 0 ? tabs[0].key : '')
   );
 
-  // 获取当前激活的标签页key
+  // Get currently active tab key
   const currentActiveKey = activeKey || internalActiveKey;
 
   /**
-   * 处理标签页切换
+   * Handle tab change
    */
   const handleTabChange = (key: string) => {
     if (onChange) {
@@ -69,7 +75,7 @@ const TabsDataDisplay: React.FC<TabsDataDisplayProps> = ({
   };
 
   /**
-   * 处理标签页关闭
+   * Handle tab close
    */
   const handleTabClose = (key: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -79,7 +85,7 @@ const TabsDataDisplay: React.FC<TabsDataDisplayProps> = ({
   };
 
   /**
-   * 处理添加新标签页
+   * Handle add new tab
    */
   const handleAddTab = () => {
     if (onAdd) {
@@ -88,7 +94,7 @@ const TabsDataDisplay: React.FC<TabsDataDisplayProps> = ({
   };
 
   /**
-   * 获取当前激活标签页的内容
+   * Get current active tab content
    */
   const getCurrentTabContent = () => {
     const activeTab = tabs.find(tab => tab.key === currentActiveKey);
@@ -100,7 +106,7 @@ const TabsDataDisplay: React.FC<TabsDataDisplayProps> = ({
       className={`${className} ${compact ? 'compact-layout' : ''}`}
       style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
     >
-      {/* 标签页切换按钮区域 */}
+      {/* Tab switching button area */}
       <Card
         size={compact ? 'small' : 'default'}
         className={compact ? 'compact-spacing' : ''}
@@ -152,14 +158,14 @@ const TabsDataDisplay: React.FC<TabsDataDisplayProps> = ({
               onClick={handleAddTab}
               size={compact ? 'small' : 'middle'}
             >
-              添加
+              Add
             </Button>
           )}
         </Space>
       </Card>
 
-      {/* 内容区域 */}
-      <div style={{ flex: 1, overflow: 'auto' }}>{getCurrentTabContent()}</div>
+      {/* Content area - remove overflow, controlled by parent container */}
+      <div style={{ flex: 1, minHeight: 0 }}>{getCurrentTabContent()}</div>
     </div>
   );
 };

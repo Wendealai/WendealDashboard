@@ -11,7 +11,6 @@ import {
   Form,
   Input,
   Select,
-  message,
   Popconfirm,
   Typography,
   Statistic,
@@ -21,6 +20,7 @@ import {
   Tooltip,
   Badge,
 } from 'antd';
+import { useMessage } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import {
   UserOutlined,
@@ -43,7 +43,6 @@ import type { ColumnsType } from 'antd/es/table';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-const { TabPane } = Tabs;
 
 interface AdminPageProps {}
 
@@ -141,6 +140,7 @@ const mockSystemStats: SystemStats = {
 const AdminPage: React.FC<AdminPageProps> = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const message = useMessage();
   const [users, setUsers] = useState<User[]>(mockUsers);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -324,7 +324,7 @@ const AdminPage: React.FC<AdminPageProps> = () => {
           <Avatar
             size='small'
             icon={<UserOutlined />}
-            src={record.profile.avatar}
+            src={record.profile.avatar || null}
           />
           <div>
             <div>
@@ -453,167 +453,184 @@ const AdminPage: React.FC<AdminPageProps> = () => {
         <Text type='secondary'>{t('admin.subtitle')}</Text>
       </div>
 
-      <Tabs defaultActiveKey='overview' type='card'>
-        {/* 系统概览 */}
-        <TabPane
-          tab={
-            <span>
-              <MonitorOutlined />
-              {t('admin.overview')}
-            </span>
-          }
-          key='overview'
-        >
-          <Row gutter={[24, 24]}>
-            <Col xs={24} sm={12} lg={6}>
-              <Card>
-                <Statistic
-                  title={t('admin.totalUsers')}
-                  value={systemStats.totalUsers}
-                  prefix={<TeamOutlined />}
-                  valueStyle={{ color: '#1890ff' }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card>
-                <Statistic
-                  title={t('admin.activeUsers')}
-                  value={systemStats.activeUsers}
-                  prefix={<UserOutlined />}
-                  valueStyle={{ color: '#52c41a' }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card>
-                <Statistic
-                  title={t('admin.onlineSessions')}
-                  value={systemStats.totalSessions}
-                  prefix={<SecurityScanOutlined />}
-                  valueStyle={{ color: '#faad14' }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} lg={6}>
-              <Card>
-                <Statistic
-                  title={t('admin.systemLoad')}
-                  value={systemStats.systemLoad}
-                  suffix='%'
-                  prefix={<DatabaseOutlined />}
-                  valueStyle={{
-                    color: systemStats.systemLoad > 80 ? '#ff4d4f' : '#52c41a',
-                  }}
-                />
-              </Card>
-            </Col>
-          </Row>
-
-          <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
-            <Col xs={24} lg={8}>
-              <Card title={t('admin.systemResources')}>
-                <div style={{ marginBottom: '16px' }}>
-                  <Text>{t('admin.cpuUsage')}</Text>
-                  <Progress
-                    percent={systemStats.systemLoad}
-                    status={
-                      systemStats.systemLoad > 80 ? 'exception' : 'normal'
-                    }
-                  />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <Text>{t('admin.memoryUsage')}</Text>
-                  <Progress
-                    percent={systemStats.memoryUsage}
-                    status={
-                      systemStats.memoryUsage > 85 ? 'exception' : 'normal'
-                    }
-                  />
-                </div>
-                <div>
-                  <Text>{t('admin.diskUsage')}</Text>
-                  <Progress
-                    percent={systemStats.diskUsage}
-                    status={systemStats.diskUsage > 90 ? 'exception' : 'normal'}
-                  />
-                </div>
-              </Card>
-            </Col>
-            <Col xs={24} lg={16}>
-              <Card title={t('admin.quickActions')}>
-                <Row gutter={[16, 16]}>
-                  <Col xs={24} sm={12} md={8}>
-                    <Button
-                      type='primary'
-                      block
-                      icon={<PlusOutlined />}
-                      onClick={handleAddUser}
-                      disabled={!canManageUsers}
-                    >
-                      {t('admin.addUser')}
-                    </Button>
+      <Tabs
+        defaultActiveKey='overview'
+        type='card'
+        items={[
+          {
+            key: 'overview',
+            label: (
+              <span>
+                <MonitorOutlined />
+                {t('admin.overview')}
+              </span>
+            ),
+            children: (
+              <>
+                <Row gutter={[24, 24]}>
+                  <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                      <Statistic
+                        title={t('admin.totalUsers')}
+                        value={systemStats.totalUsers}
+                        prefix={<TeamOutlined />}
+                        valueStyle={{ color: '#1890ff' }}
+                      />
+                    </Card>
                   </Col>
-                  <Col xs={24} sm={12} md={8}>
-                    <Button block icon={<ReloadOutlined />} onClick={loadUsers}>
-                      {t('admin.refreshData')}
-                    </Button>
+                  <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                      <Statistic
+                        title={t('admin.activeUsers')}
+                        value={systemStats.activeUsers}
+                        prefix={<UserOutlined />}
+                        valueStyle={{ color: '#52c41a' }}
+                      />
+                    </Card>
                   </Col>
-                  <Col xs={24} sm={12} md={8}>
-                    <Button block icon={<ExportOutlined />}>
-                      {t('admin.exportReport')}
-                    </Button>
+                  <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                      <Statistic
+                        title={t('admin.onlineSessions')}
+                        value={systemStats.totalSessions}
+                        prefix={<SecurityScanOutlined />}
+                        valueStyle={{ color: '#faad14' }}
+                      />
+                    </Card>
+                  </Col>
+                  <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                      <Statistic
+                        title={t('admin.systemLoad')}
+                        value={systemStats.systemLoad}
+                        suffix='%'
+                        prefix={<DatabaseOutlined />}
+                        valueStyle={{
+                          color:
+                            systemStats.systemLoad > 80 ? '#ff4d4f' : '#52c41a',
+                        }}
+                      />
+                    </Card>
                   </Col>
                 </Row>
-              </Card>
-            </Col>
-          </Row>
-        </TabPane>
 
-        {/* 用户管理 */}
-        {canManageUsers && (
-          <TabPane
-            tab={
-              <span>
-                <TeamOutlined />
-                {t('admin.userManagement')}
-              </span>
-            }
-            key='users'
-          >
-            <Card
-              title={t('admin.userList')}
-              extra={
-                <Space>
-                  <Button
-                    type='primary'
-                    icon={<PlusOutlined />}
-                    onClick={handleAddUser}
-                  >
-                    {t('admin.addUser')}
-                  </Button>
-                  <Button icon={<ReloadOutlined />} onClick={loadUsers}>
-                    {t('admin.refresh')}
-                  </Button>
-                </Space>
-              }
-            >
-              <Table
-                columns={userColumns}
-                dataSource={users}
-                rowKey='id'
-                loading={loading}
-                pagination={{
-                  pageSize: 10,
-                  showSizeChanger: true,
-                  showQuickJumper: true,
-                  showTotal: total => t('user.totalRecords', { total }),
-                }}
-              />
-            </Card>
-          </TabPane>
-        )}
-      </Tabs>
+                <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
+                  <Col xs={24} lg={8}>
+                    <Card title={t('admin.systemResources')}>
+                      <div style={{ marginBottom: '16px' }}>
+                        <Text>{t('admin.cpuUsage')}</Text>
+                        <Progress
+                          percent={systemStats.systemLoad}
+                          status={
+                            systemStats.systemLoad > 80 ? 'exception' : 'normal'
+                          }
+                        />
+                      </div>
+                      <div style={{ marginBottom: '16px' }}>
+                        <Text>{t('admin.memoryUsage')}</Text>
+                        <Progress
+                          percent={systemStats.memoryUsage}
+                          status={
+                            systemStats.memoryUsage > 85
+                              ? 'exception'
+                              : 'normal'
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Text>{t('admin.diskUsage')}</Text>
+                        <Progress
+                          percent={systemStats.diskUsage}
+                          status={
+                            systemStats.diskUsage > 90 ? 'exception' : 'normal'
+                          }
+                        />
+                      </div>
+                    </Card>
+                  </Col>
+                  <Col xs={24} lg={16}>
+                    <Card title={t('admin.quickActions')}>
+                      <Row gutter={[16, 16]}>
+                        <Col xs={24} sm={12} md={8}>
+                          <Button
+                            type='primary'
+                            block
+                            icon={<PlusOutlined />}
+                            onClick={handleAddUser}
+                            disabled={!canManageUsers}
+                          >
+                            {t('admin.addUser')}
+                          </Button>
+                        </Col>
+                        <Col xs={24} sm={12} md={8}>
+                          <Button
+                            block
+                            icon={<ReloadOutlined />}
+                            onClick={loadUsers}
+                          >
+                            {t('admin.refreshData')}
+                          </Button>
+                        </Col>
+                        <Col xs={24} sm={12} md={8}>
+                          <Button block icon={<ExportOutlined />}>
+                            {t('admin.exportReport')}
+                          </Button>
+                        </Col>
+                      </Row>
+                    </Card>
+                  </Col>
+                </Row>
+              </>
+            ),
+          },
+          // 用户管理
+          ...(canManageUsers
+            ? [
+                {
+                  key: 'users',
+                  label: (
+                    <span>
+                      <TeamOutlined />
+                      {t('admin.userManagement')}
+                    </span>
+                  ),
+                  children: (
+                    <Card
+                      title={t('admin.userList')}
+                      extra={
+                        <Space>
+                          <Button
+                            type='primary'
+                            icon={<PlusOutlined />}
+                            onClick={handleAddUser}
+                          >
+                            {t('admin.addUser')}
+                          </Button>
+                          <Button icon={<ReloadOutlined />} onClick={loadUsers}>
+                            {t('admin.refresh')}
+                          </Button>
+                        </Space>
+                      }
+                    >
+                      <Table
+                        columns={userColumns}
+                        dataSource={users}
+                        rowKey='id'
+                        loading={loading}
+                        pagination={{
+                          pageSize: 10,
+                          showSizeChanger: true,
+                          showQuickJumper: true,
+                          showTotal: total => t('user.totalRecords', { total }),
+                        }}
+                      />
+                    </Card>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
 
       {/* 用户编辑模态框 */}
       <Modal

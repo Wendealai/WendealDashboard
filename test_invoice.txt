@@ -1,0 +1,6 @@
+Test invoice file for OCR testing
+Invoice Number: INV-2025-001
+Date: 2025-01-02
+Amount: $100.00
+Vendor: Test Company
+Description: Test invoice for OCR functionality

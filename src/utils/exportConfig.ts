@@ -1,9 +1,50 @@
 /**
- * 导出一致性系统配置管理器
- * 提供配置加载、验证和默认配置生成功能
+ * Export consistency system configuration manager
+ * Provides configuration loading, validation and default configuration generation functionality
  */
 
-// import { resolve } from 'path'; // Removed for browser compatibility
+// Browser-compatible path utilities
+const isNode =
+  typeof process !== 'undefined' && process.versions && process.versions.node;
+
+/**
+ * Get path resolve function (Node.js only)
+ */
+const getPathResolve = async (): Promise<
+  ((path: string) => string) | undefined
+> => {
+  if (!isNode) return undefined;
+  try {
+    const path = await import('path');
+    return path.resolve;
+  } catch (error) {
+    console.warn('Path module not available');
+    return undefined;
+  }
+};
+
+/**
+ * Get file exists check function (Node.js only)
+ */
+const getExistsSync = async (): Promise<
+  ((path: string) => boolean) | undefined
+> => {
+  if (!isNode) return undefined;
+  try {
+    const fs = await import('fs');
+    return fs.existsSync;
+  } catch (error) {
+    console.warn('FS module not available');
+    return undefined;
+  }
+};
+
+/**
+ * Browser-compatible path join
+ */
+const joinPath = (...parts: string[]): string => {
+  return parts.join('/').replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+};
 import type {
   ExportConfig,
   ExportRule,
@@ -13,7 +54,7 @@ import type {
 } from '../types/export';
 
 /**
- * 默认扫描选项
+ * Default scan options
  */
 const DEFAULT_SCAN_OPTIONS: ScanOptions = {
   include: ['**/*.ts', '**/*.tsx'],
@@ -33,12 +74,12 @@ const DEFAULT_SCAN_OPTIONS: ScanOptions = {
 };
 
 /**
- * 默认导出规则
+ * Default export rules
  */
 const DEFAULT_EXPORT_RULES: ExportRule[] = [
   {
     name: 'no-missing-exports',
-    description: '检查缺失的导出',
+    description: 'Check missing exports',
     enabled: true,
     severity: 'error',
     options: {
@@ -49,7 +90,7 @@ const DEFAULT_EXPORT_RULES: ExportRule[] = [
   },
   {
     name: 'consistent-naming',
-    description: '检查命名一致性',
+    description: 'Check naming consistency',
     enabled: true,
     severity: 'warning',
     options: {
@@ -59,7 +100,7 @@ const DEFAULT_EXPORT_RULES: ExportRule[] = [
   },
   {
     name: 'no-circular-dependencies',
-    description: '检查循环依赖',
+    description: 'Check circular dependencies',
     enabled: true,
     severity: 'error',
     options: {
@@ -68,7 +109,7 @@ const DEFAULT_EXPORT_RULES: ExportRule[] = [
   },
   {
     name: 'no-unused-exports',
-    description: '检查未使用的导出',
+    description: 'Check unused exports',
     enabled: true,
     severity: 'warning',
     options: {
@@ -77,7 +118,7 @@ const DEFAULT_EXPORT_RULES: ExportRule[] = [
   },
   {
     name: 'import-export-match',
-    description: '检查导入导出匹配',
+    description: 'Check import export matching',
     enabled: true,
     severity: 'error',
     options: {
@@ -86,14 +127,14 @@ const DEFAULT_EXPORT_RULES: ExportRule[] = [
   },
   {
     name: 'no-duplicate-exports',
-    description: '检查重复导出',
+    description: 'Check duplicate exports',
     enabled: true,
     severity: 'error',
     options: {},
   },
   {
     name: 'type-export-consistency',
-    description: '检查类型导出一致性',
+    description: 'Check type export consistency',
     enabled: true,
     severity: 'warning',
     options: {
@@ -103,7 +144,7 @@ const DEFAULT_EXPORT_RULES: ExportRule[] = [
 ];
 
 /**
- * 默认命名约定
+ * Default naming conventions
  */
 const DEFAULT_NAMING_CONVENTIONS = {
   interfaces: '^I[A-Z][a-zA-Z0-9]*$|^[A-Z][a-zA-Z0-9]*$',
@@ -113,13 +154,16 @@ const DEFAULT_NAMING_CONVENTIONS = {
 };
 
 /**
- * 生成默认配置
- * @param rootPath 项目根路径
- * @returns 默认配置对象
+ * Generate default configuration
+ * @param rootPath Project root path
+ * @returns Default configuration object
  */
 export function createDefaultConfig(rootPath: string): ExportConfig {
+  // Use browser-compatible path resolution
+  const resolvedPath = isNode ? rootPath : rootPath.replace(/\\/g, '/');
+
   return {
-    rootPath: resolve(rootPath),
+    rootPath: resolvedPath,
     scanOptions: { ...DEFAULT_SCAN_OPTIONS },
     rules: DEFAULT_EXPORT_RULES.map(rule => ({ ...rule })),
     namingConventions: { ...DEFAULT_NAMING_CONVENTIONS },
@@ -136,76 +180,47 @@ export function createDefaultConfig(rootPath: string): ExportConfig {
 }
 
 /**
- * 合并用户配置与默认配置
- * @param userConfig 用户配置
- * @param configPath 配置文件路径
- * @returns 合并后的配置
- */
-function mergeWithDefaults(
-  userConfig: Partial<ExportConfig>,
-  configPath: string
-): ExportConfig {
-  const defaultConfig = createDefaultConfig(resolve(configPath, '..'));
-
-  return {
-    ...defaultConfig,
-    ...userConfig,
-    rootPath: userConfig.rootPath
-      ? resolve(userConfig.rootPath)
-      : defaultConfig.rootPath,
-    scanOptions: {
-      ...defaultConfig.scanOptions,
-      ...userConfig.scanOptions,
-    },
-    rules: userConfig.rules || defaultConfig.rules,
-    namingConventions: {
-      ...defaultConfig.namingConventions,
-      ...userConfig.namingConventions,
-    },
-    autoFix: {
-      ...defaultConfig.autoFix,
-      ...userConfig.autoFix,
-    },
-    reporting: {
-      ...defaultConfig.reporting,
-      ...userConfig.reporting,
-    },
-  };
-}
-
-/**
- * 验证配置对象
- * @param config 配置对象
- * @returns 验证结果
+ * Validate configuration object
+ * @param config Configuration object
+ * @returns Validation result
  */
 export function validateConfig(config: ExportConfig): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // 验证根路径
+  // Validate root path
   if (!config.rootPath) {
-    errors.push('rootPath 是必需的');
-  } else if (!existsSync(config.rootPath)) {
-    errors.push(`rootPath 不存在: ${config.rootPath}`);
+    errors.push('rootPath is required');
+  } else if (isNode) {
+    // Only check file existence in Node.js environment
+    try {
+      const fs = require('fs');
+      if (!fs.existsSync(config.rootPath)) {
+        errors.push(`rootPath does not exist: ${config.rootPath}`);
+      }
+    } catch (error) {
+      // Skip file system check in browser environment
+      console.warn('File system check skipped in browser environment');
+    }
   }
 
-  // 验证扫描选项
+  // Validate scan options
   if (!config.scanOptions) {
-    errors.push('scanOptions 是必需的');
+    errors.push('scanOptions is required');
   } else {
     if (
       !Array.isArray(config.scanOptions.include) ||
       config.scanOptions.include.length === 0
     ) {
-      errors.push('scanOptions.include 必须是非空数组');
+      errors.push('scanOptions.include must be a non-empty array');
     }
 
     if (!Array.isArray(config.scanOptions.exclude)) {
-      errors.push('scanOptions.exclude 必须是数组');
+      errors.push('scanOptions.exclude must be an array');
     }
 
     if (typeof config.scanOptions.recursive !== 'boolean') {
-      errors.push('scanOptions.recursive 必须是布尔值');
+      errors.push('scanOptions.recursive must be a boolean');
     }
 
     if (
@@ -213,38 +228,42 @@ export function validateConfig(config: ExportConfig): ValidationResult {
       (typeof config.scanOptions.maxDepth !== 'number' ||
         config.scanOptions.maxDepth < 1)
     ) {
-      errors.push('scanOptions.maxDepth 必须是大于0的数字');
+      errors.push('scanOptions.maxDepth must be a number greater than 0');
     }
   }
 
-  // 验证规则
+  // Validate rules
   if (!Array.isArray(config.rules)) {
-    errors.push('rules 必须是数组');
+    errors.push('rules must be an array');
   } else {
     config.rules.forEach((rule, index) => {
       if (!rule.name) {
-        errors.push(`规则 ${index} 缺少 name 属性`);
+        errors.push(`Rule ${index} is missing name property`);
       }
 
       if (!rule.description) {
-        warnings.push(`规则 ${rule.name || index} 缺少 description 属性`);
+        warnings.push(
+          `Rule ${rule.name || index} is missing description property`
+        );
       }
 
       if (typeof rule.enabled !== 'boolean') {
-        errors.push(`规则 ${rule.name || index} 的 enabled 属性必须是布尔值`);
+        errors.push(
+          `Rule ${rule.name || index} enabled property must be a boolean`
+        );
       }
 
       if (!['error', 'warning', 'info'].includes(rule.severity)) {
         errors.push(
-          `规则 ${rule.name || index} 的 severity 必须是 'error', 'warning' 或 'info'`
+          `Rule ${rule.name || index} severity must be 'error', 'warning' or 'info'`
         );
       }
     });
   }
 
-  // 验证命名约定
+  // Validate naming conventions
   if (!config.namingConventions) {
-    errors.push('namingConventions 是必需的');
+    errors.push('namingConventions is required');
   } else {
     const conventions = ['interfaces', 'types', 'components', 'functions'];
     conventions.forEach(convention => {
@@ -253,55 +272,57 @@ export function validateConfig(config: ExportConfig): ValidationResult {
           convention as keyof typeof config.namingConventions
         ];
       if (!pattern) {
-        warnings.push(`缺少 ${convention} 的命名约定`);
+        warnings.push(`Missing naming convention for ${convention}`);
       } else {
         try {
           new RegExp(pattern);
         } catch (error) {
-          errors.push(`${convention} 的命名约定正则表达式无效: ${pattern}`);
+          errors.push(
+            `Invalid regex pattern for ${convention} naming convention: ${pattern}`
+          );
         }
       }
     });
   }
 
-  // 验证自动修复选项
+  // Validate auto-fix options
   if (!config.autoFix) {
-    errors.push('autoFix 是必需的');
+    errors.push('autoFix is required');
   } else {
     if (typeof config.autoFix.enabled !== 'boolean') {
-      errors.push('autoFix.enabled 必须是布尔值');
+      errors.push('autoFix.enabled must be a boolean');
     }
 
     if (typeof config.autoFix.createBackup !== 'boolean') {
-      errors.push('autoFix.createBackup 必须是布尔值');
+      errors.push('autoFix.createBackup must be a boolean');
     }
 
     if (!['low', 'medium', 'high'].includes(config.autoFix.maxRiskLevel)) {
-      errors.push('autoFix.maxRiskLevel 必须是 "low", "medium" 或 "high"');
+      errors.push('autoFix.maxRiskLevel must be "low", "medium" or "high"');
     }
   }
 
-  // 验证报告选项
+  // Validate reporting options
   if (!config.reporting) {
-    errors.push('reporting 是必需的');
+    errors.push('reporting is required');
   } else {
     if (
       !['console', 'json', 'html', 'markdown'].includes(config.reporting.format)
     ) {
       errors.push(
-        'reporting.format 必须是 "console", "json", "html" 或 "markdown"'
+        'reporting.format must be "console", "json", "html" or "markdown"'
       );
     }
 
     if (typeof config.reporting.verbose !== 'boolean') {
-      errors.push('reporting.verbose 必须是布尔值');
+      errors.push('reporting.verbose must be a boolean');
     }
 
     if (
       config.reporting.outputPath &&
       typeof config.reporting.outputPath !== 'string'
     ) {
-      errors.push('reporting.outputPath 必须是字符串');
+      errors.push('reporting.outputPath must be a string');
     }
   }
 
@@ -313,19 +334,19 @@ export function validateConfig(config: ExportConfig): ValidationResult {
 }
 
 /**
- * 获取启用的规则
- * @param config 配置对象
- * @returns 启用的规则数组
+ * Get enabled rules
+ * @param config Configuration object
+ * @returns Array of enabled rules
  */
 export function getEnabledRules(config: ExportConfig): ExportRule[] {
   return config.rules.filter(rule => rule.enabled);
 }
 
 /**
- * 根据严重程度获取规则
- * @param config 配置对象
- * @param severity 严重程度
- * @returns 指定严重程度的规则数组
+ * Get rules by severity
+ * @param config Configuration object
+ * @param severity Severity level
+ * @returns Array of rules with specified severity
  */
 export function getRulesBySeverity(
   config: ExportConfig,
@@ -337,10 +358,10 @@ export function getRulesBySeverity(
 }
 
 /**
- * 获取规则配置
- * @param config 配置对象
- * @param ruleName 规则名称
- * @returns 规则配置或undefined
+ * Get rule configuration
+ * @param config Configuration object
+ * @param ruleName Rule name
+ * @returns Rule configuration or undefined
  */
 export function getRuleConfig(
   config: ExportConfig,
@@ -350,10 +371,10 @@ export function getRuleConfig(
 }
 
 /**
- * 检查规则是否启用
- * @param config 配置对象
- * @param ruleName 规则名称
- * @returns 是否启用
+ * Check if rule is enabled
+ * @param config Configuration object
+ * @param ruleName Rule name
+ * @returns Whether the rule is enabled
  */
 export function isRuleEnabled(config: ExportConfig, ruleName: string): boolean {
   const rule = getRuleConfig(config, ruleName);
@@ -361,10 +382,10 @@ export function isRuleEnabled(config: ExportConfig, ruleName: string): boolean {
 }
 
 /**
- * 保存配置到文件
- * @param config 配置对象
- * @param configPath 配置文件路径
- * @returns 是否保存成功
+ * Save configuration to file
+ * @param config Configuration object
+ * @param configPath Configuration file path
+ * @returns Whether save was successful
  */
 export function saveConfigToFile(
   config: ExportConfig,
@@ -380,7 +401,7 @@ export function saveConfigToFile(
 }
 
 /**
- * 配置管理器类
+ * Configuration manager class
  */
 export class ExportConfigManager {
   private config: ExportConfig;
@@ -398,14 +419,14 @@ export class ExportConfigManager {
   }
 
   /**
-   * 获取配置
+   * Get configuration
    */
   getConfig(): ExportConfig {
     return { ...this.config };
   }
 
   /**
-   * 更新配置
+   * Update configuration
    */
   updateConfig(updates: Partial<ExportConfig>): void {
     this.config = {
@@ -431,26 +452,26 @@ export class ExportConfigManager {
   }
 
   /**
-   * 验证当前配置
+   * Validate current configuration
    */
   validate(): ValidationResult {
     return validateConfig(this.config);
   }
 
   /**
-   * 保存配置
+   * Save configuration
    */
   save(configPath?: string): boolean {
     const targetPath = configPath || this.configPath;
     if (!targetPath) {
-      throw new Error('没有指定配置文件路径');
+      throw new Error('No configuration file path specified');
     }
 
     return saveConfigToFile(this.config, targetPath);
   }
 
   /**
-   * 重新加载配置
+   * Reload configuration
    */
   reload(): void {
     if (this.configPath) {
@@ -463,28 +484,28 @@ export class ExportConfigManager {
   }
 
   /**
-   * 获取启用的规则
+   * Get enabled rules
    */
   getEnabledRules(): ExportRule[] {
     return getEnabledRules(this.config);
   }
 
   /**
-   * 检查规则是否启用
+   * Check if rule is enabled
    */
   isRuleEnabled(ruleName: string): boolean {
     return isRuleEnabled(this.config, ruleName);
   }
 
   /**
-   * 获取规则配置
+   * Get rule configuration
    */
   getRuleConfig(ruleName: string): ExportRule | undefined {
     return getRuleConfig(this.config, ruleName);
   }
 }
 
-// 导出默认实例创建函数
+// Export default instance creation function
 export function createConfigManager(
   projectPath: string,
   configPath?: string

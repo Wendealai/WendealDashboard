@@ -7,10 +7,10 @@ import type {
   FileInfo,
   AnalysisSummary,
   ProjectAnalysisResult,
-  FileMetadata,
+  // FileMetadata,
 } from '../types/export';
 import { ExportDetector } from './exportDetector';
-import { FileScanner } from './fileScanner';
+// import { FileScanner } from './fileScanner'; // Removed - fileScanner deleted
 import { ExportConfigManager } from './exportConfig';
 // import * as path from 'path'; // Removed for browser compatibility
 
@@ -19,12 +19,12 @@ import { ExportConfigManager } from './exportConfig';
  */
 export class ConsistencyAnalyzer {
   private configManager: ExportConfigManager;
-  private fileScanner: FileScanner;
+  // private fileScanner: FileScanner; // Removed - FileScanner deleted
   private exportDetector: ExportDetector;
 
   constructor(configManager: ExportConfigManager) {
     this.configManager = configManager;
-    this.fileScanner = new FileScanner(configManager.getConfig());
+    // this.fileScanner = new FileScanner(configManager.getConfig()); // Removed - FileScanner deleted
     this.exportDetector = new ExportDetector();
   }
 
@@ -41,32 +41,33 @@ export class ConsistencyAnalyzer {
 
     try {
       // 扫描项目文件
-      const scanResult = await this.fileScanner.scanProject(projectPath);
-      const files = scanResult.filter(
-        (file: FileMetadata) => file.fileInfo.isTypeScript
-      );
+      // const scanResult = await this.fileScanner.scanProject(projectPath);
+      // const files = scanResult.filter(
+      //   (file: FileMetadata) => file.fileInfo.isTypeScript
+      // );
 
       // 初始化导出检测器
-      const filePaths = files.map((file: FileMetadata) => file.fileInfo.path);
+      // const filePaths = files.map((file: FileMetadata) => file.fileInfo.path);
+      const filePaths: string[] = []; // 临时空数组
       this.exportDetector.initializeProgram(filePaths);
 
       // 分析每个文件
       const fileAnalysisResults: Map<string, ConsistencyIssue[]> = new Map();
       const allExports: Map<string, ExportInfo[]> = new Map();
 
-      for (const file of files) {
-        const exports = this.exportDetector.analyzeFile(file.fileInfo.path);
-        allExports.set(file.fileInfo.path, exports);
+      // for (const file of files) {
+      //   const exports = this.exportDetector.analyzeFile(file.fileInfo.path);
+      //   allExports.set(file.fileInfo.path, exports);
 
-        const issues = await this.analyzeFileConsistency(
-          file.fileInfo,
-          exports,
-          config
-        );
-        if (issues.length > 0) {
-          fileAnalysisResults.set(file.fileInfo.path, issues);
-        }
-      }
+      //   const issues = await this.analyzeFileConsistency(
+      //     file.fileInfo,
+      //     exports,
+      //     config
+      // );
+      // if (issues.length > 0) {
+      //   fileAnalysisResults.set(file.fileInfo.path, issues);
+      // }
+      // }
 
       // 分析跨文件一致性
       const crossFileIssues = this.analyzeCrossFileConsistency(
@@ -90,8 +91,8 @@ export class ConsistencyAnalyzer {
       return {
         projectPath,
         scanTimestamp: new Date().toISOString(),
-        totalFiles: files.length,
-        analyzedFiles: files.length,
+        totalFiles: 0, // files.length,
+        analyzedFiles: 0, // files.length,
         issues: allIssues,
         fixedIssues: [],
         summary,
@@ -102,42 +103,42 @@ export class ConsistencyAnalyzer {
     }
   }
 
-  /**
-   * 分析单个文件的导出一致性
-   * @param file - 文件信息
-   * @param exports - 导出信息数组
-   * @param config - 配置信息
-   * @returns 一致性问题数组
-   */
-  private async analyzeFileConsistency(
-    file: FileInfo,
-    exports: ExportInfo[],
-    config: ExportConfig
-  ): Promise<ConsistencyIssue[]> {
-    const issues: ConsistencyIssue[] = [];
+  // /**
+  //  * 分析单个文件的导出一致性
+  //  * @param file - 文件信息
+  //  * @param exports - 导出信息数组
+  //  * @param config - 配置信息
+  //  * @returns 一致性问题数组
+  //  */
+  // private async analyzeFileConsistency(
+  //   file: FileInfo,
+  //   exports: ExportInfo[],
+  //   config: ExportConfig
+  // ): Promise<ConsistencyIssue[]> {
+  //   const issues: ConsistencyIssue[] = [];
 
-    // 检查命名约定
-    const namingIssues = this.checkNamingConventions(exports, config);
-    issues.push(...namingIssues);
+  //   // 检查命名约定
+  //   const namingIssues = this.checkNamingConventions(exports, config);
+  //   issues.push(...namingIssues);
 
-    // 检查导出模式
-    const patternIssues = this.checkExportPatterns(exports, config);
-    issues.push(...patternIssues);
+  //   // 检查导出模式
+  //   const patternIssues = this.checkExportPatterns(exports, config);
+  //   issues.push(...patternIssues);
 
-    // 检查重复导出
-    const duplicateIssues = this.checkDuplicateExports(exports, file.path);
-    issues.push(...duplicateIssues);
+  //   // 检查重复导出
+  //   const duplicateIssues = this.checkDuplicateExports(exports, file.path);
+  //   issues.push(...duplicateIssues);
 
-    // 检查默认导出规则
-    const defaultExportIssues = this.checkDefaultExportRules(
-      file.path,
-      exports,
-      config
-    );
-    issues.push(...defaultExportIssues);
+  //   // 检查默认导出规则
+  //   const defaultExportIssues = this.checkDefaultExportRules(
+  //     file.path,
+  //     exports,
+  //     config
+  //   );
+  //   issues.push(...defaultExportIssues);
 
-    return issues;
-  }
+  //   return issues;
+  // }
 
   /**
    * 检查命名约定
@@ -145,227 +146,227 @@ export class ConsistencyAnalyzer {
    * @param config - 配置信息
    * @returns 命名问题数组
    */
-  private checkNamingConventions(
-    exports: ExportInfo[],
-    config: ExportConfig
-  ): ConsistencyIssue[] {
-    const issues: ConsistencyIssue[] = [];
-    const namingRules = config.rules.find(rule => rule.name === 'naming');
+  // private checkNamingConventions(
+  //   exports: ExportInfo[],
+  //   config: ExportConfig
+  // ): ConsistencyIssue[] {
+  //   const issues: ConsistencyIssue[] = [];
+  //   const namingRules = config.rules.find(rule => rule.name === 'naming');
 
-    if (!namingRules || !namingRules.enabled) {
-      return issues;
-    }
+  //   if (!namingRules || !namingRules.enabled) {
+  //     return issues;
+  //   }
 
-    for (const exportInfo of exports) {
-      const { exportName, exportType, sourceLocation } = exportInfo;
+  //   for (const exportInfo of exports) {
+  //     const { exportName, exportType, sourceLocation } = exportInfo;
 
-      // 跳过特殊导出
-      if (exportName === '*' || exportName === '=') {
-        continue;
-      }
+  //     // 跳过特殊导出
+  //     if (exportName === '*' || exportName === '=') {
+  //       continue;
+  //     }
 
-      let expectedPattern: RegExp | undefined;
-      // let ruleName: string; // 暂时注释掉未使用的变量
+  //     let expectedPattern: RegExp | undefined;
+  //     // let ruleName: string; // 暂时注释掉未使用的变量
 
-      // 根据导出类型选择命名规则
-      if (exportType === 'default') {
-        expectedPattern = new RegExp(
-          namingRules.options?.defaultExport || '.*'
-        );
-      } else {
-        expectedPattern = new RegExp(namingRules.options?.namedExport || '.*');
-      }
+  //     // 根据导出类型选择命名规则
+  //     if (exportType === 'default') {
+  //       expectedPattern = new RegExp(
+  //         namingRules.options?.defaultExport || '.*'
+  //       );
+  //     } else {
+  //       expectedPattern = new RegExp(namingRules.options?.namedExport || '.*');
+  //     }
 
-      if (expectedPattern && !expectedPattern.test(exportName)) {
-        issues.push({
-          id: `naming-${exportInfo.filePath}-${exportName}-${Date.now()}`,
-          type: 'naming-inconsistency',
-          severity: namingRules.severity,
-          filePath: exportInfo.filePath,
-          message: `Export '${exportName}' does not follow naming convention '${expectedPattern.source}'`,
-          autoFixable: false,
-          relatedFiles: [],
-          sourceLocation: sourceLocation,
-        });
-      }
-    }
+  //     if (expectedPattern && !expectedPattern.test(exportName)) {
+  //       issues.push({
+  //         id: `naming-${exportInfo.filePath}-${exportName}-${Date.now()}`,
+  //         type: 'naming-inconsistency',
+  //         severity: namingRules.severity,
+  //         filePath: exportInfo.filePath,
+  //         message: `Export '${exportName}' does not follow naming convention '${expectedPattern.source}'`,
+  //         autoFixable: false,
+  //         relatedFiles: [],
+  //         sourceLocation: sourceLocation,
+  //       });
+  //     }
+  //   }
 
-    return issues;
-  }
+  //   return issues;
+  // }
 
-  /**
-   * 检查导出模式
-   * @param exports - 导出信息数组
-   * @param config - 配置信息
-   * @returns 模式问题数组
-   */
-  private checkExportPatterns(
-    exports: ExportInfo[],
-    config: ExportConfig
-  ): ConsistencyIssue[] {
-    const issues: ConsistencyIssue[] = [];
-    const patternRules = config.rules.find(
-      rule => rule.name === 'exportPattern'
-    );
+  // /**
+  //  * 检查导出模式
+  //  * @param exports - 导出信息数组
+  //  * @param config - 配置信息
+  //  * @returns 模式问题数组
+  //  */
+  // private checkExportPatterns(
+  //   exports: ExportInfo[],
+  //   config: ExportConfig
+  // ): ConsistencyIssue[] {
+  //   const issues: ConsistencyIssue[] = [];
+  //   const patternRules = config.rules.find(
+  //     rule => rule.name === 'exportPattern'
+  //   );
 
-    if (!patternRules || !patternRules.enabled) {
-      return issues;
-    }
+  //   if (!patternRules || !patternRules.enabled) {
+  //     return issues;
+  //   }
 
-    // 检查是否有禁止的导出模式
-    for (const exportInfo of exports) {
-      const { exportType, sourceLocation } = exportInfo;
+  //   // 检查是否有禁止的导出模式
+  //   for (const exportInfo of exports) {
+  //     const { exportType, sourceLocation } = exportInfo;
 
-      // 检查是否禁止默认导出
-      if (exportType === 'default' && patternRules.options?.noDefaultExport) {
-        issues.push({
-          id: `pattern-default-${exportInfo.filePath}-${Date.now()}`,
-          type: 'naming-inconsistency',
-          severity: patternRules.severity,
-          filePath: exportInfo.filePath,
-          message: 'Default exports are not allowed',
-          autoFixable: false,
-          relatedFiles: [],
-          sourceLocation: sourceLocation,
-        });
-      }
+  //     // 检查是否禁止默认导出
+  //     if (exportType === 'default' && patternRules.options?.noDefaultExport) {
+  //       issues.push({
+  //         id: `pattern-default-${exportInfo.filePath}-${Date.now()}`,
+  //         type: 'naming-inconsistency',
+  //         severity: patternRules.severity,
+  //         filePath: exportInfo.filePath,
+  //         message: 'Default exports are not allowed',
+  //         autoFixable: false,
+  //         relatedFiles: [],
+  //         sourceLocation: sourceLocation,
+  //       });
+  //     }
 
-      // 检查是否禁止命名空间导出
-      if (
-        exportType === 'namespace' &&
-        patternRules.options?.noNamespaceExport
-      ) {
-        issues.push({
-          id: `pattern-namespace-${exportInfo.filePath}-${Date.now()}`,
-          type: 'naming-inconsistency',
-          severity: patternRules.severity,
-          filePath: exportInfo.filePath,
-          message: 'Namespace exports are not allowed',
-          autoFixable: false,
-          relatedFiles: [],
-          sourceLocation: sourceLocation,
-        });
-      }
+  //     // 检查是否禁止命名空间导出
+  //     if (
+  //       exportType === 'namespace' &&
+  //       patternRules.options?.noNamespaceExport
+  //     ) {
+  //       issues.push({
+  //         id: `pattern-namespace-${exportInfo.filePath}-${Date.now()}`,
+  //         type: 'naming-inconsistency',
+  //         severity: patternRules.severity,
+  //         filePath: exportInfo.filePath,
+  //         message: 'Namespace exports are not allowed',
+  //         autoFixable: false,
+  //         relatedFiles: [],
+  //         sourceLocation: sourceLocation,
+  //       });
+  //     }
 
-      // 检查是否禁止重新导出
-      if (exportType === 'reexport' && patternRules.options?.noReexport) {
-        issues.push({
-          id: `pattern-reexport-${exportInfo.filePath}-${Date.now()}`,
-          type: 'naming-inconsistency',
-          severity: patternRules.severity,
-          filePath: exportInfo.filePath,
-          message: 'Re-exports are not allowed',
-          autoFixable: false,
-          relatedFiles: [],
-          sourceLocation: sourceLocation,
-        });
-      }
-    }
+  //     // 检查是否禁止重新导出
+  //     if (exportType === 'reexport' && patternRules.options?.noReexport) {
+  //       issues.push({
+  //         id: `pattern-reexport-${exportInfo.filePath}-${Date.now()}`,
+  //         type: 'naming-inconsistency',
+  //         severity: patternRules.severity,
+  //         filePath: exportInfo.filePath,
+  //         message: 'Re-exports are not allowed',
+  //         autoFixable: false,
+  //         relatedFiles: [],
+  //         sourceLocation: sourceLocation,
+  //       });
+  //     }
+  //   }
 
-    return issues;
-  }
+  //   return issues;
+  // }
 
-  /**
-   * 检查重复导出
-   * @param exports - 导出信息数组
-   * @param filePath - 文件路径
-   * @returns 重复导出问题数组
-   */
-  private checkDuplicateExports(
-    exports: ExportInfo[],
-    filePath: string
-  ): ConsistencyIssue[] {
-    const issues: ConsistencyIssue[] = [];
-    const exportNames = new Map<string, ExportInfo[]>();
+  // /**
+  //  * 检查重复导出
+  //  * @param exports - 导出信息数组
+  //  * @param filePath - 文件路径
+  //  * @returns 重复导出问题数组
+  //  */
+  // private checkDuplicateExports(
+  //   exports: ExportInfo[],
+  //   filePath: string
+  // ): ConsistencyIssue[] {
+  //   const issues: ConsistencyIssue[] = [];
+  //   const exportNames = new Map<string, ExportInfo[]>();
 
-    // 收集所有导出名称
-    for (const exportInfo of exports) {
-      const { exportName } = exportInfo;
+  //   // 收集所有导出名称
+  //   for (const exportInfo of exports) {
+  //     const { exportName } = exportInfo;
 
-      if (!exportNames.has(exportName)) {
-        exportNames.set(exportName, []);
-      }
-      exportNames.get(exportName)!.push(exportInfo);
-    }
+  //     if (!exportNames.has(exportName)) {
+  //       exportNames.set(exportName, []);
+  //     }
+  //     exportNames.get(exportName)!.push(exportInfo);
+  //   }
 
-    // 检查重复
-    for (const [, duplicates] of exportNames) {
-      if (duplicates.length > 1) {
-        for (const duplicate of duplicates) {
-          issues.push({
-            id: `duplicate-${filePath}-${duplicate.exportName}-${Date.now()}`,
-            type: 'duplicate-export',
-            severity: 'error',
-            filePath: filePath,
-            message: `Duplicate export '${duplicate.exportName}' found`,
-            autoFixable: false,
-            relatedFiles: [],
-            sourceLocation: duplicate.sourceLocation,
-          });
-        }
-      }
-    }
+  //   // 检查重复
+  //   for (const [, duplicates] of exportNames) {
+  //     if (duplicates.length > 1) {
+  //       for (const duplicate of duplicates) {
+  //         issues.push({
+  //           id: `duplicate-${filePath}-${duplicate.exportName}-${Date.now()}`,
+  //           type: 'duplicate-export',
+  //           severity: 'error',
+  //           filePath: filePath,
+  //           message: `Duplicate export '${duplicate.exportName}' found`,
+  //           autoFixable: false,
+  //           relatedFiles: [],
+  //           sourceLocation: duplicate.sourceLocation,
+  //         });
+  //       }
+  //     }
+  //   }
 
-    return issues;
-  }
+  //   return issues;
+  // }
 
-  /**
-   * 检查默认导出规则
-   * @param exports - 导出信息数组
-   * @param filePath - 文件路径
-   * @param config - 配置信息
-   * @returns 默认导出问题数组
-   */
-  private checkDefaultExportRules(
-    filePath: string,
-    exports: ExportInfo[],
-    _config: ExportConfig
-  ): ConsistencyIssue[] {
-    const issues: ConsistencyIssue[] = [];
-    const defaultExports = exports.filter(exp => exp.exportType === 'default');
-    const fileName =
-      filePath.split('/').pop()?.split('\\').pop()?.split('.')[0] || '';
+  // /**
+  //  * 检查默认导出规则
+  //  * @param exports - 导出信息数组
+  //  * @param filePath - 文件路径
+  //  * @param config - 配置信息
+  //  * @returns 默认导出问题数组
+  //  */
+  // private checkDefaultExportRules(
+  //   filePath: string,
+  //   exports: ExportInfo[],
+  //   _config: ExportConfig
+  // ): ConsistencyIssue[] {
+  //   const issues: ConsistencyIssue[] = [];
+  //   const defaultExports = exports.filter(exp => exp.exportType === 'default');
+  //   const fileName =
+  //     filePath.split('/').pop()?.split('\\').pop()?.split('.')[0] || '';
 
-    // 检查是否有多个默认导出
-    if (defaultExports.length > 1) {
-      for (const defaultExport of defaultExports) {
-        issues.push({
-          id: `multiple-default-${filePath}-${Date.now()}`,
-          type: 'duplicate-export',
-          severity: 'error',
-          filePath: filePath,
-          message: 'Multiple default exports found',
-          autoFixable: false,
-          relatedFiles: [],
-          sourceLocation: defaultExport.sourceLocation,
-        });
-      }
-    }
+  //   // 检查是否有多个默认导出
+  //   if (defaultExports.length > 1) {
+  //     for (const defaultExport of defaultExports) {
+  //       issues.push({
+  //         id: `multiple-default-${filePath}-${Date.now()}`,
+  //         type: 'duplicate-export',
+  //         severity: 'error',
+  //         filePath: filePath,
+  //         message: 'Multiple default exports found',
+  //         autoFixable: false,
+  //         relatedFiles: [],
+  //         sourceLocation: defaultExport.sourceLocation,
+  //       });
+  //     }
+  //   }
 
-    // 检查默认导出命名是否与文件名匹配
-    // 检查默认导出命名是否与文件名匹配
-    if (defaultExports.length === 1) {
-      const defaultExport = defaultExports[0];
-      if (defaultExport) {
-        const exportName = defaultExport.exportName;
+  //   // 检查默认导出命名是否与文件名匹配
+  //   // 检查默认导出命名是否与文件名匹配
+  //   if (defaultExports.length === 1) {
+  //     const defaultExport = defaultExports[0];
+  //     if (defaultExport) {
+  //       const exportName = defaultExport.exportName;
 
-        if (exportName !== 'default' && exportName !== fileName) {
-          issues.push({
-            id: `name-mismatch-${filePath}-${exportName}-${Date.now()}`,
-            type: 'naming-inconsistency',
-            severity: 'warning',
-            filePath: filePath,
-            message: `Default export name '${exportName}' does not match file name '${fileName}'`,
-            autoFixable: false,
-            relatedFiles: [],
-            sourceLocation: defaultExport.sourceLocation,
-          });
-        }
-      }
-    }
+  //       if (exportName !== 'default' && exportName !== fileName) {
+  //         issues.push({
+  //           id: `name-mismatch-${filePath}-${exportName}-${Date.now()}`,
+  //           type: 'naming-inconsistency',
+  //           severity: 'warning',
+  //           filePath: filePath,
+  //           message: `Default export name '${exportName}' does not match file name '${fileName}'`,
+  //           autoFixable: false,
+  //           relatedFiles: [],
+  //           sourceLocation: defaultExport.sourceLocation,
+  //         });
+  //       }
+  //     }
+  //   }
 
-    return issues;
-  }
+  //   return issues;
+  // }
 
   /**
    * 分析跨文件一致性

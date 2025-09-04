@@ -43,8 +43,12 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
   const { user, isAuthenticated, isLoading } = useAuth();
   const { t } = useTranslation();
 
-  // 显示加载状态
-  if (showLoading && isLoading) {
+  // 如果正在加载或认证状态未确定，显示加载状态
+  // 给认证系统更多时间进行 token 验证和刷新
+  if (
+    showLoading &&
+    (isLoading || (requiresAuth && isAuthenticated === undefined))
+  ) {
     return (
       <div
         style={{

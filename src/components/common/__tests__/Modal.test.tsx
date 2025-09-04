@@ -333,7 +333,7 @@ describe('Modal Component', () => {
 
   it('applies custom props to underlying modal', () => {
     customRender(
-      <Modal open title='Test Modal' width={800} centered destroyOnClose>
+      <Modal open title='Test Modal' width={800} centered destroyOnHidden>
         <div>Modal content</div>
       </Modal>
     );

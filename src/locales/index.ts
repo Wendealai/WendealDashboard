@@ -2,11 +2,11 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
-// 导入语言资源
+// Import language resources
 import zhCN from './zh-CN';
 import enUS from './en-US';
 
-// 语言资源配置
+// Language resource configuration
 const resources = {
   'zh-CN': {
     translation: zhCN,
@@ -16,7 +16,7 @@ const resources = {
   },
 };
 
-// 支持的语言列表
+// Supported languages list
 export const supportedLanguages = [
   {
     key: 'zh-CN',
@@ -30,9 +30,9 @@ export const supportedLanguages = [
   },
 ];
 
-// 获取默认语言
+// Get default language
 const getDefaultLanguage = (): string => {
-  // 优先从localStorage获取
+  // Get from localStorage first
   const savedLanguage = localStorage.getItem('wendeal-dashboard-language');
   if (
     savedLanguage &&
@@ -41,11 +41,11 @@ const getDefaultLanguage = (): string => {
     return savedLanguage;
   }
 
-  // 默认返回英文（不再检测浏览器语言）
+  // Default to English (no longer detect browser language)
   return 'en-US';
 };
 
-// 初始化i18n
+// Initialize i18n
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -56,7 +56,7 @@ i18n
     debug: process.env.NODE_ENV === 'development',
 
     interpolation: {
-      escapeValue: false, // React已经默认转义
+      escapeValue: false, // React already escapes by default
     },
 
     detection: {
@@ -70,12 +70,12 @@ i18n
     },
   });
 
-// 语言切换函数
+// Language switching function
 export const changeLanguage = (language: string) => {
   i18n.changeLanguage(language);
   localStorage.setItem('wendeal-dashboard-language', language);
 
-  // 触发自定义事件，通知其他组件语言已更改
+  // Trigger custom event to notify other components that language has changed
   window.dispatchEvent(
     new CustomEvent('languageChanged', {
       detail: { language },
@@ -83,10 +83,10 @@ export const changeLanguage = (language: string) => {
   );
 };
 
-// 获取当前语言
+// Get current language
 export const getCurrentLanguage = () => i18n.language;
 
-// 获取当前语言信息
+// Get current language info
 export const getCurrentLanguageInfo = () => {
   const currentLang = getCurrentLanguage();
   return (

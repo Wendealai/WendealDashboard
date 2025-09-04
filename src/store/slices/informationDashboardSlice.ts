@@ -1,9 +1,13 @@
 /**
- * 信息展示模块Redux状态管理
- * 管理工作流、信息数据和仪表盘相关状态
+ * Information Dashboard Redux State Management
+ * Manages workflow, information data and dashboard related states
  */
 
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import {
+  createSlice,
+  createAsyncThunk,
+  createSelector,
+} from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type {
   WorkflowInfo,
@@ -16,7 +20,7 @@ import type {
   InformationDashboardReduxState,
 } from '@/pages/InformationDashboard/types';
 
-// 初始状态
+// Initial state
 const initialState: InformationDashboardReduxState = {
   workflows: {
     list: [],
@@ -65,10 +69,10 @@ const initialState: InformationDashboardReduxState = {
   },
 };
 
-// 异步Thunk Actions
+// Async Thunk Actions
 
 /**
- * 获取工作流列表
+ * Fetch workflow list
  */
 export const fetchWorkflows = createAsyncThunk(
   'informationDashboard/fetchWorkflows',
@@ -77,18 +81,18 @@ export const fetchWorkflows = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      // TODO: 实现实际的API调用
+      // TODO: Implement actual API call
       // const response = await workflowService.getWorkflows(params);
       // return response.data;
 
-      // 模拟数据
+      // Mock data
       await new Promise(resolve => setTimeout(resolve, 1000));
       return {
         data: [
           {
             id: '1',
-            name: '数据同步工作流',
-            description: '定期同步外部数据源',
+            name: 'Data Sync Workflow',
+            description: 'Periodically sync external data sources',
             type: 'scheduled' as const,
             status: 'active' as const,
             createdAt: '2024-01-15T10:00:00Z',
@@ -97,7 +101,7 @@ export const fetchWorkflows = createAsyncThunk(
             successRate: 95.5,
             author: {
               id: 'user1',
-              name: '张三',
+              name: 'John Doe',
               avatar: '',
             },
           },
@@ -110,50 +114,50 @@ export const fetchWorkflows = createAsyncThunk(
       };
     } catch (error) {
       return rejectWithValue(
-        error instanceof Error ? error.message : '获取工作流列表失败'
+        error instanceof Error ? error.message : 'Failed to fetch workflow list'
       );
     }
   }
 );
 
 /**
- * 触发工作流执行
+ * Trigger workflow execution
  */
 export const triggerWorkflow = createAsyncThunk(
   'informationDashboard/triggerWorkflow',
   async (request: TriggerWorkflowRequest, { rejectWithValue }) => {
     try {
-      // TODO: 实现实际的API调用
+      // TODO: Implement actual API call
       // const response = await workflowService.triggerWorkflow(request);
       // return response.data;
 
-      // 模拟数据
+      // Mock data
       await new Promise(resolve => setTimeout(resolve, 500));
       return {
         executionId: `exec_${Date.now()}`,
         status: 'running' as const,
-        message: '工作流已成功触发',
+        message: 'Workflow triggered successfully',
       } as TriggerWorkflowResponse;
     } catch (error) {
       return rejectWithValue(
-        error instanceof Error ? error.message : '触发工作流失败'
+        error instanceof Error ? error.message : 'Failed to trigger workflow'
       );
     }
   }
 );
 
 /**
- * 获取工作流执行记录
+ * Fetch workflow execution records
  */
 export const fetchWorkflowExecutions = createAsyncThunk(
   'informationDashboard/fetchWorkflowExecutions',
   async (workflowId?: string, { rejectWithValue }) => {
     try {
-      // TODO: 实现实际的API调用
+      // TODO: Implement actual API call
       // const response = await workflowService.getExecutions(workflowId);
       // return response.data;
 
-      // 模拟数据
+      // Mock data
       await new Promise(resolve => setTimeout(resolve, 800));
       return [
         {
@@ -167,41 +171,43 @@ export const fetchWorkflowExecutions = createAsyncThunk(
       ] as WorkflowExecution[];
     } catch (error) {
       return rejectWithValue(
-        error instanceof Error ? error.message : '获取执行记录失败'
+        error instanceof Error
+          ? error.message
+          : 'Failed to fetch execution records'
       );
     }
   }
 );
 
 /**
- * 获取信息数据列表
+ * Fetch information data list
  */
 export const fetchInformationList = createAsyncThunk(
   'informationDashboard/fetchInformationList',
   async (params: InformationQueryParams, { rejectWithValue }) => {
     try {
-      // TODO: 实现实际的API调用
+      // TODO: Implement actual API call
       // const response = await informationService.getInformationList(params);
       // return response.data;
 
-      // 模拟数据
+      // Mock data
       await new Promise(resolve => setTimeout(resolve, 1000));
       return {
         data: [
           {
             id: '1',
-            title: '系统状态报告',
-            content: '系统运行正常，所有服务可用',
+            title: 'System Status Report',
+            content: 'System running normally, all services available',
             type: 'text' as const,
-            category: '系统监控',
-            source: '监控系统',
+            category: 'System Monitoring',
+            source: 'Monitoring System',
             priority: 'medium' as const,
             status: 'active' as const,
             createdAt: '2024-01-15T15:00:00Z',
             updatedAt: '2024-01-15T15:00:00Z',
             createdBy: {
               id: 'user1',
-              name: '系统',
+              name: 'System',
             },
           },
         ],
@@ -213,24 +219,26 @@ export const fetchInformationList = createAsyncThunk(
       };
     } catch (error) {
       return rejectWithValue(
-        error instanceof Error ? error.message : '获取信息列表失败'
+        error instanceof Error
+          ? error.message
+          : 'Failed to fetch information list'
       );
     }
   }
 );
 
 /**
- * 获取仪表盘数据
+ * Fetch dashboard data
  */
 export const fetchDashboardData = createAsyncThunk(
   'informationDashboard/fetchDashboardData',
   async (_, { rejectWithValue }) => {
     try {
-      // TODO: 实现实际的API调用
+      // TODO: Implement actual API call
       // const response = await dashboardService.getDashboardData();
       // return response.data;
 
-      // 模拟数据
+      // Mock data
       await new Promise(resolve => setTimeout(resolve, 1200));
       return {
         workflowStats: {
@@ -251,10 +259,10 @@ export const fetchDashboardData = createAsyncThunk(
         informationStats: {
           total: 1250,
           byCategory: {
-            系统监控: 450,
-            业务数据: 380,
-            用户反馈: 220,
-            其他: 200,
+            'System Monitoring': 450,
+            'Business Data': 380,
+            'User Feedback': 220,
+            Other: 200,
           },
           byType: {
             text: 800,
@@ -290,7 +298,9 @@ export const fetchDashboardData = createAsyncThunk(
       } as DashboardData;
     } catch (error) {
       return rejectWithValue(
-        error instanceof Error ? error.message : '获取仪表盘数据失败'
+        error instanceof Error
+          ? error.message
+          : 'Failed to fetch dashboard data'
       );
     }
   }
@@ -301,7 +311,7 @@ const informationDashboardSlice = createSlice({
   name: 'informationDashboard',
   initialState,
   reducers: {
-    // UI状态管理
+    // UI state management
     setActiveTab: (state, action: PayloadAction<string>) => {
       state.ui.activeTab = action.payload;
     },
@@ -321,7 +331,7 @@ const informationDashboardSlice = createSlice({
       state.ui.refreshing = action.payload;
     },
 
-    // 信息数据过滤器
+    // Information data filters
     setInformationFilters: (
       state,
       action: PayloadAction<InformationQueryParams>
@@ -340,7 +350,7 @@ const informationDashboardSlice = createSlice({
       };
     },
 
-    // 分页管理
+    // Pagination management
     setWorkflowPagination: (
       state,
       action: PayloadAction<{ current: number; pageSize: number }>
@@ -360,7 +370,7 @@ const informationDashboardSlice = createSlice({
       };
     },
 
-    // 错误处理
+    // Error handling
     clearWorkflowError: state => {
       state.workflows.error = null;
     },
@@ -380,7 +390,7 @@ const informationDashboardSlice = createSlice({
       state.dashboard.error = null;
     },
 
-    // 重置状态
+    // Reset state
     resetWorkflowState: state => {
       state.workflows = initialState.workflows;
     },
@@ -393,7 +403,7 @@ const informationDashboardSlice = createSlice({
     resetAllState: () => initialState,
   },
   extraReducers: builder => {
-    // 工作流列表
+    // Workflow list
     builder
       .addCase(fetchWorkflows.pending, state => {
         state.workflows.loading = true;
@@ -409,21 +419,21 @@ const informationDashboardSlice = createSlice({
         state.workflows.error = action.payload as string;
       })
 
-      // 触发工作流
+      // Trigger workflow
       .addCase(triggerWorkflow.pending, state => {
         state.executions.loading = true;
         state.executions.error = null;
       })
       .addCase(triggerWorkflow.fulfilled, (state, action) => {
         state.executions.loading = false;
-        // 可以在这里添加新的执行记录到列表中
+        // Can add new execution record to list here
       })
       .addCase(triggerWorkflow.rejected, (state, action) => {
         state.executions.loading = false;
         state.executions.error = action.payload as string;
       })
 
-      // 工作流执行记录
+      // Workflow execution records
       .addCase(fetchWorkflowExecutions.pending, state => {
         state.executions.loading = true;
         state.executions.error = null;
@@ -437,7 +447,7 @@ const informationDashboardSlice = createSlice({
         state.executions.error = action.payload as string;
       })
 
-      // 信息数据列表
+      // Information data list
       .addCase(fetchInformationList.pending, state => {
         state.information.loading = true;
         state.information.error = null;
@@ -452,7 +462,7 @@ const informationDashboardSlice = createSlice({
         state.information.error = action.payload as string;
       })
 
-      // 仪表盘数据
+      // Dashboard data
       .addCase(fetchDashboardData.pending, state => {
         state.dashboard.loading = true;
         state.dashboard.error = null;
@@ -469,7 +479,7 @@ const informationDashboardSlice = createSlice({
   },
 });
 
-// 导出actions
+// Export actions
 export const {
   setActiveTab,
   setSelectedWorkflow,
@@ -492,10 +502,10 @@ export const {
   resetAllState,
 } = informationDashboardSlice.actions;
 
-// 导出reducer
+// Export reducer
 export default informationDashboardSlice.reducer;
 
-// 导出选择器
+// Export selectors
 export const selectWorkflows = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.workflows;
@@ -516,7 +526,7 @@ export const selectUI = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.ui;
 
-// 专用选择器
+// Specialized selectors
 export const selectWorkflowsLoading = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.workflows.loading;
@@ -561,7 +571,7 @@ export const selectSelectedInformation = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.ui.selectedInformation;
 
-// 错误选择器
+// Error selectors
 export const selectWorkflowsError = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.workflows.error;
@@ -578,7 +588,7 @@ export const selectDashboardError = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.dashboard.error;
 
-// 分页选择器
+// Pagination selectors
 export const selectWorkflowsPagination = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.workflows.pagination;
@@ -587,12 +597,12 @@ export const selectInformationPagination = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.information.pagination;
 
-// 过滤器选择器
+// Filter selectors
 export const selectInformationFilters = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.information.filters;
 
-// 组件中使用的别名选择器
+// Alias selectors used in components
 export const selectInformationData = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.information;
@@ -604,75 +614,89 @@ export const selectLoading = (state: {
   state.informationDashboard.workflows.loading ||
   state.informationDashboard.information.loading;
 
-// 统计数据选择器
-export const selectInformationStats = (state: {
-  informationDashboard: InformationDashboardReduxState;
-}) => {
-  const dashboard = state.informationDashboard.dashboard.data;
-  return dashboard
-    ? {
-        total: dashboard.informationStats.total,
-        active: dashboard.informationStats.active,
-        archived: dashboard.informationStats.archived,
-        categories: dashboard.informationStats.categories,
-        recentCount: dashboard.informationStats.recentCount,
-        lastUpdated: dashboard.informationStats.lastUpdated,
-      }
-    : {
-        total: 0,
-        active: 0,
-        archived: 0,
-        categories: {},
-        recentCount: 0,
-        lastUpdated: null,
-      };
-};
+// Statistics data selectors
+/**
+ * Memoized selector for information statistics
+ * Uses createSelector to prevent unnecessary re-renders when dashboard data hasn't changed
+ */
+export const selectInformationStats = createSelector(
+  [
+    (state: { informationDashboard: InformationDashboardReduxState }) =>
+      state.informationDashboard.dashboard.data,
+  ],
+  dashboard => {
+    return dashboard
+      ? {
+          total: dashboard.informationStats.total,
+          active: dashboard.informationStats.active,
+          archived: dashboard.informationStats.archived,
+          categories: dashboard.informationStats.categories,
+          recentCount: dashboard.informationStats.recentCount,
+          lastUpdated: dashboard.informationStats.lastUpdated,
+        }
+      : {
+          total: 0,
+          active: 0,
+          archived: 0,
+          categories: {},
+          recentCount: 0,
+          lastUpdated: null,
+        };
+  }
+);
 
-export const selectWorkflowStats = (state: {
-  informationDashboard: InformationDashboardReduxState;
-}) => {
-  const dashboard = state.informationDashboard.dashboard.data;
-  return dashboard
-    ? {
-        total: dashboard.workflowStats.total,
-        active: dashboard.workflowStats.active,
-        inactive: dashboard.workflowStats.inactive,
-        error: dashboard.workflowStats.error,
-        totalExecutions: dashboard.workflowStats.totalExecutions,
-        successfulExecutions: dashboard.workflowStats.successfulExecutions,
-        failedExecutions: dashboard.workflowStats.failedExecutions,
-        averageExecutionTime: dashboard.workflowStats.averageExecutionTime,
-        lastExecution: dashboard.workflowStats.lastExecution,
-      }
-    : {
-        total: 0,
-        active: 0,
-        inactive: 0,
-        error: 0,
-        totalExecutions: 0,
-        successfulExecutions: 0,
-        failedExecutions: 0,
-        averageExecutionTime: 0,
-        lastExecution: null,
-      };
-};
+/**
+ * Memoized selector for workflow statistics
+ * Uses createSelector to prevent unnecessary re-renders when dashboard data hasn't changed
+ */
+export const selectWorkflowStats = createSelector(
+  [
+    (state: { informationDashboard: InformationDashboardReduxState }) =>
+      state.informationDashboard.dashboard.data,
+  ],
+  dashboard => {
+    return dashboard
+      ? {
+          total: dashboard.workflowStats.total,
+          active: dashboard.workflowStats.active,
+          inactive: dashboard.workflowStats.inactive,
+          error: dashboard.workflowStats.error,
+          totalExecutions: dashboard.workflowStats.totalExecutions,
+          successfulExecutions: dashboard.workflowStats.successfulExecutions,
+          failedExecutions: dashboard.workflowStats.failedExecutions,
+          averageExecutionTime: dashboard.workflowStats.averageExecutionTime,
+          lastExecution: dashboard.workflowStats.lastExecution,
+        }
+      : {
+          total: 0,
+          active: 0,
+          inactive: 0,
+          error: 0,
+          totalExecutions: 0,
+          successfulExecutions: 0,
+          failedExecutions: 0,
+          averageExecutionTime: 0,
+          lastExecution: null,
+        };
+  }
+);
 
-// 刷新状态选择器
+// Refresh state selector
 export const selectRefreshing = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.ui.refreshing;
 
-// 侧边栏状态选择器
+// Sidebar state selector
 export const selectSidebarCollapsed = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.ui.sidebarCollapsed;
 
-// 活跃执行选择器
+// Active execution selector
 export const selectActiveExecution = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.executions.activeExecution;
 
-// 最后更新时间选择器
+// Last updated time selector
 export const selectDashboardLastUpdated = (state: {
   informationDashboard: InformationDashboardReduxState;
 }) => state.informationDashboard.dashboard.lastUpdated;

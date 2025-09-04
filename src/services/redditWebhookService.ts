@@ -46,7 +46,28 @@ export interface ParsedSubredditData {
 class RedditWebhookService {
   private readonly webhookUrl =
     process.env.REACT_APP_REDDIT_WEBHOOK_URL ||
-    'https://n8n.wendealai.com/webhook/reddithot';
+    'https://n8n.wendealai.com/webhook/reddithot'; // 用户提供的正确默认webhook URL
+
+  /**
+   * 获取适合当前环境的webhook URL
+   * 开发环境使用代理路径，生产环境使用直接URL
+   */
+  private getEnvironmentWebhookUrl(customUrl?: string): string {
+    const targetUrl = customUrl || this.webhookUrl;
+
+    // 检查是否在开发环境
+    const isDevelopment =
+      import.meta.env.DEV || window.location.hostname === 'localhost';
+
+    if (isDevelopment) {
+      // 开发环境：使用代理路径避免CORS问题
+      const url = new URL(targetUrl);
+      return url.pathname; // 返回 '/webhook/reddithot'
+    } else {
+      // 生产环境：使用完整URL
+      return targetUrl;
+    }
+  }
 
   /**
    * 解析Telegram消息中的Reddit数据
@@ -335,148 +356,204 @@ class RedditWebhookService {
   }
 
   /**
-   * 触发webhook（用于测试）
-   * @returns webhook响应
+   * 测试webhook连接
+   * @param webhookUrl - 要测试的webhook URL（可选，默认使用当前配置的URL）
+   * @returns Promise<{success: boolean, error?: string, statusCode?: number}>
    */
+  async testWebhookConnection(
+    webhookUrl?: string
+  ): Promise<{ success: boolean; error?: string; statusCode?: number }> {
+    const testUrl = this.getEnvironmentWebhookUrl(webhookUrl);
+
+    try {
+      const response = await fetch(testUrl, {
+        method: 'GET', // 使用GET请求测试连接，n8n webhook通常支持GET
+        mode: 'cors', // 明确指定CORS模式
+        credentials: 'omit', // 不发送凭据以避免CORS问题
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(10000), // 10秒超时
+      });
+
+      if (response.ok) {
+        return { success: true, statusCode: response.status };
+      } else {
+        return {
+          success: false,
+          error: `HTTP ${response.status}: ${response.statusText}`,
+          statusCode: response.status,
+        };
+      }
+    } catch (error) {
+      let errorMessage = 'Unknown error';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+
+        // 提供更具体的网络错误信息
+        if (
+          errorMessage.includes('Failed to fetch') ||
+          errorMessage.includes('NetworkError')
+        ) {
+          errorMessage =
+            'NetworkError: 无法连接到服务器，可能是CORS、网络连接或服务器问题';
+        } else if (
+          errorMessage.includes('timeout') ||
+          errorMessage.includes('AbortError')
+        ) {
+          errorMessage = 'TimeoutError: 连接超时，服务器响应时间过长';
+        } else if (errorMessage.includes('TypeError')) {
+          errorMessage = 'TypeError: URL格式错误或网络配置问题';
+        }
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * 验证webhook URL格式
+   * @param url - 要验证的URL
+   * @returns {valid: boolean, error?: string}
+   */
+  validateWebhookUrl(url: string): { valid: boolean; error?: string } {
+    if (!url || url.trim() === '') {
+      return { valid: false, error: 'URL不能为空' };
+    }
+
+    try {
+      const urlObj = new URL(url);
+
+      // 检查协议
+      if (!['http:', 'https:'].includes(urlObj.protocol)) {
+        return { valid: false, error: 'URL必须使用HTTP或HTTPS协议' };
+      }
+
+      // 检查是否包含webhook路径
+      if (!urlObj.pathname.includes('webhook')) {
+        return { valid: false, error: 'URL路径应包含"webhook"' };
+      }
+
+      return { valid: true };
+    } catch (error) {
+      return { valid: false, error: 'URL格式无效' };
+    }
+  }
+
   /**
    * 触发webhook并等待工作流完成
    * @param onProgress 进度回调函数
+   * @param customWebhookUrl 自定义webhook URL，如果提供则使用此URL而不是默认URL
    * @returns Promise<any>
    */
-  async triggerWebhook(onProgress?: (status: string) => void): Promise<any> {
+  async triggerWebhook(
+    onProgress?: (status: string) => void,
+    customWebhookUrl?: string
+  ): Promise<any> {
     try {
       onProgress?.('正在触发工作流...');
 
-      // 为了演示目的，使用用户提供的示例数据
-      // 在实际环境中，这里应该是真实的webhook调用
-      const telegramMessage = `🔥 *TOP POSTS FROM 5/5 ACTIVE SUBREDDITS* 🔥
-_Last 7 days_
-════════════════════════
+      const targetUrl = this.getEnvironmentWebhookUrl(customWebhookUrl);
+      console.log('发送webhook请求到:', targetUrl);
 
-▫️ *r/n8n*
-╰─────────────
-
- 1. *Stop paying $20 a month for n8n. Self host it in minutes*
- ⬆️ 449 • 💬 114
- 🔗 https://reddit.com/r/n8n/comments/1mz29g9/stop_paying_20_a_month_for_n8n_self_host_it_in/
-
- 2. *This n8n workflow made me close Multiple Clients at Once*
- ⬆️ 314 • 💬 50
- 🔗 https://reddit.com/r/n8n/comments/1myo42e/this_n8n_workflow_made_me_close_multiple_clients/
-
- 3. *Got my first paying client here is the workflow I built.*
- ⬆️ 285 • 💬 65
- 🔗 https://reddit.com/r/n8n/comments/1mzz8j9/got_my_first_paying_client_here_is_the_workflow_i/
-
-
-▫️ *r/comfyui*
-╰─────────────
-
- 1. *Casual local ComfyUI experience*
- ⬆️ 509 • 💬 63
- 🔗 https://reddit.com/r/comfyui/comments/1mzra3l/casual_local_comfyui_experience/
-
- 2. *WAN2.2 | comfyUI*
- ⬆️ 350 • 💬 80
- 🔗 https://reddit.com/r/comfyui/comments/1n2h2vx/wan22_comfyui/
-
- 3. *VibeVoice is crazy good (first try, no cherry-picking)*
- ⬆️ 349 • 💬 47
- 🔗 https://reddit.com/r/comfyui/comments/1n2ojb5/vibevoice_is_crazy_good_first_try_no_cherrypicking/
-
-
-▫️ *r/automation*
-╰─────────────
-
- 1. *I've been pulling leads straight from Google Maps, here's how*
- ⬆️ 161 • 💬 37
- 🔗 https://reddit.com/r/automation/comments/1myexrv/ive_been_pulling_leads_straight_from_google_maps/
-
- 2. *Stop paying $20 a month for n8n. Self host it in minutes*
- ⬆️ 103 • 💬 23
- 🔗 https://reddit.com/r/automation/comments/1mz28gq/stop_paying_20_a_month_for_n8n_self_host_it_in/
-
- 3. *What is an automation that 10x ed your productivity?*
- ⬆️ 78 • 💬 31
- 🔗 https://reddit.com/r/automation/comments/1n1cs67/what_is_an_automation_that_10x_ed_your/
-
-
-▫️ *r/brisbane*
-📍 *Brisbane Tip*: /weather for live radar
-╰─────────────
-
- 1. *Drone recording of the Palestine Rally*
- ⬆️ 5,992 • 💬 518
- 🔗 https://reddit.com/r/brisbane/comments/1mypdx2/drone_recording_of_the_palestine_rally/
-
- 2. *Photos from today's Palestine March 🇵🇸*
- ⬆️ 1,976 • 💬 5
- 🔗 https://reddit.com/r/brisbane/comments/1mysgrc/photos_from_todays_palestine_march/
-
- 3. *Just learnt my favourite shitty bar Fat Louie's closed last month :(*
- ⬆️ 1,146 • 💬 267
- 🔗 https://reddit.com/r/brisbane/comments/1n1dcad/just_learnt_my_favourite_shitty_bar_fat_louies/
-
-
-▫️ *r/australia*
-📍 *Brisbane Tip*: /weather for live radar
-╰─────────────
-
- 1. *Australia Post Temporary Suspends of Postal Services to the US*
- ⬆️ 5,262 • 💬 588
- 🔗 https://reddit.com/r/australia/comments/1n033l9/australia_post_temporary_suspends_of_postal/
-
- 2. *'March for Australia' is not common-sense patriotism — it's a Nazi-led mobilisation*
- ⬆️ 3,646 • 💬 622
- 🔗 https://reddit.com/r/australia/comments/1mymfbx/march_for_australia_is_not_commonsense_patriotism/
-
- 3. *Retirees earn more than young workers, no wonder productivity is dead*
- ⬆️ 2,502 • 💬 424
- 🔗 https://reddit.com/r/australia/comments/1n0be0n/retirees_earn_more_than_young_workers_no_wonder/
-
-════════════════════════
-_Showing top 3 from 5 active subreddits_`;
-
-      const mockResponse = {
-        json: {
-          telegramMessage,
-          parseMode: 'Markdown',
-          timestamp: '2025-08-30T06:45:45.213Z',
-          success: true,
-          validSubreddits: 5,
-          totalSubreddits: 5,
-          timeFilter: 'week',
-          subredditsRequested: [
-            'n8n',
-            'comfyui',
-            'automation',
-            'brisbane',
-            'australia',
-          ],
-          processingTime: '2025-08-30T06:45:45.213Z',
-          messageLength: 3118,
-          apiSource: 'reddit.com',
+      // 发送实际的webhook请求 - n8n webhook使用GET方法
+      const response = await fetch(targetUrl, {
+        method: 'GET',
+        mode: 'cors', // 明确指定CORS模式
+        credentials: 'omit', // 不发送凭据以避免CORS问题
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'WendealDashboard/1.0',
         },
-      };
-
-      // 模拟网络延迟
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      onProgress?.('正在处理数据...');
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-      onProgress?.('工作流已完成');
-
-      console.log('使用模拟webhook响应:', {
-        responseType: typeof mockResponse,
-        responseKeys: mockResponse ? Object.keys(mockResponse) : [],
-        hasJson: !!mockResponse?.json,
-        fullResponse: mockResponse,
       });
 
-      return mockResponse;
+      if (!response.ok) {
+        throw new Error(
+          `Webhook请求失败: ${response.status} ${response.statusText}`
+        );
+      }
+
+      onProgress?.('正在等待工作流响应...');
+
+      // 尝试解析响应
+      let webhookResponse;
+      const contentType = response.headers.get('content-type');
+
+      if (contentType && contentType.includes('application/json')) {
+        webhookResponse = await response.json();
+      } else {
+        // 如果不是JSON响应，可能是异步webhook，需要等待完成
+        onProgress?.('工作流已启动，等待完成...');
+        webhookResponse = await this.waitForWorkflowCompletion(onProgress);
+      }
+
+      console.log('收到webhook响应:', {
+        responseType: typeof webhookResponse,
+        responseKeys: webhookResponse ? Object.keys(webhookResponse) : [],
+        hasJson: !!webhookResponse?.json,
+        fullResponse: webhookResponse,
+      });
+
+      onProgress?.('工作流已完成');
+      return webhookResponse;
     } catch (error) {
       console.error('触发webhook失败:', error);
-      throw error;
+
+      // 提供详细的错误信息
+      let errorMessage = 'Unknown error';
+      let errorDetails = '';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+
+        // 根据错误类型提供具体的解决建议
+        if (errorMessage.includes('404')) {
+          errorDetails = `\n\n🔍 错误分析：\n• Webhook URL返回404错误\n• 可能原因：n8n工作流未正确配置或URL路径错误\n\n💡 解决建议：\n1. 检查n8n工作流是否已创建并激活\n2. 确认webhook URL路径是否正确\n3. 联系管理员检查n8n服务状态\n\n📋 当前URL: ${this.webhookUrl}`;
+        } else if (
+          errorMessage.includes('Failed to fetch') ||
+          errorMessage.includes('Network') ||
+          errorMessage.includes('TypeError: Failed to fetch')
+        ) {
+          errorDetails = `\n\n🔍 错误分析：\n• 网络连接失败 (NetworkError)\n• 可能原因：CORS策略阻止、网络不稳定、服务器无法访问或URL配置错误\n\n💡 解决建议：\n1. 检查网络连接状态\n2. 确认webhook URL是否正确: ${this.webhookUrl}\n3. 检查服务器CORS配置\n4. 尝试使用测试连接按钮验证连接\n5. 稍后重试`;
+        } else if (errorMessage.includes('timeout')) {
+          errorDetails = `\n\n🔍 错误分析：\n• 请求超时\n• 可能原因：工作流执行时间过长\n\n💡 解决建议：\n1. 稍后重试\n2. 检查n8n工作流执行状态\n3. 联系管理员优化工作流性能`;
+        }
+      }
+
+      // 在生产环境中提供用户友好的fallback响应
+      if (process.env.NODE_ENV === 'production') {
+        const fallbackResponse = {
+          success: false,
+          telegramMessage: '🔧 Reddit服务暂时不可用，请稍后重试',
+          parseMode: 'Markdown',
+          timestamp: new Date().toISOString(),
+          validSubreddits: 0,
+          totalSubreddits: 0,
+          timeFilter: 'hot',
+          subredditsRequested: [],
+          processingTime: '0ms',
+          messageLength: 0,
+          apiSource: 'fallback',
+          error: true,
+          errorMessage: `Reddit工作流暂时不可用：${errorMessage}`,
+          userMessage: '服务正在维护中，请稍后重试或联系技术支持。',
+        };
+
+        return fallbackResponse;
+      } else {
+        // 在开发环境中提供详细的错误信息
+        const detailedError = new Error(
+          `Reddit工作流执行失败：${errorMessage}${errorDetails}`
+        );
+        detailedError.name = 'WebhookError';
+
+        throw detailedError;
+      }
     }
   }
 
@@ -499,10 +576,13 @@ _Showing top 3 from 5 active subreddits_`;
         await new Promise(resolve => setTimeout(resolve, pollInterval));
 
         // 尝试获取工作流结果
-        const resultResponse = await fetch(this.webhookUrl, {
+        const resultResponse = await fetch(this.getEnvironmentWebhookUrl(), {
           method: 'GET',
+          mode: 'cors', // 明确指定CORS模式
+          credentials: 'omit', // 不发送凭据以避免CORS问题
           headers: {
             'Content-Type': 'application/json',
+            Accept: 'application/json',
           },
         });
 

@@ -418,6 +418,218 @@ export const handlers = [
       message: '设置保存成功',
     });
   }),
+
+  // Invoice OCR API
+  // 文件上传处理
+  http.post(
+    '/api/invoice-ocr/:workflowId/upload',
+    async ({ request, params }) => {
+      const { workflowId } = params;
+      const formData = await request.formData();
+      const files = formData.getAll('files');
+      const batchName = formData.get('batchName');
+      const processingOptions = formData.get('processingOptions');
+
+      // 模拟文件上传和OCR处理
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      const batchTask = {
+        id: `batch-${Date.now()}`,
+        workflowId,
+        name: batchName || `Batch ${new Date().toLocaleString()}`,
+        files: files.map((file: any, index: number) => ({
+          id: `file-${Date.now()}-${index}`,
+          name: file.name || `file-${index}`,
+          size: file.size || 0,
+          type:
+            file.name?.split('.').pop()?.toLowerCase() === 'pdf'
+              ? 'pdf'
+              : 'image',
+          status: 'pending' as const,
+        })),
+        status: 'processing' as const,
+        createdAt: new Date().toISOString(),
+        progress: {
+          total: files.length,
+          completed: 0,
+          failed: 0,
+          percentage: 0,
+        },
+      };
+
+      return HttpResponse.json({
+        success: true,
+        data: batchTask,
+        message: '文件上传成功，开始处理',
+      });
+    }
+  ),
+
+  http.post('/api/invoice-ocr/process', async ({ request }) => {
+    try {
+      const { fileIds, webhookUrl } = await request.json();
+
+      // 验证输入参数
+      if (!fileIds || !Array.isArray(fileIds)) {
+        return HttpResponse.json(
+          {
+            success: false,
+            message: 'Invalid fileIds parameter',
+          },
+          { status: 400 }
+        );
+      }
+
+      // 模拟OCR处理延迟
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 模拟OCR结果
+      const results = fileIds.map((fileId: string, index: number) => ({
+        id: `ocr-result-${Date.now()}-${index}`,
+        fileId,
+        fileName: `invoice-${index + 1}.pdf`,
+        status: 'completed',
+        extractedData: {
+          invoiceNumber: `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+          date: new Date().toISOString().split('T')[0],
+          vendor: '示例供应商',
+          amount: (Math.random() * 10000).toFixed(2),
+          currency: 'CNY',
+          items: [
+            {
+              description: '商品描述',
+              quantity: Math.floor(Math.random() * 10) + 1,
+              unitPrice: (Math.random() * 1000).toFixed(2),
+              total: (Math.random() * 5000).toFixed(2),
+            },
+          ],
+        },
+        confidence: 0.95,
+        processingTime: Math.floor(Math.random() * 3000) + 1000,
+      }));
+
+      // 如果提供了webhook URL，模拟发送webhook
+      if (webhookUrl) {
+        console.log(`模拟发送webhook到: ${webhookUrl}`, results);
+      }
+
+      return HttpResponse.json({
+        success: true,
+        data: {
+          results,
+          stats: {
+            totalFiles: fileIds.length,
+            processedFiles: fileIds.length,
+            failedFiles: 0,
+            averageProcessingTime: 2000,
+          },
+        },
+        message: 'OCR处理完成',
+      });
+    } catch (error) {
+      console.error('OCR processing error:', error);
+      return HttpResponse.json(
+        {
+          success: false,
+          message: 'Internal server error during OCR processing',
+        },
+        { status: 500 }
+      );
+    }
+  }),
+
+  http.post('/api/invoice-ocr/test-webhook', async ({ request }) => {
+    const { webhookUrl } = await request.json();
+
+    // 模拟webhook连接测试
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // 模拟测试结果（90%成功率）
+    const isSuccess = Math.random() > 0.1;
+
+    if (isSuccess) {
+      return HttpResponse.json({
+        success: true,
+        data: {
+          status: 'connected',
+          responseTime: Math.floor(Math.random() * 500) + 100,
+          statusCode: 200,
+        },
+        message: 'Webhook连接测试成功',
+      });
+    } else {
+      return HttpResponse.json(
+        {
+          success: false,
+          message: 'Webhook连接测试失败：连接超时',
+        },
+        { status: 400 }
+      );
+    }
+  }),
+
+  http.get('/api/invoice-ocr/results/:batchId', ({ params }) => {
+    const { batchId } = params;
+
+    // 模拟获取OCR结果
+    return HttpResponse.json({
+      success: true,
+      data: {
+        batchId,
+        status: 'completed',
+        results: [
+          {
+            id: `result-${Date.now()}`,
+            fileName: 'invoice-sample.pdf',
+            status: 'completed',
+            extractedData: {
+              invoiceNumber: 'INV-2024-001',
+              date: '2024-01-15',
+              vendor: '示例供应商有限公司',
+              amount: '5280.00',
+              currency: 'CNY',
+            },
+            confidence: 0.98,
+          },
+        ],
+      },
+    });
+  }),
+
+  http.get('/api/invoice-ocr/workflows', () => {
+    // 模拟获取工作流列表
+    return HttpResponse.json({
+      success: true,
+      data: [
+        {
+          id: 'workflow-1',
+          name: '发票处理工作流',
+          description: '自动处理发票OCR和数据提取',
+          status: 'active',
+          webhookUrl: 'https://n8n.wendealai.com/webhook/invoiceOCR',
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    });
+  }),
+
+  http.post('/api/invoice-ocr/workflows', async ({ request }) => {
+    const workflow = await request.json();
+
+    // 模拟创建工作流
+    return HttpResponse.json({
+      success: true,
+      data: {
+        id: `workflow-${Date.now()}`,
+        ...workflow,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      message: '工作流创建成功',
+    });
+  }),
 ];
 
 export default handlers;

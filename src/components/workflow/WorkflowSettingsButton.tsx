@@ -4,35 +4,35 @@ import Button from '../common/Button';
 import type { ButtonProps } from '../common/Button';
 
 /**
- * 工作流设置按钮组件属性接口
+ * Workflow settings button component props interface
  */
 export interface WorkflowSettingsButtonProps
   extends Omit<ButtonProps, 'icon' | 'children'> {
-  /** 按钮文本，默认为"工作流设置" */
+  /** Button text, defaults to "Workflow Settings" */
   text?: string;
-  /** 是否显示图标，默认为true */
+  /** Whether to show icon, defaults to true */
   showIcon?: boolean;
-  /** 自定义图标 */
+  /** Custom icon */
   customIcon?: React.ReactNode;
-  /** 按钮尺寸，默认为middle */
+  /** Button size, defaults to middle */
   size?: 'small' | 'middle' | 'large';
-  /** 按钮类型，默认为default */
+  /** Button type, defaults to default */
   type?: 'primary' | 'default' | 'dashed' | 'link' | 'text';
-  /** 是否禁用，默认为false */
+  /** Whether disabled, defaults to false */
   disabled?: boolean;
-  /** 点击回调函数 */
+  /** Click callback function */
   onSettingsClick?: () => void;
 }
 
 /**
- * 工作流设置按钮组件
- * 提供打开工作流设置模态框的入口点
+ * Workflow settings button component
+ * Provides entry point for opening workflow settings modal
  *
- * @param props - 组件属性
- * @returns React组件
+ * @param props - Component props
+ * @returns React component
  */
 const WorkflowSettingsButton: React.FC<WorkflowSettingsButtonProps> = ({
-  text = '工作流设置',
+  text = 'Workflow Settings',
   showIcon = true,
   customIcon,
   size = 'middle',
@@ -45,25 +45,25 @@ const WorkflowSettingsButton: React.FC<WorkflowSettingsButtonProps> = ({
   ...restProps
 }) => {
   /**
-   * 处理按钮点击事件
-   * @param e - 鼠标事件
+   * Handle button click event
+   * @param e - Mouse event
    */
   const handleClick = (e: React.MouseEvent<HTMLElement>) => {
-    // 先调用传入的onClick处理器
+    // First call the passed onClick handler
     if (onClick) {
       onClick(e);
     }
 
-    // 然后调用设置特定的处理器
+    // Then call the settings-specific handler
     if (onSettingsClick) {
       onSettingsClick();
     }
   };
 
-  // 确定要显示的图标
+  // Determine the icon to display
   const iconToShow = showIcon ? customIcon || <SettingOutlined /> : undefined;
 
-  // 组合CSS类名
+  // Combine CSS class names
   const combinedClassName = ['workflow-settings-button', className]
     .filter(Boolean)
     .join(' ');
@@ -83,16 +83,20 @@ const WorkflowSettingsButton: React.FC<WorkflowSettingsButtonProps> = ({
         gap: '6px',
         ...style,
       }}
-      title={disabled ? '工作流设置当前不可用' : '打开工作流设置'}
-      aria-label={`${text} - ${disabled ? '不可用' : '点击打开设置'}`}
+      title={
+        disabled
+          ? 'Workflow settings currently unavailable'
+          : 'Open workflow settings'
+      }
+      aria-label={`${text} - ${disabled ? 'Unavailable' : 'Click to open settings'}`}
     >
       {text}
     </Button>
   );
 };
 
-// 默认导出
+// Default export
 export default WorkflowSettingsButton;
 
-// 命名导出
+// Named export
 export { WorkflowSettingsButton };

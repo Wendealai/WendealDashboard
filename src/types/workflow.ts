@@ -146,3 +146,155 @@ export interface WorkflowSettingsEvent {
   /** 事件时间戳 */
   timestamp: number;
 }
+
+/**
+ * 发票OCR处理结果 - 增强版本
+ * 包含详细的处理统计和分析信息
+ */
+export interface InvoiceOCRResult {
+  /** 处理时间戳 */
+  processingTimestamp: string;
+  /** 处理摘要统计 */
+  summary: InvoiceProcessingSummary;
+  /** 财务统计摘要 */
+  financialSummary: FinancialSummary;
+  /** 处理详情 */
+  processingDetails: ProcessingDetails;
+  /** 质量指标 */
+  qualityMetrics: QualityMetrics;
+  /** 处理建议 */
+  recommendations: string[];
+}
+
+/**
+ * 发票处理摘要统计
+ */
+export interface InvoiceProcessingSummary {
+  /** 总处理项目数 */
+  totalItems: number;
+  /** OCR处理文档数 */
+  ocrDocuments: number;
+  /** 提取记录数 */
+  extractedRecords: number;
+  /** Google Sheets记录数 */
+  googleSheetsRecords: number;
+  /** 成功提取数 */
+  successfulExtractions: number;
+  /** 失败提取数 */
+  failedExtractions: number;
+  /** 重复记录数 */
+  duplicateRecords: number;
+  /** 质量问题数 */
+  qualityIssues: number;
+  /** 成功率 */
+  successRate: string;
+  /** 唯一发票数量 */
+  uniqueInvoices: number;
+}
+
+/**
+ * 财务统计摘要
+ */
+export interface FinancialSummary {
+  /** 总金额 */
+  totalAmount: string;
+  /** 平均金额 */
+  averageAmount: string;
+  /** 最小金额 */
+  minAmount: string;
+  /** 最大金额 */
+  maxAmount: string;
+  /** 中位数金额 */
+  medianAmount: string;
+  /** 记录数量 */
+  count: number;
+}
+
+/**
+ * 处理详情
+ */
+export interface ProcessingDetails {
+  /** 成功处理的发票列表 */
+  successfulInvoices: SuccessfulInvoice[];
+  /** 失败提取记录 */
+  failedExtractions: FailedExtraction[];
+  /** 质量问题记录 */
+  qualityIssues: QualityIssue[];
+  /** 重复记录 */
+  duplicates: DuplicateRecord[];
+}
+
+/**
+ * 成功处理的发票信息
+ */
+export interface SuccessfulInvoice {
+  /** 发票号码 */
+  invoiceNumber: string;
+  /** 供应商名称 */
+  vendorName: string;
+  /** 总金额 */
+  totalAmount: number;
+  /** 索引位置 */
+  index: number;
+}
+
+/**
+ * 失败提取记录
+ */
+export interface FailedExtraction {
+  /** 索引位置 */
+  index: number;
+  /** 错误信息 */
+  error: string;
+}
+
+/**
+ * 质量问题记录
+ */
+export interface QualityIssue {
+  /** 索引位置 */
+  index: number;
+  /** 发票号码 */
+  invoiceNumber: string;
+  /** 是否有效 */
+  isValid: boolean;
+  /** 问题列表 */
+  issues: string[];
+}
+
+/**
+ * 重复记录
+ */
+export interface DuplicateRecord {
+  /** 发票号码 */
+  invoiceNumber: string;
+  /** 索引位置 */
+  index: number;
+}
+
+/**
+ * 质量指标
+ */
+export interface QualityMetrics {
+  /** 数据完整性百分比 */
+  dataCompleteness: string;
+  /** 重复率百分比 */
+  duplicateRate: string;
+  /** 错误率百分比 */
+  errorRate: string;
+}
+
+/**
+ * 增强版Webhook响应
+ * 包含发票OCR处理的详细结果数组
+ */
+export interface EnhancedWebhookResponse {
+  /** 处理结果数组 */
+  results: InvoiceOCRResult[];
+  /** 响应状态 */
+  status?: 'success' | 'error' | 'partial';
+  /** 响应消息 */
+  message?: string;
+  /** Google Sheets URL */
+  googleSheetsUrl?: string;
+}

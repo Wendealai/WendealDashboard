@@ -1,11 +1,13 @@
 // 认证系统相关类型定义
 
-// 用户角色枚举
-export enum UserRole {
-  ADMIN = 'admin',
-  EMPLOYEE = 'employee',
-  USER = 'user',
-}
+// 用户角色常量
+export const UserRole = {
+  ADMIN: 'admin',
+  EMPLOYEE: 'employee',
+  USER: 'user',
+} as const;
+
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
 // 权限类型
 export interface Permission {
@@ -184,21 +186,23 @@ export interface SessionInfo {
   userAgent?: string;
 }
 
-// 认证错误类型
-export enum AuthErrorType {
-  INVALID_CREDENTIALS = 'invalid_credentials',
-  USER_NOT_FOUND = 'user_not_found',
-  USER_INACTIVE = 'user_inactive',
-  TOKEN_EXPIRED = 'token_expired',
-  TOKEN_INVALID = 'token_invalid',
-  PERMISSION_DENIED = 'permission_denied',
-  ACCOUNT_LOCKED = 'account_locked',
-  PASSWORD_WEAK = 'password_weak',
-  EMAIL_ALREADY_EXISTS = 'email_already_exists',
-  USERNAME_ALREADY_EXISTS = 'username_already_exists',
-  NETWORK_ERROR = 'network_error',
-  UNKNOWN_ERROR = 'unknown_error',
-}
+// 认证错误类型常量
+export const AuthErrorType = {
+  INVALID_CREDENTIALS: 'invalid_credentials',
+  USER_NOT_FOUND: 'user_not_found',
+  USER_INACTIVE: 'user_inactive',
+  TOKEN_EXPIRED: 'token_expired',
+  TOKEN_INVALID: 'token_invalid',
+  PERMISSION_DENIED: 'permission_denied',
+  ACCOUNT_LOCKED: 'account_locked',
+  PASSWORD_WEAK: 'password_weak',
+  EMAIL_ALREADY_EXISTS: 'email_already_exists',
+  USERNAME_ALREADY_EXISTS: 'username_already_exists',
+  NETWORK_ERROR: 'network_error',
+  UNKNOWN_ERROR: 'unknown_error',
+} as const;
+
+export type AuthErrorType = (typeof AuthErrorType)[keyof typeof AuthErrorType];
 
 // 认证错误接口
 export interface AuthError {

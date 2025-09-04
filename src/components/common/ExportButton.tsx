@@ -1,14 +1,8 @@
 import React, { useState } from 'react';
-import {
-  Button,
-  Dropdown,
-  Modal,
-  Form,
-  Input,
-  Select,
-  Space,
-  message,
-} from 'antd';
+import { Button, Dropdown, Modal, Form, Input, Select, Space } from 'antd';
+import { useMessage } from '@/hooks';
+import { useErrorModal } from '@/hooks/useErrorModal';
+import ErrorModal from '@/components/common/ErrorModal';
 import {
   DownloadOutlined,
   FileExcelOutlined,
@@ -48,6 +42,8 @@ const ExportButton: React.FC<ExportButtonProps> = ({
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const message = useMessage();
+  const { isVisible, errorInfo, showError, hideError } = useErrorModal();
   const [form] = Form.useForm();
 
   // 快速导出菜单项
@@ -116,7 +112,10 @@ const ExportButton: React.FC<ExportButtonProps> = ({
       onExportComplete?.(format);
     } catch (error) {
       console.error('Export error:', error);
-      message.error('导出失败，请重试');
+      showError(
+        '导出失败，请重试',
+        error instanceof Error ? error.message : String(error)
+      );
       onExportError?.(error as Error);
     } finally {
       setLoading(false);
@@ -150,7 +149,10 @@ const ExportButton: React.FC<ExportButtonProps> = ({
       form.resetFields();
     } catch (error) {
       console.error('Export error:', error);
-      message.error('导出失败，请重试');
+      showError(
+        '导出失败，请重试',
+        error instanceof Error ? error.message : String(error)
+      );
       onExportError?.(error as Error);
     } finally {
       setLoading(false);
@@ -257,6 +259,11 @@ const ExportButton: React.FC<ExportButtonProps> = ({
           </Form.Item>
         </Form>
       </Modal>
+      <ErrorModal
+        isVisible={isVisible}
+        errorInfo={errorInfo}
+        onClose={hideError}
+      />
     </>
   );
 };

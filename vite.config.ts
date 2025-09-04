@@ -8,15 +8,7 @@ export default defineConfig({
   plugins: [
     react({
       // React优化配置
-      babel: {
-        plugins: [
-          // 生产环境移除console
-          ...(process.env.NODE_ENV === 'production' ? [[
-            'transform-remove-console',
-            { exclude: ['error', 'warn'] }
-          ]] : [])
-        ]
-      }
+      // 暂时移除Babel插件配置以解决解析错误
     }),
     // 代码分割通过rollupOptions.output.manualChunks实现
     // Bundle分析插件（仅在分析模式下启用）
@@ -25,7 +17,7 @@ export default defineConfig({
       open: true,
       gzipSize: true,
       brotliSize: true,
-    })] : [])
+    }) as any] : [])
   ],
   define: {
     'process.env': {},
@@ -44,6 +36,39 @@ export default defineConfig({
     // 开发服务器优化
     hmr: {
       overlay: false, // 禁用错误覆盖层
+    },
+    // API代理配置 - 代理到n8n服务器
+    proxy: {
+      '/api': {
+        target: 'https://n8n.wendealai.com',
+        changeOrigin: true,
+        secure: true,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('proxy error', err);
+          });
+          proxy.on('proxyReq', (_proxyReq, req, _res) => {
+            console.log('[DEV] Proxying request:', req.method, req.url);
+          });
+        },
+      },
+      // Webhook代理配置 - 解决CORS问题
+      '/webhook': {
+        target: 'https://n8n.wendealai.com',
+        changeOrigin: true,
+        secure: true,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('webhook proxy error', err);
+          });
+          proxy.on('proxyReq', (_proxyReq, req, _res) => {
+            console.log('Sending Request to the Target:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+          });
+        },
+      },
     },
   },
 

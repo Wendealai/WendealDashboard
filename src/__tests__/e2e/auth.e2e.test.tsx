@@ -5,90 +5,95 @@ import App from '@/App';
 import { server } from '@/mocks/server';
 import { rest } from 'msw';
 
-// 启动MSW服务器
+// Start MSW server
 beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 describe('Authentication E2E Tests', () => {
   beforeEach(() => {
-    // 清除本地存储
+    // Clear local storage
     localStorage.clear();
     sessionStorage.clear();
 
-    // 重置URL
+    // Reset URL
     window.history.pushState({}, '', '/');
   });
 
   it('should complete full login flow', async () => {
     renderWithProviders(<App />);
 
-    // 验证重定向到登录页面
+    // Verify redirect to login page
     await waitFor(() => {
-      expect(screen.getByText('用户登录')).toBeInTheDocument();
+      expect(screen.getByText('User Login')).toBeInTheDocument();
     });
 
-    // 填写登录表单
-    const usernameInput = screen.getByPlaceholderText('请输入用户名');
-    const passwordInput = screen.getByPlaceholderText('请输入密码');
-    const loginButton = screen.getByRole('button', { name: '登录' });
+    // Fill login form
+    const usernameInput = screen.getByPlaceholderText('Enter username');
+    const passwordInput = screen.getByPlaceholderText('Enter password');
+    const loginButton = screen.getByRole('button', { name: 'Login' });
 
     fireEvent.change(usernameInput, { target: { value: 'testuser' } });
     fireEvent.change(passwordInput, { target: { value: 'password123' } });
     fireEvent.click(loginButton);
 
-    // 验证登录成功并重定向到仪表板
+    // Verify successful login and redirect to dashboard
     await waitFor(
       () => {
-        expect(screen.getByText('仪表板')).toBeInTheDocument();
+        expect(screen.getByText('Dashboard')).toBeInTheDocument();
       },
       { timeout: 5000 }
     );
 
-    // 验证用户信息显示
-    expect(screen.getByText('测试用户')).toBeInTheDocument();
+    // Verify user info display
+    expect(screen.getByText('Test User')).toBeInTheDocument();
 
-    // 验证导航菜单
-    expect(screen.getByText('首页')).toBeInTheDocument();
-    expect(screen.getByText('用户管理')).toBeInTheDocument();
-    expect(screen.getByText('系统设置')).toBeInTheDocument();
+    // Verify navigation menu
+    expect(screen.getByText('Home')).toBeInTheDocument();
+    expect(screen.getByText('User Management')).toBeInTheDocument();
+    expect(screen.getByText('System Settings')).toBeInTheDocument();
 
-    // 验证token存储
+    // Verify token storage
     expect(localStorage.getItem('token')).toBeTruthy();
   });
 
   it('should handle login with invalid credentials', async () => {
-    // 模拟登录失败
+    // Mock login failure
     server.use(
       rest.post('/api/auth/login', (req, res, ctx) => {
-        return res(ctx.status(401), ctx.json({ message: '用户名或密码错误' }));
+        return res(
+          ctx.status(401),
+          ctx.json({ message: 'Invalid username or password' })
+        );
       })
     );
 
     renderWithProviders(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('用户登录')).toBeInTheDocument();
+      expect(screen.getByText('User Login')).toBeInTheDocument();
     });
 
-    // 填写错误的登录信息
-    const usernameInput = screen.getByPlaceholderText('请输入用户名');
-    const passwordInput = screen.getByPlaceholderText('请输入密码');
-    const loginButton = screen.getByRole('button', { name: '登录' });
+    // Fill incorrect login information
+    const usernameInput = screen.getByPlaceholderText('Enter username');
+    const passwordInput = screen.getByPlaceholderText('Enter password');
+    const loginButton = screen.getByRole('button', { name: 'Login' });
 
     fireEvent.change(usernameInput, { target: { value: 'wronguser' } });
     fireEvent.change(passwordInput, { target: { value: 'wrongpassword' } });
     fireEvent.click(loginButton);
 
-    // 验证错误消息显示
+    // Verify error message display
     await waitFor(() => {
-      expect(screen.getByText('用户名或密码错误')).toBeInTheDocument();
+      expect(
+        screen.getByText('Invalid username or password')
+      ).toBeInTheDocument();
     });
 
-    // 验证仍在登录页面
-    expect(screen.getByText('用户登录')).toBeInTheDocument();
+    // Verify still on login page
+    expect(screen.getByText('User Login')).toBeInTheDocument();
 
-    // 验证没有token存储
+    // Verify no token storage
     expect(localStorage.getItem('token')).toBeNull();
   });
 
@@ -96,24 +101,25 @@ describe('Authentication E2E Tests', () => {
     renderWithProviders(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('用户登录')).toBeInTheDocument();
+      expect(screen.getByText('User Login')).toBeInTheDocument();
     });
 
-    // 点击注册链接
-    const registerLink = screen.getByText('立即注册');
+    // Click register link
+    const registerLink = screen.getByText('Register Now');
     fireEvent.click(registerLink);
 
-    // 验证跳转到注册页面
+    // Verify redirect to registration page
     await waitFor(() => {
-      expect(screen.getByText('用户注册')).toBeInTheDocument();
+      expect(screen.getByText('User Registration')).toBeInTheDocument();
     });
 
-    // 填写注册表单
-    const usernameInput = screen.getByPlaceholderText('请输入用户名');
-    const emailInput = screen.getByPlaceholderText('请输入邮箱');
-    const passwordInput = screen.getByPlaceholderText('请输入密码');
-    const confirmPasswordInput = screen.getByPlaceholderText('请确认密码');
-    const registerButton = screen.getByRole('button', { name: '注册' });
+    // Fill registration form
+    const usernameInput = screen.getByPlaceholderText('Enter username');
+    const emailInput = screen.getByPlaceholderText('Enter email');
+    const passwordInput = screen.getByPlaceholderText('Enter password');
+    const confirmPasswordInput =
+      screen.getByPlaceholderText('Confirm password');
+    const registerButton = screen.getByRole('button', { name: 'Register' });
 
     fireEvent.change(usernameInput, { target: { value: 'newuser' } });
     fireEvent.change(emailInput, { target: { value: 'newuser@example.com' } });
@@ -122,25 +128,27 @@ describe('Authentication E2E Tests', () => {
       target: { value: 'password123' },
     });
 
-    // 同意条款
+    // Agree to terms
     const agreeCheckbox = screen.getByRole('checkbox');
     fireEvent.click(agreeCheckbox);
 
     fireEvent.click(registerButton);
 
-    // 验证注册成功消息
+    // Verify registration success message
     await waitFor(() => {
-      expect(screen.getByText('注册成功，请登录')).toBeInTheDocument();
+      expect(
+        screen.getByText('Registration successful, please login')
+      ).toBeInTheDocument();
     });
 
-    // 验证自动跳转到登录页面
+    // Verify automatic redirect to login page
     await waitFor(() => {
-      expect(screen.getByText('用户登录')).toBeInTheDocument();
+      expect(screen.getByText('User Login')).toBeInTheDocument();
     });
   });
 
   it('should handle logout flow', async () => {
-    // 先设置已登录状态
+    // First set logged in state
     localStorage.setItem('token', 'mock-token');
 
     const initialState = {
@@ -170,34 +178,34 @@ describe('Authentication E2E Tests', () => {
 
     renderWithProviders(<App />, { initialState });
 
-    // 验证已登录状态
+    // Verify logged in state
     await waitFor(() => {
-      expect(screen.getByText('仪表板')).toBeInTheDocument();
+      expect(screen.getByText('Dashboard')).toBeInTheDocument();
     });
 
-    // 点击用户头像打开下拉菜单
+    // Click user avatar to open dropdown menu
     const userAvatar = screen.getByTestId('user-avatar');
     fireEvent.click(userAvatar);
 
-    // 点击退出登录
-    const logoutButton = screen.getByText('退出登录');
+    // Click logout
+    const logoutButton = screen.getByText('Logout');
     fireEvent.click(logoutButton);
 
-    // 验证确认对话框
+    // Verify confirmation dialog
     await waitFor(() => {
-      expect(screen.getByText('确认退出登录？')).toBeInTheDocument();
+      expect(screen.getByText('Confirm logout?')).toBeInTheDocument();
     });
 
-    // 确认退出
-    const confirmButton = screen.getByRole('button', { name: '确定' });
+    // Confirm logout
+    const confirmButton = screen.getByRole('button', { name: 'Confirm' });
     fireEvent.click(confirmButton);
 
-    // 验证跳转到登录页面
+    // Verify redirect to login page
     await waitFor(() => {
-      expect(screen.getByText('用户登录')).toBeInTheDocument();
+      expect(screen.getByText('User Login')).toBeInTheDocument();
     });
 
-    // 验证token被清除
+    // Verify token is cleared
     expect(localStorage.getItem('token')).toBeNull();
   });
 
@@ -205,35 +213,39 @@ describe('Authentication E2E Tests', () => {
     renderWithProviders(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('用户登录')).toBeInTheDocument();
+      expect(screen.getByText('User Login')).toBeInTheDocument();
     });
 
-    // 点击忘记密码链接
-    const forgotPasswordLink = screen.getByText('忘记密码？');
+    // Click forgot password link
+    const forgotPasswordLink = screen.getByText('Forgot Password?');
     fireEvent.click(forgotPasswordLink);
 
-    // 验证跳转到密码重置页面
+    // Verify redirect to password reset page
     await waitFor(() => {
-      expect(screen.getByText('重置密码')).toBeInTheDocument();
+      expect(screen.getByText('Reset Password')).toBeInTheDocument();
     });
 
-    // 输入邮箱
-    const emailInput = screen.getByPlaceholderText('请输入注册邮箱');
-    const sendCodeButton = screen.getByRole('button', { name: '发送验证码' });
+    // Enter email
+    const emailInput = screen.getByPlaceholderText('Enter registered email');
+    const sendCodeButton = screen.getByRole('button', { name: 'Send Code' });
 
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
     fireEvent.click(sendCodeButton);
 
-    // 验证验证码发送成功
+    // Verify verification code sent successfully
     await waitFor(() => {
-      expect(screen.getByText('验证码已发送到您的邮箱')).toBeInTheDocument();
+      expect(
+        screen.getByText('Verification code sent to your email')
+      ).toBeInTheDocument();
     });
 
-    // 输入验证码和新密码
-    const codeInput = screen.getByPlaceholderText('请输入验证码');
-    const newPasswordInput = screen.getByPlaceholderText('请输入新密码');
-    const confirmPasswordInput = screen.getByPlaceholderText('请确认新密码');
-    const resetButton = screen.getByRole('button', { name: '重置密码' });
+    // Enter verification code and new password
+    const codeInput = screen.getByPlaceholderText('Enter verification code');
+    const newPasswordInput = screen.getByPlaceholderText('Enter new password');
+    const confirmPasswordInput = screen.getByPlaceholderText(
+      'Confirm new password'
+    );
+    const resetButton = screen.getByRole('button', { name: 'Reset Password' });
 
     fireEvent.change(codeInput, { target: { value: '123456' } });
     fireEvent.change(newPasswordInput, { target: { value: 'newpassword123' } });
@@ -242,27 +254,29 @@ describe('Authentication E2E Tests', () => {
     });
     fireEvent.click(resetButton);
 
-    // 验证密码重置成功
+    // Verify password reset successful
     await waitFor(() => {
       expect(
-        screen.getByText('密码重置成功，请使用新密码登录')
+        screen.getByText(
+          'Password reset successful, please login with new password'
+        )
       ).toBeInTheDocument();
     });
 
-    // 验证跳转到登录页面
+    // Verify redirect to login page
     await waitFor(() => {
-      expect(screen.getByText('用户登录')).toBeInTheDocument();
+      expect(screen.getByText('User Login')).toBeInTheDocument();
     });
   });
 
   it('should handle session expiration', async () => {
-    // 设置过期的token
+    // Set expired token
     localStorage.setItem('token', 'expired-token');
 
-    // 模拟token验证失败
+    // Mock token validation failure
     server.use(
       rest.get('/api/auth/me', (req, res, ctx) => {
-        return res(ctx.status(401), ctx.json({ message: 'Token已过期' }));
+        return res(ctx.status(401), ctx.json({ message: 'Token expired' }));
       })
     );
 
@@ -287,15 +301,17 @@ describe('Authentication E2E Tests', () => {
 
     renderWithProviders(<App />, { initialState });
 
-    // 验证自动跳转到登录页面
+    // Verify automatic redirect to login page
     await waitFor(() => {
-      expect(screen.getByText('用户登录')).toBeInTheDocument();
+      expect(screen.getByText('User Login')).toBeInTheDocument();
     });
 
-    // 验证显示会话过期提示
-    expect(screen.getByText('会话已过期，请重新登录')).toBeInTheDocument();
+    // Verify session expired message display
+    expect(
+      screen.getByText('Session expired, please login again')
+    ).toBeInTheDocument();
 
-    // 验证token被清除
+    // Verify token is cleared
     expect(localStorage.getItem('token')).toBeNull();
   });
 
@@ -303,32 +319,32 @@ describe('Authentication E2E Tests', () => {
     renderWithProviders(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('用户登录')).toBeInTheDocument();
+      expect(screen.getByText('User Login')).toBeInTheDocument();
     });
 
-    // 填写登录表单并勾选记住我
-    const usernameInput = screen.getByPlaceholderText('请输入用户名');
-    const passwordInput = screen.getByPlaceholderText('请输入密码');
-    const rememberCheckbox = screen.getByLabelText('记住我');
-    const loginButton = screen.getByRole('button', { name: '登录' });
+    // Fill login form and check remember me
+    const usernameInput = screen.getByPlaceholderText('Enter username');
+    const passwordInput = screen.getByPlaceholderText('Enter password');
+    const rememberCheckbox = screen.getByLabelText('Remember me');
+    const loginButton = screen.getByRole('button', { name: 'Login' });
 
     fireEvent.change(usernameInput, { target: { value: 'testuser' } });
     fireEvent.change(passwordInput, { target: { value: 'password123' } });
     fireEvent.click(rememberCheckbox);
     fireEvent.click(loginButton);
 
-    // 验证登录成功
+    // Verify login successful
     await waitFor(() => {
-      expect(screen.getByText('仪表板')).toBeInTheDocument();
+      expect(screen.getByText('Dashboard')).toBeInTheDocument();
     });
 
-    // 验证记住我信息被保存
+    // Verify remember me info is saved
     expect(localStorage.getItem('rememberMe')).toBe('true');
     expect(localStorage.getItem('savedUsername')).toBe('testuser');
   });
 
   it('should handle auto-login with valid token', async () => {
-    // 设置有效的token
+    // Set valid token
     localStorage.setItem('token', 'valid-token');
 
     const initialState = {
@@ -358,12 +374,12 @@ describe('Authentication E2E Tests', () => {
 
     renderWithProviders(<App />, { initialState });
 
-    // 验证直接跳转到仪表板（无需登录）
+    // Verify automatic redirect to dashboard (no login required)
     await waitFor(() => {
-      expect(screen.getByText('仪表板')).toBeInTheDocument();
+      expect(screen.getByText('Dashboard')).toBeInTheDocument();
     });
 
-    // 验证用户信息显示
+    // Verify user info display
     expect(screen.getByText('testuser')).toBeInTheDocument();
   });
 });

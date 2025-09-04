@@ -10,7 +10,6 @@ import {
   Upload,
   Space,
   Divider,
-  message,
   Switch,
   Select,
   DatePicker,
@@ -33,14 +32,14 @@ import {
   SettingOutlined,
   BellOutlined,
 } from '@ant-design/icons';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts';
 import { useTranslation } from 'react-i18next';
+import { useMessage } from '@/hooks';
 import type { UploadFile } from 'antd/es/upload/interface';
 import dayjs from 'dayjs';
 import './index.scss';
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
 const { Option } = Select;
 const { TextArea } = Input;
 
@@ -68,6 +67,7 @@ interface UserProfile {
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
+  const message = useMessage();
   const [form] = Form.useForm();
   const [securityForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -196,7 +196,7 @@ const ProfilePage: React.FC = () => {
                   disabled={!editing}
                 >
                   {profile.avatar ? (
-                    <Avatar size={100} src={profile.avatar} />
+                    <Avatar size={100} src={profile.avatar || null} />
                   ) : (
                     uploadButton
                   )}
@@ -267,411 +267,440 @@ const ProfilePage: React.FC = () => {
 
         <Col xs={24} lg={16}>
           <Card>
-            <Tabs activeKey={activeTab} onChange={setActiveTab}>
-              <TabPane
-                tab={
-                  <span>
-                    <UserOutlined />
-                    {t('profile.tabs.profile')}
-                  </span>
-                }
-                key='profile'
-              >
-                <div className='profile-form-section'>
-                  <div className='section-header'>
-                    <Title level={5}>{t('profile.sections.basicInfo')}</Title>
-                    <Button
-                      type={editing ? 'default' : 'primary'}
-                      icon={editing ? <SaveOutlined /> : <EditOutlined />}
-                      onClick={() => {
-                        if (editing) {
-                          form.submit();
-                        } else {
-                          setEditing(true);
-                        }
-                      }}
-                      loading={loading}
-                    >
-                      {editing
-                        ? t('profile.buttons.save')
-                        : t('profile.buttons.edit')}
-                    </Button>
-                  </div>
+            <Tabs
+              activeKey={activeTab}
+              onChange={setActiveTab}
+              items={[
+                {
+                  key: 'profile',
+                  label: (
+                    <span>
+                      <UserOutlined />
+                      {t('profile.tabs.profile')}
+                    </span>
+                  ),
+                  children: (
+                    <div className='profile-form-section'>
+                      <div className='section-header'>
+                        <Title level={5}>
+                          {t('profile.sections.basicInfo')}
+                        </Title>
+                        <Button
+                          type={editing ? 'default' : 'primary'}
+                          icon={editing ? <SaveOutlined /> : <EditOutlined />}
+                          onClick={() => {
+                            if (editing) {
+                              form.submit();
+                            } else {
+                              setEditing(true);
+                            }
+                          }}
+                          loading={loading}
+                        >
+                          {editing
+                            ? t('profile.buttons.save')
+                            : t('profile.buttons.edit')}
+                        </Button>
+                      </div>
 
-                  <Form
-                    form={form}
-                    layout='vertical'
-                    onFinish={handleSave}
-                    disabled={!editing}
-                  >
-                    <Row gutter={16}>
-                      <Col span={12}>
+                      <Form
+                        form={form}
+                        layout='vertical'
+                        onFinish={handleSave}
+                        disabled={!editing}
+                      >
+                        <Row gutter={16}>
+                          <Col span={12}>
+                            <Form.Item
+                              label={t('profile.fields.firstName')}
+                              name='firstName'
+                              rules={[
+                                {
+                                  required: true,
+                                  message: t(
+                                    'profile.validation.firstNameRequired'
+                                  ),
+                                },
+                              ]}
+                            >
+                              <Input
+                                placeholder={t(
+                                  'profile.placeholders.firstName'
+                                )}
+                              />
+                            </Form.Item>
+                          </Col>
+                          <Col span={12}>
+                            <Form.Item
+                              label={t('profile.fields.lastName')}
+                              name='lastName'
+                              rules={[
+                                {
+                                  required: true,
+                                  message: t(
+                                    'profile.validation.lastNameRequired'
+                                  ),
+                                },
+                              ]}
+                            >
+                              <Input
+                                placeholder={t('profile.placeholders.lastName')}
+                              />
+                            </Form.Item>
+                          </Col>
+                        </Row>
+
+                        <Row gutter={16}>
+                          <Col span={12}>
+                            <Form.Item
+                              label={t('profile.fields.username')}
+                              name='username'
+                              rules={[
+                                {
+                                  required: true,
+                                  message: t(
+                                    'profile.validation.usernameRequired'
+                                  ),
+                                },
+                              ]}
+                            >
+                              <Input
+                                placeholder={t('profile.placeholders.username')}
+                              />
+                            </Form.Item>
+                          </Col>
+                          <Col span={12}>
+                            <Form.Item
+                              label={t('profile.fields.email')}
+                              name='email'
+                              rules={[
+                                {
+                                  required: true,
+                                  message: t(
+                                    'profile.validation.emailRequired'
+                                  ),
+                                },
+                                {
+                                  type: 'email',
+                                  message: t('profile.validation.emailInvalid'),
+                                },
+                              ]}
+                            >
+                              <Input
+                                placeholder={t('profile.placeholders.email')}
+                              />
+                            </Form.Item>
+                          </Col>
+                        </Row>
+
+                        <Row gutter={16}>
+                          <Col span={12}>
+                            <Form.Item
+                              label={t('profile.fields.phone')}
+                              name='phone'
+                            >
+                              <Input
+                                placeholder={t('profile.placeholders.phone')}
+                              />
+                            </Form.Item>
+                          </Col>
+                          <Col span={12}>
+                            <Form.Item
+                              label={t('profile.fields.gender')}
+                              name='gender'
+                            >
+                              <Select
+                                placeholder={t('profile.placeholders.gender')}
+                              >
+                                <Option value='male'>
+                                  {t('profile.gender.male')}
+                                </Option>
+                                <Option value='female'>
+                                  {t('profile.gender.female')}
+                                </Option>
+                                <Option value='other'>
+                                  {t('profile.gender.other')}
+                                </Option>
+                              </Select>
+                            </Form.Item>
+                          </Col>
+                        </Row>
+
+                        <Row gutter={16}>
+                          <Col span={12}>
+                            <Form.Item
+                              label={t('profile.fields.birthday')}
+                              name='birthday'
+                            >
+                              <DatePicker
+                                style={{ width: '100%' }}
+                                placeholder={t('profile.placeholders.birthday')}
+                                format='YYYY-MM-DD'
+                              />
+                            </Form.Item>
+                          </Col>
+                          <Col span={12}>
+                            <Form.Item
+                              label={t('profile.fields.location')}
+                              name='location'
+                            >
+                              <Input
+                                placeholder={t('profile.placeholders.location')}
+                              />
+                            </Form.Item>
+                          </Col>
+                        </Row>
+
                         <Form.Item
-                          label={t('profile.fields.firstName')}
-                          name='firstName'
-                          rules={[
-                            {
-                              required: true,
-                              message: t(
-                                'profile.validation.firstNameRequired'
-                              ),
-                            },
-                          ]}
+                          label={t('profile.fields.website')}
+                          name='website'
                         >
                           <Input
-                            placeholder={t('profile.placeholders.firstName')}
+                            placeholder={t('profile.placeholders.website')}
                           />
                         </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item
-                          label={t('profile.fields.lastName')}
-                          name='lastName'
-                          rules={[
-                            {
-                              required: true,
-                              message: t('profile.validation.lastNameRequired'),
-                            },
-                          ]}
-                        >
-                          <Input
-                            placeholder={t('profile.placeholders.lastName')}
+
+                        <Form.Item label={t('profile.fields.bio')} name='bio'>
+                          <TextArea
+                            rows={4}
+                            placeholder={t('profile.placeholders.bio')}
+                            maxLength={200}
+                            showCount
                           />
                         </Form.Item>
-                      </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Form.Item
-                          label={t('profile.fields.username')}
-                          name='username'
-                          rules={[
-                            {
-                              required: true,
-                              message: t('profile.validation.usernameRequired'),
-                            },
-                          ]}
+                      </Form>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'security',
+                  label: (
+                    <span>
+                      <SafetyOutlined />
+                      {t('profile.tabs.security')}
+                    </span>
+                  ),
+                  children: (
+                    <div className='security-section'>
+                      <Title level={5}>
+                        {t('profile.security.passwordSettings')}
+                      </Title>
+                      <div className='security-item'>
+                        <div className='security-info'>
+                          <Text strong>
+                            {t('profile.security.loginPassword')}
+                          </Text>
+                          <Text type='secondary'>
+                            {t('profile.security.passwordDescription')}
+                          </Text>
+                        </div>
+                        <Button
+                          type='primary'
+                          onClick={() => setChangePasswordVisible(true)}
                         >
-                          <Input
-                            placeholder={t('profile.placeholders.username')}
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item
-                          label={t('profile.fields.email')}
-                          name='email'
-                          rules={[
-                            {
-                              required: true,
-                              message: t('profile.validation.emailRequired'),
-                            },
-                            {
-                              type: 'email',
-                              message: t('profile.validation.emailInvalid'),
-                            },
-                          ]}
-                        >
-                          <Input
-                            placeholder={t('profile.placeholders.email')}
-                          />
-                        </Form.Item>
-                      </Col>
-                    </Row>
+                          {t('profile.security.changePassword')}
+                        </Button>
+                      </div>
 
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Form.Item
-                          label={t('profile.fields.phone')}
-                          name='phone'
-                        >
-                          <Input
-                            placeholder={t('profile.placeholders.phone')}
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item
-                          label={t('profile.fields.gender')}
-                          name='gender'
-                        >
-                          <Select
-                            placeholder={t('profile.placeholders.gender')}
-                          >
-                            <Option value='male'>
-                              {t('profile.gender.male')}
-                            </Option>
-                            <Option value='female'>
-                              {t('profile.gender.female')}
-                            </Option>
-                            <Option value='other'>
-                              {t('profile.gender.other')}
-                            </Option>
-                          </Select>
-                        </Form.Item>
-                      </Col>
-                    </Row>
+                      <Divider />
 
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Form.Item
-                          label={t('profile.fields.birthday')}
-                          name='birthday'
-                        >
-                          <DatePicker
-                            style={{ width: '100%' }}
-                            placeholder={t('profile.placeholders.birthday')}
-                            format='YYYY-MM-DD'
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item
-                          label={t('profile.fields.location')}
-                          name='location'
-                        >
-                          <Input
-                            placeholder={t('profile.placeholders.location')}
-                          />
-                        </Form.Item>
-                      </Col>
-                    </Row>
+                      <Title level={5}>
+                        {t('profile.security.twoFactorAuth')}
+                      </Title>
+                      <div className='security-item'>
+                        <div className='security-info'>
+                          <Text strong>
+                            {t('profile.security.smsVerification')}
+                          </Text>
+                          <Text type='secondary'>
+                            {t('profile.security.smsDescription')}
+                          </Text>
+                        </div>
+                        <Switch defaultChecked={false} />
+                      </div>
 
-                    <Form.Item
-                      label={t('profile.fields.website')}
-                      name='website'
-                    >
-                      <Input placeholder={t('profile.placeholders.website')} />
-                    </Form.Item>
-
-                    <Form.Item label={t('profile.fields.bio')} name='bio'>
-                      <TextArea
-                        rows={4}
-                        placeholder={t('profile.placeholders.bio')}
-                        maxLength={200}
-                        showCount
-                      />
-                    </Form.Item>
-                  </Form>
-                </div>
-              </TabPane>
-
-              <TabPane
-                tab={
-                  <span>
-                    <SafetyOutlined />
-                    {t('profile.tabs.security')}
-                  </span>
-                }
-                key='security'
-              >
-                <div className='security-section'>
-                  <Title level={5}>
-                    {t('profile.security.passwordSettings')}
-                  </Title>
-                  <div className='security-item'>
-                    <div className='security-info'>
-                      <Text strong>{t('profile.security.loginPassword')}</Text>
-                      <Text type='secondary'>
-                        {t('profile.security.passwordDescription')}
-                      </Text>
+                      <div className='security-item'>
+                        <div className='security-info'>
+                          <Text strong>
+                            {t('profile.security.emailVerification')}
+                          </Text>
+                          <Text type='secondary'>
+                            {t('profile.security.emailDescription')}
+                          </Text>
+                        </div>
+                        <Switch defaultChecked={true} />
+                      </div>
                     </div>
-                    <Button
-                      type='primary'
-                      onClick={() => setChangePasswordVisible(true)}
-                    >
-                      {t('profile.security.changePassword')}
-                    </Button>
-                  </div>
+                  ),
+                },
+                {
+                  key: 'preferences',
+                  label: (
+                    <span>
+                      <SettingOutlined />
+                      {t('profile.tabs.preferences')}
+                    </span>
+                  ),
+                  children: (
+                    <div className='preferences-section'>
+                      <Title level={5}>
+                        {t('profile.preferences.languageAndRegion')}
+                      </Title>
+                      <Form layout='vertical'>
+                        <Row gutter={16}>
+                          <Col span={12}>
+                            <Form.Item
+                              label={t('profile.preferences.language')}
+                            >
+                              <Select defaultValue={profile.language}>
+                                <Option value='zh-CN'>
+                                  {t('profile.preferences.simplifiedChinese')}
+                                </Option>
+                                <Option value='en-US'>English</Option>
+                                <Option value='ja-JP'>日本語</Option>
+                              </Select>
+                            </Form.Item>
+                          </Col>
+                          <Col span={12}>
+                            <Form.Item
+                              label={t('profile.preferences.timezone')}
+                            >
+                              <Select defaultValue={profile.timezone}>
+                                <Option value='Asia/Shanghai'>
+                                  {t('profile.preferences.beijingTime')}
+                                </Option>
+                                <Option value='America/New_York'>
+                                  {t('profile.preferences.newYorkTime')}
+                                </Option>
+                                <Option value='Europe/London'>
+                                  {t('profile.preferences.londonTime')}
+                                </Option>
+                              </Select>
+                            </Form.Item>
+                          </Col>
+                        </Row>
+                      </Form>
 
-                  <Divider />
+                      <Divider />
 
-                  <Title level={5}>{t('profile.security.twoFactorAuth')}</Title>
-                  <div className='security-item'>
-                    <div className='security-info'>
-                      <Text strong>
-                        {t('profile.security.smsVerification')}
-                      </Text>
-                      <Text type='secondary'>
-                        {t('profile.security.smsDescription')}
-                      </Text>
+                      <Title level={5}>
+                        {t('profile.preferences.themeSettings')}
+                      </Title>
+                      <div className='theme-section'>
+                        <div className='theme-item'>
+                          <Text strong>
+                            {t('profile.preferences.darkMode')}
+                          </Text>
+                          <Switch defaultChecked={false} />
+                        </div>
+                        <div className='theme-item'>
+                          <Text strong>
+                            {t('profile.preferences.compactMode')}
+                          </Text>
+                          <Switch defaultChecked={false} />
+                        </div>
+                      </div>
                     </div>
-                    <Switch defaultChecked={false} />
-                  </div>
+                  ),
+                },
+                {
+                  key: 'notifications',
+                  label: (
+                    <span>
+                      <BellOutlined />
+                      {t('profile.tabs.notifications')}
+                    </span>
+                  ),
+                  children: (
+                    <div className='notifications-section'>
+                      <Title level={5}>
+                        {t('profile.notifications.preferences')}
+                      </Title>
 
-                  <div className='security-item'>
-                    <div className='security-info'>
-                      <Text strong>
-                        {t('profile.security.emailVerification')}
-                      </Text>
-                      <Text type='secondary'>
-                        {t('profile.security.emailDescription')}
-                      </Text>
+                      <div className='notification-item'>
+                        <div className='notification-info'>
+                          <Text strong>
+                            {t('profile.notifications.emailNotifications')}
+                          </Text>
+                          <Text type='secondary'>
+                            {t('profile.notifications.emailDescription')}
+                          </Text>
+                        </div>
+                        <Switch
+                          defaultChecked={profile.emailNotifications}
+                          onChange={checked =>
+                            setProfile(prev => ({
+                              ...prev,
+                              emailNotifications: checked,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div className='notification-item'>
+                        <div className='notification-info'>
+                          <Text strong>
+                            {t('profile.notifications.smsNotifications')}
+                          </Text>
+                          <Text type='secondary'>
+                            {t('profile.notifications.smsDescription')}
+                          </Text>
+                        </div>
+                        <Switch
+                          defaultChecked={profile.smsNotifications}
+                          onChange={checked =>
+                            setProfile(prev => ({
+                              ...prev,
+                              smsNotifications: checked,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div className='notification-item'>
+                        <div className='notification-info'>
+                          <Text strong>
+                            {t('profile.notifications.marketingEmails')}
+                          </Text>
+                          <Text type='secondary'>
+                            {t('profile.notifications.marketingDescription')}
+                          </Text>
+                        </div>
+                        <Switch
+                          defaultChecked={profile.marketingEmails}
+                          onChange={checked =>
+                            setProfile(prev => ({
+                              ...prev,
+                              marketingEmails: checked,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div className='notification-item'>
+                        <div className='notification-info'>
+                          <Text strong>
+                            {t('profile.notifications.securityAlerts')}
+                          </Text>
+                          <Text type='secondary'>
+                            {t('profile.notifications.securityDescription')}
+                          </Text>
+                        </div>
+                        <Switch
+                          defaultChecked={profile.securityAlerts}
+                          onChange={checked =>
+                            setProfile(prev => ({
+                              ...prev,
+                              securityAlerts: checked,
+                            }))
+                          }
+                        />
+                      </div>
                     </div>
-                    <Switch defaultChecked={true} />
-                  </div>
-                </div>
-              </TabPane>
-
-              <TabPane
-                tab={
-                  <span>
-                    <SettingOutlined />
-                    {t('profile.tabs.preferences')}
-                  </span>
-                }
-                key='preferences'
-              >
-                <div className='preferences-section'>
-                  <Title level={5}>
-                    {t('profile.preferences.languageAndRegion')}
-                  </Title>
-                  <Form layout='vertical'>
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Form.Item label={t('profile.preferences.language')}>
-                          <Select defaultValue={profile.language}>
-                            <Option value='zh-CN'>
-                              {t('profile.preferences.simplifiedChinese')}
-                            </Option>
-                            <Option value='en-US'>English</Option>
-                            <Option value='ja-JP'>日本語</Option>
-                          </Select>
-                        </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item label={t('profile.preferences.timezone')}>
-                          <Select defaultValue={profile.timezone}>
-                            <Option value='Asia/Shanghai'>
-                              {t('profile.preferences.beijingTime')}
-                            </Option>
-                            <Option value='America/New_York'>
-                              {t('profile.preferences.newYorkTime')}
-                            </Option>
-                            <Option value='Europe/London'>
-                              {t('profile.preferences.londonTime')}
-                            </Option>
-                          </Select>
-                        </Form.Item>
-                      </Col>
-                    </Row>
-                  </Form>
-
-                  <Divider />
-
-                  <Title level={5}>
-                    {t('profile.preferences.themeSettings')}
-                  </Title>
-                  <div className='theme-section'>
-                    <div className='theme-item'>
-                      <Text strong>{t('profile.preferences.darkMode')}</Text>
-                      <Switch defaultChecked={false} />
-                    </div>
-                    <div className='theme-item'>
-                      <Text strong>{t('profile.preferences.compactMode')}</Text>
-                      <Switch defaultChecked={false} />
-                    </div>
-                  </div>
-                </div>
-              </TabPane>
-
-              <TabPane
-                tab={
-                  <span>
-                    <BellOutlined />
-                    {t('profile.tabs.notifications')}
-                  </span>
-                }
-                key='notifications'
-              >
-                <div className='notifications-section'>
-                  <Title level={5}>
-                    {t('profile.notifications.preferences')}
-                  </Title>
-
-                  <div className='notification-item'>
-                    <div className='notification-info'>
-                      <Text strong>
-                        {t('profile.notifications.emailNotifications')}
-                      </Text>
-                      <Text type='secondary'>
-                        {t('profile.notifications.emailDescription')}
-                      </Text>
-                    </div>
-                    <Switch
-                      defaultChecked={profile.emailNotifications}
-                      onChange={checked =>
-                        setProfile(prev => ({
-                          ...prev,
-                          emailNotifications: checked,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className='notification-item'>
-                    <div className='notification-info'>
-                      <Text strong>
-                        {t('profile.notifications.smsNotifications')}
-                      </Text>
-                      <Text type='secondary'>
-                        {t('profile.notifications.smsDescription')}
-                      </Text>
-                    </div>
-                    <Switch
-                      defaultChecked={profile.smsNotifications}
-                      onChange={checked =>
-                        setProfile(prev => ({
-                          ...prev,
-                          smsNotifications: checked,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className='notification-item'>
-                    <div className='notification-info'>
-                      <Text strong>
-                        {t('profile.notifications.marketingEmails')}
-                      </Text>
-                      <Text type='secondary'>
-                        {t('profile.notifications.marketingDescription')}
-                      </Text>
-                    </div>
-                    <Switch
-                      defaultChecked={profile.marketingEmails}
-                      onChange={checked =>
-                        setProfile(prev => ({
-                          ...prev,
-                          marketingEmails: checked,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className='notification-item'>
-                    <div className='notification-info'>
-                      <Text strong>
-                        {t('profile.notifications.securityAlerts')}
-                      </Text>
-                      <Text type='secondary'>
-                        {t('profile.notifications.securityDescription')}
-                      </Text>
-                    </div>
-                    <Switch
-                      defaultChecked={profile.securityAlerts}
-                      onChange={checked =>
-                        setProfile(prev => ({
-                          ...prev,
-                          securityAlerts: checked,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-              </TabPane>
-            </Tabs>
+                  ),
+                },
+              ]}
+            />
           </Card>
         </Col>
       </Row>

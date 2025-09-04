@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * 导出一致性检查CLI工具
- * 提供扫描、修复和报告生成功能
+ * Export consistency check CLI tool
+ * Provides scanning, fixing and report generation functionality
  */
 
 import fs from 'fs';
@@ -14,7 +14,7 @@ import { program } from 'commander';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 颜色输出
+// Color output
 const colors = {
   red: '\x1b[31m',
   green: '\x1b[32m',
@@ -28,50 +28,50 @@ function log(message, color = 'reset') {
 }
 
 /**
- * 检查TypeScript编译错误
+ * Check TypeScript compilation errors
  */
 function checkTypeScriptErrors() {
-  log('🔍 检查 TypeScript 编译错误...', 'blue');
+  log('🔍 Checking TypeScript compilation errors...', 'blue');
   
   try {
     execSync('npx tsc --noEmit --skipLibCheck', { 
       stdio: 'pipe',
       cwd: process.cwd()
     });
-    log('✅ TypeScript 编译检查通过', 'green');
+    log('✅ TypeScript compilation check passed', 'green');
     return true;
   } catch (error) {
-    log('❌ TypeScript 编译错误:', 'red');
+    log('❌ TypeScript compilation errors:', 'red');
     console.log(error.stdout.toString());
     return false;
   }
 }
 
 /**
- * 检查ESLint错误
+ * Check ESLint errors
  */
 function checkESLintErrors() {
-  log('🔍 检查 ESLint 错误...', 'blue');
+  log('🔍 Checking ESLint errors...', 'blue');
   
   try {
     execSync('npx eslint src --ext .ts,.tsx', { 
       stdio: 'pipe',
       cwd: process.cwd()
     });
-    log('✅ ESLint 检查通过', 'green');
+    log('✅ ESLint check passed', 'green');
     return true;
   } catch (error) {
-    log('❌ ESLint 错误:', 'red');
+    log('❌ ESLint errors:', 'red');
     console.log(error.stdout.toString());
     return false;
   }
 }
 
 /**
- * 扫描重复导出
+ * Scan duplicate exports
  */
 function scanDuplicateExports() {
-  log('🔍 扫描重复导出...', 'blue');
+  log('🔍 Scanning duplicate exports...', 'blue');
   
   const srcDir = path.join(process.cwd(), 'src');
   const issues = [];
@@ -85,7 +85,7 @@ function scanDuplicateExports() {
       const exports = new Set();
       
       lines.forEach((line, index) => {
-        // 检查默认导出和命名导出冲突
+        // Check for conflicts between default and named exports
         const defaultExportMatch = line.match(/export\s+default\s+(\w+)/);
         const namedExportMatch = line.match(/export\s*{[^}]*\b(\w+)\b[^}]*}/);
         
@@ -97,13 +97,13 @@ function scanDuplicateExports() {
             issues.push({
               file: path.relative(process.cwd(), filePath),
               line: index + 1,
-              issue: `重复导出 "${defaultName}" (默认导出和命名导出冲突)`,
+              issue: `Duplicate export "${defaultName}" (default and named export conflict)`,
               content: line.trim()
             });
           }
         }
         
-        // 检查重复的命名导出
+        // Check for duplicate named exports
         const exportMatches = line.matchAll(/export\s*{([^}]+)}/g);
         for (const match of exportMatches) {
           const exportList = match[1].split(',').map(e => e.trim());
@@ -113,7 +113,7 @@ function scanDuplicateExports() {
               issues.push({
                 file: path.relative(process.cwd(), filePath),
                 line: index + 1,
-                issue: `重复导出 "${cleanName}"`,
+                issue: `Duplicate export "${cleanName}"`,
                 content: line.trim()
               });
             }
@@ -122,7 +122,7 @@ function scanDuplicateExports() {
         }
       });
     } catch (error) {
-      // 忽略读取错误
+      // Ignore read errors
     }
   }
   
@@ -144,10 +144,10 @@ function scanDuplicateExports() {
   walkDir(srcDir);
   
   if (issues.length === 0) {
-    log('✅ 未发现重复导出问题', 'green');
+    log('✅ No duplicate export issues found', 'green');
     return true;
   } else {
-    log(`❌ 发现 ${issues.length} 个重复导出问题:`, 'red');
+    log(`❌ Found ${issues.length} duplicate export issues:`, 'red');
     issues.forEach(issue => {
       log(`  ${issue.file}:${issue.line} - ${issue.issue}`, 'yellow');
       log(`    ${issue.content}`, 'reset');
@@ -157,10 +157,10 @@ function scanDuplicateExports() {
 }
 
 /**
- * 扫描模式 - 检查导出一致性问题
+ * Scan mode - Check export consistency issues
  */
 function scanMode(options = {}) {
-  log('🔍 扫描导出一致性问题...', 'blue');
+  log('🔍 Scanning export consistency issues...', 'blue');
   
   const checks = [
     checkTypeScriptErrors,
@@ -184,9 +184,9 @@ function scanMode(options = {}) {
     console.log(JSON.stringify({ passed: allPassed, results }, null, 2));
   } else {
     if (allPassed) {
-      log('🎉 所有检查通过！', 'green');
+      log('🎉 All checks passed!', 'green');
     } else {
-      log('💥 发现导出一致性问题', 'red');
+      log('💥 Export consistency issues found', 'red');
     }
   }
   
@@ -194,27 +194,27 @@ function scanMode(options = {}) {
 }
 
 /**
- * 修复模式 - 自动修复导出一致性问题
+ * Fix mode - Automatically fix export consistency issues
  */
 function fixMode(options = {}) {
-  log('🔧 自动修复导出一致性问题...', 'blue');
+  log('🔧 Automatically fixing export consistency issues...', 'blue');
   
   if (options.dryRun) {
-    log('📋 干运行模式 - 仅显示将要进行的修复', 'yellow');
+    log('📋 Dry run mode - Only showing fixes to be made', 'yellow');
   }
   
-  // 这里可以集成自动修复逻辑
-  log('⚠️  自动修复功能正在开发中', 'yellow');
-  log('💡 建议先运行扫描模式查看问题，然后手动修复', 'blue');
+  // Auto-fix logic can be integrated here
+  log('⚠️  Auto-fix functionality is under development', 'yellow');
+  log('💡 Recommend running scan mode first to view issues, then fix manually', 'blue');
   
   return false;
 }
 
 /**
- * 报告模式 - 生成详细的导出一致性报告
+ * Report mode - Generate detailed export consistency report
  */
 function reportMode(options = {}) {
-  log('📊 生成导出一致性报告...', 'blue');
+  log('📊 Generating export consistency report...', 'blue');
   
   const reportData = {
     timestamp: new Date().toISOString(),
@@ -233,7 +233,7 @@ function reportMode(options = {}) {
     const jsonReport = JSON.stringify(reportData, null, 2);
     if (outputFile) {
       fs.writeFileSync(outputFile, jsonReport);
-      log(`📄 JSON报告已保存到: ${outputFile}`, 'green');
+      log(`📄 JSON report saved to: ${outputFile}`, 'green');
     } else {
       console.log(jsonReport);
     }
@@ -241,32 +241,32 @@ function reportMode(options = {}) {
     const htmlReport = generateHTMLReport(reportData);
     const htmlFile = outputFile || 'export-consistency-report.html';
     fs.writeFileSync(htmlFile, htmlReport);
-    log(`📄 HTML报告已保存到: ${htmlFile}`, 'green');
+    log(`📄 HTML report saved to: ${htmlFile}`, 'green');
   } else {
-    // 控制台输出
-    log('\n📋 导出一致性报告', 'blue');
-    log(`项目: ${reportData.project}`, 'reset');
-    log(`时间: ${reportData.timestamp}`, 'reset');
-    log('\n检查结果:', 'blue');
-    log(`  TypeScript编译: ${reportData.checks.typescript ? '✅ 通过' : '❌ 失败'}`, reportData.checks.typescript ? 'green' : 'red');
-    log(`  ESLint检查: ${reportData.checks.eslint ? '✅ 通过' : '❌ 失败'}`, reportData.checks.eslint ? 'green' : 'red');
-    log(`  重复导出检查: ${reportData.checks.duplicateExports ? '✅ 通过' : '❌ 失败'}`, reportData.checks.duplicateExports ? 'green' : 'red');
+    // Console output
+    log('\n📋 Export Consistency Report', 'blue');
+    log(`Project: ${reportData.project}`, 'reset');
+    log(`Time: ${reportData.timestamp}`, 'reset');
+    log('\nCheck Results:', 'blue');
+    log(`  TypeScript Compilation: ${reportData.checks.typescript ? '✅ Passed' : '❌ Failed'}`, reportData.checks.typescript ? 'green' : 'red');
+     log(`  ESLint Check: ${reportData.checks.eslint ? '✅ Passed' : '❌ Failed'}`, reportData.checks.eslint ? 'green' : 'red');
+     log(`  Duplicate Export Check: ${reportData.checks.duplicateExports ? '✅ Passed' : '❌ Failed'}`, reportData.checks.duplicateExports ? 'green' : 'red');
   }
   
   return reportData;
 }
 
 /**
- * 生成HTML报告
+ * Generate HTML report
  */
 function generateHTMLReport(data) {
   return `
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>导出一致性报告 - ${data.project}</title>
+    <title>Export Consistency Report - ${data.project}</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .header { background: #f5f5f5; padding: 20px; border-radius: 8px; }
@@ -278,20 +278,20 @@ function generateHTMLReport(data) {
 </head>
 <body>
     <div class="header">
-        <h1>导出一致性报告</h1>
-        <p><strong>项目:</strong> ${data.project}</p>
-        <p class="timestamp"><strong>生成时间:</strong> ${data.timestamp}</p>
+        <h1>Export Consistency Report</h1>
+        <p><strong>Project:</strong> ${data.project}</p>
+        <p class="timestamp"><strong>Generated:</strong> ${data.timestamp}</p>
     </div>
     
-    <h2>检查结果</h2>
+    <h2>Check Results</h2>
     <div class="check-item ${data.checks.typescript ? 'pass' : 'fail'}">
-        <strong>TypeScript编译:</strong> ${data.checks.typescript ? '✅ 通过' : '❌ 失败'}
+        <strong>TypeScript Compilation:</strong> ${data.checks.typescript ? '✅ Passed' : '❌ Failed'}
     </div>
     <div class="check-item ${data.checks.eslint ? 'pass' : 'fail'}">
-        <strong>ESLint检查:</strong> ${data.checks.eslint ? '✅ 通过' : '❌ 失败'}
+        <strong>ESLint Check:</strong> ${data.checks.eslint ? '✅ Passed' : '❌ Failed'}
     </div>
     <div class="check-item ${data.checks.duplicateExports ? 'pass' : 'fail'}">
-        <strong>重复导出检查:</strong> ${data.checks.duplicateExports ? '✅ 通过' : '❌ 失败'}
+        <strong>Duplicate Export Check:</strong> ${data.checks.duplicateExports ? '✅ Passed' : '❌ Failed'}
     </div>
 </body>
 </html>
@@ -299,45 +299,45 @@ function generateHTMLReport(data) {
 }
 
 /**
- * 设置CLI命令
+ * Setup CLI commands
  */
 function setupCLI() {
   program
     .name('check-exports')
-    .description('导出一致性检查CLI工具')
+    .description('Export consistency check CLI tool')
     .version('1.0.0');
 
-  // 扫描命令
+  // Scan command
   program
     .command('scan')
-    .description('扫描导出一致性问题')
-    .option('-j, --json', '以JSON格式输出结果')
+    .description('Scan export consistency issues')
+    .option('-j, --json', 'Output results in JSON format')
     .action((options) => {
       const passed = scanMode(options);
       process.exit(passed ? 0 : 1);
     });
 
-  // 修复命令
+  // Fix command
   program
     .command('fix')
-    .description('自动修复导出一致性问题')
-    .option('-d, --dry-run', '干运行模式，仅显示将要进行的修复')
+    .description('Automatically fix export consistency issues')
+    .option('-d, --dry-run', 'Dry run mode, only show fixes to be made')
     .action((options) => {
       const success = fixMode(options);
       process.exit(success ? 0 : 1);
     });
 
-  // 报告命令
+  // Report command
   program
     .command('report')
-    .description('生成导出一致性报告')
-    .option('-f, --format <type>', '输出格式 (console, json, html)', 'console')
-    .option('-o, --output <file>', '输出文件路径')
+    .description('Generate export consistency report')
+    .option('-f, --format <type>', 'Output format (console, json, html)', 'console')
+    .option('-o, --output <file>', 'Output file path')
     .action((options) => {
       reportMode(options);
     });
 
-  // 默认命令（向后兼容）
+  // Default command (backward compatibility)
   if (process.argv.length === 2) {
     const passed = scanMode();
     process.exit(passed ? 0 : 1);
@@ -346,7 +346,7 @@ function setupCLI() {
   program.parse();
 }
 
-// 如果直接运行此脚本
+// If running this script directly
 if (import.meta.url === pathToFileURL(__filename).href) {
   setupCLI();
 }

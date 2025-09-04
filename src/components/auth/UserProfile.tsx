@@ -13,8 +13,8 @@ import {
   Row,
   Col,
   Tag,
-  message,
 } from 'antd';
+import { useMessage } from '@/hooks';
 import {
   UserOutlined,
   EditOutlined,
@@ -37,6 +37,7 @@ export interface UserProfileProps {
 const UserProfile: React.FC<UserProfileProps> = ({ className }) => {
   const { t } = useTranslation();
   const { user, updateProfile, changePassword, isLoading, error } = useAuth();
+  const message = useMessage();
   const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [isEditing, setIsEditing] = useState(false);
@@ -122,7 +123,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ className }) => {
           <Avatar
             size={80}
             icon={<UserOutlined />}
-            src={user.avatar}
+            src={user.avatar || null}
             className='profile-avatar'
           />
           <div className='profile-basic-info'>

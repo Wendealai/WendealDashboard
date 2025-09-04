@@ -214,7 +214,7 @@ export class WorkflowValidationService {
     if (!parsedUrl.pathname || parsedUrl.pathname === '/') {
       warnings.push({
         field: 'webhookUrl',
-        message: '建议为Webhook指定具体的路径',
+        message: 'Recommend specifying a specific path for Webhook',
         code: 'MISSING_PATH',
       });
     }

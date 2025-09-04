@@ -92,8 +92,21 @@ const AntThemeProvider: React.FC<{ children: React.ReactNode }> = ({
       theme={antdTheme}
       locale={getAntdLocale()}
       componentSize='middle'
+      message={{
+        top: '50vh',
+        duration: 3,
+        maxCount: 3,
+        rtl: false,
+        prefixCls: 'ant-message',
+      }}
     >
-      <AntApp>
+      <AntApp
+        message={{
+          top: '50vh',
+          duration: 3,
+          maxCount: 3,
+        }}
+      >
         <div data-theme={currentTheme.isDark ? 'dark' : 'light'}>
           {children}
         </div>

@@ -1,13 +1,13 @@
 /**
- * 信息展示模块类型定义
- * 定义信息展示相关的接口和类型
+ * Information Dashboard module type definitions
+ * Defines interfaces and types related to information display
  */
 
-// 重新导出API类型以保持一致性
+// Re-export API types for consistency
 export type { ApiResponse, PaginatedResponse } from '../../services/api';
 
 /**
- * 页面路由参数类型
+ * Page route parameter types
  */
 export interface InformationDashboardParams {
   tab?: string;
@@ -15,7 +15,7 @@ export interface InformationDashboardParams {
 }
 
 /**
- * 页面状态类型
+ * Page state types
  */
 export interface InformationDashboardState {
   loading: boolean;
@@ -24,12 +24,12 @@ export interface InformationDashboardState {
 }
 
 /**
- * 工作流状态枚举
+ * Workflow status enumeration
  */
 export type WorkflowStatus = 'active' | 'inactive' | 'error' | 'pending';
 
 /**
- * 工作流执行状态
+ * Workflow execution status
  */
 export type WorkflowExecutionStatus =
   | 'running'
@@ -39,12 +39,17 @@ export type WorkflowExecutionStatus =
   | 'cancelled';
 
 /**
- * 工作流类型
+ * Workflow types
  */
-export type WorkflowType = 'scheduled' | 'webhook' | 'manual' | 'event';
+export type WorkflowType =
+  | 'scheduled'
+  | 'webhook'
+  | 'manual'
+  | 'event'
+  | 'invoice-ocr';
 
 /**
- * 工作流基础信息
+ * Workflow basic information
  */
 export interface WorkflowInfo {
   id: string;
@@ -67,7 +72,7 @@ export interface WorkflowInfo {
 }
 
 /**
- * 工作流执行记录
+ * Workflow execution record
  */
 export interface WorkflowExecution {
   id: string;
@@ -83,7 +88,7 @@ export interface WorkflowExecution {
 }
 
 /**
- * 工作流日志
+ * Workflow log
  */
 export interface WorkflowLog {
   id: string;
@@ -96,7 +101,7 @@ export interface WorkflowLog {
 }
 
 /**
- * 工作流触发请求
+ * Workflow trigger request
  */
 export interface TriggerWorkflowRequest {
   workflowId: string;
@@ -105,7 +110,7 @@ export interface TriggerWorkflowRequest {
 }
 
 /**
- * 工作流触发响应
+ * Workflow trigger response
  */
 export interface TriggerWorkflowResponse {
   executionId: string;
@@ -114,7 +119,7 @@ export interface TriggerWorkflowResponse {
 }
 
 /**
- * 信息数据项
+ * Information data item
  */
 export interface InformationItem {
   id: string;
@@ -137,7 +142,7 @@ export interface InformationItem {
 }
 
 /**
- * 信息数据查询参数
+ * Information data query parameters
  */
 export interface InformationQueryParams {
   page?: number;
@@ -157,7 +162,7 @@ export interface InformationQueryParams {
 }
 
 /**
- * 信息数据统计
+ * Information data statistics
  */
 export interface InformationStats {
   total: number;
@@ -173,7 +178,7 @@ export interface InformationStats {
 }
 
 /**
- * 工作流统计
+ * Workflow statistics
  */
 export interface WorkflowStats {
   total: number;
@@ -193,7 +198,7 @@ export interface WorkflowStats {
 }
 
 /**
- * 仪表盘数据
+ * Dashboard data
  */
 export interface DashboardData {
   workflowStats: WorkflowStats;
@@ -209,10 +214,10 @@ export interface DashboardData {
 }
 
 /**
- * Redux状态类型
+ * Redux state types
  */
 export interface InformationDashboardReduxState {
-  // 工作流相关状态
+  // Workflow related state
   workflows: {
     list: WorkflowInfo[];
     loading: boolean;
@@ -224,7 +229,7 @@ export interface InformationDashboardReduxState {
     };
   };
 
-  // 工作流执行相关状态
+  // Workflow execution related state
   executions: {
     list: WorkflowExecution[];
     loading: boolean;
@@ -232,7 +237,7 @@ export interface InformationDashboardReduxState {
     activeExecution: WorkflowExecution | null;
   };
 
-  // 信息数据相关状态
+  // Information data related state
   information: {
     list: InformationItem[];
     loading: boolean;
@@ -245,7 +250,7 @@ export interface InformationDashboardReduxState {
     filters: InformationQueryParams;
   };
 
-  // 统计数据状态
+  // Statistics data state
   dashboard: {
     data: DashboardData | null;
     loading: boolean;
@@ -253,7 +258,7 @@ export interface InformationDashboardReduxState {
     lastUpdated: string | null;
   };
 
-  // UI状态
+  // UI state
   ui: {
     activeTab: string;
     selectedWorkflow: string | null;
@@ -264,7 +269,7 @@ export interface InformationDashboardReduxState {
 }
 
 /**
- * API响应类型
+ * API response types
  */
 export type WorkflowListResponse = ApiResponse<PaginatedResponse<WorkflowInfo>>;
 export type WorkflowExecutionResponse = ApiResponse<WorkflowExecution>;
@@ -275,7 +280,7 @@ export type DashboardDataResponse = ApiResponse<DashboardData>;
 export type TriggerWorkflowApiResponse = ApiResponse<TriggerWorkflowResponse>;
 
 /**
- * 组件Props类型
+ * Component Props types
  */
 export interface WorkflowPanelProps {
   workflows: WorkflowInfo[];
@@ -308,7 +313,7 @@ export interface DashboardStatsProps {
 }
 
 /**
- * 表单类型
+ * Form types
  */
 export interface WorkflowTriggerFormData {
   workflowId: string;
@@ -325,3 +330,6 @@ export interface InformationFilterFormData {
   tags: string[];
   dateRange: [string, string] | null;
 }
+
+// Invoice OCR 相关类型导出
+export * from './types/invoiceOCR';

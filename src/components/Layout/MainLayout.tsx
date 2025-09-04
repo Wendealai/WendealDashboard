@@ -9,7 +9,6 @@ import {
   Typography,
   Badge,
   Drawer,
-  message,
 } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router-dom';
@@ -18,7 +17,7 @@ import NotificationButton from '../Notification/NotificationButton';
 import { useNotifications } from '../../hooks/useNotifications';
 import ThemeToggle from '../common/ThemeToggle';
 import LanguageSwitcher from '../common/LanguageSwitcher';
-import { WorkflowSettingsButton, WorkflowSettingsModal } from '../workflow';
+
 import './index.css';
 import {
   MenuFoldOutlined,
@@ -34,7 +33,9 @@ import {
 } from '@ant-design/icons';
 import WhatsNewPanel from './WhatsNewPanel';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAppSelector, useAppDispatch } from '../../hooks/redux';
+import { useAppSelector, useAppDispatch, useMessage } from '../../hooks';
+import { useErrorModal } from '../../hooks/useErrorModal';
+import ErrorModal from '../common/ErrorModal';
 import { toggleSidebar } from '../../store/slices/uiSlice';
 import { useAuth } from '../../contexts/AuthContext';
 import { navigationItems } from '../../router/routes';
@@ -49,15 +50,16 @@ const MainLayout: React.FC = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { user, logout, isAuthenticated } = useAuth();
+  const message = useMessage();
+  const { isVisible, errorInfo, showError, hideError } = useErrorModal();
 
   const { sidebarCollapsed } = useAppSelector(state => state.ui);
 
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [mobileDrawerVisible, setMobileDrawerVisible] = useState(false);
   const [notificationVisible, setNotificationVisible] = useState(false);
-  const [workflowSettingsVisible, setWorkflowSettingsVisible] = useState(false);
 
-  // 通知相关状态和方法
+  // Notification related state and methods
   const {
     notifications,
     unreadCount,
@@ -65,7 +67,7 @@ const MainLayout: React.FC = () => {
     markAllAsRead,
     deleteNotification,
     clearAllNotifications,
-  } = useNotifications();
+  } = useNotifications({ messageApi: message });
 
   // Handle sidebar toggle
   const handleSidebarToggle = () => {
@@ -94,11 +96,14 @@ const MainLayout: React.FC = () => {
       message.success(t('auth.logoutSuccess'));
       navigate('/login');
     } catch (error) {
-      message.error(t('auth.logoutError'));
+      showError(
+        t('auth.logoutError'),
+        error instanceof Error ? error.message : String(error)
+      );
     }
   };
 
-  // User dropdown menu - 根据认证状态显示不同选项
+  // User dropdown menu - display different options based on authentication status
   const userMenuItems = isAuthenticated
     ? [
         {
@@ -160,7 +165,7 @@ const MainLayout: React.FC = () => {
     label: item.label ? t(item.label) : item.key,
   }));
 
-  // 添加首页图标到路由配置中
+  // Add home icon to route configuration
   if (menuItems.length > 0 && menuItems[0]?.key === '/') {
     menuItems[0].icon = <HomeOutlined />;
   }
@@ -266,11 +271,6 @@ const MainLayout: React.FC = () => {
             {/* Theme Toggle */}
             <ThemeToggle size='small' />
 
-            {/* Workflow Settings */}
-            <WorkflowSettingsButton
-              onSettingsClick={() => setWorkflowSettingsVisible(true)}
-            />
-
             {/* Notifications */}
             <NotificationButton
               count={unreadCount}
@@ -287,7 +287,7 @@ const MainLayout: React.FC = () => {
                 <Avatar
                   size='small'
                   icon={<UserOutlined />}
-                  src={user?.avatar}
+                  src={user?.avatar || null}
                   style={{
                     backgroundColor: isAuthenticated ? '#1890ff' : '#d9d9d9',
                   }}
@@ -348,14 +348,13 @@ const MainLayout: React.FC = () => {
         onClearAll={clearAllNotifications}
       />
 
-      {/* Workflow Settings Modal */}
-      <WorkflowSettingsModal
-        visible={workflowSettingsVisible}
-        onClose={() => setWorkflowSettingsVisible(false)}
+      <ErrorModal
+        isVisible={isVisible}
+        errorInfo={errorInfo}
+        onClose={hideError}
       />
     </AntLayout>
   );
 };
 
-export { MainLayout };
 export default MainLayout;

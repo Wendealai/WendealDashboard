@@ -516,23 +516,18 @@ const authSlice = createSlice({
       })
       .addCase(validateToken.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (!action.payload) {
-          // 令牌无效，清除认证状态
-          state.user = null;
-          state.isAuthenticated = false;
-          state.token = null;
-          state.refreshToken = null;
+        // 不在这里清除认证状态，让 AuthContext 处理 token 刷新逻辑
+        // 只更新加载状态
+        // 如果 token 有效，确保认证状态正确
+        if (action.payload && state.user) {
+          state.isAuthenticated = true;
         }
         state.error = null;
       })
       .addCase(validateToken.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as AuthError;
-        // 验证失败，清除认证状态
-        state.user = null;
-        state.isAuthenticated = false;
-        state.token = null;
-        state.refreshToken = null;
+        // 不在这里清除认证状态，让 AuthContext 处理 token 刷新逻辑
       });
   },
 });

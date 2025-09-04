@@ -11,7 +11,6 @@ import {
   Tag,
   Button,
   Select,
-  message,
   Alert,
   Tabs,
   DatePicker,
@@ -40,7 +39,7 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { useAppDispatch, useAppSelector, useMessage } from '@/hooks';
 import { useAuth } from '@/contexts';
 import {
   loadDashboardStats,
@@ -56,7 +55,7 @@ import './styles.css';
 
 const { Title } = Typography;
 const { Option } = Select;
-const { TabPane } = Tabs;
+
 const { RangePicker } = DatePicker;
 
 // 模拟图表数据
@@ -256,6 +255,7 @@ const DashboardPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { user, isAuthenticated } = useAuth();
   const { t } = useTranslation();
+  const message = useMessage();
   const { stats, activities, systemStatus, loading, error, dateRange } =
     useAppSelector(state => state.dashboard);
 
@@ -547,125 +547,130 @@ const DashboardPage: React.FC = () => {
               onChange={setActiveChartTab}
               type='card'
               size='small'
-            >
-              <TabPane
-                tab={
-                  <span>
-                    <LineChartOutlined />
-                    {t('dashboard.charts.trend')}
-                  </span>
-                }
-                key='trend'
-              >
-                <Line
-                  data={chartData.lineData}
-                  xField='date'
-                  yField='value'
-                  seriesField='category'
-                  smooth
-                  height={300}
-                  point={{
-                    size: 3,
-                    shape: 'circle',
-                  }}
-                  tooltip={{
-                    formatter: datum => {
-                      return {
-                        name: datum.category,
-                        value: `${datum.value} ${t('dashboard.charts.visits')}`,
-                      };
-                    },
-                  }}
-                />
-              </TabPane>
-
-              <TabPane
-                tab={
-                  <span>
-                    <BarChartOutlined />
-                    {t('dashboard.charts.sales')}
-                  </span>
-                }
-                key='sales'
-              >
-                <DualAxes
-                  data={[chartData.columnData, chartData.columnData]}
-                  xField='month'
-                  yField={['sales', 'profit']}
-                  height={300}
-                  geometryOptions={[
-                    {
-                      geometry: 'column',
-                      color: '#5B8FF9',
-                      columnWidthRatio: 0.4,
-                    },
-                    {
-                      geometry: 'line',
-                      color: '#5AD8A6',
-                      lineStyle: {
-                        lineWidth: 2,
-                      },
-                    },
-                  ]}
-                />
-              </TabPane>
-
-              <TabPane
-                tab={
-                  <span>
-                    <PieChartOutlined />
-                    {t('dashboard.charts.device')}
-                  </span>
-                }
-                key='device'
-              >
-                <Pie
-                  data={chartData.pieData}
-                  angleField='value'
-                  colorField='type'
-                  radius={0.8}
-                  height={300}
-                  label={{
-                    type: 'outer',
-                    content: '{name} {percentage}',
-                  }}
-                  interactions={[
-                    {
-                      type: 'element-active',
-                    },
-                  ]}
-                />
-              </TabPane>
-
-              <TabPane
-                tab={
-                  <span>
-                    <AreaChartOutlined />
-                    {t('dashboard.charts.user')}
-                  </span>
-                }
-                key='user'
-              >
-                <Area
-                  data={chartData.areaData}
-                  xField='date'
-                  yField='value'
-                  seriesField='category'
-                  height={300}
-                  smooth
-                  color={['#1979C9', '#D62A0D', '#FAA219']}
-                />
-              </TabPane>
-
-              <TabPane tab={t('dashboard.charts.heatmap')} key='heatmap'>
-                <ReactECharts
-                  option={chartData.heatmapData}
-                  style={{ height: '300px' }}
-                  notMerge={true}
-                  lazyUpdate={true}
-                />
-              </TabPane>
-            </Tabs>
+              items={[
+                {
+                  key: 'trend',
+                  label: (
+                    <span>
+                      <LineChartOutlined />
+                      {t('dashboard.charts.trend')}
+                    </span>
+                  ),
+                  children: (
+                    <Line
+                      data={chartData.lineData}
+                      xField='date'
+                      yField='value'
+                      seriesField='category'
+                      smooth
+                      height={300}
+                      point={{
+                        size: 3,
+                        shape: 'circle',
+                      }}
+                      tooltip={{
+                        formatter: datum => {
+                          return {
+                            name: datum.category,
+                            value: `${datum.value} ${t('dashboard.charts.visits')}`,
+                          };
+                        },
+                      }}
+                    />
+                  ),
+                },
+                {
+                  key: 'sales',
+                  label: (
+                    <span>
+                      <BarChartOutlined />
+                      {t('dashboard.charts.sales')}
+                    </span>
+                  ),
+                  children: (
+                    <DualAxes
+                      data={[chartData.columnData, chartData.columnData]}
+                      xField='month'
+                      yField={['sales', 'profit']}
+                      height={300}
+                      geometryOptions={[
+                        {
+                          geometry: 'column',
+                          color: '#5B8FF9',
+                          columnWidthRatio: 0.4,
+                        },
+                        {
+                          geometry: 'line',
+                          color: '#5AD8A6',
+                          lineStyle: {
+                            lineWidth: 2,
+                          },
+                        },
+                      ]}
+                    />
+                  ),
+                },
+                {
+                  key: 'device',
+                  label: (
+                    <span>
+                      <PieChartOutlined />
+                      {t('dashboard.charts.device')}
+                    </span>
+                  ),
+                  children: (
+                    <Pie
+                      data={chartData.pieData}
+                      angleField='value'
+                      colorField='type'
+                      radius={0.8}
+                      height={300}
+                      label={{
+                        type: 'outer',
+                        content: '{name} {percentage}',
+                      }}
+                      interactions={[
+                        {
+                          type: 'element-active',
+                        },
+                      ]}
+                    />
+                  ),
+                },
+                {
+                  key: 'user',
+                  label: (
+                    <span>
+                      <AreaChartOutlined />
+                      {t('dashboard.charts.user')}
+                    </span>
+                  ),
+                  children: (
+                    <Area
+                      data={chartData.areaData}
+                      xField='date'
+                      yField='value'
+                      seriesField='category'
+                      height={300}
+                      smooth
+                      color={['#1979C9', '#D62A0D', '#FAA219']}
+                    />
+                  ),
+                },
+                {
+                  key: 'heatmap',
+                  label: t('dashboard.charts.heatmap'),
+                  children: (
+                    <ReactECharts
+                      option={chartData.heatmapData}
+                      style={{ height: '300px' }}
+                      notMerge={true}
+                      lazyUpdate={true}
+                    />
+                  ),
+                },
+              ]}
+            />
           </Card>
         </Col>
         <Col xs={24} lg={8}>

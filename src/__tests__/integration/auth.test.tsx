@@ -331,9 +331,9 @@ describe('Authentication Integration Tests', () => {
       );
 
       // Fill login form
-      const usernameInput = screen.getByLabelText(/用户名/i);
-      const passwordInput = screen.getByLabelText(/密码/i);
-      const loginButton = screen.getByRole('button', { name: /登录/i });
+      const usernameInput = screen.getByLabelText(/username/i);
+      const passwordInput = screen.getByLabelText(/password/i);
+      const loginButton = screen.getByRole('button', { name: /login/i });
 
       await user.type(usernameInput, 'testuser');
       await user.type(passwordInput, 'password123');
@@ -366,9 +366,9 @@ describe('Authentication Integration Tests', () => {
       );
 
       // Fill login form with invalid credentials
-      const usernameInput = screen.getByLabelText(/用户名/i);
-      const passwordInput = screen.getByLabelText(/密码/i);
-      const loginButton = screen.getByRole('button', { name: /登录/i });
+      const usernameInput = screen.getByLabelText(/username/i);
+      const passwordInput = screen.getByLabelText(/password/i);
+      const loginButton = screen.getByRole('button', { name: /login/i });
 
       await user.type(usernameInput, 'wronguser');
       await user.type(passwordInput, 'wrongpassword');
@@ -376,11 +376,13 @@ describe('Authentication Integration Tests', () => {
 
       // Verify error message is displayed
       await waitFor(() => {
-        expect(screen.getByText(/登录失败/i)).toBeInTheDocument();
+        expect(screen.getByText(/login failed/i)).toBeInTheDocument();
       });
 
       // Verify user stays on login page
-      expect(screen.getByRole('button', { name: /登录/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /login/i })
+      ).toBeInTheDocument();
     });
   });
 
@@ -404,11 +406,11 @@ describe('Authentication Integration Tests', () => {
       );
 
       // Fill registration form
-      const usernameInput = screen.getByLabelText(/用户名/i);
-      const emailInput = screen.getByLabelText(/邮箱/i);
-      const passwordInput = screen.getByLabelText(/^密码$/i);
-      const confirmPasswordInput = screen.getByLabelText(/确认密码/i);
-      const registerButton = screen.getByRole('button', { name: /注册/i });
+      const usernameInput = screen.getByLabelText(/username/i);
+      const emailInput = screen.getByLabelText(/email/i);
+      const passwordInput = screen.getByLabelText(/^password$/i);
+      const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
+      const registerButton = screen.getByRole('button', { name: /register/i });
 
       await user.type(usernameInput, 'newuser');
       await user.type(emailInput, 'newuser@example.com');
@@ -441,11 +443,11 @@ describe('Authentication Integration Tests', () => {
       );
 
       // Fill registration form with mismatched passwords
-      const usernameInput = screen.getByLabelText(/用户名/i);
-      const emailInput = screen.getByLabelText(/邮箱/i);
-      const passwordInput = screen.getByLabelText(/^密码$/i);
-      const confirmPasswordInput = screen.getByLabelText(/确认密码/i);
-      const registerButton = screen.getByRole('button', { name: /注册/i });
+      const usernameInput = screen.getByLabelText(/username/i);
+      const emailInput = screen.getByLabelText(/email/i);
+      const passwordInput = screen.getByLabelText(/^password$/i);
+      const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
+      const registerButton = screen.getByRole('button', { name: /register/i });
 
       await user.type(usernameInput, 'newuser');
       await user.type(emailInput, 'newuser@example.com');
@@ -455,7 +457,7 @@ describe('Authentication Integration Tests', () => {
 
       // Verify validation error is displayed
       await waitFor(() => {
-        expect(screen.getByText(/密码不匹配/i)).toBeInTheDocument();
+        expect(screen.getByText(/passwords do not match/i)).toBeInTheDocument();
       });
 
       // Verify registration was not called
@@ -477,7 +479,7 @@ describe('Authentication Integration Tests', () => {
       // Verify user is redirected to login
       await waitFor(() => {
         expect(
-          screen.getByRole('button', { name: /登录/i })
+          screen.getByRole('button', { name: /login/i })
         ).toBeInTheDocument();
       });
     });
@@ -490,7 +492,7 @@ describe('Authentication Integration Tests', () => {
 
       // Verify user can access profile page
       await waitFor(() => {
-        expect(screen.getByText(/个人资料/i)).toBeInTheDocument();
+        expect(screen.getByText(/profile/i)).toBeInTheDocument();
       });
     });
 

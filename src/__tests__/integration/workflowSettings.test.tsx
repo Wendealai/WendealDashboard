@@ -8,7 +8,7 @@ import { createTestStore } from '@/__tests__/utils/test-utils';
 import { WorkflowSettingsModal } from '@/components/workflow/WorkflowSettingsModal';
 import { WorkflowSettingsService } from '@/services/workflowSettingsService';
 
-// 模拟 WorkflowSettingsService
+// Mock WorkflowSettingsService
 jest.mock('@/services/workflowSettingsService', () => ({
   workflowSettingsService: {
     saveSettings: jest.fn(),
@@ -21,7 +21,7 @@ jest.mock('@/services/workflowSettingsService', () => ({
   },
 }));
 
-// 模拟 services/index.ts 中的 validateWorkflowSettings
+// Mock validateWorkflowSettings from services/index.ts
 jest.mock('@/services', () => ({
   ...jest.requireActual('@/services'),
   validateWorkflowSettings: jest.fn(),
@@ -42,7 +42,7 @@ const mockValidateWorkflowSettings =
 // afterEach(() => server.resetHandlers());
 // afterAll(() => server.close());
 
-// 简化的渲染函数
+// Simplified render function
 function renderWithProviders(
   component: React.ReactElement,
   options?: { initialState?: any }
@@ -66,18 +66,18 @@ const mockUser = {
 };
 
 /**
- * 工作流设置集成测试套件
- * 测试WorkflowSettingsModal组件的完整功能
+ * Workflow Settings Integration Test Suite
+ * Tests complete functionality of WorkflowSettingsModal component
  */
 describe('Workflow Settings Integration Tests', () => {
   beforeEach(() => {
-    // 设置认证状态
+    // Set authentication state
     localStorage.setItem('token', 'mock-token');
 
-    // 重置所有模拟
+    // Reset all mocks
     jest.clearAllMocks();
 
-    // 设置默认的服务模拟
+    // Set default service mocks
     mockWorkflowSettingsService.saveSettings.mockResolvedValue(undefined);
     mockWorkflowSettingsService.getSettings.mockResolvedValue({
       name: '',
@@ -101,7 +101,7 @@ describe('Workflow Settings Integration Tests', () => {
       errors: [],
     });
 
-    // 设置默认的验证函数模拟
+    // Set default validation function mocks
     mockValidateWorkflowSettings.mockResolvedValue({
       isValid: true,
       errors: [],
@@ -113,7 +113,7 @@ describe('Workflow Settings Integration Tests', () => {
   });
 
   /**
-   * 测试完整的用户工作流程：从点击按钮到保存设置
+   * Test complete user workflow: from clicking button to saving settings
    */
   describe('Complete User Workflow', () => {
     it.skip('should allow user to open modal, fill form, and save settings', async () => {
@@ -145,15 +145,15 @@ describe('Workflow Settings Integration Tests', () => {
         { initialState }
       );
 
-      // 验证模态框已打开
+      // Verify modal is open
       await waitFor(() => {
-        expect(screen.getByText('工作流设置')).toBeInTheDocument();
+        expect(screen.getByText('Workflow Settings')).toBeInTheDocument();
       });
 
-      // 填写表单
-      const nameInput = screen.getByLabelText('工作流名称');
+      // Fill form
+      const nameInput = screen.getByLabelText('Workflow Name');
       const webhookInput = screen.getByLabelText('Webhook URL');
-      const enabledCheckbox = screen.getByLabelText('启用工作流');
+      const enabledCheckbox = screen.getByLabelText('Enable Workflow');
 
       fireEvent.change(nameInput, { target: { value: 'Test Workflow' } });
       fireEvent.change(webhookInput, {
@@ -161,11 +161,11 @@ describe('Workflow Settings Integration Tests', () => {
       });
       fireEvent.click(enabledCheckbox);
 
-      // 提交表单
-      const saveButton = screen.getByRole('button', { name: /确.*定/ });
+      // Submit form
+      const saveButton = screen.getByRole('button', { name: /confirm|save/i });
       fireEvent.click(saveButton);
 
-      // 验证保存调用
+      // Verify save call
       await waitFor(() => {
         expect(mockWorkflowSettingsService.saveSettings).toHaveBeenCalledWith({
           name: 'Test Workflow',
@@ -174,24 +174,24 @@ describe('Workflow Settings Integration Tests', () => {
         });
       });
 
-      // 验证成功消息
+      // Verify success message
       await waitFor(() => {
-        expect(screen.getByText('工作流设置已保存')).toBeInTheDocument();
+        expect(screen.getByText('Workflow settings saved')).toBeInTheDocument();
       });
 
-      // 验证模态框关闭
+      // Verify modal closed
       await waitFor(() => {
-        expect(screen.queryByText('工作流设置')).not.toBeInTheDocument();
+        expect(screen.queryByText('Workflow Settings')).not.toBeInTheDocument();
       });
     });
 
     it.skip('should handle form validation errors during submission', async () => {
-      // 设置验证失败
+      // Set validation failure
       mockWorkflowSettingsService.validateSettings.mockReturnValue({
         isValid: false,
         errors: [
-          { field: 'name', message: '工作流名称不能为空' },
-          { field: 'webhookUrl', message: 'Webhook URL 格式无效' },
+          { field: 'name', message: 'Workflow name cannot be empty' },
+          { field: 'webhookUrl', message: 'Invalid Webhook URL format' },
         ],
       });
 
@@ -224,25 +224,29 @@ describe('Workflow Settings Integration Tests', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('工作流设置')).toBeInTheDocument();
+        expect(screen.getByText('Workflow Settings')).toBeInTheDocument();
       });
 
-      // 尝试提交空表单
-      const saveButton = screen.getByRole('button', { name: /确.*定/ });
+      // Try to submit empty form
+      const saveButton = screen.getByRole('button', { name: /confirm|save/i });
       fireEvent.click(saveButton);
 
-      // 验证错误消息显示
+      // Verify error messages displayed
       await waitFor(() => {
-        expect(screen.getByText('工作流名称不能为空')).toBeInTheDocument();
-        expect(screen.getByText('Webhook URL 格式无效')).toBeInTheDocument();
+        expect(
+          screen.getByText('Workflow name cannot be empty')
+        ).toBeInTheDocument();
+        expect(
+          screen.getByText('Invalid Webhook URL format')
+        ).toBeInTheDocument();
       });
 
-      // 验证保存未被调用
+      // Verify save was not called
       expect(mockWorkflowSettingsService.saveSettings).not.toHaveBeenCalled();
     });
 
     it.skip('should handle save operation failures gracefully', async () => {
-      // 设置保存失败
+      // Set save failure
       mockWorkflowSettingsService.saveSettings.mockRejectedValue(
         new Error('Network error')
       );
@@ -276,7 +280,7 @@ describe('Workflow Settings Integration Tests', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('工作流设置')).toBeInTheDocument();
+        expect(screen.getByText('Workflow Settings')).toBeInTheDocument();
       });
 
       const nameInput = screen.getByLabelText('工作流名称');
@@ -286,9 +290,11 @@ describe('Workflow Settings Integration Tests', () => {
       const saveButton = screen.getByRole('button', { name: /确.*定/ });
       fireEvent.click(saveButton);
 
-      // 验证错误消息显示
+      // Verify error message displayed
       await waitFor(() => {
-        expect(screen.getByText('保存失败，请重试')).toBeInTheDocument();
+        expect(
+          screen.getByText('Save failed, please retry')
+        ).toBeInTheDocument();
       });
 
       // 验证模态框仍然打开
@@ -297,7 +303,7 @@ describe('Workflow Settings Integration Tests', () => {
   });
 
   /**
-   * 测试设置在页面重新加载后的持久化
+   * Test settings persistence after page reload
    */
   describe('Settings Persistence', () => {
     it.skip('should persist settings across page reloads', async () => {
@@ -309,7 +315,7 @@ describe('Workflow Settings Integration Tests', () => {
         updatedAt: new Date().toISOString(),
       };
 
-      // 设置加载已保存的设置
+      // Set loading of saved settings
       mockWorkflowSettingsService.getSettings.mockResolvedValue(savedSettings);
       mockWorkflowSettingsService.loadSettings.mockResolvedValue({
         success: true,
@@ -344,7 +350,7 @@ describe('Workflow Settings Integration Tests', () => {
         { initialState }
       );
 
-      // 验证设置被正确加载
+      // Verify settings are loaded correctly
       await waitFor(() => {
         expect(
           screen.getByDisplayValue('Persisted Workflow')
@@ -354,18 +360,18 @@ describe('Workflow Settings Integration Tests', () => {
         ).toBeInTheDocument();
       });
 
-      // 验证复选框状态
+      // Verify checkbox state
       const enabledCheckbox = screen.getByLabelText(
-        '启用工作流'
+        'Enable Workflow'
       ) as HTMLInputElement;
       expect(enabledCheckbox.checked).toBe(true);
 
-      // 验证加载方法被调用
+      // Verify load method was called
       expect(mockWorkflowSettingsService.getSettings).toHaveBeenCalled();
     });
 
     it.skip('should handle loading failures gracefully', async () => {
-      // 设置加载失败
+      // Set loading failure
       mockWorkflowSettingsService.getSettings.mockRejectedValue(
         new Error('Failed to load settings')
       );
@@ -401,14 +407,14 @@ describe('Workflow Settings Integration Tests', () => {
         { initialState }
       );
 
-      // 验证默认值被使用
+      // Verify default values are used
       await waitFor(() => {
-        expect(screen.getByDisplayValue('')).toBeInTheDocument(); // 空的名称字段
+        expect(screen.getByDisplayValue('')).toBeInTheDocument(); // Empty name field
       });
 
-      // 验证错误消息（如果有的话）
+      // Verify error message (if any)
       await waitFor(() => {
-        const errorMessage = screen.queryByText('加载设置失败');
+        const errorMessage = screen.queryByText('Failed to load settings');
         if (errorMessage) {
           expect(errorMessage).toBeInTheDocument();
         }
@@ -417,7 +423,7 @@ describe('Workflow Settings Integration Tests', () => {
   });
 
   /**
-   * 测试导入/导出功能的集成
+   * Test import/export functionality integration
    */
   describe.skip('Import/Export Integration', () => {
     it('should export settings and allow re-import', async () => {
@@ -429,7 +435,7 @@ describe('Workflow Settings Integration Tests', () => {
         updatedAt: new Date().toISOString(),
       };
 
-      // 设置导出模拟
+      // Set export mock
       mockWorkflowSettingsService.exportSettings.mockResolvedValue(exportData);
       mockWorkflowSettingsService.importSettings.mockResolvedValue(undefined);
 
@@ -462,40 +468,44 @@ describe('Workflow Settings Integration Tests', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('工作流设置')).toBeInTheDocument();
+        expect(screen.getByText('Workflow Settings')).toBeInTheDocument();
       });
 
-      // 测试导出功能
-      const exportButton = screen.getByRole('button', { name: /导出设置/ });
+      // Test export functionality
+      const exportButton = screen.getByRole('button', {
+        name: /export settings/i,
+      });
       fireEvent.click(exportButton);
 
       await waitFor(() => {
         expect(mockWorkflowSettingsService.exportSettings).toHaveBeenCalled();
       });
 
-      // 验证导出成功消息
+      // Verify export success message
       await waitFor(() => {
-        expect(screen.getByText('设置已导出')).toBeInTheDocument();
+        expect(screen.getByText('Settings exported')).toBeInTheDocument();
       });
 
-      // 测试导入功能
-      const importButton = screen.getByRole('button', { name: /导入设置/ });
+      // Test import functionality
+      const importButton = screen.getByRole('button', {
+        name: /import settings/i,
+      });
       fireEvent.click(importButton);
 
-      // 模拟文件选择（这里简化处理）
+      // Mock file selection (simplified handling)
       await waitFor(() => {
         expect(mockWorkflowSettingsService.importSettings).toHaveBeenCalled();
       });
 
-      // 验证导入成功消息
+      // Verify import success message
       await waitFor(() => {
-        expect(screen.getByText('设置已导入')).toBeInTheDocument();
+        expect(screen.getByText('Settings imported')).toBeInTheDocument();
       });
     });
   });
 
   /**
-   * 测试实时验证功能
+   * Test real-time validation functionality
    */
   describe('Real-time Validation', () => {
     it('should validate fields as user types', async () => {
@@ -531,21 +541,23 @@ describe('Workflow Settings Integration Tests', () => {
         expect(screen.getByText('工作流设置')).toBeInTheDocument();
       });
 
-      // 先输入工作流名称
-      const nameInput = screen.getByLabelText('工作流名称');
+      // First input workflow name
+      const nameInput = screen.getByLabelText('Workflow Name');
       fireEvent.change(nameInput, { target: { value: 'Test Workflow' } });
 
-      // 然后输入无效的 webhook URL (但格式正确)
+      // Then input invalid webhook URL (but correct format)
       const webhookInput = screen.getByLabelText('Webhook URL');
       fireEvent.change(webhookInput, {
         target: { value: 'https://invalid-webhook-url.com' },
       });
 
-      // 重置并设置验证失败
+      // Reset and set validation failure
       mockValidateWorkflowSettings.mockReset();
       mockValidateWorkflowSettings.mockResolvedValue({
         isValid: false,
-        errors: [{ field: 'webhookUrl', message: 'Webhook地址格式无效' }],
+        errors: [
+          { field: 'webhookUrl', message: 'Invalid webhook URL format' },
+        ],
       });
 
       console.log('Mock setup complete:', {
@@ -555,8 +567,8 @@ describe('Workflow Settings Integration Tests', () => {
         mockReturnValue: mockValidateWorkflowSettings.mock.results,
       });
 
-      // 触发保存操作来验证
-      const saveButton = screen.getByText('保存');
+      // Trigger save operation for validation
+      const saveButton = screen.getByText('Save');
 
       console.log('Before clicking save button');
       console.log(
@@ -572,14 +584,14 @@ describe('Workflow Settings Integration Tests', () => {
         mockValidateWorkflowSettings.mock.calls.length
       );
 
-      // 验证模拟函数是否被正确设置
+      // Verify mock function is correctly set
       expect(mockValidateWorkflowSettings).toBeDefined();
       console.log('Mock function type:', typeof mockValidateWorkflowSettings);
 
-      // 等待一段时间让表单处理完成
+      // Wait for form processing to complete
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // 检查验证函数是否被调用
+      // Check if validation function was called
       console.log(
         'validateWorkflowSettings called after:',
         mockValidateWorkflowSettings.mock.calls.length
@@ -589,24 +601,24 @@ describe('Workflow Settings Integration Tests', () => {
         mockValidateWorkflowSettings.mock.calls
       );
 
-      // 如果验证函数被调用了，检查错误消息
+      // If validation function was called, check error message
       if (mockValidateWorkflowSettings.mock.calls.length > 0) {
         await waitFor(
           () => {
-            const helpText = screen.getByText('Webhook地址格式无效');
+            const helpText = screen.getByText('Invalid webhook URL format');
             expect(helpText).toBeInTheDocument();
           },
           { timeout: 5000 }
         );
       } else {
-        // 如果验证函数没有被调用，测试失败
+        // If validation function was not called, test fails
         throw new Error('validateWorkflowSettings was not called');
       }
     });
   });
 
   /**
-   * 测试键盘导航和可访问性
+   * Test keyboard navigation and accessibility
    */
   describe('Accessibility and Keyboard Navigation', () => {
     it('should support keyboard navigation', async () => {
@@ -639,18 +651,18 @@ describe('Workflow Settings Integration Tests', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('工作流设置')).toBeInTheDocument();
+        expect(screen.getByText('Workflow Settings')).toBeInTheDocument();
       });
 
-      // 测试键盘交互（简化版本，避免焦点测试的不稳定性）
-      const nameInput = screen.getByLabelText('工作流名称');
+      // Test keyboard interaction (simplified version to avoid focus test instability)
+      const nameInput = screen.getByLabelText('Workflow Name');
       const webhookInput = screen.getByLabelText('Webhook URL');
 
-      // 验证输入框可以接收键盘输入
+      // Verify input fields can receive keyboard input
       fireEvent.keyDown(nameInput, { key: 'Tab' });
       fireEvent.keyDown(webhookInput, { key: 'Tab' });
 
-      // 验证表单元素存在且可交互
+      // Verify form elements exist and are interactive
       expect(nameInput).toBeInTheDocument();
       expect(webhookInput).toBeInTheDocument();
     });
@@ -685,18 +697,18 @@ describe('Workflow Settings Integration Tests', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('工作流设置')).toBeInTheDocument();
+        expect(screen.getByText('Workflow Settings')).toBeInTheDocument();
       });
 
-      // 验证 ARIA 属性
+      // Verify ARIA attributes
       const modal = screen.getByRole('dialog');
       expect(modal).toHaveAttribute('aria-labelledby');
       expect(modal).toHaveAttribute('aria-modal', 'true');
 
-      // 验证表单标签
-      expect(screen.getByLabelText('工作流名称')).toBeInTheDocument();
+      // Verify form labels
+      expect(screen.getByLabelText('Workflow Name')).toBeInTheDocument();
       expect(screen.getByLabelText('Webhook URL')).toBeInTheDocument();
-      expect(screen.getByLabelText('启用工作流')).toBeInTheDocument();
+      expect(screen.getByLabelText('Enable Workflow')).toBeInTheDocument();
     });
   });
 });

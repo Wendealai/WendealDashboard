@@ -468,7 +468,8 @@ export class LocalAuthService implements IAuthService {
     const payload = {
       sub: userId,
       iat: Date.now(),
-      exp: Date.now() + (this.config?.tokenExpirationTime || 3600) * 1000,
+      // 延长 token 过期时间到 8 小时，减少频繁过期的问题
+      exp: Date.now() + (this.config?.tokenExpirationTime || 28800) * 1000, // 8小时 = 8 * 3600
     };
 
     // 简单的令牌生成（实际应用中应该使用真正的JWT库）

@@ -1,0 +1,12 @@
+{
+  "id": "approval_1756812008638_m60k2oiwi",
+  "title": "Invoice OCR 工作流任务文档审批",
+  "filePath": ".spec-workflow/specs/invoice-ocr/tasks.md",
+  "type": "document",
+  "status": "approved",
+  "createdAt": "2025-09-02T11:20:08.638Z",
+  "category": "spec",
+  "categoryName": "invoice-ocr",
+  "response": "Approved",
+  "respondedAt": "2025-09-02T11:22:02.945Z"
+}

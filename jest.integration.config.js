@@ -11,7 +11,7 @@ module.exports = {
     '<rootDir>/src/setupTests.ts',
     '<rootDir>/src/__tests__/setup/integration.setup.ts'
   ],
-  testTimeout: 30000, // 集成测试可能需要更长时间
+  testTimeout: 30000, // Integration tests may need more time
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
@@ -28,7 +28,7 @@ module.exports = {
       statements: 70
     }
   },
-  // 集成测试特定配置
-  maxWorkers: 1, // 串行运行集成测试以避免冲突
+  // Integration test specific configuration
+  maxWorkers: 1, // Run integration tests serially to avoid conflicts
   testSequencer: '<rootDir>/src/__tests__/utils/testSequencer.js'
 };

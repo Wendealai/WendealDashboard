@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Switch, message } from 'antd';
+import { Form, Input, Switch } from 'antd';
+import { useMessage } from '@/hooks';
 import {
   SettingOutlined,
   SaveOutlined,
@@ -18,28 +19,30 @@ import {
 } from '../../services';
 
 /**
- * 工作流设置模态框组件属性接口
+ * Workflow settings modal component props interface
  */
 export interface WorkflowSettingsModalProps
   extends Omit<ModalProps, 'children' | 'onOk' | 'onCancel'> {
-  /** 是否显示模态框 */
+  /** Whether to show modal */
   visible?: boolean;
-  /** 关闭模态框回调 */
+  /** Close modal callback */
   onClose?: () => void;
-  /** 保存成功回调 */
+  /** Save success callback */
   onSave?: (settings: WorkflowSettings) => void;
-  /** 初始设置数据 */
+  /** Initial settings data */
   initialSettings?: Partial<WorkflowSettings>;
-  /** 是否只读模式 */
+  /** Whether in readonly mode */
   readonly?: boolean;
+  /** Workflow ID */
+  workflowId?: string | null;
 }
 
 /**
- * 工作流设置模态框组件
- * 提供工作流配置的编辑界面
+ * Workflow settings modal component
+ * Provides editing interface for workflow configuration
  *
- * @param props - 组件属性
- * @returns React组件
+ * @param props - Component props
+ * @returns React component
  */
 const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
   visible = false,
@@ -47,11 +50,13 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
   onSave,
   initialSettings,
   readonly = false,
-  title = '工作流设置',
+  title = 'Workflow Settings',
   width = 600,
+  workflowId,
   ...modalProps
 }) => {
   const [form] = Form.useForm<WorkflowSettingsFormData>();
+  const message = useMessage();
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
   const [settings, setSettings] = useState<WorkflowSettings | null>(null);
@@ -59,12 +64,17 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
     useState<ValidationResult | null>(null);
 
   /**
-   * 加载工作流设置
+   * Load workflow settings
    */
   const loadSettings = async () => {
+    if (!workflowId) {
+      message.error('No workflow ID provided');
+      return;
+    }
+
     try {
       setLoading(true);
-      const response = await workflowSettingsService.getSettings();
+      const response = await workflowSettingsService.getSettings(workflowId);
 
       if (response.success && response.data) {
         setSettings(response.data);
@@ -74,19 +84,19 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
           enabled: response.data.enabled,
         });
       } else {
-        message.error(response.error || '加载设置失败');
+        message.error(response.error || 'Failed to load settings');
       }
     } catch (error) {
       console.error('Failed to load workflow settings:', error);
-      message.error('加载设置时发生错误');
+      message.error('Error occurred while loading settings');
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * 验证表单数据
-   * @param values - 表单值
+   * Validate form data
+   * @param values - Form values
    */
   const validateForm = async (
     values: WorkflowSettingsFormData
@@ -100,27 +110,27 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
       if (!validation.isValid) {
         setValidationErrors(validation);
 
-        // 显示验证错误
+        // Show validation errors
         const errorMessages = validation.errors
           .map(error => error.message)
           .join('\n');
-        message.error(`验证失败:\n${errorMessages}`);
+        message.error(`Validation failed:\n${errorMessages}`);
 
         return false;
       }
 
-      // 显示警告（如果有）
+      // Show warnings (if any)
       if (validation.warnings && validation.warnings.length > 0) {
         const warningMessages = validation.warnings
           .map(warning => warning.message)
           .join('\n');
-        message.warning(`注意:\n${warningMessages}`);
+        message.warning(`Note:\n${warningMessages}`);
       }
 
       return true;
     } catch (error) {
       console.error('Validation error:', error);
-      message.error('验证过程中发生错误');
+      message.error('Error occurred during validation');
       return false;
     } finally {
       setValidating(false);
@@ -128,13 +138,18 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
   };
 
   /**
-   * 保存设置
+   * Save settings
    */
   const handleSave = async () => {
+    if (!workflowId) {
+      message.error('No workflow ID provided');
+      return;
+    }
+
     try {
       const values = await form.validateFields();
 
-      // 验证表单数据
+      // Validate form data
       const isValid = await validateForm(values);
       if (!isValid) {
         return;
@@ -142,10 +157,13 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
 
       setLoading(true);
 
-      const response = await workflowSettingsService.saveSettings(values);
+      const response = await workflowSettingsService.saveSettings(
+        workflowId,
+        values
+      );
 
       if (response.success && response.data) {
-        message.success('设置保存成功');
+        message.success('Settings saved successfully');
         setSettings(response.data);
 
         if (onSave) {
@@ -154,27 +172,32 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
 
         handleClose();
       } else {
-        message.error(response.error || '保存设置失败');
+        message.error(response.error || 'Failed to save settings');
       }
     } catch (error) {
       console.error('Failed to save workflow settings:', error);
-      message.error('保存设置时发生错误');
+      message.error('Error occurred while saving settings');
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * 重置表单
+   * Reset form
    */
   const handleReset = async () => {
+    if (!workflowId) {
+      message.error('No workflow ID provided');
+      return;
+    }
+
     try {
       setLoading(true);
 
-      const response = await workflowSettingsService.resetSettings();
+      const response = await workflowSettingsService.resetSettings(workflowId);
 
       if (response.success && response.data) {
-        message.success('设置已重置为默认值');
+        message.success('Settings reset to default values');
         setSettings(response.data);
         form.setFieldsValue({
           name: response.data.name,
@@ -182,18 +205,18 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
           enabled: response.data.enabled,
         });
       } else {
-        message.error(response.error || '重置设置失败');
+        message.error(response.error || 'Failed to reset settings');
       }
     } catch (error) {
       console.error('Failed to reset workflow settings:', error);
-      message.error('重置设置时发生错误');
+      message.error('Error occurred while resetting settings');
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * 关闭模态框
+   * Close modal
    */
   const handleClose = () => {
     form.resetFields();
@@ -204,21 +227,21 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
   };
 
   /**
-   * 表单值变化处理
-   * 实现实时验证功能
+   * Handle form value changes
+   * Implement real-time validation
    */
   const handleFormChange = async (
     changedValues: Partial<WorkflowSettingsFormData>,
     allValues: WorkflowSettingsFormData
   ) => {
-    // 清除之前的验证错误
+    // Clear previous validation errors
     if (validationErrors) {
       setValidationErrors(null);
     }
 
-    // 实时验证：当用户输入时进行验证
+    // Real-time validation: validate when user inputs
     try {
-      // 只有当所有必填字段都有值时才进行验证
+      // Only validate when all required fields have values
       if (allValues.name && allValues.webhookUrl) {
         const validation = await validateWorkflowSettings(allValues);
 
@@ -231,7 +254,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
     }
   };
 
-  // 当模态框打开时加载设置
+  // Load settings when modal opens
   useEffect(() => {
     if (visible) {
       if (initialSettings) {
@@ -246,7 +269,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
     }
   }, [visible, initialSettings, form]);
 
-  // 自定义页脚按钮
+  // Custom footer buttons
   const footerButtons = [
     <button
       key='reset'
@@ -257,7 +280,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
       style={{ marginRight: 8 }}
     >
       <ReloadOutlined />
-      重置
+      Reset
     </button>,
     <button
       key='cancel'
@@ -266,7 +289,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
       onClick={handleClose}
       disabled={loading}
     >
-      取消
+      Cancel
     </button>,
     <button
       key='save'
@@ -290,7 +313,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
       ) : (
         <SaveOutlined />
       )}
-      {loading ? '保存中...' : validating ? '验证中...' : '保存'}
+      {loading ? 'Saving...' : validating ? 'Validating...' : 'Save'}
     </button>,
   ];
 
@@ -306,7 +329,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
       width={width}
       onCancel={handleClose}
       footerButtons={footerButtons}
-      destroyOnClose
+      destroyOnHidden
       maskClosable={!loading}
       keyboard={!loading}
     >
@@ -318,12 +341,12 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
         style={{ marginTop: 16 }}
       >
         <Form.Item
-          label='工作流名称'
+          label='Workflow Name'
           name='name'
           rules={[
-            { required: true, message: '请输入工作流名称' },
-            { min: 2, message: '工作流名称至少2个字符' },
-            { max: 50, message: '工作流名称不能超过50个字符' },
+            { required: true, message: 'Please enter workflow name' },
+            { min: 2, message: 'Workflow name must be at least 2 characters' },
+            { max: 50, message: 'Workflow name cannot exceed 50 characters' },
           ]}
           validateStatus={
             validationErrors?.errors.some(e => e.field === 'name')
@@ -333,7 +356,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
           help={validationErrors?.errors.find(e => e.field === 'name')?.message}
         >
           <Input
-            placeholder='请输入工作流名称'
+            placeholder='Please enter workflow name'
             maxLength={50}
             showCount
             disabled={loading}
@@ -343,7 +366,22 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
         <Form.Item
           label='Webhook URL'
           name='webhookUrl'
-          rules={[{ type: 'url', message: '请输入有效的URL地址' }]}
+          rules={[
+            { required: true, message: 'Please enter a webhook URL' },
+            { type: 'url', message: 'Please enter a valid URL' },
+            {
+              validator: (_, value) => {
+                if (value === 'https://api.example.com/reddit-webhook') {
+                  return Promise.reject(
+                    new Error(
+                      'Please replace the default URL with your actual webhook URL'
+                    )
+                  );
+                }
+                return Promise.resolve();
+              },
+            },
+          ]}
           validateStatus={
             validationErrors?.errors.some(e => e.field === 'webhookUrl')
               ? 'error'
@@ -353,24 +391,50 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
             validationErrors?.errors.find(e => e.field === 'webhookUrl')
               ?.message
           }
+          extra={
+            <div style={{ marginTop: '8px' }}>
+              <div style={{ marginBottom: '4px', color: '#666' }}>
+                📝 Configuration Guide: Enter your n8n webhook URL
+              </div>
+              <div style={{ fontSize: '12px', color: '#999' }}>
+                💡 Example format: https://your-n8n-instance.com/webhook/reddit
+              </div>
+              <div
+                style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}
+              >
+                🔗 How to get: Create a webhook node in n8n and copy its URL
+              </div>
+            </div>
+          }
         >
-          <Input placeholder='https://example.com/webhook' disabled={loading} />
+          <Input
+            placeholder='https://your-n8n-instance.com/webhook/reddit'
+            disabled={loading}
+            style={{
+              fontFamily: 'monospace',
+              borderColor:
+                form.getFieldValue('webhookUrl') ===
+                'https://api.example.com/reddit-webhook'
+                  ? '#ff4d4f'
+                  : undefined,
+            }}
+          />
         </Form.Item>
 
         <Form.Item
-          label='启用工作流'
+          label='Enable Workflow'
           name='enabled'
           valuePropName='checked'
-          extra='启用后工作流将开始处理请求'
+          extra='Workflow will start processing requests when enabled'
         >
           <Switch
-            checkedChildren='启用'
-            unCheckedChildren='禁用'
+            checkedChildren='Enabled'
+            unCheckedChildren='Disabled'
             disabled={loading}
           />
         </Form.Item>
 
-        {/* 显示设置信息 */}
+        {/* Display settings info */}
         {settings && (
           <div
             style={{
@@ -382,12 +446,12 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
               color: '#666',
             }}
           >
-            <div>创建时间: {new Date(settings.createdAt).toLocaleString()}</div>
-            <div>更新时间: {new Date(settings.updatedAt).toLocaleString()}</div>
+            <div>Created: {new Date(settings.createdAt).toLocaleString()}</div>
+            <div>Updated: {new Date(settings.updatedAt).toLocaleString()}</div>
           </div>
         )}
 
-        {/* 显示验证警告 */}
+        {/* Display validation warnings */}
         {validationErrors?.warnings && validationErrors.warnings.length > 0 && (
           <div
             style={{
@@ -400,7 +464,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
               color: '#d46b08',
             }}
           >
-            <div style={{ fontWeight: 'bold', marginBottom: 4 }}>注意事项:</div>
+            <div style={{ fontWeight: 'bold', marginBottom: 4 }}>Notes:</div>
             {validationErrors.warnings.map((warning, index) => (
               <div key={index}>• {warning.message}</div>
             ))}
@@ -411,8 +475,8 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
   );
 };
 
-// 默认导出
+// Default export
 export default WorkflowSettingsModal;
 
-// 命名导出
+// Named export
 export { WorkflowSettingsModal };

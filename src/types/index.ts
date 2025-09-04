@@ -82,7 +82,7 @@ export type {
   FileMetadata,
   ExportRule,
   ExportConfig,
-  ValidationResult,
+  // ValidationResult, // Removed - duplicate with workflow.ts
   ParsedExport,
   NamingIssue,
   MatchingIssue,
