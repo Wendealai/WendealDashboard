@@ -220,7 +220,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
         setWorkflowErrors(prev => ({ ...prev, [workflow.id]: null }));
         setRedditProgressStates(prev => ({
           ...prev,
-          [workflow.id]: t('informationDashboard.workflow.triggeringWorkflow'),
+          [workflow.id]: '', // 移除触发提示文字，只显示loading图标
         }));
 
         try {
@@ -552,15 +552,15 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           styles={{ body: { flex: 1, padding: 0 } }}
         >
           <Spin spinning={loading}>
-            <Row gutter={[6, 6]} style={{ padding: '6px' }}>
+            <Row gutter={[4, 4]} style={{ padding: '4px' }}>
               {/* RedNote Content Generator workflow card */}
-              <Col xs={24} sm={24} md={12} lg={24} xl={12}>
+              <Col xs={12} sm={8} md={4} lg={4} xl={4}>
                 <WorkflowCard
                   workflow={{
                     id: 'rednote-content-generator',
-                    name: '小红书文案生成器',
+                    name: 'Rednote Content Generator',
                     description:
-                      'AI智能生成小红书文案，支持多种内容类型和语调风格',
+                      'AI-powered content generator for Rednote, supporting various content types and tone styles',
                     status: 'active' as WorkflowStatus,
                     nodeCount: 2,
                     lastExecution: new Date().toISOString(),
@@ -576,9 +576,9 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                   onClick={() =>
                     handleWorkflowSelect({
                       id: 'rednote-content-generator',
-                      name: '小红书文案生成器',
+                      name: 'Rednote Content Generator',
                       description:
-                        'AI智能生成小红书文案，支持多种内容类型和语调风格',
+                        'AI-powered content generator for Rednote, supporting various content types and tone styles',
                       status: 'active' as WorkflowStatus,
                       nodeCount: 2,
                       lastExecution: new Date().toISOString(),
@@ -590,9 +590,9 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     // Select RedNote Content Generator workflow, display on the right side
                     handleWorkflowSelect({
                       id: 'rednote-content-generator',
-                      name: '小红书文案生成器',
+                      name: 'Rednote Content Generator',
                       description:
-                        'AI智能生成小红书文案，支持多种内容类型和语调风格',
+                        'AI-powered content generator for Rednote, supporting various content types and tone styles',
                       status: 'active' as WorkflowStatus,
                       nodeCount: 2,
                       lastExecution: new Date().toISOString(),
@@ -612,8 +612,63 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                 />
               </Col>
 
+              {/* Smart Opportunities workflow card */}
+              <Col xs={12} sm={8} md={4} lg={4} xl={4}>
+                <WorkflowCard
+                  workflow={{
+                    id: 'smart-opportunities',
+                    name: 'Smart Opportunities',
+                    description:
+                      'Discover business opportunities based on industry, city, and country parameters',
+                    status: 'active' as WorkflowStatus,
+                    nodeCount: 3,
+                    lastExecution: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  }}
+                  selected={selectedWorkflow?.id === 'smart-opportunities'}
+                  loading={false}
+                  error={null}
+                  progressStatus=''
+                  onClick={() =>
+                    handleWorkflowSelect({
+                      id: 'smart-opportunities',
+                      name: 'Smart Opportunities',
+                      description: '基于行业、城市、国家参数智能发现商业机会',
+                      status: 'active' as WorkflowStatus,
+                      nodeCount: 3,
+                      lastExecution: new Date().toISOString(),
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    })
+                  }
+                  onTrigger={() => {
+                    // Select Smart Opportunities workflow, display on the right side
+                    handleWorkflowSelect({
+                      id: 'smart-opportunities',
+                      name: 'Smart Opportunities',
+                      description: '基于行业、城市、国家参数智能发现商业机会',
+                      status: 'active' as WorkflowStatus,
+                      nodeCount: 3,
+                      lastExecution: new Date().toISOString(),
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    });
+                  }}
+                  onSettings={() => {
+                    // Open settings modal for Smart Opportunities
+                    handleOpenSettings(
+                      'smart-opportunities',
+                      'Smart Opportunities'
+                    );
+                  }}
+                  size='small'
+                  icon={<ThunderboltOutlined />}
+                />
+              </Col>
+
               {/* Reddit workflow card */}
-              <Col xs={24} sm={24} md={12} lg={24} xl={12}>
+              <Col xs={12} sm={8} md={4} lg={4} xl={4}>
                 <WorkflowCard
                   workflow={{
                     id: 'reddit-workflow',
@@ -653,7 +708,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
               </Col>
 
               {/* Invoice OCR workflow card */}
-              <Col xs={24} sm={24} md={12} lg={24} xl={12}>
+              <Col xs={12} sm={8} md={4} lg={4} xl={4}>
                 <WorkflowCard
                   workflow={{
                     id: 'invoice-ocr-workflow',

@@ -92,3 +92,21 @@ export type {
   ReportFormat,
   ReportSummary,
 } from './export';
+
+// Smart Opportunities相关类型
+export type {
+  OpportunityRecord,
+  WorkflowParameters,
+  AirtableConfig,
+  SmartOpportunitiesProps,
+  InputFormProps,
+  AirtableTableProps,
+  AirtableApiResponse,
+  WorkflowExecutionResult,
+  SmartOpportunitiesErrorType,
+  SmartOpportunitiesError,
+  TableColumn,
+  TableSort,
+  TablePagination,
+  DataLoadingState,
+} from './smartOpportunities';

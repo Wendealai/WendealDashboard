@@ -89,7 +89,7 @@ export default {
   informationDashboard: {
     title: 'Information Display Module',
     subtitle:
-      'Integrated n8n workflow data display platform, providing unified information aggregation and display interface',
+      'Integrated workflow data display platform, providing unified information aggregation and display interface',
     workflowManagement: 'Workflow Management',
     invoiceOCRRecognition: 'Invoice OCR Recognition',
     tabs: {

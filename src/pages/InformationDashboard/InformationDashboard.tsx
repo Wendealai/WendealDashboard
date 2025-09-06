@@ -15,6 +15,8 @@ import WorkflowSidebar from './components/WorkflowSidebar';
 import WorkflowPanel from './components/WorkflowPanel';
 import ResultPanel from './components/ResultPanel';
 import InvoiceOCRPage from './InvoiceOCRPage';
+import RedNoteContentGenerator from '@/pages/SocialMedia/components/RedNoteContentGenerator';
+import SmartOpportunities from './components/SmartOpportunities';
 import type { ParsedSubredditData } from '@/services/redditWebhookService';
 import type { Workflow } from './types';
 
@@ -66,10 +68,10 @@ const InformationDashboard: React.FC = () => {
 
       <Divider />
 
-      {/* Main content area */}
-      <Row gutter={[24, 24]}>
-        {/* Workflow management panel */}
-        <Col xs={24} lg={8}>
+      {/* Main content area - 上下布局 */}
+      <Row gutter={[16, 16]}>
+        {/* Workflow management panel - 减少高度，只占一行 */}
+        <Col xs={24}>
           <Card
             title={
               <Space>
@@ -78,6 +80,7 @@ const InformationDashboard: React.FC = () => {
               </Space>
             }
             className='workflow-panel-card'
+            style={{ marginBottom: 0 }}
           >
             <WorkflowSidebar
               onRedditDataReceived={handleRedditDataReceived}
@@ -86,21 +89,30 @@ const InformationDashboard: React.FC = () => {
           </Card>
         </Col>
 
-        {/* Data display area */}
-        <Col xs={24} lg={16}>
+        {/* Data display area - 占据剩余全部空间 */}
+        <Col xs={24}>
           <Card
             title={
               <Space>
                 <FilterOutlined />
                 {selectedWorkflow?.id === 'invoice-ocr-workflow'
                   ? t('informationDashboard.invoiceOCRRecognition')
-                  : t('informationDashboard.title')}
+                  : selectedWorkflow?.id === 'rednote-content-generator'
+                    ? 'Rednote Content Generator'
+                    : selectedWorkflow?.id === 'smart-opportunities'
+                      ? 'Smart Opportunities'
+                      : t('informationDashboard.title')}
               </Space>
             }
             className='data-display-card'
+            style={{ height: 'calc(100vh - 200px)', minHeight: '600px' }}
           >
             {selectedWorkflow?.id === 'invoice-ocr-workflow' ? (
               <InvoiceOCRPage />
+            ) : selectedWorkflow?.id === 'rednote-content-generator' ? (
+              <RedNoteContentGenerator />
+            ) : selectedWorkflow?.id === 'smart-opportunities' ? (
+              <SmartOpportunities />
             ) : (
               <>
                 <WorkflowPanel />

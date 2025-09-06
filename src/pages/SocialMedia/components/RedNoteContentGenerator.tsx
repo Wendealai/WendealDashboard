@@ -339,417 +339,462 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
   }, []);
 
   return (
-    <div className={`rednote-content-generator ${className || ''}`}>
-      <Row gutter={[16, 16]}>
-        {/* 输入区域 */}
-        <Col xs={24} lg={12}>
-          <Card
-            title={
-              <Space>
-                <EditOutlined />
-                <span>内容输入</span>
-              </Space>
-            }
-            size='small'
-          >
-            <Space direction='vertical' style={{ width: '100%' }} size='middle'>
-              {/* 主要内容输入 */}
-              <div>
-                <Text strong>输入内容 *</Text>
-                <TextArea
-                  value={inputContent}
-                  onChange={e => setInputContent(e.target.value)}
-                  placeholder='请输入您想要生成小红书文案的内容，可以是一篇文章、一些想法、产品描述等...'
-                  rows={10}
-                  maxLength={10000}
-                  showCount
-                  style={{ marginTop: 8 }}
-                />
-              </div>
-
-              {/* 内容类型选择 */}
-              <div>
-                <Text strong>内容类型</Text>
-                <Select
-                  value={contentType}
-                  onChange={setContentType}
-                  style={{ width: '100%', marginTop: 8 }}
-                  placeholder='请选择内容类型'
-                >
-                  <Option value='教程攻略类：美妆教程（化妆步骤、护肤流程、产品测评）'>
-                    💄 教程攻略类：美妆教程（化妆步骤、护肤流程、产品测评）
-                  </Option>
-                  <Option value='教程攻略类：穿搭攻略（搭配技巧、身材优化、场合穿搭）'>
-                    👗 教程攻略类：穿搭攻略（搭配技巧、身材优化、场合穿搭）
-                  </Option>
-                  <Option value='教程攻略类：生活技能（收纳整理、料理制作、学习方法）'>
-                    🏠 教程攻略类：生活技能（收纳整理、料理制作、学习方法）
-                  </Option>
-                  <Option value='教程攻略类：旅行攻略（景点推荐、路线规划、省钱技巧）'>
-                    ✈️ 教程攻略类：旅行攻略（景点推荐、路线规划、省钱技巧）
-                  </Option>
-                  <Option value='分享种草类：好物推荐（实用好物、性价比产品、新品试用）'>
-                    🛍️ 分享种草类：好物推荐（实用好物、性价比产品、新品试用）
-                  </Option>
-                  <Option value='分享种草类：体验分享（购物体验、使用感受、效果对比）'>
-                    ⭐ 分享种草类：体验分享（购物体验、使用感受、效果对比）
-                  </Option>
-                  <Option value='分享种草类：避雷指南（产品踩雷、消费陷阱、选择建议）'>
-                    ⚠️ 分享种草类：避雷指南（产品踩雷、消费陷阱、选择建议）
-                  </Option>
-                  <Option value='情感共鸣类：生活感悟（职场心得、人生思考、成长感悟）'>
-                    💭 情感共鸣类：生活感悟（职场心得、人生思考、成长感悟）
-                  </Option>
-                  <Option value='情感共鸣类：情感故事（恋爱经历、友情故事、家庭关系）'>
-                    💕 情感共鸣类：情感故事（恋爱经历、友情故事、家庭关系）
-                  </Option>
-                  <Option value='情感共鸣类：励志鸡汤（正能量分享、motivational内容）'>
-                    ✨ 情感共鸣类：励志鸡汤（正能量分享、motivational内容）
-                  </Option>
-                  <Option value='热点话题类：流行趋势（时尚潮流、网红产品、热门话题）'>
-                    🔥 热点话题类：流行趋势（时尚潮流、网红产品、热门话题）
-                  </Option>
-                  <Option value='热点话题类：节日相关（节日穿搭、礼物推荐、节日攻略）'>
-                    🎉 热点话题类：节日相关（节日穿搭、礼物推荐、节日攻略）
-                  </Option>
-                  <Option value='热点话题类：季节性内容（换季护肤、季节穿搭、应季美食）'>
-                    🌸 热点话题类：季节性内容（换季护肤、季节穿搭、应季美食）
-                  </Option>
-                </Select>
-              </div>
-
-              {/* 语调选择 */}
-              <div>
-                <Text strong>语调风格</Text>
-                <Select
-                  value={tone}
-                  onChange={setTone}
-                  style={{ width: '100%', marginTop: 8 }}
-                  placeholder='请选择语调风格'
-                >
-                  <Option value='亲密闺蜜风：特点（像朋友聊天一样自然亲切）'>
-                    👭 亲密闺蜜风：特点（像朋友聊天一样自然亲切）
-                  </Option>
-                  <Option value='专业科普风：特点（知识性强，权威可信）'>
-                    🎓 专业科普风：特点（知识性强，权威可信）
-                  </Option>
-                  <Option value='可爱萌系风：特点（语言活泼，多用表情符号）'>
-                    🥰 可爱萌系风：特点（语言活泼，多用表情符号）
-                  </Option>
-                  <Option value='直率真实风：特点（说话直接，不加修饰）'>
-                    💯 直率真实风：特点（说话直接，不加修饰）
-                  </Option>
-                  <Option value='精致优雅风：特点（文字优美，格调较高）'>
-                    🌹 精致优雅风：特点（文字优美，格调较高）
-                  </Option>
-                </Select>
-              </div>
-
-              {/* 爆款文案常用技巧 */}
-              <div>
-                <Text strong>爆款文案常用技巧</Text>
-                <Select
-                  value={writingTechnique}
-                  onChange={setWritingTechnique}
-                  placeholder='选择文案技巧'
-                  style={{ width: '100%', marginTop: 8 }}
-                >
-                  {/* 标题技巧 */}
-                  <Option value='标题技巧：数字型（5个技巧、3步搞定、10款推荐）'>
-                    📊 标题技巧：数字型（5个技巧、3步搞定、10款推荐）
-                  </Option>
-                  <Option value='标题技巧：疑问型（你还在用XX吗？为什么XX这么火？）'>
-                    ❓ 标题技巧：疑问型（你还在用XX吗？为什么XX这么火？）
-                  </Option>
-                  <Option value='标题技巧：惊叹型（太绝了！竟然有这种操作！）'>
-                    😱 标题技巧：惊叹型（太绝了！竟然有这种操作！）
-                  </Option>
-                  <Option value='标题技巧：对比型（XX vs XX，哪个更值得买？）'>
-                    ⚖️ 标题技巧：对比型（XX vs XX，哪个更值得买？）
-                  </Option>
-                  {/* 开头技巧 */}
-                  <Option value='开头技巧：抛出问题（你们有没有遇到过...）'>
-                    🤔 开头技巧：抛出问题（你们有没有遇到过...）
-                  </Option>
-                  <Option value='开头技巧：分享心情（最近超级迷恋...）'>
-                    💕 开头技巧：分享心情（最近超级迷恋...）
-                  </Option>
-                  <Option value='开头技巧：制造悬念（发现了一个秘密...）'>
-                    🔍 开头技巧：制造悬念（发现了一个秘密...）
-                  </Option>
-                  <Option value='开头技巧：直入主题（今天分享一个超实用的...）'>
-                    🎯 开头技巧：直入主题（今天分享一个超实用的...）
-                  </Option>
-                  {/* 结尾技巧 */}
-                  <Option value='结尾技巧：互动引导（你们觉得呢？评论区聊聊）'>
-                    💬 结尾技巧：互动引导（你们觉得呢？评论区聊聊）
-                  </Option>
-                  <Option value='结尾技巧：收藏提醒（记得收藏，别刷丢了）'>
-                    ⭐ 结尾技巧：收藏提醒（记得收藏，别刷丢了）
-                  </Option>
-                  <Option value='结尾技巧：关注引导（关注我，更多好物分享）'>
-                    👥 结尾技巧：关注引导（关注我，更多好物分享）
-                  </Option>
-                  <Option value='结尾技巧：行动号召（赶紧去试试，真的很香）'>
-                    🚀 结尾技巧：行动号召（赶紧去试试，真的很香）
-                  </Option>
-                </Select>
-              </div>
-
-              {/* 成功要素 */}
-              <div>
-                <Text strong>成功要素</Text>
-                <Select
-                  value={successFactor}
-                  onChange={setSuccessFactor}
-                  placeholder='选择成功要素'
-                  style={{ width: '100%', marginTop: 8 }}
-                >
-                  <Option value='真实性（真实体验和感受最容易引起共鸣）'>
-                    ✨ 真实性（真实体验和感受最容易引起共鸣）
-                  </Option>
-                  <Option value='实用性（提供实际价值，解决用户痛点）'>
-                    🔧 实用性（提供实际价值，解决用户痛点）
-                  </Option>
-                  <Option value='视觉化（配图精美，排版清晰）'>
-                    🎨 视觉化（配图精美，排版清晰）
-                  </Option>
-                  <Option value='互动性（鼓励用户参与讨论和分享）'>
-                    🤝 互动性（鼓励用户参与讨论和分享）
-                  </Option>
-                  <Option value='时效性（抓住热点和流行趋势）'>
-                    ⏰ 时效性（抓住热点和流行趋势）
-                  </Option>
-                </Select>
-              </div>
-
-              {/* 目标受众 */}
-              <div>
-                <Text strong>目标受众 (可选)</Text>
-                <Input
-                  value={targetAudience}
-                  onChange={e => setTargetAudience(e.target.value)}
-                  placeholder='例如：年轻女性、职场新人、美妆爱好者等'
-                  style={{ marginTop: 8 }}
-                />
-              </div>
-
-              {/* 关键词标签 */}
-              <div>
-                <Text strong>关键词标签 (可选)</Text>
-                <div style={{ marginTop: 8 }}>
-                  <Space.Compact style={{ width: '100%' }}>
-                    <Input
-                      value={keywordInput}
-                      onChange={e => setKeywordInput(e.target.value)}
-                      placeholder='添加关键词'
-                      onPressEnter={handleAddKeyword}
-                    />
-                    <Button onClick={handleAddKeyword}>添加</Button>
-                  </Space.Compact>
-                  {keywords.length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      {keywords.map(keyword => (
-                        <Tag
-                          key={keyword}
-                          closable
-                          onClose={() => handleRemoveKeyword(keyword)}
-                          style={{ marginBottom: 4 }}
-                        >
-                          {keyword}
-                        </Tag>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 生成按钮 */}
-              <Button
-                type='primary'
-                icon={<SendOutlined />}
-                onClick={handleGenerateContent}
-                loading={loading}
-                disabled={!inputContent.trim()}
-                size='large'
-                style={{ width: '100%' }}
-              >
-                {loading ? '生成中...' : '生成小红书文案'}
-              </Button>
-            </Space>
-          </Card>
-        </Col>
-
-        {/* 结果展示区域 */}
-        <Col xs={24} lg={12}>
-          <Card
-            title={
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
+    <>
+      <style>
+        {`
+          .rednote-textarea.ant-input {
+            height: auto !important;
+            min-height: 200px !important;
+          }
+          .rednote-textarea textarea {
+            min-height: 200px !important;
+            resize: vertical !important;
+          }
+          .rednote-textarea .ant-input-data-count {
+            text-align: right !important;
+            position: absolute !important;
+            bottom: 8px !important;
+            right: 8px !important;
+            background: transparent !important;
+            color: #666 !important;
+            font-size: 12px !important;
+          }
+          .rednote-textarea.ant-input-affix-wrapper {
+            position: relative !important;
+            padding-bottom: 24px !important;
+          }
+        `}
+      </style>
+      <div className={`rednote-content-generator ${className || ''}`}>
+        <Row gutter={[16, 16]}>
+          {/* 输入区域 */}
+          <Col xs={24} lg={12}>
+            <Card
+              title={
                 <Space>
-                  <LinkOutlined />
-                  <span>生成结果</span>
+                  <EditOutlined />
+                  <span>内容输入</span>
                 </Space>
-                {generatedResponse && (
-                  <Button
-                    type='link'
-                    icon={<LinkOutlined />}
-                    onClick={() =>
-                      window.open(
-                        'https://docs.google.com/spreadsheets/d/1KdeZ31PaL2p8Uswj2ILo2ewPmkQ_xag56Db0yq3v6qE/edit?usp=sharing',
-                        '_blank'
-                      )
-                    }
-                    style={{ padding: 0 }}
-                  >
-                    查看Google Sheet
-                  </Button>
-                )}
-              </div>
-            }
-            size='small'
-            style={{ height: 'calc(100vh - 400px)', overflow: 'auto' }}
-            extra={
-              generatedResponse && (
-                <Space>
-                  <Button
-                    type='text'
-                    icon={<CopyOutlined />}
-                    onClick={handleCopyContent}
-                    size='small'
-                  >
-                    复制
-                  </Button>
-                  <Button
-                    type='text'
-                    icon={<ReloadOutlined />}
-                    onClick={handleRegenerate}
-                    size='small'
-                  >
-                    重新生成
-                  </Button>
-                </Space>
-              )
-            }
-          >
-            {loading && (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <Spin size='large' />
-                <div style={{ marginTop: 16 }}>
-                  <Progress percent={progress} size='small' />
-                  <Text
-                    type='secondary'
-                    style={{ display: 'block', marginTop: 8 }}
-                  >
-                    {progressText}
-                  </Text>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <Alert
-                message='生成失败'
-                description={error}
-                type='error'
-                showIcon
-                style={{ marginBottom: 16 }}
-              />
-            )}
-
-            {generatedResponse && !loading && (
+              }
+              size='small'
+            >
               <Space
                 direction='vertical'
                 style={{ width: '100%' }}
                 size='middle'
               >
-                {/* 生成的标题 */}
+                {/* 主要内容输入 */}
                 <div>
-                  <Text strong>标题：</Text>
-                  <Title level={4} style={{ margin: '8px 0' }}>
-                    {generatedResponse.title}
-                  </Title>
+                  <Text strong>输入内容 *</Text>
+                  <TextArea
+                    value={inputContent}
+                    onChange={e => setInputContent(e.target.value)}
+                    placeholder='请输入您想要生成小红书文案的内容，可以是一篇文章、一些想法、产品描述等...'
+                    rows={12}
+                    maxLength={10000}
+                    showCount
+                    style={{
+                      marginTop: 8,
+                      height: 'auto',
+                      minHeight: '200px',
+                      resize: 'vertical',
+                    }}
+                    className='rednote-textarea'
+                  />
                 </div>
 
-                <Divider style={{ margin: '12px 0' }} />
-
-                {/* 生成的内容 */}
+                {/* 内容类型选择 */}
                 <div>
-                  <Text strong>生成的文案：</Text>
-                  <Card
-                    size='small'
-                    style={{ marginTop: 8, backgroundColor: '#fafafa' }}
+                  <Text strong>内容类型</Text>
+                  <Select
+                    value={contentType}
+                    onChange={setContentType}
+                    style={{ width: '100%', marginTop: 8 }}
+                    placeholder='请选择内容类型'
                   >
-                    <Paragraph
-                      style={{ whiteSpace: 'pre-wrap', margin: 0 }}
-                      copyable={{ text: generatedResponse.generatedContent }}
-                    >
-                      {generatedResponse.generatedContent}
-                    </Paragraph>
-                  </Card>
+                    <Option value='教程攻略类：美妆教程（化妆步骤、护肤流程、产品测评）'>
+                      💄 教程攻略类：美妆教程（化妆步骤、护肤流程、产品测评）
+                    </Option>
+                    <Option value='教程攻略类：穿搭攻略（搭配技巧、身材优化、场合穿搭）'>
+                      👗 教程攻略类：穿搭攻略（搭配技巧、身材优化、场合穿搭）
+                    </Option>
+                    <Option value='教程攻略类：生活技能（收纳整理、料理制作、学习方法）'>
+                      🏠 教程攻略类：生活技能（收纳整理、料理制作、学习方法）
+                    </Option>
+                    <Option value='教程攻略类：旅行攻略（景点推荐、路线规划、省钱技巧）'>
+                      ✈️ 教程攻略类：旅行攻略（景点推荐、路线规划、省钱技巧）
+                    </Option>
+                    <Option value='分享种草类：好物推荐（实用好物、性价比产品、新品试用）'>
+                      🛍️ 分享种草类：好物推荐（实用好物、性价比产品、新品试用）
+                    </Option>
+                    <Option value='分享种草类：体验分享（购物体验、使用感受、效果对比）'>
+                      ⭐ 分享种草类：体验分享（购物体验、使用感受、效果对比）
+                    </Option>
+                    <Option value='分享种草类：避雷指南（产品踩雷、消费陷阱、选择建议）'>
+                      ⚠️ 分享种草类：避雷指南（产品踩雷、消费陷阱、选择建议）
+                    </Option>
+                    <Option value='情感共鸣类：生活感悟（职场心得、人生思考、成长感悟）'>
+                      💭 情感共鸣类：生活感悟（职场心得、人生思考、成长感悟）
+                    </Option>
+                    <Option value='情感共鸣类：情感故事（恋爱经历、友情故事、家庭关系）'>
+                      💕 情感共鸣类：情感故事（恋爱经历、友情故事、家庭关系）
+                    </Option>
+                    <Option value='情感共鸣类：励志鸡汤（正能量分享、motivational内容）'>
+                      ✨ 情感共鸣类：励志鸡汤（正能量分享、motivational内容）
+                    </Option>
+                    <Option value='热点话题类：流行趋势（时尚潮流、网红产品、热门话题）'>
+                      🔥 热点话题类：流行趋势（时尚潮流、网红产品、热门话题）
+                    </Option>
+                    <Option value='热点话题类：节日相关（节日穿搭、礼物推荐、节日攻略）'>
+                      🎉 热点话题类：节日相关（节日穿搭、礼物推荐、节日攻略）
+                    </Option>
+                    <Option value='热点话题类：季节性内容（换季护肤、季节穿搭、应季美食）'>
+                      🌸 热点话题类：季节性内容（换季护肤、季节穿搭、应季美食）
+                    </Option>
+                  </Select>
                 </div>
 
-                {/* 标签 */}
-                {generatedResponse.hashtags.length > 0 && (
-                  <div>
-                    <Text strong>推荐标签：</Text>
-                    <div style={{ marginTop: 8 }}>
-                      {generatedResponse.hashtags.map(tag => (
-                        <Tag key={tag} color='blue' style={{ marginBottom: 4 }}>
-                          #{tag}
-                        </Tag>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Google Sheet 链接 */}
-                {generatedResponse.googleSheetUrl && (
-                  <div>
-                    <Text strong>存储链接：</Text>
-                    <div style={{ marginTop: 8 }}>
-                      <Button
-                        type='link'
-                        icon={<LinkOutlined />}
-                        href={generatedResponse.googleSheetUrl}
-                        target='_blank'
-                        rel='noopener noreferrer'
-                      >
-                        查看Google Sheet存储结果
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* 生成时间 */}
+                {/* 语调选择 */}
                 <div>
-                  <Text type='secondary' style={{ fontSize: '12px' }}>
-                    生成时间：
-                    {new Date(generatedResponse.createdAt).toLocaleString()}
-                  </Text>
+                  <Text strong>语调风格</Text>
+                  <Select
+                    value={tone}
+                    onChange={setTone}
+                    style={{ width: '100%', marginTop: 8 }}
+                    placeholder='请选择语调风格'
+                  >
+                    <Option value='亲密闺蜜风：特点（像朋友聊天一样自然亲切）'>
+                      👭 亲密闺蜜风：特点（像朋友聊天一样自然亲切）
+                    </Option>
+                    <Option value='专业科普风：特点（知识性强，权威可信）'>
+                      🎓 专业科普风：特点（知识性强，权威可信）
+                    </Option>
+                    <Option value='可爱萌系风：特点（语言活泼，多用表情符号）'>
+                      🥰 可爱萌系风：特点（语言活泼，多用表情符号）
+                    </Option>
+                    <Option value='直率真实风：特点（说话直接，不加修饰）'>
+                      💯 直率真实风：特点（说话直接，不加修饰）
+                    </Option>
+                    <Option value='精致优雅风：特点（文字优美，格调较高）'>
+                      🌹 精致优雅风：特点（文字优美，格调较高）
+                    </Option>
+                  </Select>
                 </div>
-              </Space>
-            )}
 
-            {!loading && !generatedResponse && !error && (
-              <div
-                style={{ textAlign: 'center', padding: '40px', color: '#999' }}
-              >
-                <EditOutlined
-                  style={{ fontSize: '48px', marginBottom: '16px' }}
+                {/* 爆款文案常用技巧 */}
+                <div>
+                  <Text strong>爆款文案常用技巧</Text>
+                  <Select
+                    value={writingTechnique}
+                    onChange={setWritingTechnique}
+                    placeholder='选择文案技巧'
+                    style={{ width: '100%', marginTop: 8 }}
+                  >
+                    {/* 标题技巧 */}
+                    <Option value='标题技巧：数字型（5个技巧、3步搞定、10款推荐）'>
+                      📊 标题技巧：数字型（5个技巧、3步搞定、10款推荐）
+                    </Option>
+                    <Option value='标题技巧：疑问型（你还在用XX吗？为什么XX这么火？）'>
+                      ❓ 标题技巧：疑问型（你还在用XX吗？为什么XX这么火？）
+                    </Option>
+                    <Option value='标题技巧：惊叹型（太绝了！竟然有这种操作！）'>
+                      😱 标题技巧：惊叹型（太绝了！竟然有这种操作！）
+                    </Option>
+                    <Option value='标题技巧：对比型（XX vs XX，哪个更值得买？）'>
+                      ⚖️ 标题技巧：对比型（XX vs XX，哪个更值得买？）
+                    </Option>
+                    {/* 开头技巧 */}
+                    <Option value='开头技巧：抛出问题（你们有没有遇到过...）'>
+                      🤔 开头技巧：抛出问题（你们有没有遇到过...）
+                    </Option>
+                    <Option value='开头技巧：分享心情（最近超级迷恋...）'>
+                      💕 开头技巧：分享心情（最近超级迷恋...）
+                    </Option>
+                    <Option value='开头技巧：制造悬念（发现了一个秘密...）'>
+                      🔍 开头技巧：制造悬念（发现了一个秘密...）
+                    </Option>
+                    <Option value='开头技巧：直入主题（今天分享一个超实用的...）'>
+                      🎯 开头技巧：直入主题（今天分享一个超实用的...）
+                    </Option>
+                    {/* 结尾技巧 */}
+                    <Option value='结尾技巧：互动引导（你们觉得呢？评论区聊聊）'>
+                      💬 结尾技巧：互动引导（你们觉得呢？评论区聊聊）
+                    </Option>
+                    <Option value='结尾技巧：收藏提醒（记得收藏，别刷丢了）'>
+                      ⭐ 结尾技巧：收藏提醒（记得收藏，别刷丢了）
+                    </Option>
+                    <Option value='结尾技巧：关注引导（关注我，更多好物分享）'>
+                      👥 结尾技巧：关注引导（关注我，更多好物分享）
+                    </Option>
+                    <Option value='结尾技巧：行动号召（赶紧去试试，真的很香）'>
+                      🚀 结尾技巧：行动号召（赶紧去试试，真的很香）
+                    </Option>
+                  </Select>
+                </div>
+
+                {/* 成功要素 */}
+                <div>
+                  <Text strong>成功要素</Text>
+                  <Select
+                    value={successFactor}
+                    onChange={setSuccessFactor}
+                    placeholder='选择成功要素'
+                    style={{ width: '100%', marginTop: 8 }}
+                  >
+                    <Option value='真实性（真实体验和感受最容易引起共鸣）'>
+                      ✨ 真实性（真实体验和感受最容易引起共鸣）
+                    </Option>
+                    <Option value='实用性（提供实际价值，解决用户痛点）'>
+                      🔧 实用性（提供实际价值，解决用户痛点）
+                    </Option>
+                    <Option value='视觉化（配图精美，排版清晰）'>
+                      🎨 视觉化（配图精美，排版清晰）
+                    </Option>
+                    <Option value='互动性（鼓励用户参与讨论和分享）'>
+                      🤝 互动性（鼓励用户参与讨论和分享）
+                    </Option>
+                    <Option value='时效性（抓住热点和流行趋势）'>
+                      ⏰ 时效性（抓住热点和流行趋势）
+                    </Option>
+                  </Select>
+                </div>
+
+                {/* 目标受众 */}
+                <div>
+                  <Text strong>目标受众 (可选)</Text>
+                  <Input
+                    value={targetAudience}
+                    onChange={e => setTargetAudience(e.target.value)}
+                    placeholder='例如：年轻女性、职场新人、美妆爱好者等'
+                    style={{ marginTop: 8 }}
+                  />
+                </div>
+
+                {/* 关键词标签 */}
+                <div>
+                  <Text strong>关键词标签 (可选)</Text>
+                  <div style={{ marginTop: 8 }}>
+                    <Space.Compact style={{ width: '100%' }}>
+                      <Input
+                        value={keywordInput}
+                        onChange={e => setKeywordInput(e.target.value)}
+                        placeholder='添加关键词'
+                        onPressEnter={handleAddKeyword}
+                      />
+                      <Button onClick={handleAddKeyword}>添加</Button>
+                    </Space.Compact>
+                    {keywords.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        {keywords.map(keyword => (
+                          <Tag
+                            key={keyword}
+                            closable
+                            onClose={() => handleRemoveKeyword(keyword)}
+                            style={{ marginBottom: 4 }}
+                          >
+                            {keyword}
+                          </Tag>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 生成按钮 */}
+                <Button
+                  type='primary'
+                  icon={<SendOutlined />}
+                  onClick={handleGenerateContent}
+                  loading={loading}
+                  disabled={!inputContent.trim()}
+                  size='large'
+                  style={{ width: '100%' }}
+                >
+                  {loading ? '生成中...' : '生成小红书文案'}
+                </Button>
+              </Space>
+            </Card>
+          </Col>
+
+          {/* 结果展示区域 */}
+          <Col xs={24} lg={12}>
+            <Card
+              title={
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Space>
+                    <LinkOutlined />
+                    <span>生成结果</span>
+                  </Space>
+                  {generatedResponse && (
+                    <Button
+                      type='link'
+                      icon={<LinkOutlined />}
+                      onClick={() =>
+                        window.open(
+                          'https://docs.google.com/spreadsheets/d/1KdeZ31PaL2p8Uswj2ILo2ewPmkQ_xag56Db0yq3v6qE/edit?usp=sharing',
+                          '_blank'
+                        )
+                      }
+                      style={{ padding: 0 }}
+                    >
+                      查看Google Sheet
+                    </Button>
+                  )}
+                </div>
+              }
+              size='small'
+              style={{ height: 'calc(100vh - 400px)', overflow: 'auto' }}
+              extra={
+                generatedResponse && (
+                  <Space>
+                    <Button
+                      type='text'
+                      icon={<CopyOutlined />}
+                      onClick={handleCopyContent}
+                      size='small'
+                    >
+                      复制
+                    </Button>
+                    <Button
+                      type='text'
+                      icon={<ReloadOutlined />}
+                      onClick={handleRegenerate}
+                      size='small'
+                    >
+                      重新生成
+                    </Button>
+                  </Space>
+                )
+              }
+            >
+              {loading && (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <Spin size='large' />
+                  <div style={{ marginTop: 16 }}>
+                    <Progress percent={progress} size='small' />
+                    <Text
+                      type='secondary'
+                      style={{ display: 'block', marginTop: 8 }}
+                    >
+                      {progressText}
+                    </Text>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <Alert
+                  message='生成失败'
+                  description={error}
+                  type='error'
+                  showIcon
+                  style={{ marginBottom: 16 }}
                 />
-                <div>请在左侧输入内容并点击生成按钮</div>
-              </div>
-            )}
-          </Card>
-        </Col>
-      </Row>
-    </div>
+              )}
+
+              {generatedResponse && !loading && (
+                <Space
+                  direction='vertical'
+                  style={{ width: '100%' }}
+                  size='middle'
+                >
+                  {/* 生成的标题 */}
+                  <div>
+                    <Text strong>标题：</Text>
+                    <Title level={4} style={{ margin: '8px 0' }}>
+                      {generatedResponse.title}
+                    </Title>
+                  </div>
+
+                  <Divider style={{ margin: '12px 0' }} />
+
+                  {/* 生成的内容 */}
+                  <div>
+                    <Text strong>生成的文案：</Text>
+                    <Card
+                      size='small'
+                      style={{ marginTop: 8, backgroundColor: '#fafafa' }}
+                    >
+                      <Paragraph
+                        style={{ whiteSpace: 'pre-wrap', margin: 0 }}
+                        copyable={{ text: generatedResponse.generatedContent }}
+                      >
+                        {generatedResponse.generatedContent}
+                      </Paragraph>
+                    </Card>
+                  </div>
+
+                  {/* 标签 */}
+                  {generatedResponse.hashtags.length > 0 && (
+                    <div>
+                      <Text strong>推荐标签：</Text>
+                      <div style={{ marginTop: 8 }}>
+                        {generatedResponse.hashtags.map(tag => (
+                          <Tag
+                            key={tag}
+                            color='blue'
+                            style={{ marginBottom: 4 }}
+                          >
+                            #{tag}
+                          </Tag>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Google Sheet 链接 */}
+                  {generatedResponse.googleSheetUrl && (
+                    <div>
+                      <Text strong>存储链接：</Text>
+                      <div style={{ marginTop: 8 }}>
+                        <Button
+                          type='link'
+                          icon={<LinkOutlined />}
+                          href={generatedResponse.googleSheetUrl}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                        >
+                          查看Google Sheet存储结果
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 生成时间 */}
+                  <div>
+                    <Text type='secondary' style={{ fontSize: '12px' }}>
+                      生成时间：
+                      {new Date(generatedResponse.createdAt).toLocaleString()}
+                    </Text>
+                  </div>
+                </Space>
+              )}
+
+              {!loading && !generatedResponse && !error && (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '40px',
+                    color: '#999',
+                  }}
+                >
+                  <EditOutlined
+                    style={{ fontSize: '48px', marginBottom: '16px' }}
+                  />
+                  <div>请在左侧输入内容并点击生成按钮</div>
+                </div>
+              )}
+            </Card>
+          </Col>
+        </Row>
+      </div>
+    </>
   );
 };
 

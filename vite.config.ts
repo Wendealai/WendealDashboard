@@ -69,6 +69,24 @@ export default defineConfig({
           });
         },
       },
+      // Airtable API代理配置 - 解决CORS问题
+      '/airtable': {
+        target: 'https://api.airtable.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/airtable/, ''),
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('airtable proxy error', err);
+          });
+          proxy.on('proxyReq', (_proxyReq, req, _res) => {
+            console.log('Airtable Request:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log('Airtable Response:', proxyRes.statusCode, req.url);
+          });
+        },
+      },
     },
   },
 

@@ -19,6 +19,8 @@ import {
   Avatar,
   Progress,
   Tag,
+  Row,
+  Col,
 } from 'antd';
 import {
   RedditOutlined,
@@ -190,94 +192,158 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
       // 使用预计算的分组数据
       const groupedData = groupedRedditData;
 
+      const subredditEntries = Object.entries(groupedData);
+      const rows = [];
+      for (let i = 0; i < subredditEntries.length; i += 2) {
+        const rowItems = subredditEntries.slice(i, i + 2);
+        rows.push(rowItems);
+      }
+
       return (
         <Space direction='vertical' style={{ width: '100%' }} size={8}>
-          {/* Reddit帖子列表 - 按子版块分组 */}
-          {Object.entries(groupedData).map(([subreddit, posts]) => (
-            <Card
-              key={subreddit}
-              size='small'
-              title={
-                <Space>
-                  <Avatar
-                    style={{ backgroundColor: '#ff4500' }}
-                    icon={<RedditOutlined />}
-                    size='small'
-                  />
-                  <Text strong>r/{subreddit}</Text>
-                  <Badge count={posts.length} showZero color='#ff4500' />
-                </Space>
-              }
-              className='compact-spacing'
+          {rows.map((row, rowIndex) => (
+            <Row
+              key={`row-${rowIndex}`}
+              gutter={[8, 8]}
+              style={{ width: '100%' }}
             >
-              <List
-                size='small'
-                dataSource={posts}
-                renderItem={post => {
-                  const hotLevel = getHotLevel(post.score || 0);
-                  return (
-                    <List.Item
-                      className='compact-spacing'
-                      actions={[
-                        <Tooltip title='查看原帖'>
-                          <Button
-                            type='text'
-                            icon={<LinkOutlined />}
-                            onClick={() => handleLinkClick(post.url)}
-                            size='small'
-                          />
-                        </Tooltip>,
-                      ]}
-                    >
-                      <List.Item.Meta
-                        title={
-                          <Space>
-                            <a
-                              href={post.url}
-                              target='_blank'
-                              rel='noopener noreferrer'
-                              style={{
-                                fontSize: 14,
-                                fontWeight: 500,
-                                color: '#1890ff',
-                                textDecoration: 'none',
-                              }}
-                              onMouseEnter={handleMouseEnter}
-                              onMouseLeave={handleMouseLeave}
+              {row.map(([subreddit, posts]) => (
+                <Col
+                  key={subreddit}
+                  xs={24}
+                  sm={24}
+                  md={12}
+                  lg={12}
+                  xl={12}
+                  style={{ display: 'flex' }}
+                >
+                  <Card
+                    size='small'
+                    title={
+                      <Space>
+                        <Avatar
+                          style={{ backgroundColor: '#ff4500' }}
+                          icon={<RedditOutlined />}
+                          size='small'
+                        />
+                        <Text strong>r/{subreddit}</Text>
+                        <Badge count={posts.length} showZero color='#ff4500' />
+                      </Space>
+                    }
+                    className='compact-spacing'
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: '200px',
+                    }}
+                    styles={{
+                      body: {
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: '8px',
+                      },
+                    }}
+                  >
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                      <List
+                        size='small'
+                        dataSource={posts}
+                        style={{ height: '100%' }}
+                        renderItem={post => {
+                          const hotLevel = getHotLevel(post.score || 0);
+                          return (
+                            <List.Item
+                              className='compact-spacing'
+                              style={{ padding: '4px 0' }}
+                              actions={[
+                                <Tooltip title='查看原帖' key='link'>
+                                  <Button
+                                    type='text'
+                                    icon={<LinkOutlined />}
+                                    onClick={() => handleLinkClick(post.url)}
+                                    size='small'
+                                    style={{ padding: '2px 4px' }}
+                                  />
+                                </Tooltip>,
+                              ]}
                             >
-                              {post.title}
-                            </a>
-                            {post.category && (
-                              <Tag color='blue' size='small'>
-                                {post.category}
-                              </Tag>
-                            )}
-                          </Space>
-                        }
-                        description={
-                          <Space size={8}>
-                            <Space size={4}>
-                              <UserOutlined style={{ color: '#8c8c8c' }} />
-                              <Text type='secondary' style={{ fontSize: 11 }}>
-                                {post.author}
-                              </Text>
-                            </Space>
-                            <Space size={4}>
-                              <ClockCircleOutlined
-                                style={{ color: '#8c8c8c' }}
+                              <List.Item.Meta
+                                title={
+                                  <div style={{ marginBottom: '2px' }}>
+                                    <a
+                                      href={post.url}
+                                      target='_blank'
+                                      rel='noopener noreferrer'
+                                      style={{
+                                        fontSize: 13,
+                                        fontWeight: 500,
+                                        color: '#1890ff',
+                                        textDecoration: 'none',
+                                        display: 'block',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                      onMouseEnter={handleMouseEnter}
+                                      onMouseLeave={handleMouseLeave}
+                                    >
+                                      {post.title}
+                                    </a>
+                                    {post.category && (
+                                      <Tag
+                                        color='blue'
+                                        size='small'
+                                        style={{ marginTop: '2px' }}
+                                      >
+                                        {post.category}
+                                      </Tag>
+                                    )}
+                                  </div>
+                                }
+                                description={
+                                  <Space size={6} style={{ fontSize: '11px' }}>
+                                    <Space size={2}>
+                                      <UserOutlined
+                                        style={{
+                                          color: '#8c8c8c',
+                                          fontSize: '11px',
+                                        }}
+                                      />
+                                      <Text
+                                        type='secondary'
+                                        style={{ fontSize: '11px' }}
+                                      >
+                                        {post.author}
+                                      </Text>
+                                    </Space>
+                                    <Space size={2}>
+                                      <ClockCircleOutlined
+                                        style={{
+                                          color: '#8c8c8c',
+                                          fontSize: '11px',
+                                        }}
+                                      />
+                                      <Text
+                                        type='secondary'
+                                        style={{ fontSize: '11px' }}
+                                      >
+                                        {post.created}
+                                      </Text>
+                                    </Space>
+                                  </Space>
+                                }
                               />
-                              <Text type='secondary' style={{ fontSize: 11 }}>
-                                {post.created}
-                              </Text>
-                            </Space>
-                          </Space>
-                        }
+                            </List.Item>
+                          );
+                        }}
                       />
-                    </List.Item>
-                  );
-                }}
-              />
-            </Card>
+                    </div>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
           ))}
         </Space>
       );

@@ -184,13 +184,16 @@ const WorkflowCard: React.FC<WorkflowCardProps> = ({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        minHeight: '120px', // 压缩高度
+        maxHeight: '140px', // 限制最大高度
       }}
       styles={{
         body: {
-          padding: size === 'small' ? 8 : 12,
+          padding: size === 'small' ? 6 : 8, // 减少内边距
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
+          position: 'relative', // 为绝对定位做准备
         },
       }}
     >
@@ -207,7 +210,9 @@ const WorkflowCard: React.FC<WorkflowCardProps> = ({
                 level={size === 'small' ? 5 : 4}
                 style={{ margin: 0, fontSize: size === 'small' ? 12 : 14 }}
               >
-                {workflow.name}
+                {workflow.id === 'reddit-workflow'
+                  ? 'Reddit hot posts'
+                  : workflow.name}
               </Title>
               <Tag
                 color={getWorkflowStatusTagColor(workflow.status)}
@@ -254,7 +259,11 @@ const WorkflowCard: React.FC<WorkflowCardProps> = ({
           </Text>
 
           {/* Workflow Information */}
-          <Space size={size === 'small' ? 8 : 12} wrap>
+          <Space
+            size={size === 'small' ? 8 : 12}
+            wrap
+            style={{ alignItems: 'center', width: '100%' }}
+          >
             <Space size={4}>
               <SettingOutlined style={{ fontSize: 12, color: '#8c8c8c' }} />
               <Text
@@ -271,11 +280,98 @@ const WorkflowCard: React.FC<WorkflowCardProps> = ({
                 style={{ fontSize: size === 'small' ? 10 : 11 }}
               >
                 {workflow.lastExecution
-                  ? new Date(workflow.lastExecution).toLocaleDateString()
+                  ? new Date(workflow.lastExecution).toLocaleString('zh-CN', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })
                   : t('informationDashboard.workflowPanel.neverExecuted')}
               </Text>
             </Space>
           </Space>
+
+          {/* 按钮右下角定位 */}
+          {showActions && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '8px',
+                right: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              {/* Invoice OCR特殊按钮 */}
+              {workflow.id === 'invoice-ocr-workflow' && (
+                <>
+                  <Tooltip title='Open Google Sheets'>
+                    <Button
+                      size='small'
+                      icon={<GoogleOutlined />}
+                      onClick={e => {
+                        e.stopPropagation();
+                        window.open(
+                          'https://docs.google.com/spreadsheets/d/1K8VGSofJUBK7yCTqtaPNQvSZ1HeGDNZOvO2UQ6SRJzg/edit?usp=sharing',
+                          '_blank'
+                        );
+                      }}
+                      style={{
+                        background: '#52c41a',
+                        borderColor: '#52c41a',
+                        color: 'white',
+                        padding: '0 6px',
+                      }}
+                    />
+                  </Tooltip>
+                  <Tooltip title='Open Google Drive'>
+                    <Button
+                      size='small'
+                      icon={<CloudDownloadOutlined />}
+                      onClick={e => {
+                        e.stopPropagation();
+                        window.open(
+                          'https://drive.google.com/drive/folders/1bF1UhR6cWhaTe_JulYMlQdW_dxVVCzVp?usp=sharing',
+                          '_blank'
+                        );
+                      }}
+                      style={{
+                        background: '#1890ff',
+                        borderColor: '#1890ff',
+                        color: 'white',
+                        padding: '0 6px',
+                      }}
+                    />
+                  </Tooltip>
+                </>
+              )}
+
+              {/* 启动按钮 */}
+              <Button
+                type='primary'
+                size='small'
+                icon={
+                  workflow.id === 'reddit-workflow' ? (
+                    <ThunderboltOutlined />
+                  ) : (
+                    <PlayCircleOutlined />
+                  )
+                }
+                loading={loading}
+                onClick={handleTriggerClick}
+                disabled={workflow.status !== 'active'}
+                style={{
+                  minWidth: loading ? '32px' : 'auto',
+                  padding: loading ? '0 8px' : '0 12px',
+                }}
+              >
+                {loading ? null : t('common.start')}
+              </Button>
+            </div>
+          )}
 
           {/* Last Updated Time */}
           {lastUpdated && (
@@ -295,106 +391,8 @@ const WorkflowCard: React.FC<WorkflowCardProps> = ({
               style={{ fontSize: 11 }}
             />
           )}
-
-          {/* Progress Status */}
-          {progressStatus && (
-            <div>
-              <Text type='secondary' style={{ fontSize: 11 }}>
-                {progressStatus}
-              </Text>
-              <Progress
-                percent={loading ? undefined : 100}
-                status={loading ? 'active' : 'success'}
-                size='small'
-                showInfo={false}
-                style={{ marginTop: 4 }}
-              />
-            </div>
-          )}
         </Space>
       </div>
-
-      {/* Action Buttons */}
-      {showActions && (
-        <div style={{ marginTop: 'auto' }}>
-          {/* Google Sheets and Google Drive buttons - only for Invoice OCR workflow */}
-          {workflow.id === 'invoice-ocr-workflow' && (
-            <Space
-              style={{
-                width: '100%',
-                justifyContent: 'center',
-                marginBottom: 8,
-              }}
-              size='small'
-            >
-              <Tooltip title='Open Google Sheets'>
-                <Button
-                  size='small'
-                  icon={<GoogleOutlined />}
-                  onClick={e => {
-                    e.stopPropagation();
-                    window.open(
-                      'https://docs.google.com/spreadsheets/d/1K8VGSofJUBK7yCTqtaPNQvSZ1HeGDNZOvO2UQ6SRJzg/edit?usp=sharing',
-                      '_blank'
-                    );
-                  }}
-                  style={{
-                    background: '#52c41a',
-                    borderColor: '#52c41a',
-                    color: 'white',
-                  }}
-                />
-              </Tooltip>
-              <Tooltip title='Open Google Drive'>
-                <Button
-                  size='small'
-                  icon={<CloudDownloadOutlined />}
-                  onClick={e => {
-                    e.stopPropagation();
-                    window.open(
-                      'https://drive.google.com/drive/folders/1bF1UhR6cWhaTe_JulYMlQdW_dxVVCzVp?usp=sharing',
-                      '_blank'
-                    );
-                  }}
-                  style={{
-                    background: '#1890ff',
-                    borderColor: '#1890ff',
-                    color: 'white',
-                  }}
-                />
-              </Tooltip>
-            </Space>
-          )}
-
-          {/* Start/Trigger button */}
-          <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-            <Button
-              type='primary'
-              size={size === 'small' ? 'small' : 'middle'}
-              icon={
-                loading ? (
-                  <LoadingOutlined />
-                ) : workflow.id === 'reddit-workflow' ? (
-                  <ThunderboltOutlined />
-                ) : (
-                  <PlayCircleOutlined />
-                )
-              }
-              loading={loading}
-              onClick={handleTriggerClick}
-              disabled={workflow.status !== 'active'}
-            >
-              {loading
-                ? size === 'small'
-                  ? t('common.processing')
-                  : t('common.processing') + '...'
-                : size === 'small'
-                  ? t('common.start')
-                  : t('common.start')}
-            </Button>
-          </Space>
-        </div>
-      )}
     </Card>
   );
 };

@@ -456,7 +456,7 @@ class RedditWebhookService {
     customWebhookUrl?: string
   ): Promise<any> {
     try {
-      onProgress?.('正在触发工作流...');
+      onProgress?.(''); // 移除触发提示文字，只显示loading状态
 
       const targetUrl = this.getEnvironmentWebhookUrl(customWebhookUrl);
       console.log('发送webhook请求到:', targetUrl);
