@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最终布局测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .form-section {
+            padding: 16px;
+            border-bottom: 1px solid #e8e8e8;
+            background: #fafafa;
+        }
+        .form-inline {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .input-group.small { min-width: 70px; }
+        .input-group.medium { min-width: 120px; }
+        .input-group.large { min-width: 300px; }
+        .label {
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .input, .select {
+            height: 32px;
+            padding: 4px 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            background: white;
+        }
+        .select { width: 100%; }
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+        .button {
+            height: 32px;
+            padding: 0 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            background: white;
+            cursor: pointer;
+        }
+        .button.primary {
+            background: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+        .content-section {
+            flex: 1;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-header {
+            padding: 16px;
+            border-bottom: 1px solid #e8e8e8;
+            font-weight: bold;
+        }
+        .card-body {
+            flex: 1;
+            padding: 0;
+        }
+        .iframe-container {
+            width: 100%;
+            height: 100%;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .iframe-placeholder {
+            width: 100%;
+            height: 100%;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 18px;
+        }
+        .status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #52c41a;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- 上方：输入表单区域 -->
+    <div class="form-section">
+        <div class="form-inline">
+            <!-- 关键词输入 -->
+            <div class="input-group large">
+                <span class="label">关键词 <span style="color: #ff4d4f">*</span></span>
+                <input type="text" class="input" placeholder="请输入关键词..." style="flex: 1; min-width: 200px;">
+            </div>
+
+            <!-- 参数字段 -->
+            <div class="input-group small">
+                <span class="label">偏移</span>
+                <input type="number" class="input" placeholder="0" style="width: 70px;">
+            </div>
+
+            <div class="input-group small">
+                <span class="label">数量</span>
+                <input type="number" class="input" placeholder="20" style="width: 70px;">
+            </div>
+
+            <div class="input-group medium">
+                <span class="label">排序</span>
+                <select class="select" style="width: 120px;">
+                    <option value="">排序方法</option>
+                    <option value="0">0 - 相关度排序</option>
+                    <option value="1">1 - 最多点赞排序</option>
+                </select>
+            </div>
+
+            <div class="input-group medium">
+                <span class="label">时间</span>
+                <select class="select" style="width: 120px;">
+                    <option value="">时间范围</option>
+                    <option value="7">7 - 最近7天</option>
+                    <option value="30">30 - 最近30天</option>
+                </select>
+            </div>
+
+            <!-- 按钮组 -->
+            <div class="button-group">
+                <button class="button">🔍 调试</button>
+                <button class="button">🔄 刷新</button>
+                <button class="button primary">执行</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 下方：内容区域 -->
+    <div class="content-section">
+        <div class="card">
+            <div class="card-header">📄 TK Viral Extract - Notion 文档</div>
+            <div class="card-body">
+                <div class="iframe-container">
+                    <div class="iframe-placeholder">
+                        🗂️ Notion 文档内容区域<br>
+                        (全宽显示，高度自适应)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 状态指示器 -->
+    <div class="status">✅ 布局更新完成</div>
+</body>
+</html>

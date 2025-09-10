@@ -1,0 +1,241 @@
+.profile-page {
+  padding: 24px;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  min-height: calc(100vh - 64px);
+
+  .profile-card {
+    height: fit-content;
+    
+    .profile-header {
+      text-align: center;
+      
+      .avatar-section {
+        position: relative;
+        display: inline-block;
+        margin-bottom: 16px;
+        
+        .avatar-uploader {
+          .ant-upload {
+            border: 2px dashed #d9d9d9;
+            border-radius: 50%;
+            transition: all 0.3s;
+            
+            &:hover {
+              border-color: #1890ff;
+            }
+          }
+        }
+        
+        .change-avatar-btn {
+          position: absolute;
+          bottom: -8px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 12px;
+        }
+      }
+      
+      .user-info {
+        .user-tags {
+          margin-top: 8px;
+          
+          .ant-tag {
+            margin: 2px;
+          }
+        }
+      }
+    }
+    
+    .bio-section {
+      padding: 20px;
+      background: #f8fafc;
+      border-radius: 16px;
+      border-left: 4px solid #6366f1;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+  }
+  
+  .profile-form-section {
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      
+      .ant-typography {
+        margin: 0;
+      }
+    }
+  }
+  
+  .security-section {
+    .security-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+      
+      .security-info {
+        flex: 1;
+        
+        .ant-typography {
+          display: block;
+          
+          &:first-child {
+            margin-bottom: 4px;
+          }
+        }
+      }
+    }
+  }
+  
+  .preferences-section {
+    .theme-section {
+      .theme-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        
+        &:not(:last-child) {
+          border-bottom: 1px solid #e5e7eb;
+        }
+      }
+    }
+  }
+  
+  .notifications-section {
+    .notification-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+      border-bottom: 1px solid #e5e7eb;
+      
+      &:last-child {
+        border-bottom: none;
+      }
+      
+      .notification-info {
+        flex: 1;
+        
+        .ant-typography {
+          display: block;
+          
+          &:first-child {
+            margin-bottom: 4px;
+          }
+        }
+      }
+    }
+  }
+  
+  // 响应式设计
+  @media (max-width: 768px) {
+    padding: 16px;
+    
+    .profile-card {
+      margin-bottom: 16px;
+    }
+    
+    .section-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    
+    .security-item,
+    .notification-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    
+    .theme-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+  }
+  
+  // 动画效果
+  .ant-card {
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.18);
+    }
+  }
+  
+  .ant-form-item {
+    transition: all 0.3s ease;
+  }
+  
+  .ant-btn {
+    transition: all 0.3s ease;
+  }
+  
+  // 自定义滚动条
+  .ant-tabs-content-holder {
+    max-height: 600px;
+    overflow-y: auto;
+    
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 3px;
+      
+      &:hover {
+        background: #a8a8a8;
+      }
+    }
+  }
+}
+
+// 深色主题支持
+[data-theme='dark'] {
+  .profile-page {
+    background: #141414;
+    
+    .bio-section {
+      background: #1f1f1f;
+      border-left-color: #1890ff;
+    }
+    
+    .security-item,
+    .notification-item,
+    .theme-item {
+      border-bottom-color: #303030;
+    }
+  }
+}
+
+// 打印样式
+@media print {
+  .profile-page {
+    background: white;
+    
+    .ant-btn,
+    .ant-switch,
+    .change-avatar-btn {
+      display: none;
+    }
+    
+    .ant-card {
+      box-shadow: none;
+      border: 1px solid #d9d9d9;
+    }
+  }
+}

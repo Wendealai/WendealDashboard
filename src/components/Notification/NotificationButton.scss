@@ -1,0 +1,94 @@
+.notification-button {
+  .notification-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    color: #595959;
+
+    &:hover {
+      background-color: #f5f5f5;
+      color: #1890ff;
+    }
+
+    &:focus {
+      background-color: #f5f5f5;
+      color: #1890ff;
+    }
+
+    .anticon {
+      font-size: 18px;
+    }
+  }
+
+  .ant-badge-count {
+    background-color: #ff4d4f;
+    border-color: #ff4d4f;
+    box-shadow: 0 0 0 1px #fff;
+    font-size: 10px;
+    min-width: 16px;
+    height: 16px;
+    line-height: 14px;
+    padding: 0 4px;
+  }
+
+  // 动画效果
+  .ant-badge-count {
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+}
+
+// 深色主题支持
+[data-theme='dark'] {
+  .notification-button {
+    .notification-btn {
+      color: #d9d9d9;
+
+      &:hover {
+        background-color: #1f1f1f;
+        color: #1890ff;
+      }
+
+      &:focus {
+        background-color: #1f1f1f;
+        color: #1890ff;
+      }
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .notification-button {
+    .notification-btn {
+      width: 36px;
+      height: 36px;
+
+      .anticon {
+        font-size: 16px;
+      }
+    }
+
+    .ant-badge-count {
+      font-size: 9px;
+      min-width: 14px;
+      height: 14px;
+      line-height: 12px;
+    }
+  }
+}

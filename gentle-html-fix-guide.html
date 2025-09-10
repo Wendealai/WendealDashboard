@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>温和HTML修复方案</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 40px;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #666;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        .warning {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+        .code {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            overflow-x: auto;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .comparison div {
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .before {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .after {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 温和HTML显示修复方案</h1>
+
+        <div class="section info">
+            <h2>📋 修复原则</h2>
+            <p><strong>核心理念：</strong>保留原始HTML的所有样式和布局，只修复真正的问题</p>
+            <ul>
+                <li>✅ <strong>非侵入性</strong> - 不破坏原始样式</li>
+                <li>✅ <strong>按需修复</strong> - 只在必要时干预</li>
+                <li>✅ <strong>智能检测</strong> - 区分故意隐藏和意外隐藏</li>
+                <li>✅ <strong>最小干预</strong> - 使用最温和的修复方法</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>🔍 修复前后对比</h2>
+
+            <div class="comparison">
+                <div class="before">
+                    <h3>❌ 之前的激进方案</h3>
+                    <div class="code">
+/* 破坏性修复 - 会覆盖所有样式 */
+* { color: #333 !important; }
+body { background: white !important; }
+.all-elements { display: block !important; }
+                    </div>
+                    <p><strong>问题：</strong>破坏原始CSS，完全改变视觉效果</p>
+                </div>
+
+                <div class="after">
+                    <h3>✅ 现在的温和方案</h3>
+                    <div class="code">
+/* 智能修复 - 只修复真正的问题 */
+[style*="display: none"]:not([data-original]) {
+  display: block !important;
+}
+
+/* 保留原始样式 */
+body { /* 不覆盖颜色和背景 */ }
+                    </div>
+                    <p><strong>优势：</strong>保留原始样式，只修复隐藏问题</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section success">
+            <h2>🎯 智能修复策略</h2>
+
+            <h3>1. 结构分析</h3>
+            <div class="code">
+// 识别HTML结构类型
+if (hasFullStructure) {
+  // 保留完整结构，不修改
+  return originalContent;
+} else if (isFragment) {
+  // 只添加最小包装
+  return `<html><body>${content}</body></html>`;
+}
+            </div>
+
+            <h3>2. 按需修复</h3>
+            <div class="code">
+// 只在发现问题时才修复
+if (analysis.potentialIssues.length > 0) {
+  applyTargetedFixes();
+} else {
+  useOriginalContent();
+}
+            </div>
+
+            <h3>3. 智能隐藏检测</h3>
+            <div class="code">
+// 区分故意隐藏和意外隐藏
+if (element.style.display === 'none' &&
+    !element.hasAttribute('data-original-display') &&
+    !element.classList.contains('hidden')) {
+  // 这可能是意外隐藏，才修复
+  element.style.display = 'block';
+}
+            </div>
+        </div>
+
+        <div class="section warning">
+            <h2>⚠️ 处理的特殊情况</h2>
+
+            <h3>情况1: 外部资源</h3>
+            <div class="code">
+<!-- 检测但不修改 -->
+<link href="style.css" rel="stylesheet">
+<script src="script.js"></script>
+
+// 控制台提示
+⚠️ Found relative CSS path, may not load correctly: style.css
+            </div>
+
+            <h3>情况2: 故意隐藏的元素</h3>
+            <div class="code">
+<!-- 保留故意隐藏 -->
+<div class="hidden">这个是故意隐藏的</div>
+<div data-hidden>这个也是故意隐藏的</div>
+
+<!-- 只修复意外隐藏 -->
+<div style="display: none">这个可能是意外隐藏的</div>
+            </div>
+
+            <h3>情况3: 复杂布局</h3>
+            <div class="code">
+<!-- 保留复杂定位 -->
+<div style="position: fixed; top: 10px;">
+  这个浮动元素会被保留
+</div>
+
+<!-- 只修复极端情况 -->
+<div style="position: fixed; top: -9999px;">
+  这个会被修复为 position: static
+</div>
+            </div>
+        </div>
+
+        <div class="section success">
+            <h2>✅ 修复效果验证</h2>
+
+            <h3>测试标准</h3>
+            <ul>
+                <li>✅ <strong>视觉完整性</strong> - 原始样式和颜色完全保留</li>
+                <li>✅ <strong>布局保持</strong> - 原始布局和定位不变</li>
+                <li>✅ <strong>隐藏元素</strong> - 意外隐藏的元素被显示</li>
+                <li>✅ <strong>性能影响</strong> - 最小化样式覆盖</li>
+                <li>✅ <strong>兼容性</strong> - 支持各种HTML结构</li>
+            </ul>
+
+            <h3>控制台输出</h3>
+            <div class="code">
+// 成功的分析输出
+🔍 HTML Content Analysis: {
+  structure: "full",
+  length: "15432 chars",
+  hasExternalResources: false,
+  potentialIssues: 0
+}
+
+✅ HTML structure looks good, using original content
+            </div>
+        </div>
+
+        <div class="section info">
+            <h2>🔧 如果仍有问题</h2>
+            <p>如果经过温和修复后仍有显示问题，请检查：</p>
+
+            <ol>
+                <li><strong>iframe沙箱限制</strong>
+                    <div class="code">
+sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation"
+                    </div>
+                </li>
+
+                <li><strong>外部资源路径</strong>
+                    <p>相对路径的CSS/JS文件在iframe中可能无法加载</p>
+                </li>
+
+                <li><strong>浏览器兼容性</strong>
+                    <p>某些CSS属性在不同浏览器中的表现可能不同</p>
+                </li>
+
+                <li><strong>内容安全策略</strong>
+                    <p>CSP可能阻止某些资源的加载</p>
+                </li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>

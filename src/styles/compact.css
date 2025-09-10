@@ -1,0 +1,322 @@
+/* 紧凑布局样式 - 优化字体大小和间距 */
+
+/* 全局字体大小调整 - 更小的字体 */
+:root {
+  --font-size-xs: 9px;
+  --font-size-sm: 10px;
+  --font-size-base: 11px;
+  --font-size-lg: 12px;
+  --font-size-xl: 13px;
+  --font-size-xxl: 14px;
+
+  /* 更紧凑的间距 */
+  --spacing-xs: 2px;
+  --spacing-sm: 3px;
+  --spacing-md: 4px;
+  --spacing-lg: 6px;
+  --spacing-xl: 8px;
+
+  /* 更小的行高 */
+  --line-height-compact: 1.1;
+  --line-height-normal: 1.2;
+}
+
+/* Ant Design 组件样式覆盖 */
+.ant-layout {
+  font-size: var(--font-size-medium) !important;
+}
+
+/* 表格样式优化 */
+.ant-table {
+  font-size: var(--font-size-small) !important;
+}
+
+.ant-table-thead > tr > th {
+  padding: 6px 8px !important;
+  font-size: var(--font-size-small) !important;
+  font-weight: 500 !important;
+  line-height: var(--line-height-tight) !important;
+}
+
+.ant-table-tbody > tr > td {
+  padding: 4px 8px !important;
+  font-size: var(--font-size-small) !important;
+  line-height: var(--line-height-normal) !important;
+}
+
+/* 卡片样式优化 */
+.ant-card {
+  font-size: var(--font-size-small) !important;
+}
+
+.ant-card-head {
+  padding: 8px 12px !important;
+  min-height: 36px !important;
+}
+
+.ant-card-head-title {
+  font-size: var(--font-size-medium) !important;
+  font-weight: 500 !important;
+  line-height: var(--line-height-tight) !important;
+}
+
+.ant-card-body {
+  padding: 8px 12px !important;
+}
+
+/* 按钮样式优化 */
+.ant-btn {
+  font-size: var(--font-size-small) !important;
+  height: 28px !important;
+  padding: 0 8px !important;
+  line-height: var(--line-height-tight) !important;
+}
+
+.ant-btn-sm {
+  font-size: var(--font-size-xs) !important;
+  height: 24px !important;
+  padding: 0 6px !important;
+}
+
+.ant-btn-lg {
+  font-size: var(--font-size-medium) !important;
+  height: 32px !important;
+  padding: 0 12px !important;
+}
+
+/* 输入框样式优化 */
+.ant-input {
+  font-size: var(--font-size-small) !important;
+  padding: 2px 6px !important;
+  height: 28px !important;
+  line-height: var(--line-height-normal) !important;
+}
+
+.ant-input-sm {
+  font-size: var(--font-size-xs) !important;
+  padding: 1px 4px !important;
+  height: 24px !important;
+}
+
+/* 选择器样式优化 */
+.ant-select {
+  font-size: var(--font-size-small) !important;
+}
+
+.ant-select-selector {
+  padding: 0 6px !important;
+  height: 28px !important;
+}
+
+.ant-select-selection-item {
+  line-height: 26px !important;
+  font-size: var(--font-size-small) !important;
+}
+
+/* 标签样式优化 */
+.ant-tag {
+  font-size: var(--font-size-xs) !important;
+  padding: 0 4px !important;
+  height: 20px !important;
+  line-height: 18px !important;
+  margin: 1px 2px !important;
+}
+
+/* 统计数字样式优化 */
+.ant-statistic {
+  font-size: var(--font-size-small) !important;
+}
+
+.ant-statistic-title {
+  font-size: var(--font-size-xs) !important;
+  margin-bottom: 2px !important;
+  line-height: var(--line-height-tight) !important;
+}
+
+.ant-statistic-content {
+  font-size: var(--font-size-large) !important;
+  line-height: var(--line-height-tight) !important;
+}
+
+.ant-statistic-content-value {
+  font-size: var(--font-size-large) !important;
+}
+
+/* 列表样式优化 */
+.ant-list-item {
+  padding: 6px 8px !important;
+}
+
+.ant-list-item-meta-title {
+  font-size: var(--font-size-small) !important;
+  line-height: var(--line-height-normal) !important;
+  margin-bottom: 2px !important;
+}
+
+.ant-list-item-meta-description {
+  font-size: var(--font-size-xs) !important;
+  line-height: var(--line-height-normal) !important;
+}
+
+/* 面包屑样式优化 */
+.ant-breadcrumb {
+  font-size: var(--font-size-xs) !important;
+  margin-bottom: 8px !important;
+}
+
+/* 分页样式优化 */
+.ant-pagination {
+  font-size: var(--font-size-xs) !important;
+}
+
+.ant-pagination-item {
+  min-width: 24px !important;
+  height: 24px !important;
+  line-height: 22px !important;
+  margin-right: 4px !important;
+}
+
+/* 抽屉样式优化 */
+.ant-drawer-header {
+  padding: 8px 12px !important;
+}
+
+.ant-drawer-title {
+  font-size: var(--font-size-medium) !important;
+  line-height: var(--line-height-tight) !important;
+}
+
+.ant-drawer-body {
+  padding: 8px 12px !important;
+}
+
+/* 模态框样式优化 */
+.ant-modal-header {
+  padding: 8px 12px !important;
+}
+
+.ant-modal-title {
+  font-size: var(--font-size-medium) !important;
+  line-height: var(--line-height-tight) !important;
+}
+
+.ant-modal-body {
+  padding: 8px 12px !important;
+}
+
+.ant-modal-footer {
+  padding: 6px 12px !important;
+}
+
+/* 消息提示样式优化 */
+.ant-message {
+  font-size: var(--font-size-small) !important;
+}
+
+.ant-notification {
+  font-size: var(--font-size-small) !important;
+}
+
+/* 工具提示样式优化 */
+.ant-tooltip-inner {
+  font-size: var(--font-size-xs) !important;
+  padding: 4px 6px !important;
+  line-height: var(--line-height-normal) !important;
+}
+
+/* 菜单样式优化 */
+.ant-menu {
+  font-size: var(--font-size-small) !important;
+}
+
+.ant-menu-item {
+  height: 32px !important;
+  line-height: 32px !important;
+  margin: 1px 0 !important;
+}
+
+.ant-menu-submenu-title {
+  height: 32px !important;
+  line-height: 32px !important;
+}
+
+/* 步骤条样式优化 */
+.ant-steps {
+  font-size: var(--font-size-small) !important;
+}
+
+.ant-steps-item-title {
+  font-size: var(--font-size-small) !important;
+  line-height: var(--line-height-normal) !important;
+}
+
+.ant-steps-item-description {
+  font-size: var(--font-size-xs) !important;
+}
+
+/* 表单样式优化 */
+.ant-form-item {
+  margin-bottom: 8px !important;
+}
+
+.ant-form-item-label {
+  padding-bottom: 2px !important;
+}
+
+.ant-form-item-label > label {
+  font-size: var(--font-size-small) !important;
+  line-height: var(--line-height-normal) !important;
+}
+
+/* 全局字体大小应用 */
+body,
+html {
+  font-size: var(--font-size-base) !important;
+  line-height: var(--line-height-normal) !important;
+}
+
+/* 紧凑布局类 */
+.compact-layout {
+  font-size: var(--font-size-base) !important;
+  line-height: var(--line-height-compact) !important;
+}
+
+.compact-spacing {
+  padding: var(--spacing-sm) !important;
+  margin: var(--spacing-xs) !important;
+}
+
+.compact-title {
+  font-size: var(--font-size-lg) !important;
+  line-height: var(--line-height-compact) !important;
+  margin-bottom: var(--spacing-sm) !important;
+}
+
+.compact-text {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-compact);
+}
+
+.compact-subtitle {
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  line-height: var(--line-height-normal);
+  margin-bottom: var(--spacing-xs);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  :root {
+    --font-size-xs: 9px;
+    --font-size-small: 10px;
+    --font-size-medium: 11px;
+    --font-size-large: 12px;
+    --font-size-xl: 14px;
+
+    --spacing-xs: 1px;
+    --spacing-small: 2px;
+    --spacing-medium: 4px;
+    --spacing-large: 6px;
+    --spacing-xl: 8px;
+  }
+}

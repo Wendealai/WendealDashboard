@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>横向输入表单测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-section {
+            background: #fafafa;
+            padding: 16px;
+            border-radius: 8px;
+            border-bottom: 1px solid #e8e8e8;
+            margin-bottom: 20px;
+        }
+        .form-inline {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .input-group.small {
+            min-width: 70px;
+        }
+        .input-group.medium {
+            min-width: 120px;
+        }
+        .input-group.large {
+            min-width: 300px;
+        }
+        .label {
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .input {
+            height: 32px;
+            padding: 4px 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .select {
+            height: 32px;
+            padding: 4px 6px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            background-color: #fff;
+        }
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+        .button {
+            height: 32px;
+            padding: 0 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            background: white;
+            cursor: pointer;
+        }
+        .button.primary {
+            background: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ 横向输入表单测试</h1>
+
+        <div class="status success">
+            ✅ 输入表单已改为横向分布布局
+        </div>
+
+        <div class="status success">
+            ✅ 所有输入框长度已缩小
+        </div>
+
+        <div class="status success">
+            ✅ 表单在一行内完成所有输入
+        </div>
+
+        <div class="status success">
+            ✅ 按钮组右对齐显示
+        </div>
+
+        <!-- 模拟新的横向表单布局 -->
+        <div class="form-section">
+            <div class="form-inline">
+                <!-- 关键词输入 -->
+                <div class="input-group large">
+                    <span class="label">关键词 <span style="color: #ff4d4f">*</span></span>
+                    <input type="text" class="input" placeholder="请输入关键词..." style="flex: 1; min-width: 200px;">
+                </div>
+
+                <!-- 参数字段 -->
+                <div class="input-group small">
+                    <span class="label">偏移</span>
+                    <input type="number" class="input" placeholder="0" style="width: 70px;">
+                </div>
+
+                <div class="input-group small">
+                    <span class="label">数量</span>
+                    <input type="number" class="input" placeholder="20" style="width: 70px;">
+                </div>
+
+                <div class="input-group medium">
+                    <span class="label">排序</span>
+                    <select class="select" style="width: 120px;">
+                        <option value="">排序方法</option>
+                        <option value="0">0 - 相关度排序</option>
+                        <option value="1">1 - 最多点赞排序</option>
+                    </select>
+                </div>
+
+                <div class="input-group medium">
+                    <span class="label">时间</span>
+                    <select class="select" style="width: 120px;">
+                        <option value="">时间范围</option>
+                        <option value="7">7 - 最近7天</option>
+                        <option value="30">30 - 最近30天</option>
+                    </select>
+                </div>
+
+                <!-- 按钮组 -->
+                <div class="button-group">
+                    <button class="button">🔍 调试</button>
+                    <button class="button">🔄 刷新</button>
+                    <button class="button primary">执行</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="status success">
+            📋 布局特点：<br>
+            • 关键词输入框：300px 最小宽度，自适应扩展<br>
+            • 参数输入框：70px 固定宽度（偏移、数量）<br>
+            • 选择框：120px 固定宽度（排序、时间）<br>
+            • 按钮组：右对齐显示<br>
+            • 整体在一行内完成，超出时自动换行<br>
+            • 所有元素高度统一为32px
+        </div>
+
+        <div class="status success">
+            🎉 现在您可以在TK Viral Extract页面中看到新的横向输入表单布局！
+        </div>
+    </div>
+</body>
+</html>

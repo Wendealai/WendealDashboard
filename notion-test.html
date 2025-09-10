@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion iframe测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .iframe-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Notion iframe 测试</h1>
+
+        <div class="status success">
+            ✅ 页面加载成功 - 测试Notion嵌入功能
+        </div>
+
+        <div class="status info">
+            ℹ️ 如果您能看到下面的Notion文档，说明嵌入功能正常工作
+        </div>
+
+        <button onclick="testNotionIframe()">测试Notion iframe</button>
+
+        <div class="iframe-container">
+            <iframe
+                id="notion-iframe"
+                src="https://wendealau.notion.site/ebd/266efdb673e08067908be152e0be1cdb?v=266efdb673e08178939d000ca7c81cbb"
+                width="100%"
+                height="600"
+                frameBorder="0"
+                allowFullScreen
+                title="TK Viral Extract Notion 文档"
+                onload="onNotionLoad()">
+            </iframe>
+        </div>
+
+        <div class="status" id="notion-status" style="display: none;">
+            Notion iframe状态将在这里显示
+        </div>
+    </div>
+
+    <script>
+        function onNotionLoad() {
+            console.log('✅ Notion iframe loaded successfully');
+            const statusDiv = document.getElementById('notion-status');
+            statusDiv.className = 'status success';
+            statusDiv.textContent = '✅ Notion iframe加载成功！文档已正常显示。';
+            statusDiv.style.display = 'block';
+        }
+
+        function testNotionIframe() {
+            const iframe = document.getElementById('notion-iframe');
+            console.log('Testing Notion iframe:', {
+                src: iframe.src,
+                readyState: iframe.contentDocument?.readyState || 'unknown',
+                contentWindow: !!iframe.contentWindow
+            });
+
+            const statusDiv = document.getElementById('notion-status');
+            statusDiv.className = 'status info';
+            statusDiv.textContent = '🔍 Notion iframe测试中... 查看控制台获取详细信息';
+            statusDiv.style.display = 'block';
+        }
+
+        // 页面加载时的测试
+        window.addEventListener('load', function() {
+            console.log('页面加载完成，开始测试Notion iframe...');
+            setTimeout(() => {
+                const iframe = document.getElementById('notion-iframe');
+                if (iframe.contentDocument || iframe.contentWindow) {
+                    console.log('✅ Notion iframe可以访问');
+                } else {
+                    console.log('⚠️ Notion iframe可能被CSP限制');
+                }
+            }, 2000);
+        });
+
+        console.log('Notion iframe测试页面已加载');
+        console.log('新的Notion iframe URL:', document.getElementById('notion-iframe').src);
+    </script>
+</body>
+</html>

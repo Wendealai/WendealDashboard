@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R&D Report 存储检查工具</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: #1890ff;
+            color: white;
+            padding: 20px;
+            margin: 0;
+        }
+        .content {
+            padding: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .section-header {
+            background: #fafafa;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e8e8e8;
+            font-weight: bold;
+        }
+        .section-content {
+            padding: 16px;
+        }
+        .stat-card {
+            display: inline-block;
+            background: #f0f8ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 8px 8px 8px 0;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1890ff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+        .report-item {
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 8px 0;
+            background: #fafafa;
+        }
+        .report-id {
+            font-family: monospace;
+            font-weight: bold;
+            color: #1890ff;
+        }
+        .report-meta {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        .button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 4px;
+        }
+        .button:hover {
+            background: #40a9ff;
+        }
+        .button.secondary {
+            background: #52c41a;
+        }
+        .button.secondary:hover {
+            background: #73d13d;
+        }
+        .button.danger {
+            background: #ff4d4f;
+        }
+        .button.danger:hover {
+            background: #ff7875;
+        }
+        .status-good {
+            color: #52c41a;
+        }
+        .status-warning {
+            color: #faad14;
+        }
+        .status-error {
+            color: #ff4d4f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="header">🔍 R&D Report 存储检查工具</h1>
+
+        <div class="content">
+            <div class="section">
+                <div class="section-header">📊 存储状态概览</div>
+                <div class="section-content">
+                    <div id="stats"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">💾 localStorage 报告</div>
+                <div class="section-content">
+                    <div id="localStorageReports"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">📊 IndexedDB 报告</div>
+                <div class="section-content">
+                    <div id="indexedDBReports"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">🔧 数据清理工具</div>
+                <div class="section-content">
+                    <p>清理不一致的数据记录</p>
+                    <button class="button secondary" onclick="checkDataConsistency()">检查数据一致性</button>
+                    <button class="button danger" onclick="clearOrphanedData()">清理孤立数据</button>
+                    <button class="button" onclick="exportStorageData()">导出存储数据</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">📋 操作日志</div>
+                <div class="section-content">
+                    <pre id="log"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let storageData = {
+            localStorage: { keys: [], reports: [] },
+            indexedDB: { reports: [] }
+        };
+
+        // 初始化
+        window.onload = function() {
+            log('🚀 开始检查存储数据...');
+            checkLocalStorage();
+            checkIndexedDB();
+        };
+
+        // 检查localStorage
+        function checkLocalStorage() {
+            try {
+                const keys = Object.keys(localStorage).filter(key =>
+                    key.startsWith('rnd-report-content-')
+                );
+
+                log(`📁 发现 ${keys.length} 个localStorage报告文件`);
+
+                const reports = keys.map(key => {
+                    const reportId = key.replace('rnd-report-content-', '');
+                    const content = localStorage.getItem(key);
+                    const size = content ? content.length : 0;
+
+                    return {
+                        id: reportId,
+                        key: key,
+                        size: size,
+                        contentPreview: content ? content.substring(0, 100) + '...' : '无内容',
+                        timestamp: getStorageTimestamp(key)
+                    };
+                });
+
+                storageData.localStorage = { keys, reports };
+
+                displayLocalStorageReports(reports);
+                updateStats();
+
+            } catch (error) {
+                log('❌ 检查localStorage失败: ' + error.message);
+            }
+        }
+
+        // 检查IndexedDB
+        async function checkIndexedDB() {
+            try {
+                const db = await openIndexedDB();
+                const reports = await getAllReportsFromIndexedDB(db);
+
+                log(`📊 发现 ${reports.length} 个IndexedDB报告元数据`);
+
+                storageData.indexedDB = { reports };
+
+                displayIndexedDBReports(reports);
+                updateStats();
+
+                db.close();
+            } catch (error) {
+                log('❌ 检查IndexedDB失败: ' + error.message);
+            }
+        }
+
+        // 打开IndexedDB
+        function openIndexedDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('rnd-reports-db', 1);
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('reports')) {
+                        db.createObjectStore('reports', { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+
+        // 从IndexedDB获取所有报告
+        function getAllReportsFromIndexedDB(db) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['reports'], 'readonly');
+                const store = transaction.objectStore('reports');
+                const request = store.getAll();
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result || []);
+            });
+        }
+
+        // 显示localStorage报告
+        function displayLocalStorageReports(reports) {
+            const container = document.getElementById('localStorageReports');
+
+            if (reports.length === 0) {
+                container.innerHTML = '<p>未发现localStorage中的报告文件</p>';
+                return;
+            }
+
+            container.innerHTML = reports.map(report => `
+                <div class="report-item">
+                    <div class="report-id">📄 ${report.id}</div>
+                    <div class="report-meta">
+                        大小: ${(report.size / 1024).toFixed(1)} KB |
+                        存储键: ${report.key} |
+                        预览: ${report.contentPreview}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 显示IndexedDB报告
+        function displayIndexedDBReports(reports) {
+            const container = document.getElementById('indexedDBReports');
+
+            if (reports.length === 0) {
+                container.innerHTML = '<p>未发现IndexedDB中的报告元数据</p>';
+                return;
+            }
+
+            container.innerHTML = reports.map(report => {
+                const hasContent = storageData.localStorage.keys.some(key =>
+                    key.includes(report.id)
+                );
+
+                return `
+                    <div class="report-item">
+                        <div class="report-id">📋 ${report.id}</div>
+                        <div class="report-meta">
+                            名称: ${report.name} |
+                            分类: ${report.categoryId} |
+                            大小: ${(report.fileSize / 1024).toFixed(1)} KB |
+                            上传时间: ${new Date(report.uploadDate).toLocaleString()} |
+                            <span class="${hasContent ? 'status-good' : 'status-error'}">
+                                ${hasContent ? '✅ 有内容' : '❌ 缺少内容'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            const container = document.getElementById('stats');
+
+            const localStorageCount = storageData.localStorage.reports.length;
+            const indexedDBCount = storageData.indexedDB.reports.length;
+            const completeReports = storageData.indexedDB.reports.filter(report =>
+                storageData.localStorage.keys.some(key => key.includes(report.id))
+            ).length;
+            const inconsistencies = Math.abs(localStorageCount - indexedDBCount);
+
+            container.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${localStorageCount}</div>
+                    <div class="stat-label">localStorage文件</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${indexedDBCount}</div>
+                    <div class="stat-label">IndexedDB元数据</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${completeReports}</div>
+                    <div class="stat-label">完整报告</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number ${inconsistencies > 0 ? 'status-warning' : 'status-good'}">${inconsistencies}</div>
+                    <div class="stat-label">数据不一致</div>
+                </div>
+            `;
+        }
+
+        // 检查数据一致性
+        function checkDataConsistency() {
+            log('🔍 开始检查数据一致性...');
+
+            const localStorageIds = storageData.localStorage.reports.map(r => r.id);
+            const indexedDBIds = storageData.indexedDB.reports.map(r => r.id);
+
+            const missingMetadata = localStorageIds.filter(id =>
+                !indexedDBIds.includes(id)
+            );
+            const missingContent = indexedDBIds.filter(id =>
+                !localStorageIds.includes(id)
+            );
+
+            log(`📋 一致性检查结果:`);
+            log(`  - 缺少元数据的文件: ${missingMetadata.length}`);
+            log(`  - 缺少内容的元数据: ${missingContent.length}`);
+
+            if (missingMetadata.length > 0) {
+                log(`  - 缺少元数据文件ID: ${missingMetadata.join(', ')}`);
+            }
+            if (missingContent.length > 0) {
+                log(`  - 缺少内容元数据ID: ${missingContent.join(', ')}`);
+            }
+
+            if (missingMetadata.length === 0 && missingContent.length === 0) {
+                log('✅ 数据完全一致！');
+            }
+        }
+
+        // 清理孤立数据
+        function clearOrphanedData() {
+            if (!confirm('确定要清理孤立数据吗？此操作不可恢复！')) {
+                return;
+            }
+
+            log('🧹 开始清理孤立数据...');
+
+            const localStorageIds = storageData.localStorage.reports.map(r => r.id);
+            const indexedDBIds = storageData.indexedDB.reports.map(r => r.id);
+
+            // 清理localStorage中缺少元数据的文件
+            const toRemoveFromLocalStorage = localStorageIds.filter(id =>
+                !indexedDBIds.includes(id)
+            );
+
+            toRemoveFromLocalStorage.forEach(id => {
+                const key = `rnd-report-content-${id}`;
+                localStorage.removeItem(key);
+                log(`🗑️ 已删除localStorage文件: ${key}`);
+            });
+
+            // 清理IndexedDB中缺少内容的元数据
+            const toRemoveFromIndexedDB = indexedDBIds.filter(id =>
+                !localStorageIds.includes(id)
+            );
+
+            if (toRemoveFromIndexedDB.length > 0) {
+                clearIndexedDBRecords(toRemoveFromIndexedDB);
+            }
+
+            log(`✅ 清理完成！删除了 ${toRemoveFromLocalStorage.length} 个文件和 ${toRemoveFromIndexedDB.length} 个元数据记录`);
+
+            // 重新检查数据
+            setTimeout(() => {
+                checkLocalStorage();
+                checkIndexedDB();
+            }, 1000);
+        }
+
+        // 清理IndexedDB记录
+        async function clearIndexedDBRecords(ids) {
+            try {
+                const db = await openIndexedDB();
+                const transaction = db.transaction(['reports'], 'readwrite');
+                const store = transaction.objectStore('reports');
+
+                ids.forEach(id => {
+                    store.delete(id);
+                    log(`🗑️ 已删除IndexedDB元数据: ${id}`);
+                });
+
+                db.close();
+            } catch (error) {
+                log('❌ 清理IndexedDB失败: ' + error.message);
+            }
+        }
+
+        // 导出存储数据
+        function exportStorageData() {
+            const exportData = {
+                timestamp: new Date().toISOString(),
+                localStorage: storageData.localStorage,
+                indexedDB: storageData.indexedDB,
+                summary: {
+                    localStorageCount: storageData.localStorage.reports.length,
+                    indexedDBCount: storageData.indexedDB.reports.length,
+                    completeReports: storageData.indexedDB.reports.filter(report =>
+                        storageData.localStorage.keys.some(key => key.includes(report.id))
+                    ).length
+                }
+            };
+
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+
+            const exportFileDefaultName = `rnd-reports-storage-${new Date().toISOString().split('T')[0]}.json`;
+
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+
+            log('📤 存储数据已导出为JSON文件');
+        }
+
+        // 获取存储时间戳（如果有的话）
+        function getStorageTimestamp(key) {
+            try {
+                const item = localStorage.getItem(key);
+                // 这里可以根据需要解析时间戳
+                return '未知';
+            } catch {
+                return '未知';
+            }
+        }
+
+        // 日志函数
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+    </script>
+</body>
+</html>

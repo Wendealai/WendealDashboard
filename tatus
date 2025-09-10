@@ -1,0 +1,135 @@
+warning: in the working copy of '.lintstagedrc.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.spec-workflow/session.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.spec-workflow/specs/information-dashboard/tasks.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.spec-workflow/specs/invoice-ocr/tasks.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.spec-workflow/specs/module-export-consistency/tasks.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.spec-workflow/specs/reddit-hot-content/tasks.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.spec-workflow/specs/ui-optimization/tasks.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.spec-workflow/specs/workflow-settings/tasks.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'eslint.config.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/App.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/__tests__/components/auth.test.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Layout/MainLayout.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Layout/WhatsNewPanel.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Layout/index.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/auth/LoginForm.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/auth/ProtectedRoute.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/auth/RegisterForm.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/auth/RoleGuard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/auth/UserProfile.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/common/ErrorBoundary.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/common/__tests__/ErrorBoundary.test.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/reddit/RedditPostCard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/reddit/index.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/workflow/WorkflowCard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/hooks/index.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/hooks/useInvoiceOCR.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/hooks/useMessage.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/locales/en-US.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/locales/index.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/locales/zh-CN.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/Admin/index.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/Home/index.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/InformationDashboard/InformationDashboard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/InformationDashboard/InvoiceOCRPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/InformationDashboard/components/InvoiceFileUpload.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/InformationDashboard/components/InvoiceOCRCard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/InformationDashboard/components/InvoiceOCRResults.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/InformationDashboard/components/ResultPanel.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/InformationDashboard/components/WorkflowPanel.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/InformationDashboard/components/WorkflowSidebar.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/SocialMedia/SocialMedia.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/SocialMedia/types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/index.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/router/RouteGuard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/router/index.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/router/routes.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/__tests__/invoiceOCRService.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/api.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/auth/ClerkAuthService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/auth/LocalAuthService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/auth/PermissionService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/informationService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/invoiceOCRService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/redditWebhookService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/workflowService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/workflowSettingsService.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/setupTests.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/store/slices/authSlice.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/store/slices/informationDashboardSlice.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/store/slices/invoiceOCRSlice.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/styles/theme.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/types/auth.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/types/index.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/types/reddit.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/types/workflow.ts', LF will be replaced by CRLF the next time Git touches it
+.lintstagedrc.json
+.spec-workflow/session.json
+.spec-workflow/specs/information-dashboard/tasks.md
+.spec-workflow/specs/invoice-ocr/tasks.md
+.spec-workflow/specs/module-export-consistency/tasks.md
+.spec-workflow/specs/reddit-hot-content/tasks.md
+.spec-workflow/specs/ui-optimization/tasks.md
+.spec-workflow/specs/workflow-settings/tasks.md
+README.md
+package-lock.json
+package.json
+src/App.tsx
+src/__tests__/components/auth.test.tsx
+src/components/Layout/MainLayout.tsx
+src/components/Layout/WhatsNewPanel.css
+src/components/Layout/index.css
+src/components/auth/LoginForm.tsx
+src/components/auth/ProtectedRoute.tsx
+src/components/auth/RegisterForm.tsx
+src/components/auth/RoleGuard.tsx
+src/components/auth/UserProfile.tsx
+src/components/common/ErrorBoundary.tsx
+src/components/common/__tests__/ErrorBoundary.test.tsx
+src/components/reddit/RedditPostCard.tsx
+src/components/reddit/index.ts
+src/components/workflow/WorkflowCard.tsx
+src/hooks/index.ts
+src/hooks/useInvoiceOCR.ts
+src/hooks/useMessage.ts
+src/locales/en-US.ts
+src/locales/index.ts
+src/locales/zh-CN.ts
+src/pages/Admin/index.tsx
+src/pages/Home/index.tsx
+src/pages/InformationDashboard/InformationDashboard.tsx
+src/pages/InformationDashboard/InvoiceOCRPage.tsx
+src/pages/InformationDashboard/components/InvoiceFileUpload.tsx
+src/pages/InformationDashboard/components/InvoiceOCRCard.tsx
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx
+src/pages/InformationDashboard/components/ResultPanel.tsx
+src/pages/InformationDashboard/components/WorkflowPanel.tsx
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx
+src/pages/SocialMedia/SocialMedia.tsx
+src/pages/SocialMedia/types.ts
+src/pages/index.ts
+src/router/RouteGuard.tsx
+src/router/index.tsx
+src/router/routes.ts
+src/services/__tests__/invoiceOCRService.test.ts
+src/services/api.ts
+src/services/auth/ClerkAuthService.ts
+src/services/auth/LocalAuthService.ts
+src/services/auth/PermissionService.ts
+src/services/informationService.ts
+src/services/invoiceOCRService.ts
+src/services/redditWebhookService.ts
+src/services/workflowService.ts
+src/services/workflowSettingsService.ts
+src/setupTests.ts
+src/store/slices/authSlice.ts
+src/store/slices/informationDashboardSlice.ts
+src/store/slices/invoiceOCRSlice.ts
+src/styles/theme.ts
+src/types/auth.ts
+src/types/index.ts
+src/types/reddit.ts
+src/types/workflow.ts

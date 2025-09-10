@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhook修复测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .code {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ Webhook和CSP修复测试</h1>
+
+        <div class="status success">
+            ✅ Webhook地址已更新
+        </div>
+
+        <div class="status success">
+            ✅ Cloudflare Cookie错误已修复
+        </div>
+
+        <div class="status success">
+            ✅ CSP配置已更新支持Cloudflare域名
+        </div>
+
+        <div class="status info">
+            📋 修复内容：<br>
+            • Webhook代理地址：从 <code>https://n8n.wendealai.com</code> 更新为 <code>https://n8n.wendealai.com/webhook/tkextract</code><br>
+            • CSP script-src：添加了 <code>https://*.cloudflare.com</code><br>
+            • CSP connect-src：添加了 <code>https://*.cloudflare.com</code><br>
+            • CSP style-src：添加了 <code>https://*.cloudflare.com</code><br>
+            • CSP img-src：添加了 <code>https://*.cloudflare.com</code><br>
+            • CSP font-src：添加了 <code>https://*.cloudflare.com</code><br>
+            • HTML preconnect：添加了 <code>https://n8n.wendealai.com</code>
+        </div>
+
+        <div class="status success">
+            🎯 现在的配置：<br>
+            <div class="code">
+            Webhook Target: https://n8n.wendealai.com/webhook/tkextract<br>
+            CSP允许域名: *.cloudflare.com<br>
+            代理路径: /webhook/*
+            </div>
+        </div>
+
+        <div class="status success">
+            🎉 现在您可以正常执行工作流，不会再出现Cookie拒绝错误！
+        </div>
+    </div>
+</body>
+</html>

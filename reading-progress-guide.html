@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reading Progress Persistence Guide</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #666; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; }
+        .feature { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .auto { background-color: #e8f5e8; border-color: #4caf50; }
+        .manual { background-color: #fff3cd; border-color: #ffc107; }
+        .restore { background-color: #e3f2fd; border-color: #2196f3; }
+        .code { background-color: #f4f4f4; padding: 10px; border-radius: 3px; font-family: monospace; margin: 10px 0; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>📖 Reading Progress Persistence</h1>
+
+    <div class="feature auto">
+        <h2>✅ 自动保存进度</h2>
+        <p>当您阅读报告时，系统会<strong>自动跟踪并保存</strong>您的阅读位置：</p>
+        <ul>
+            <li>实时监控滚动位置</li>
+            <li>自动保存到IndexedDB</li>
+            <li>支持断网离线保存</li>
+            <li>100ms延迟优化性能</li>
+        </ul>
+        <div class="code">💾 Auto-saved reading progress: {scrollTop, totalPages, currentPage}</div>
+    </div>
+
+    <div class="feature manual">
+        <h2>🔄 手动保存进度</h2>
+        <p>如果需要立即保存当前阅读位置：</p>
+        <ul>
+            <li>点击报告查看器顶部的<strong>"Save Progress"</strong>按钮</li>
+            <li>立即保存当前滚动位置</li>
+            <li>显示保存成功的提示信息</li>
+        </ul>
+        <div class="code">📍 Current position saved: scrollTop, page X of Y</div>
+    </div>
+
+    <div class="feature restore">
+        <h2>🎯 自动恢复位置</h2>
+        <p>重新打开报告时，系统会<strong>自动恢复</strong>到上次阅读的位置：</p>
+        <ul>
+            <li>打开报告后自动滚动到保存的位置</li>
+            <li>显示恢复成功的提示</li>
+            <li>如果恢复失败，会显示警告信息</li>
+        </ul>
+        <div class="code">📖 Loaded reading progress: {currentPosition: 45%, currentPage: 3}</div>
+    </div>
+
+    <h2>🔧 技术实现</h2>
+
+    <div class="feature">
+        <h3>数据存储策略</h3>
+        <ul>
+            <li><strong>IndexedDB</strong>: 主存储位置，支持复杂查询</li>
+            <li><strong>localStorage</strong>: 备用存储，确保数据不丢失</li>
+            <li><strong>自动同步</strong>: IndexedDB优先，失败时自动降级到localStorage</li>
+        </ul>
+    </div>
+
+    <div class="feature">
+        <h3>进度数据结构</h3>
+        <div class="code">
+{
+  reportId: "report_123",
+  currentPosition: 1500,        // 滚动位置（像素）
+  totalPages: 25,              // 总页数
+  currentPage: 8,              // 当前页码
+  lastReadAt: "2025-01-08T10:30:00Z",
+  bookmarks: []                 // 书签功能（预留）
+}
+        </div>
+    </div>
+
+    <h2>📊 调试信息</h2>
+
+    <div class="feature">
+        <h3>控制台日志</h3>
+        <p>打开浏览器开发者工具查看详细的进度保存信息：</p>
+        <div class="code">
+🔄 Loading initial data...<br>
+📖 Loaded reading progress: {...}<br>
+💾 Auto-saved reading progress: {...}<br>
+✅ Reading progress saved successfully
+        </div>
+    </div>
+
+    <div class="success">
+        <h3>🎉 功能特点</h3>
+        <ul>
+            <li><strong>无缝体验</strong>: 打开即恢复，无需手动操作</li>
+            <li><strong>智能保存</strong>: 滚动时自动保存，性能优化</li>
+            <li><strong>数据安全</strong>: 双重存储策略，确保数据不丢失</li>
+            <li><strong>跨会话</strong>: 关闭浏览器后重新打开仍然有效</li>
+            <li><strong>错误恢复</strong>: 如果IndexedDB失败，自动使用localStorage</li>
+        </ul>
+    </div>
+
+    <h2>🚀 使用方法</h2>
+
+    <ol>
+        <li><strong>阅读报告</strong>: 正常滚动阅读，系统自动跟踪进度</li>
+        <li><strong>关闭报告</strong>: 进度自动保存，无需额外操作</li>
+        <li><strong>重新打开</strong>: 自动跳转到上次阅读的位置</li>
+        <li><strong>手动保存</strong>: 如需立即保存，点击"Save Progress"按钮</li>
+        <li><strong>检查状态</strong>: 打开浏览器控制台查看保存日志</li>
+    </ol>
+
+    <div class="success">
+        <strong>💡 提示</strong>: 进度保存功能完全在后台运行，您只需要正常阅读即可。系统会智能地管理您的阅读进度，让您每次都能从上次离开的地方继续阅读！
+    </div>
+</body>
+</html>

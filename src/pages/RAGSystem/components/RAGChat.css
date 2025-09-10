@@ -1,0 +1,236 @@
+/* RAG Chat Component Styles */
+
+.rag-chat-container {
+  height: 100%; /* 占满父容器高度 */
+  display: flex;
+  flex-direction: row; /* 水平布局：侧边栏+聊天区域 */
+  overflow: hidden;
+}
+
+/* 移除重复的.chat-sidebar定义，使用styles.css中的定义 */
+
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
+}
+
+.chat-header {
+  padding: 2px 8px; /* 再次减少padding */
+  border-bottom: 1px solid #f0f0f0;
+  background-color: #fafafa;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0; /* 防止头部被压缩 */
+}
+
+.chat-messages {
+  flex: 1;
+  padding: 2px 6px; /* 再次减少padding */
+  overflow-y: auto;
+  background-color: #fff;
+  min-height: 0; /* 允许flex子项收缩 */
+  max-height: none; /* 移除最大高度限制 */
+}
+
+.messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px; /* 最小消息间距 */
+}
+
+.message-wrapper {
+  display: flex;
+  margin-bottom: 2px;
+}
+
+.message-wrapper.user-message {
+  justify-content: flex-end;
+}
+
+.message-wrapper.assistant-message {
+  justify-content: flex-start;
+}
+
+.message-bubble {
+  max-width: 70%;
+  padding: 4px 8px; /* 再次减少消息气泡padding */
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1;
+  word-break: break-word;
+  white-space: pre-wrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* 针对Markdown内容的行间距优化 - 进一步压缩 */
+.message-bubble p {
+  margin: 0;
+  line-height: 1.1;
+}
+
+.message-bubble ul,
+.message-bubble ol {
+  margin: 1px 0;
+  padding-left: 14px;
+}
+
+.message-bubble li {
+  margin: 0;
+  line-height: 1.1;
+}
+
+.message-bubble h1,
+.message-bubble h2,
+.message-bubble h3,
+.message-bubble h4,
+.message-bubble h5,
+.message-bubble h6 {
+  margin: 2px 0 1px 0;
+  line-height: 1.1;
+}
+
+.message-bubble blockquote {
+  margin: 1px 0;
+  padding: 1px 6px;
+  border-left: 2px solid #ddd;
+}
+
+.message-bubble pre {
+  margin: 1px 0;
+  padding: 3px 6px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+  line-height: 1.1;
+}
+
+.message-bubble code {
+  padding: 0px 2px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 2px;
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+.message-bubble.user-bubble {
+  background-color: #1890ff;
+  color: #fff;
+}
+
+.message-bubble.assistant-bubble {
+  background-color: #f5f5f5;
+  color: #000;
+}
+
+.message-user {
+  align-self: flex-end;
+  background-color: #1890ff;
+  color: white;
+  border-bottom-right-radius: 6px;
+}
+
+.message-assistant {
+  align-self: flex-start;
+  background-color: #f5f5f5;
+  color: #333;
+  border-bottom-left-radius: 6px;
+}
+
+.message-user .message-bubble {
+  background-color: #1890ff;
+  color: white;
+}
+
+.message-assistant .message-bubble {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.chat-input {
+  padding: 2px 8px; /* 再次减少padding */
+  border-top: 1px solid #f0f0f0;
+  background-color: #fff;
+  flex-shrink: 0; /* 防止输入框被压缩 */
+}
+
+.chat-input .ant-input {
+  font-size: 14px; /* 缩小字体 */
+}
+
+.chat-input .ant-btn {
+  font-size: 14px; /* 缩小字体 */
+}
+
+/* 输入框自动调整高度和滚动条样式 */
+.chat-input .ant-input {
+  max-height: 120px; /* 最大高度约4行 */
+  overflow-y: auto;
+  resize: none;
+}
+
+/* 输入框滚动条样式 */
+.chat-input .ant-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-input .ant-input::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.chat-input .ant-input::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.chat-input .ant-input::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  /* 侧边栏样式在styles.css中统一管理 */
+
+  .message-bubble {
+    max-width: 85%;
+    font-size: 13px; /* 移动端更小字体 */
+    padding: 6px 10px; /* 移动端更紧凑的padding */
+  }
+
+  .chat-messages {
+    padding: 12px 16px; /* 移动端更紧凑的padding */
+  }
+
+  .chat-input {
+    padding: 10px 16px; /* 移动端更紧凑的padding */
+  }
+
+  .chat-header {
+    padding: 10px 16px; /* 移动端更紧凑的padding */
+  }
+
+  .messages-list {
+    gap: 3px; /* 移动端最小消息间距 */
+  }
+}
+
+/* 滚动条样式 */
+.chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

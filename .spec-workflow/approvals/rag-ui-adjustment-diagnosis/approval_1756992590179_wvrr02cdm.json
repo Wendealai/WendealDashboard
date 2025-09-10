@@ -1,0 +1,12 @@
+{
+  "id": "approval_1756992590179_wvrr02cdm",
+  "title": "RAG UI调整诊断需求文档审批",
+  "filePath": ".spec-workflow/specs/rag-ui-adjustment-diagnosis/requirements.md",
+  "type": "document",
+  "status": "needs-revision",
+  "createdAt": "2025-09-04T13:29:50.180Z",
+  "category": "spec",
+  "categoryName": "rag-ui-adjustment-diagnosis",
+  "response": "Needs revision",
+  "respondedAt": "2025-09-05T10:04:52.031Z"
+}

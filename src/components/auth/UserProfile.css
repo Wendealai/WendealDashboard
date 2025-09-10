@@ -1,0 +1,261 @@
+/* 用户资料管理组件样式 */
+.user-profile-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.user-profile-card {
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 资料头部 */
+.profile-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.profile-avatar {
+  flex-shrink: 0;
+  border: 3px solid #e5e7eb;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-basic-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.profile-name {
+  margin-bottom: 8px !important;
+  color: #262626;
+}
+
+.profile-username {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.profile-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.profile-actions {
+  flex-shrink: 0;
+}
+
+/* 表单样式 */
+.profile-form {
+  margin-top: 24px;
+}
+
+.profile-form .ant-form-item {
+  margin-bottom: 24px;
+}
+
+.profile-form .ant-input,
+.profile-form .ant-input-password {
+  border-radius: 12px;
+  border-color: #e5e7eb;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-form .ant-input:disabled {
+  background-color: #fafafa;
+  border-color: #d9d9d9;
+  color: #595959;
+}
+
+/* 安全设置 */
+.security-section {
+  margin-top: 32px;
+}
+
+.security-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.security-item:last-child {
+  border-bottom: none;
+}
+
+.security-info {
+  flex: 1;
+}
+
+.security-info .ant-typography {
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* 错误提示 */
+.profile-error-alert,
+.password-error-alert {
+  margin-bottom: 16px;
+}
+
+/* 密码修改模态框 */
+.password-modal .ant-modal-body {
+  padding: 24px;
+}
+
+.password-form .ant-form-item {
+  margin-bottom: 20px;
+}
+
+.password-form-actions {
+  margin-bottom: 0 !important;
+  text-align: right;
+}
+
+/* 加载状态 */
+.profile-loading {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .user-profile-container {
+    padding: 16px;
+  }
+
+  .profile-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+  }
+
+  .profile-basic-info {
+    min-width: auto;
+  }
+
+  .profile-actions {
+    width: 100%;
+  }
+
+  .profile-actions .ant-btn {
+    width: 100%;
+  }
+
+  .security-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .security-item .ant-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .user-profile-container {
+    padding: 12px;
+  }
+
+  .profile-header {
+    gap: 12px;
+  }
+
+  .profile-avatar {
+    width: 60px !important;
+    height: 60px !important;
+  }
+
+  .password-form-actions {
+    text-align: center;
+  }
+
+  .password-form-actions .ant-space {
+    width: 100%;
+  }
+
+  .password-form-actions .ant-btn {
+    flex: 1;
+  }
+}
+
+/* 暗色主题支持 */
+[data-theme='dark'] .user-profile-card {
+  background-color: #1f1f1f;
+  border-color: #303030;
+}
+
+[data-theme='dark'] .profile-name {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .profile-avatar {
+  border-color: #303030;
+}
+
+[data-theme='dark'] .profile-form .ant-input:disabled {
+  background-color: #262626;
+  border-color: #434343;
+  color: #bfbfbf;
+}
+
+[data-theme='dark'] .security-item {
+  border-bottom-color: #303030;
+}
+
+/* 动画效果 */
+.profile-header {
+  transition: all 0.3s ease;
+}
+
+.profile-actions .ant-btn {
+  transition: all 0.2s ease;
+}
+
+.profile-actions .ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+}
+
+.security-item {
+  transition: background-color 0.2s ease;
+}
+
+.security-item:hover {
+  background-color: #fafafa;
+}
+
+[data-theme='dark'] .security-item:hover {
+  background-color: #262626;
+}
+
+/* 表单验证样式 */
+.profile-form .ant-form-item-has-error .ant-input,
+.profile-form .ant-form-item-has-error .ant-input-password,
+.password-form .ant-form-item-has-error .ant-input,
+.password-form .ant-form-item-has-error .ant-input-password {
+  border-color: #ff4d4f;
+  box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2);
+}
+
+.profile-form .ant-form-item-has-success .ant-input,
+.profile-form .ant-form-item-has-success .ant-input-password,
+.password-form .ant-form-item-has-success .ant-input,
+.password-form .ant-form-item-has-success .ant-input-password {
+  border-color: #52c41a;
+  box-shadow: 0 0 0 2px rgba(82, 196, 26, 0.2);
+}

@@ -1,0 +1,214 @@
+.register-form-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.register-form-card {
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+}
+
+.register-form-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.register-title {
+  margin-bottom: 8px !important;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.register-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.register-error-alert {
+  margin-bottom: 24px;
+  border-radius: 8px;
+}
+
+.register-form {
+  margin-bottom: 24px;
+}
+
+.register-form .ant-form-item-label > label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.register-form .ant-input-affix-wrapper,
+.register-form .ant-input {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  transition: all 0.2s ease;
+}
+
+.register-form .ant-input-affix-wrapper:hover,
+.register-form .ant-input:hover {
+  border-color: #3b82f6;
+}
+
+.register-form .ant-input-affix-wrapper:focus,
+.register-form .ant-input-affix-wrapper-focused,
+.register-form .ant-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.password-strength-indicator {
+  margin-bottom: 16px;
+}
+
+.strength-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.strength-progress .ant-progress {
+  flex: 1;
+  margin: 0;
+}
+
+.strength-text {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.register-form-actions {
+  margin-bottom: 0 !important;
+}
+
+.register-submit-btn {
+  height: 44px;
+  border-radius: 8px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.register-submit-btn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.register-form-footer {
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.login-link {
+  padding: 0;
+  font-weight: 500;
+  color: #3b82f6;
+}
+
+.login-link:hover {
+  color: #2563eb;
+}
+
+/* 表单验证样式 */
+.register-form .ant-form-item-has-error .ant-input-affix-wrapper,
+.register-form .ant-form-item-has-error .ant-input {
+  border-color: #dc2626;
+}
+
+.register-form .ant-form-item-has-error .ant-input-affix-wrapper:focus,
+.register-form .ant-form-item-has-error .ant-input:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
+}
+
+.register-form .ant-form-item-has-success .ant-input-affix-wrapper,
+.register-form .ant-form-item-has-success .ant-input {
+  border-color: #16a34a;
+}
+
+.register-form .ant-form-item-has-success .ant-input-affix-wrapper:focus,
+.register-form .ant-form-item-has-success .ant-input:focus {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.1);
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+  .register-form-container {
+    padding: 16px;
+  }
+
+  .register-form-card {
+    max-width: 100%;
+  }
+
+  .register-title {
+    font-size: 24px !important;
+  }
+
+  .strength-progress {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .strength-text {
+    text-align: center;
+  }
+}
+
+/* 暗色主题支持 */
+@media (prefers-color-scheme: dark) {
+  .register-form-card {
+    background: rgba(31, 41, 55, 0.95);
+    color: #f9fafb;
+  }
+
+  .register-title {
+    color: #f9fafb;
+  }
+
+  .register-subtitle {
+    color: #9ca3af;
+  }
+
+  .register-form .ant-form-item-label > label {
+    color: #e5e7eb;
+  }
+}
+
+/* 密码强度动画 */
+.strength-progress .ant-progress-bg {
+  transition: all 0.3s ease;
+}
+
+.strength-text {
+  transition: color 0.3s ease;
+}
+
+/* 表单项间距优化 */
+.register-form .ant-form-item {
+  margin-bottom: 20px;
+}
+
+.register-form .ant-form-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 输入框聚焦效果 */
+.register-form .ant-input-affix-wrapper-focused {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion全宽显示测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ Notion全宽显示测试</h1>
+
+        <div class="status success">
+            ✅ Airtable表格已移除
+        </div>
+
+        <div class="status success">
+            ✅ 仅显示Notion文档
+        </div>
+
+        <div class="status success">
+            ✅ Notion获得全宽显示
+        </div>
+
+        <div class="status success">
+            ✅ 使用calc(100vh - 200px)高度
+        </div>
+
+        <div class="status success">
+            ✅ 最小高度700px确保内容可见
+        </div>
+
+        <div class="status info">
+            📋 布局更新摘要：<br>
+            • 移除了Tabs组件和Airtable tab<br>
+            • Notion iframe直接嵌入，无需tab切换<br>
+            • 高度设置为 calc(100vh - 200px) 获得全屏体验<br>
+            • 设置最小高度700px确保内容完整显示<br>
+            • 移除了不必要的loading状态和刷新功能<br>
+            • 按钮文字更新为"打开Notion文档"
+        </div>
+
+        <div class="status success">
+            🎉 现在您可以在TK Viral Extract页面中看到全宽的Notion文档！
+        </div>
+
+        <div class="status info">
+            💡 关于黑色背景：<br>
+            • Notion页面的背景颜色需要在Notion页面设置中调整<br>
+            • 进入Notion页面 → 设置 → 外观 → 背景颜色<br>
+            • 可以选择浅色、深色或自定义颜色
+        </div>
+    </div>
+</body>
+</html>

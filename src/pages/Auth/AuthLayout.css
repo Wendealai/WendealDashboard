@@ -1,0 +1,377 @@
+/* Full-screen white background authentication layout */
+.auth-layout {
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+.auth-content {
+  min-height: 100vh;
+  display: flex;
+  padding: 0;
+  position: relative;
+}
+
+/* Language Switcher */
+.language-switcher-container {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 1000;
+}
+
+.auth-container {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  background: #ffffff;
+}
+
+/* Left Panel - Login Form */
+.auth-left-panel {
+  flex: 0 0 40%;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 60px 80px;
+  border-right: 1px solid #f0f0f0;
+}
+
+.auth-brand {
+  margin-bottom: 40px;
+}
+
+.brand-logo {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.logo-icon {
+  font-size: 36px;
+  color: #1890ff;
+  margin-right: 16px;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  color: #262626 !important;
+  margin: 0 !important;
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.brand-subtitle {
+  color: #8c8c8c !important;
+  font-size: 14px;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+.login-form-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.auth-footer {
+  margin-top: 40px;
+}
+
+.copyright {
+  color: #8c8c8c !important;
+  font-size: 12px;
+}
+
+/* Right Panel - Information */
+.auth-right-panel {
+  flex: 1;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 60px;
+}
+
+.info-content {
+  max-width: 600px;
+  width: 100%;
+}
+
+.welcome-section {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.welcome-title {
+  color: #262626 !important;
+  margin-bottom: 16px !important;
+  font-weight: 700;
+  font-size: 48px;
+  line-height: 1.2;
+}
+
+.welcome-subtitle {
+  color: #595959 !important;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.features-section {
+  margin-bottom: 50px;
+}
+
+.features-title {
+  color: #262626 !important;
+  margin-bottom: 30px !important;
+  font-weight: 600;
+  font-size: 24px;
+  text-align: center;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+  transition: all 0.3s ease;
+}
+
+.feature-item:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.feature-icon {
+  font-size: 24px;
+  color: #1890ff;
+  margin-right: 16px;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.feature-content {
+  flex: 1;
+}
+
+.feature-title {
+  color: #262626 !important;
+  font-size: 16px;
+  margin-bottom: 6px !important;
+  display: block;
+  font-weight: 600;
+}
+
+.feature-desc {
+  color: #8c8c8c !important;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.benefits-section {
+  background: #ffffff;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+}
+
+.benefits-title {
+  color: #262626 !important;
+  margin-bottom: 20px !important;
+  font-weight: 600;
+  font-size: 18px;
+  text-align: center;
+}
+
+.benefits-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.benefits-list li {
+  color: #595959;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  padding-left: 20px;
+  position: relative;
+}
+
+.benefits-list li:before {
+  content: '✓';
+  color: #52c41a;
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.benefits-list li:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .auth-left-panel {
+    padding: 40px 60px;
+  }
+
+  .auth-right-panel {
+    padding: 60px 40px;
+  }
+
+  .welcome-title {
+    font-size: 40px !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .auth-container {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .auth-left-panel {
+    flex: none;
+    padding: 40px;
+    border-right: none;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .auth-right-panel {
+    padding: 40px;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-title {
+    font-size: 36px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .auth-left-panel {
+    padding: 30px 20px;
+  }
+
+  .auth-right-panel {
+    padding: 30px 20px;
+  }
+
+  .welcome-title {
+    font-size: 28px !important;
+  }
+
+  .features-title {
+    font-size: 20px !important;
+  }
+
+  .brand-name {
+    font-size: 24px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-left-panel {
+    padding: 20px 16px;
+  }
+
+  .auth-right-panel {
+    padding: 20px 16px;
+  }
+
+  .welcome-title {
+    font-size: 24px !important;
+  }
+
+  .feature-item {
+    padding: 16px;
+  }
+
+  .features-grid {
+    gap: 16px;
+  }
+}
+
+/* Animation Effects */
+.auth-container {
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Dark mode support (if needed) */
+[data-theme='dark'] .auth-layout {
+  background: #141414;
+}
+
+[data-theme='dark'] .auth-container {
+  background: #141414;
+}
+
+[data-theme='dark'] .auth-left-panel {
+  background: #1f1f1f;
+  border-right-color: #303030;
+}
+
+[data-theme='dark'] .auth-right-panel {
+  background: #1f1f1f;
+}
+
+[data-theme='dark'] .feature-item,
+[data-theme='dark'] .benefits-section {
+  background: #1f1f1f;
+  border-color: #303030;
+}
+
+[data-theme='dark'] .brand-name {
+  color: #ffffff !important;
+}
+
+[data-theme='dark'] .welcome-title,
+[data-theme='dark'] .features-title,
+[data-theme='dark'] .benefits-title,
+[data-theme='dark'] .feature-title {
+  color: #ffffff !important;
+}
+
+[data-theme='dark'] .brand-subtitle,
+[data-theme='dark'] .welcome-subtitle,
+[data-theme='dark'] .feature-desc,
+[data-theme='dark'] .copyright {
+  color: #8c8c8c !important;
+}
+
+[data-theme='dark'] .benefits-list li {
+  color: #d9d9d9;
+}

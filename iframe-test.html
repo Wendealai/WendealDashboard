@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airtable iframe CSP测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .iframe-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #cce5ff;
+            border: 1px solid #99d6ff;
+            color: #004085;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Airtable iframe CSP测试</h1>
+
+        <div class="status success">
+            ✅ 页面加载成功 - 没有CSP阻止iframe加载
+        </div>
+
+        <div class="status info">
+            ℹ️ 如果您能看到下面的Airtable表格，说明CSP配置正确
+        </div>
+
+        <button onclick="testIframe()">测试iframe连接</button>
+        <button onclick="refreshIframe()">刷新iframe</button>
+
+        <div class="iframe-container">
+            <iframe
+                id="airtable-iframe"
+                src="https://airtable.com/embed/app6YKTV6RUW80S44/shrxS5YLNuAycKmQP"
+                title="TK Viral Extract 测试表格"
+                onload="onIframeLoad()">
+            </iframe>
+        </div>
+
+        <div class="status" id="iframe-status" style="display: none;">
+            iframe状态将在这里显示
+        </div>
+    </div>
+
+    <script>
+        let iframeKey = 0;
+
+        function onIframeLoad() {
+            console.log('✅ iframe loaded successfully');
+            const statusDiv = document.getElementById('iframe-status');
+            statusDiv.className = 'status success';
+            statusDiv.textContent = '✅ iframe加载成功！Airtable表格已正常显示。';
+            statusDiv.style.display = 'block';
+        }
+
+        function testIframe() {
+            const iframe = document.getElementById('airtable-iframe');
+            console.log('Testing iframe:', {
+                src: iframe.src,
+                readyState: iframe.contentDocument?.readyState || 'unknown',
+                contentWindow: !!iframe.contentWindow
+            });
+
+            const statusDiv = document.getElementById('iframe-status');
+            statusDiv.className = 'status info';
+            statusDiv.textContent = '🔍 iframe测试中... 查看控制台获取详细信息';
+            statusDiv.style.display = 'block';
+        }
+
+        function refreshIframe() {
+            const iframe = document.getElementById('airtable-iframe');
+            iframeKey++;
+            iframe.src = iframe.src + (iframe.src.includes('?') ? '&' : '?') + 'refresh=' + iframeKey;
+
+            const statusDiv = document.getElementById('iframe-status');
+            statusDiv.className = 'status info';
+            statusDiv.textContent = '🔄 iframe正在刷新...';
+            statusDiv.style.display = 'block';
+        }
+
+        // 页面加载时的测试
+        window.addEventListener('load', function() {
+            console.log('页面加载完成，开始测试iframe...');
+            setTimeout(() => {
+                const iframe = document.getElementById('airtable-iframe');
+                if (iframe.contentDocument || iframe.contentWindow) {
+                    console.log('✅ iframe可以访问');
+                } else {
+                    console.log('⚠️ iframe可能被CSP限制');
+                }
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

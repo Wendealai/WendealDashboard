@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML显示问题诊断工具</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 40px;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #666;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .code {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            overflow-x: auto;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .warning {
+            background: #fef5e7;
+            border-color: #f6c23e;
+            color: #856404;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        .diagnostic-btn {
+            background: #666;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 10px 10px 0;
+        }
+        .diagnostic-btn:hover {
+            background: #555;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #666;
+        }
+        .step {
+            margin: 15px 0;
+        }
+        .step-number {
+            display: inline-block;
+            background: #666;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 25px;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 HTML显示问题诊断工具</h1>
+
+        <div class="section info">
+            <h2>📋 问题描述</h2>
+            <p>某些HTML文件在R&D Report模块中只能显示背景，无法显示内容。这通常是由以下原因造成的：</p>
+            <ul>
+                <li>✅ <strong>CSS样式冲突</strong> - 原HTML的样式被覆盖</li>
+                <li>✅ <strong>元素隐藏</strong> - display:none 或 visibility:hidden</li>
+                <li>✅ <strong>JavaScript问题</strong> - 脚本执行失败</li>
+                <li>✅ <strong>资源路径问题</strong> - 相对路径的CSS/JS无法加载</li>
+                <li>✅ <strong>iframe限制</strong> - 沙箱安全策略</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>🛠️ 诊断步骤</h2>
+
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>打开浏览器开发者工具</strong>
+                <p>按 F12 或右键选择"检查元素"打开开发者工具</p>
+            </div>
+
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>查看Console标签页</strong>
+                <p>查看是否有以下类型的错误信息：</p>
+                <div class="code">
+// CSS相关错误
+Failed to load resource: net::ERR_FILE_NOT_FOUND (style.css)
+
+// JavaScript错误
+Uncaught ReferenceError: $ is not defined
+
+// 控制台日志
+🔍 HTML Analysis: {hasHead: true, hasBody: true, ...}
+📄 Iframe loaded, setting up content...
+</div>
+            </div>
+
+            <div class="step">
+                <span class="step-number">3</span>
+                <strong>检查Elements标签页</strong>
+                <p>在iframe中查找body元素，检查是否有以下问题：</p>
+                <ul>
+                    <li><code>display: none</code> - 元素被隐藏</li>
+                    <li><code>visibility: hidden</code> - 元素不可见</li>
+                    <li><code>opacity: 0</code> - 元素透明</li>
+                    <li><code>position: fixed</code> - 定位问题</li>
+                </ul>
+            </div>
+
+            <div class="step">
+                <span class="step-number">4</span>
+                <strong>测试原始HTML文件</strong>
+                <p>直接在浏览器中打开原始HTML文件，确认是否正常显示</p>
+            </div>
+        </div>
+
+        <div class="section success">
+            <h2>✅ 已实施的修复</h2>
+            <ul>
+                <li><strong>增强的CSS重置</strong> - 强制显示所有隐藏元素</li>
+                <li><strong>iframe调试信息</strong> - 右上角显示HTML字符数</li>
+                <li><strong>内容分析工具</strong> - 自动分析HTML结构</li>
+                <li><strong>样式覆盖</strong> - 使用!important强制可见性</li>
+                <li><strong>路径处理</strong> - 警告相对路径问题</li>
+            </ul>
+        </div>
+
+        <div class="section warning">
+            <h2>⚠️ 常见问题及解决方案</h2>
+
+            <h3>问题1: 背景显示但内容不显示</h3>
+            <div class="code">
+// 可能原因：CSS样式隐藏了内容
+body { display: none; }
+.content { visibility: hidden; }
+
+// 解决方案：系统已自动修复
+[style*="display: none"] { display: block !important; }
+</div>
+
+            <h3>问题2: 外部CSS/JS无法加载</h3>
+            <div class="code">
+// 可能原因：相对路径在iframe中无法解析
+&lt;link href="css/style.css" rel="stylesheet"&gt;
+
+// 解决方案：检查控制台警告并修复路径
+⚠️ Found relative CSS path, may not load correctly: css/style.css
+</div>
+
+            <h3>问题3: JavaScript错误</h3>
+            <div class="code">
+// 可能原因：jQuery等库未加载
+Uncaught ReferenceError: $ is not defined
+
+// 解决方案：检查并修复脚本依赖
+</div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 手动调试工具</h2>
+            <button class="diagnostic-btn" onclick="runDiagnostics()">运行诊断</button>
+            <button class="diagnostic-btn" onclick="checkIframeContent()">检查iframe内容</button>
+            <button class="diagnostic-btn" onclick="forceContentVisibility()">强制内容可见</button>
+
+            <div id="diagnostic-result" class="result" style="display: none;">
+                <h3>诊断结果：</h3>
+                <pre id="diagnostic-output"></pre>
+            </div>
+        </div>
+
+        <div class="section error">
+            <h2>🚨 如果问题仍然存在</h2>
+            <p>如果按照上述步骤仍然无法解决问题，请提供以下信息：</p>
+            <ol>
+                <li>浏览器控制台的完整错误信息</li>
+                <li>Elements标签页中iframe的HTML结构</li>
+                <li>原始HTML文件的内容样本（前100行）</li>
+                <li>您使用的浏览器版本</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function runDiagnostics() {
+            const result = document.getElementById('diagnostic-output');
+            const container = document.getElementById('diagnostic-result');
+
+            let output = '🔍 HTML显示问题诊断报告\n';
+            output += '================================\n\n';
+
+            // 检查浏览器信息
+            output += '📊 浏览器信息:\n';
+            output += `- User Agent: ${navigator.userAgent}\n`;
+            output += `- Cookie Enabled: ${navigator.cookieEnabled}\n`;
+            output += `- Online: ${navigator.onLine}\n\n`;
+
+            // 检查iframe支持
+            output += '🔧 iframe支持:\n';
+            const iframe = document.createElement('iframe');
+            output += `- iframe支持: ${typeof iframe !== 'undefined'}\n`;
+            output += `- srcDoc支持: ${'srcdoc' in iframe}\n\n`;
+
+            // 检查CSS支持
+            output += '🎨 CSS支持:\n';
+            const testDiv = document.createElement('div');
+            testDiv.style.display = 'none';
+            document.body.appendChild(testDiv);
+            const computedStyle = window.getComputedStyle(testDiv);
+            output += `- CSS计算样式支持: ${typeof computedStyle !== 'undefined'}\n`;
+            output += `- display:none检测: ${computedStyle.display === 'none'}\n`;
+            document.body.removeChild(testDiv);
+
+            result.textContent = output;
+            container.style.display = 'block';
+        }
+
+        function checkIframeContent() {
+            const iframes = document.querySelectorAll('iframe');
+            const result = document.getElementById('diagnostic-output');
+            const container = document.getElementById('diagnostic-result');
+
+            let output = '🔍 iframe内容检查报告\n';
+            output += '=========================\n\n';
+
+            if (iframes.length === 0) {
+                output += '❌ 未找到iframe元素\n';
+            } else {
+                iframes.forEach((iframe, index) => {
+                    output += `📄 iframe ${index + 1}:\n`;
+                    output += `- srcDoc长度: ${iframe.srcdoc ? iframe.srcdoc.length : 'N/A'}\n`;
+                    output += `- sandbox: ${iframe.sandbox || '无'}\n`;
+
+                    try {
+                        const doc = iframe.contentDocument || iframe.contentWindow.document;
+                        if (doc) {
+                            const body = doc.body;
+                            output += `- Body存在: ${body ? '是' : '否'}\n`;
+                            if (body) {
+                                output += `- Body子节点数: ${body.childNodes.length}\n`;
+                                output += `- Body内容长度: ${body.innerHTML.length}\n`;
+                                const computedStyle = window.getComputedStyle(body);
+                                output += `- Body显示状态: ${computedStyle.display}\n`;
+                                output += `- Body可见性: ${computedStyle.visibility}\n`;
+                                output += `- Body透明度: ${computedStyle.opacity}\n`;
+                            }
+                        }
+                    } catch (e) {
+                        output += `- 访问错误: ${e.message}\n`;
+                    }
+                    output += '\n';
+                });
+            }
+
+            result.textContent = output;
+            container.style.display = 'block';
+        }
+
+        function forceContentVisibility() {
+            const iframes = document.querySelectorAll('iframe');
+
+            iframes.forEach(iframe => {
+                try {
+                    const doc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (doc) {
+                        const body = doc.body;
+                        if (body) {
+                            // 强制显示所有隐藏元素
+                            const hiddenElements = body.querySelectorAll('[style*="display: none"], [hidden], [style*="visibility: hidden"], [style*="opacity: 0"]');
+                            hiddenElements.forEach(el => {
+                                el.style.display = 'block';
+                                el.style.visibility = 'visible';
+                                el.style.opacity = '1';
+                            });
+
+                            // 强制显示body
+                            body.style.display = 'block';
+                            body.style.visibility = 'visible';
+                            body.style.opacity = '1';
+
+                            alert('已尝试强制显示隐藏内容，请检查是否可见');
+                        }
+                    }
+                } catch (e) {
+                    alert('强制显示失败: ' + e.message);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

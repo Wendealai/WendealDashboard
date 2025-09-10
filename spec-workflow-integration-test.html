@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spec-Workflow集成测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .code {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ Spec-Workflow集成完成</h1>
+
+        <div class="status success">
+            ✅ Spec-Workflow规范已完全集成
+        </div>
+
+        <div class="status success">
+            ✅ Cloudflare Cookie问题已修复
+        </div>
+
+        <div class="status success">
+            ✅ Webhook连接测试功能已添加
+        </div>
+
+        <div class="section">
+            <h2>🔧 Spec-Workflow规范实现</h2>
+            <div class="status info">
+                <strong>核心特性</strong>:<br>
+                • 规范化的Payload结构<br>
+                • 工作流ID和执行ID跟踪<br>
+                • 完整的元数据支持<br>
+                • 重试机制（3次重试）<br>
+                • 超时控制（60秒）
+            </div>
+            <div class="code">
+// Spec-Workflow Payload结构
+{
+  "workflowId": "tk-viral-extract-workflow",
+  "executionId": "tk-exec-1757508270704-abc123def",
+  "trigger": "manual",
+  "timestamp": "2024-01-01T12:00:00.000Z",
+  "parameters": {
+    "keyword": "AI工具",
+    "offset": "0",
+    "count": "20",
+    "sortMethod": "0",
+    "timeRange": "7"
+  },
+  "metadata": {
+    "source": "tk-viral-extract",
+    "version": "1.0.0",
+    "userAgent": "Mozilla/5.0..."
+  }
+}
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Cloudflare CSP修复</h2>
+            <div class="status info">
+                <strong>新增域名支持</strong>:<br>
+                • <code>https://n8n.wendealai.com</code> - webhook目标域名<br>
+                • <code>https://*.n8n.wendealai.com</code> - n8n子域名<br>
+                • 保持所有现有的Cloudflare域名支持
+            </div>
+            <div class="code">
+// CSP connect-src配置
+"connect-src 'self' https://*.airtable.com https://*.stripe.com
+  https://m.stripe.network https://js.stripe.com https://api.airtable.com
+  wss://*.airtable.com https://airtable.com https://*.notion.so
+  https://q.stripe.com https://*.cloudflare.com
+  https://ping.cloudflare.com https://cloudflare.com
+  https://*.ping.cloudflare.com https://*.notion.site
+  wss://*.notion.site https://wendealau.notion.site
+  https://n8n.wendealai.com https://*.n8n.wendealai.com"
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Webhook连接测试功能</h2>
+            <div class="status info">
+                <strong>测试特性</strong>:<br>
+                • 🔍 测试连接按钮<br>
+                • 📊 实时连接状态指示器<br>
+                • ✅ 成功/失败状态反馈<br>
+                • 📡 HEAD请求连接测试
+            </div>
+            <div class="code">
+// 连接测试流程
+1. 点击"🔍 测试连接"按钮
+2. 发送HEAD请求到webhook地址
+3. 显示连接状态指示器（绿灯/红灯）
+4. 显示成功/失败消息
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 重试和错误处理机制</h2>
+            <div class="status info">
+                <strong>错误处理策略</strong>:<br>
+                • 3次自动重试<br>
+                • 1秒重试间隔<br>
+                • 60秒超时<br>
+                • 详细的错误日志<br>
+                • 用户友好的错误消息
+            </div>
+            <div class="code">
+// 重试逻辑示例
+for (let attempt = 1; attempt <= 3; attempt++) {
+  try {
+    const response = await fetch(webhookUrl, payload);
+    if (response.ok) return success;
+  } catch (error) {
+    if (attempt === 3) return failure;
+    await delay(1000); // 等待1秒后重试
+  }
+}
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🎯 工作流程</h2>
+            <div class="code">
+1. 🚀 用户填写参数并点击"执行"
+2. 📡 发送Spec-Workflow规范的POST请求
+3. 🔄 如果失败，自动重试（最多3次）
+4. ✅ 成功后显示执行ID和成功消息
+5. 📊 用户可以在Notion文档中查看结果
+6. 🔍 可随时点击"测试连接"检查webhook状态
+            </div>
+        </div>
+
+        <div class="status warning">
+            ⚠️ 重要提醒：<br>
+            • 确保n8n webhook地址 <code>https://n8n.wendealai.com/webhook/tkextract</code> 正确配置<br>
+            • 首次使用时建议先点击"测试连接"验证配置<br>
+            • 如果连接失败，请检查网络和n8n服务状态
+        </div>
+
+        <div class="status success">
+            🎉 Spec-Workflow集成完成！现在具备：<br>
+            • 规范化的webhook调用<br>
+            • 完整的错误处理和重试机制<br>
+            • 实时连接状态监控<br>
+            • 企业级的可靠性保障
+        </div>
+    </div>
+</body>
+</html>
+

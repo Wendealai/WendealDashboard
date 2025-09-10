@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syntax Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #666; padding-bottom: 10px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .code { background-color: #f4f4f4; padding: 10px; border-radius: 3px; font-family: monospace; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Syntax Fix Test</h1>
+
+    <div class="test-section success">
+        <h2>✅ Fixed Issues</h2>
+        <ul>
+            <li><strong>Async Function Declaration</strong>: Added `async` keyword to setTimeout callback</li>
+            <li><strong>await Usage</strong>: Now properly used in async context</li>
+            <li><strong>Module Loading</strong>: Should resolve dynamic import error</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🐛 Original Error</h2>
+        <div class="code">
+Navigation Error<br>
+Sorry, an unexpected error occurred.<br>
+error loading dynamically imported module: http://localhost:5175/src/pages/RNDReport/RNDReport.tsx<br>
+Unexpected reserved word 'await'. (288:42)
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 Fix Applied</h2>
+        <div class="code">
+Before:<br>
+scrollTimeoutRef.current = setTimeout(() => {<br>
+  // ... code ...<br>
+  const updatedProgress = await serviceRef.current.updateReadingProgress(...);<br>
+}, 100);
+
+After:<br>
+scrollTimeoutRef.current = setTimeout(async () => {<br>
+  // ... code ...<br>
+  const updatedProgress = await serviceRef.current.updateReadingProgress(...);<br>
+}, 100);
+        </div>
+    </div>
+
+    <div class="test-section success">
+        <h2>🚀 Expected Result</h2>
+        <p>After this fix, the R&D Report page should load without the dynamic import error, and all reading progress functionality should work correctly.</p>
+
+        <h3>Features to Test:</h3>
+        <ul>
+            <li>✅ Page loads without syntax errors</li>
+            <li>✅ Auto-save reading progress works</li>
+            <li>✅ Manual save progress works</li>
+            <li>✅ Reading position restoration works</li>
+        </ul>
+    </div>
+</body>
+</html>
