@@ -17,10 +17,7 @@ import {
   Col,
 } from 'antd';
 import { useMessage } from '@/hooks';
-import {
-  ReloadOutlined,
-  SettingOutlined,
-} from '@ant-design/icons';
+import { ReloadOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchWorkflows,
@@ -45,6 +42,7 @@ interface WorkflowSidebarProps {
   onWorkflowSelect?: (workflow: Workflow | null) => void;
   onWorkflowTriggered?: (workflowId: string, executionId: string) => void;
   onRedditDataReceived?: (data: ParsedSubredditData[]) => void;
+  onRedditWorkflowDataReceived?: (data: RedditWorkflowResponse) => void;
 }
 
 /**
@@ -60,6 +58,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
     onWorkflowSelect,
     onWorkflowTriggered,
     onRedditDataReceived,
+    onRedditWorkflowDataReceived,
   }) => {
     const { t } = useTranslation();
     const dispatch = useAppDispatch();
@@ -102,7 +101,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
     );
     const [currentWorkflowSettings, setCurrentWorkflowSettings] =
       useState<any>(null);
-
 
     /**
      * Initialize and load workflow list
@@ -166,7 +164,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
       },
       [dispatch, onWorkflowTriggered]
     );
-
 
     // Reddit workflow settings state - 提前声明
     const [redditWorkflowSettings, setRedditWorkflowSettings] = useState({
@@ -245,7 +242,10 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           // Legacy format
           subredditsData = processedData.subreddits;
         } else {
-          console.error('No subreddits data found in processedData:', processedData);
+          console.error(
+            'No subreddits data found in processedData:',
+            processedData
+          );
           throw new Error('无法获取subreddits数据');
         }
 
@@ -256,10 +256,10 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
             category: t('informationDashboard.reddit.category'),
             posts: subreddit.posts.map(post => ({
               title: post.title,
-              score: post.upvotes,
+              score: post.upvotes || post.score, // 修复字段映射问题
               comments: post.comments,
               url: post.url,
-              author: 'u/reddit_user',
+              author: post.author || 'u/reddit_user', // 使用真实作者名
               created: new Date().toLocaleString('en-US'),
             })),
           })
@@ -282,6 +282,16 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           ...prev,
           'reddit-workflow': new Date(),
         }));
+
+        // 如果webhook响应包含新的Reddit工作流格式，传递给父组件
+        if (
+          webhookResponse?.json &&
+          webhookResponse.json.success !== undefined &&
+          webhookResponse.json.subreddits
+        ) {
+          console.log('传递新格式的Reddit工作流数据给父组件');
+          onRedditWorkflowDataReceived?.(webhookResponse.json);
+        }
 
         onRedditDataReceived?.(parsedData);
       } catch (error) {
@@ -325,7 +335,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
       },
       []
     );
-
 
     // Load workflow settings function
     const loadWorkflowSettings = useCallback(
@@ -390,7 +399,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
       return workflows.length > 0;
     }, [workflows.length]);
 
-
     /**
      * Close settings modal
      */
@@ -421,7 +429,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           );
 
           if (response.success && response.data) {
-
             // Update reddit workflow settings if it's the reddit workflow
             if (currentWorkflowId === 'reddit-workflow') {
               setRedditWorkflowSettings(response.data);
@@ -460,7 +467,12 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
               </span>
             </Space>
           }
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+          }}
           styles={{ body: { flex: 1, padding: 0, position: 'relative' } }}
         >
           <Spin spinning={loading}>
@@ -549,8 +561,11 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       updatedAt: new Date().toISOString(),
                     })
                   }
-                  onTrigger={(workflow) => {
-                    console.log('Reddit workflow trigger clicked for:', workflow?.name);
+                  onTrigger={workflow => {
+                    console.log(
+                      'Reddit workflow trigger clicked for:',
+                      workflow?.name
+                    );
                     handleRedditWorkflowStart();
                   }}
                   onSettings={() =>
@@ -563,18 +578,21 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                   showActions={false} // Hide start button since it's now in the header
                   extra={
                     <Button
-                      type="text"
-                      size="small"
-                      onClick={async (e) => {
+                      type='text'
+                      size='small'
+                      onClick={async e => {
                         e.stopPropagation();
                         try {
                           message.info('正在测试webhook连接...');
-                          const result = await redditWebhookService.testWebhookConnection();
+                          const result =
+                            await redditWebhookService.testWebhookConnection();
                           if (result.success) {
                             message.success('✅ Webhook连接测试成功！');
                             console.log('Webhook测试详情:', result);
                           } else {
-                            message.error(`❌ Webhook连接测试失败: ${result.error}`);
+                            message.error(
+                              `❌ Webhook连接测试失败: ${result.error}`
+                            );
                             console.error('Webhook测试失败详情:', result);
                           }
                         } catch (error) {
@@ -590,19 +608,11 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                 />
               </Col>
 
-
               {/* Other workflow cards */}
               {filteredWorkflows
                 .filter(w => w.name !== 'Data Sync Workflow')
                 .map(workflow => (
-                  <Col
-                    key={workflow.id}
-                    xs={24}
-                    sm={24}
-                    md={12}
-                    lg={8}
-                    xl={6}
-                  >
+                  <Col key={workflow.id} xs={24} sm={24} md={12} lg={8} xl={6}>
                     <WorkflowCard
                       workflow={workflow}
                       selected={selectedWorkflow?.id === workflow.id}
@@ -639,14 +649,15 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           </Spin>
 
           {/* Action buttons positioned at bottom right */}
-          <div style={{
-            position: 'absolute',
-            bottom: '8px',
-            right: '8px',
-            zIndex: 10
-          }}>
-            <Space size="middle">
-
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              right: '8px',
+              zIndex: 10,
+            }}
+          >
+            <Space size='middle'>
               <Tooltip title={t('informationDashboard.actions.refresh')}>
                 <Button
                   type='text'
@@ -658,7 +669,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     background: '#dddddd',
                     border: '1px solid #bbbbbb',
                     borderRadius: '6px',
-                    color: '#666666'
+                    color: '#666666',
                   }}
                 />
               </Tooltip>

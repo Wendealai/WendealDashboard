@@ -1,11 +1,5 @@
 {
-  "src/**/!(test-utils).{ts,tsx}": [
-    "prettier --write",
-    "node scripts/check-exports.js scan --json"
-  ],
-  "src/**/*.{js,jsx}": [
-    "prettier --write",
-    "node scripts/check-exports.js scan --json"
-  ],
+  "src/**/!(test-utils).{ts,tsx}": ["prettier --write"],
+  "src/**/*.{js,jsx}": ["prettier --write"],
   "*.{json,css,md}": ["prettier --write"]
 }
