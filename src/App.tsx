@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Provider } from 'react-redux';
-import { ConfigProvider, App as AntApp, theme, Spin } from 'antd';
+import {
+  ConfigProvider,
+  App as AntApp,
+  theme,
+  Spin,
+  App as AppContext,
+} from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -10,6 +16,7 @@ import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import AppRouter from '@/router';
 import i18n from '@/locales'; // 初始化国际化
+import { setGlobalMessageInstance } from '@/hooks/useMessage';
 import '@/styles/global.css';
 import '@/styles/theme.css';
 import '@/styles/compact.css';
@@ -31,6 +38,20 @@ const AppContent: React.FC = () => {
   const { currentTheme } = state;
   const [i18nReady, setI18nReady] = useState(i18n.isInitialized);
   const { i18n: i18nInstance } = useTranslation();
+  const { message } = AppContext.useApp();
+
+  // 设置全局message实例
+  useEffect(() => {
+    if (message) {
+      console.log('App: Setting global message instance:', {
+        hasMessage: !!message,
+        hasSuccess: typeof message?.success === 'function',
+        hasError: typeof message?.error === 'function',
+        messageType: typeof message,
+      });
+      setGlobalMessageInstance(message);
+    }
+  }, [message]);
 
   useEffect(() => {
     if (i18n.isInitialized) {
@@ -90,21 +111,8 @@ const AppContent: React.FC = () => {
       theme={antdTheme}
       locale={getAntdLocale()}
       componentSize='middle'
-      message={{
-        // top: '50vh', // 移除不支持的top属性
-        // duration: 3, // 移除不支持的duration属性
-        maxCount: 3,
-        // rtl: false, // 移除不支持的rtl属性
-        // prefixCls: 'ant-message', // 移除不支持的prefixCls属性
-      }}
     >
-      <AntApp
-        message={{
-          // top: '50vh', // 移除不支持的top属性
-          // duration: 3, // 移除不支持的duration属性
-          maxCount: 3,
-        }}
-      >
+      <AntApp>
         <div data-theme={currentTheme.isDark ? 'dark' : 'light'}>
           <AuthProvider>
             <AppRouter />

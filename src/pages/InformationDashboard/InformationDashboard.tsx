@@ -38,7 +38,7 @@ import type {
   ParsedSubredditData,
   RedditWorkflowResponse,
 } from '@/services/redditWebhookService';
-import type { Workflow } from './types';
+import type { WorkflowInfo } from './types';
 import {
   redditDataManager,
   redditWebhookService,
@@ -65,6 +65,34 @@ const InformationDashboard: React.FC = () => {
     typeof message?.error
   );
 
+  // 监听message实例的变化
+  useEffect(() => {
+    console.log('InformationDashboard: Message instance changed:', {
+      hasMessage: !!message,
+      hasSuccess: typeof message?.success === 'function',
+      hasError: typeof message?.error === 'function',
+    });
+
+    // 测试message实例是否工作
+    if (message && typeof message.success === 'function') {
+      console.log(
+        'InformationDashboard: Message instance is working, testing...'
+      );
+      // 延迟测试以确保DOM已渲染
+      setTimeout(() => {
+        try {
+          message.success('Message API test successful!');
+          console.log('InformationDashboard: Message API test passed');
+        } catch (error) {
+          console.error(
+            'InformationDashboard: Message API test failed:',
+            error
+          );
+        }
+      }, 1000);
+    }
+  }, [message]);
+
   // Reddit data state - 使用全局数据管理器进行持久化
   const [redditData, setRedditData] = useState<ParsedSubredditData[]>(() => {
     console.log(
@@ -75,7 +103,7 @@ const InformationDashboard: React.FC = () => {
   });
 
   // Currently selected workflow state
-  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(
+  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowInfo | null>(
     null
   );
 
@@ -98,6 +126,21 @@ const InformationDashboard: React.FC = () => {
         'items'
       );
 
+      // 检查数据是否过期
+      const isExpired = redditDataManager.isDataExpired(24); // 24小时过期
+      if (isExpired) {
+        console.log(
+          'InformationDashboard: Persisted data is expired, clearing...'
+        );
+        redditDataManager.clearData();
+        setRedditData([]);
+        return;
+      }
+
+      // 获取数据统计信息
+      const dataStats = redditDataManager.getDataStats();
+      console.log('InformationDashboard: Data stats:', dataStats);
+
       // 如果有持久化数据但没有选择工作流，自动选择Reddit工作流
       if (!selectedWorkflow) {
         console.log(
@@ -107,9 +150,16 @@ const InformationDashboard: React.FC = () => {
           id: 'reddit-hot-posts',
           name: 'Reddit Hot Posts',
           description: 'Fetch hot posts from Reddit',
-          nodeCount: 1,
-          lastExecution: null,
-          status: 'idle',
+          type: 'webhook',
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          executionCount: 0,
+          successRate: 100,
+          author: {
+            id: 'system',
+            name: 'System',
+          },
         });
       }
     } else {
@@ -122,22 +172,54 @@ const InformationDashboard: React.FC = () => {
    */
   const handleRedditDataReceived = useCallback(
     (data: ParsedSubredditData[]) => {
-      console.log(
-        'InformationDashboard: Received Reddit data, persisting to storage:',
-        data.length,
-        'items'
-      );
-      console.log('InformationDashboard: Reddit data details:', data);
+      console.log('📥 InformationDashboard: 接收到Reddit数据:', {
+        dataLength: data?.length || 0,
+        dataType: typeof data,
+        isArray: Array.isArray(data),
+        dataSample: data?.slice(0, 2).map(item => ({
+          name: item.name,
+          postsCount: item.posts?.length || 0,
+          postsSample: item.posts?.slice(0, 2).map(p => ({
+            title: p.title,
+            subreddit: p.subreddit,
+          })),
+        })),
+      });
+
+      // 验证数据完整性
+      if (!data || !Array.isArray(data)) {
+        console.error('❌ InformationDashboard: 接收到无效数据:', data);
+        return;
+      }
+
+      // 验证每个subreddit数据
+      const validData = data.filter(item => {
+        const isValid =
+          item && item.name && item.posts && Array.isArray(item.posts);
+        if (!isValid) {
+          console.warn('❌ 跳过无效的subreddit数据:', item);
+        }
+        return isValid;
+      });
+
+      console.log('✅ InformationDashboard: 有效数据:', {
+        originalCount: data.length,
+        validCount: validData.length,
+        validDataSample: validData.slice(0, 2).map(item => ({
+          name: item.name,
+          postsCount: item.posts.length,
+        })),
+      });
 
       // 更新组件状态
-      setRedditData(data);
+      setRedditData(validData);
 
       // 使用全局数据管理器保存数据，确保数据常驻
-      const success = redditDataManager.saveData(data);
+      const success = redditDataManager.saveData(validData);
       if (success) {
-        console.log('InformationDashboard: Reddit data persisted successfully');
+        console.log('💾 InformationDashboard: Reddit数据持久化成功');
       } else {
-        console.error('InformationDashboard: Failed to persist Reddit data');
+        console.error('❌ InformationDashboard: Reddit数据持久化失败');
       }
     },
     []
@@ -157,10 +239,17 @@ const InformationDashboard: React.FC = () => {
           id: 'reddit-hot-posts',
           name: 'Reddit Hot Posts',
           description: 'Fetch hot posts from Reddit',
-          nodeCount: 1,
-          lastExecution: null,
-          status: 'idle',
-        });
+          type: 'webhook',
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          executionCount: 0,
+          successRate: 100,
+          author: {
+            id: 'system',
+            name: 'System',
+          },
+        } as WorkflowInfo);
       }
     },
     [selectedWorkflow]
@@ -169,7 +258,7 @@ const InformationDashboard: React.FC = () => {
   /**
    * Handle workflow selection
    */
-  const handleWorkflowSelect = useCallback((workflow: Workflow) => {
+  const handleWorkflowSelect = useCallback((workflow: WorkflowInfo) => {
     console.log('InformationDashboard: Selected workflow:', workflow);
     setSelectedWorkflow(workflow);
   }, []);
@@ -338,26 +427,50 @@ const InformationDashboard: React.FC = () => {
                     : t('informationDashboard.title')}
                 </Space>
 
-                {/* Reddit workflow start button - 仅在未选中Smart Opportunities时显示 */}
-                {selectedWorkflow?.id !== 'smart-opportunities' && (
-                  <Tooltip title='Start Reddit Hot Posts Workflow'>
+                {/* Test buttons */}
+                <Space>
+                  <Tooltip title='Test Message API'>
                     <Button
-                      type='default'
+                      type='dashed'
                       size='small'
-                      icon={<RedditOutlined />}
-                      loading={redditLoading}
-                      onClick={handleRedditWorkflowStart}
-                      style={{
-                        backgroundColor: '#f5f5f5',
-                        borderColor: '#d9d9d9',
-                        color: '#666',
-                        marginLeft: 'auto',
+                      onClick={() => {
+                        console.log('Testing message API manually...');
+                        console.log('Current message instance:', message);
+                        try {
+                          message.success('Message API test successful!');
+                          console.log('Message API test passed');
+                        } catch (error) {
+                          console.error('Message API test failed:', error);
+                          message.error('Message API test failed!');
+                        }
                       }}
+                      style={{ marginRight: 8 }}
                     >
-                      {!redditLoading && 'Start Reddit'}
+                      Test Message
                     </Button>
                   </Tooltip>
-                )}
+
+                  {/* Reddit workflow start button - 仅在未选中Smart Opportunities时显示 */}
+                  {selectedWorkflow?.id !== 'smart-opportunities' && (
+                    <Tooltip title='Start Reddit Hot Posts Workflow'>
+                      <Button
+                        type='default'
+                        size='small'
+                        icon={<RedditOutlined />}
+                        loading={redditLoading}
+                        onClick={handleRedditWorkflowStart}
+                        style={{
+                          backgroundColor: '#f5f5f5',
+                          borderColor: '#d9d9d9',
+                          color: '#666',
+                          marginLeft: 'auto',
+                        }}
+                      >
+                        {!redditLoading && 'Start Reddit'}
+                      </Button>
+                    </Tooltip>
+                  )}
+                </Space>
               </div>
             }
             className='data-display-card'

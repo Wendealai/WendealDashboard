@@ -39,12 +39,13 @@ import {
 } from '@ant-design/icons';
 import { useAppSelector } from '@/store/hooks';
 import { selectLoading } from '@/store/slices/informationDashboardSlice';
-import type { Workflow, InformationItem } from '../types';
+import type { InformationItem } from '../types';
+import type { WorkflowInfo } from '../types';
 import type {
   ParsedSubredditData,
   RedditWorkflowResponse,
   RedditWorkflowPost,
-  RedditWorkflowSubreddit
+  RedditWorkflowSubreddit,
 } from '@/services/redditWebhookService';
 
 const { Text, Title } = Typography;
@@ -77,9 +78,9 @@ if (typeof document !== 'undefined') {
  */
 interface ResultPanelProps {
   className?: string;
-  selectedWorkflow?: Workflow | null;
+  selectedWorkflow?: WorkflowInfo | null;
   redditData?: ParsedSubredditData[];
-  redditWorkflowData?: RedditWorkflowResponse;
+  redditWorkflowData?: RedditWorkflowResponse | null;
   loading?: boolean;
 }
 
@@ -108,6 +109,21 @@ const formatScore = (score: number): string => {
 };
 
 /**
+ * 检查 Reddit 工作流数据是否有效
+ */
+const isValidRedditWorkflowData = (
+  data: RedditWorkflowResponse | null | undefined
+): boolean => {
+  return !!(
+    data &&
+    data.success &&
+    data.subreddits &&
+    Array.isArray(data.subreddits) &&
+    data.subreddits.length > 0
+  );
+};
+
+/**
  * 获取热度等级
  */
 const getHotLevel = (
@@ -127,24 +143,57 @@ const getHotLevel = (
  * 结果展示面板组件
  */
 const ResultPanel: React.FC<ResultPanelProps> = memo(
-  ({ className, selectedWorkflow, redditData, redditWorkflowData, loading = false }) => {
+  ({
+    className,
+    selectedWorkflow,
+    redditData,
+    redditWorkflowData,
+    loading = false,
+  }) => {
     const { t } = useTranslation();
     const storeLoading = useAppSelector(selectLoading);
 
     // 使用useMemo优化数据处理
     const groupedRedditData = useMemo(() => {
+      console.log('🔄 ResultPanel: 处理Reddit数据:', {
+        hasRedditData: !!redditData,
+        redditDataLength: redditData?.length || 0,
+        redditDataSample: redditData?.slice(0, 2).map(item => ({
+          name: item.name,
+          postsCount: item.posts?.length || 0,
+          subreddit: item.name,
+          hasSubreddit: !!item.name,
+        })),
+      });
+
       if (!redditData || redditData.length === 0) {
+        console.log('⚠️ ResultPanel: 没有Reddit数据');
         return {};
       }
 
-      return redditData.reduce(
+      const grouped = redditData.reduce(
         (acc, subredditData) => {
-          const subreddit = subredditData.subreddit;
+          const subreddit = subredditData.name || 'unknown';
+          console.log('📁 分组数据:', {
+            subreddit,
+            postsCount: subredditData.posts?.length || 0,
+            hasName: !!subredditData.name,
+          });
           acc[subreddit] = subredditData.posts;
           return acc;
         },
         {} as Record<string, any[]>
       );
+
+      console.log('✅ ResultPanel: 分组完成:', {
+        groupedKeys: Object.keys(grouped),
+        groupedData: Object.entries(grouped).map(([key, posts]) => ({
+          subreddit: key,
+          postsCount: posts?.length || 0,
+        })),
+      });
+
+      return grouped;
     }, [redditData]);
 
     const hasRedditData = useMemo(() => {
@@ -188,9 +237,9 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
       if (!redditWorkflowData.success) {
         return (
           <Alert
-            message="获取Reddit数据失败"
-            description={redditWorkflowData.error || "未知错误"}
-            type="error"
+            message='获取Reddit数据失败'
+            description={redditWorkflowData.error || '未知错误'}
+            type='error'
             showIcon
           />
         );
@@ -219,30 +268,30 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
             <Row gutter={[16, 8]}>
               <Col xs={12} sm={6}>
                 <Statistic
-                  title="活跃社区"
+                  title='活跃社区'
                   value={summary.totalSubreddits}
-                  suffix="个"
+                  suffix='个'
                 />
               </Col>
               <Col xs={12} sm={6}>
                 <Statistic
-                  title="总帖子数"
+                  title='总帖子数'
                   value={summary.totalPosts}
-                  suffix="篇"
+                  suffix='篇'
                 />
               </Col>
               <Col xs={12} sm={6}>
                 <Statistic
-                  title="总分数"
+                  title='总分数'
                   value={summary.totalScore}
-                  suffix="分"
+                  suffix='分'
                 />
               </Col>
               <Col xs={12} sm={6}>
                 <Statistic
-                  title="总评论数"
+                  title='总评论数'
                   value={summary.totalComments}
-                  suffix="条"
+                  suffix='条'
                 />
               </Col>
             </Row>
@@ -263,7 +312,9 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
 
               if (isFirstInRow) {
                 const nextSubreddit = subreddits[index + 1];
-                const rowItems = nextSubreddit ? [subreddit, nextSubreddit] : [subreddit];
+                const rowItems = nextSubreddit
+                  ? [subreddit, nextSubreddit]
+                  : [subreddit];
 
                 return (
                   <Row
@@ -271,7 +322,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                     gutter={[8, 8]}
                     style={{ width: '100%' }}
                   >
-                    {rowItems.map((sub) => (
+                    {rowItems.map(sub => (
                       <Col
                         key={sub.name}
                         xs={24}
@@ -298,149 +349,154 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
     /**
      * 渲染单个社区卡片
      */
-    const renderSubredditCard = useCallback((subreddit: RedditWorkflowSubreddit) => {
-      return (
-        <Card
-          size='small'
-          title={
-            <Space>
-              <span style={{ fontSize: '18px' }}>{subreddit.icon}</span>
-              <Text strong>{subreddit.displayName}</Text>
-              <Badge count={subreddit.stats.totalPosts} showZero />
-              <Tag size='small'>{subreddit.category}</Tag>
-            </Space>
-          }
-          className='compact-spacing'
-          style={{
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '250px',
-          }}
-          styles={{
-            body: {
-              flex: 1,
+    const renderSubredditCard = useCallback(
+      (subreddit: RedditWorkflowSubreddit) => {
+        return (
+          <Card
+            size='small'
+            title={
+              <Space>
+                <span style={{ fontSize: '18px' }}>{subreddit.icon}</span>
+                <Text strong>{subreddit.displayName}</Text>
+                <Badge count={subreddit.stats.totalPosts} showZero />
+                <Tag>{subreddit.category}</Tag>
+              </Space>
+            }
+            className='compact-spacing'
+            style={{
+              width: '100%',
               display: 'flex',
               flexDirection: 'column',
-              padding: '8px',
-            },
-          }}
-        >
-          {/* 社区统计 */}
-          <div style={{ marginBottom: '8px' }}>
-            <Space size={8} wrap>
-              <Text type='secondary' style={{ fontSize: '12px' }}>
-                平均分数: {subreddit.stats.averageScore}
-              </Text>
-              <Text type='secondary' style={{ fontSize: '12px' }}>
-                总评论: {subreddit.stats.totalComments}
-              </Text>
-            </Space>
-          </div>
+              minHeight: '250px',
+            }}
+            styles={{
+              body: {
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '8px',
+              },
+            }}
+          >
+            {/* 社区统计 */}
+            <div style={{ marginBottom: '8px' }}>
+              <Space size={8} wrap>
+                <Text type='secondary' style={{ fontSize: '12px' }}>
+                  平均分数: {subreddit.stats.averageScore}
+                </Text>
+                <Text type='secondary' style={{ fontSize: '12px' }}>
+                  总评论: {subreddit.stats.totalComments}
+                </Text>
+              </Space>
+            </div>
 
-          {/* 帖子列表 */}
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <List
-              size='small'
-              dataSource={subreddit.posts}
-              style={{ height: '100%' }}
-              renderItem={(post: RedditWorkflowPost) => {
-                const hotLevel = getHotLevel(post.score);
-                return (
-                  <List.Item
-                    className='compact-spacing'
-                    style={{ padding: '4px 0' }}
-                    actions={[
-                      <Tooltip title='查看原帖' key='link'>
-                        <Button
-                          type='text'
-                          icon={<LinkOutlined />}
-                          onClick={() => handleLinkClick(post.redditUrl || post.url || '')}
-                          size='small'
-                          style={{ padding: '2px 4px' }}
-                        />
-                      </Tooltip>,
-                    ]}
-                  >
-                    <List.Item.Meta
-                      title={
-                        <div style={{ marginBottom: '2px' }}>
-                          <a
-                            href={post.redditUrl || post.url || '#'}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                            style={{
-                              fontSize: 13,
-                              fontWeight: 500,
-                              color: '#1890ff',
-                              textDecoration: 'none',
-                              display: 'block',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                            onMouseEnter={handleMouseEnter}
-                            onMouseLeave={handleMouseLeave}
-                          >
-                            {post.title}
-                          </a>
-                        </div>
-                      }
-                      description={
-                        <Space size={6} style={{ fontSize: '11px' }}>
-                          <Space size={2}>
-                            <UserOutlined
+            {/* 帖子列表 */}
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <List
+                size='small'
+                dataSource={subreddit.posts}
+                style={{ height: '100%' }}
+                renderItem={(post: RedditWorkflowPost) => {
+                  const hotLevel = getHotLevel(post.score);
+                  return (
+                    <List.Item
+                      className='compact-spacing'
+                      style={{ padding: '4px 0' }}
+                      actions={[
+                        <Tooltip title='查看原帖' key='link'>
+                          <Button
+                            type='text'
+                            icon={<LinkOutlined />}
+                            onClick={() =>
+                              handleLinkClick(post.redditUrl || post.url || '')
+                            }
+                            size='small'
+                            style={{ padding: '2px 4px' }}
+                          />
+                        </Tooltip>,
+                      ]}
+                    >
+                      <List.Item.Meta
+                        title={
+                          <div style={{ marginBottom: '2px' }}>
+                            <a
+                              href={post.redditUrl || post.url || '#'}
+                              target='_blank'
+                              rel='noopener noreferrer'
                               style={{
-                                color: '#8c8c8c',
-                                fontSize: '11px',
+                                fontSize: 13,
+                                fontWeight: 500,
+                                color: '#1890ff',
+                                textDecoration: 'none',
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
                               }}
-                            />
-                            <Text
-                              type='secondary'
-                              style={{ fontSize: '11px' }}
+                              onMouseEnter={handleMouseEnter}
+                              onMouseLeave={handleMouseLeave}
                             >
-                              {post.author}
-                            </Text>
+                              {post.title}
+                            </a>
+                          </div>
+                        }
+                        description={
+                          <Space size={6} style={{ fontSize: '11px' }}>
+                            <Space size={2}>
+                              <UserOutlined
+                                style={{
+                                  color: '#8c8c8c',
+                                  fontSize: '11px',
+                                }}
+                              />
+                              <Text
+                                type='secondary'
+                                style={{ fontSize: '11px' }}
+                              >
+                                {post.author}
+                              </Text>
+                            </Space>
+                            <Space size={2}>
+                              <LikeOutlined
+                                style={{
+                                  color: '#8c8c8c',
+                                  fontSize: '11px',
+                                }}
+                              />
+                              <Text
+                                type='secondary'
+                                style={{ fontSize: '11px' }}
+                              >
+                                {post.scoreFormatted}
+                              </Text>
+                            </Space>
+                            <Space size={2}>
+                              <MessageOutlined
+                                style={{
+                                  color: '#8c8c8c',
+                                  fontSize: '11px',
+                                }}
+                              />
+                              <Text
+                                type='secondary'
+                                style={{ fontSize: '11px' }}
+                              >
+                                {post.commentsFormatted}
+                              </Text>
+                            </Space>
                           </Space>
-                          <Space size={2}>
-                            <LikeOutlined
-                              style={{
-                                color: '#8c8c8c',
-                                fontSize: '11px',
-                              }}
-                            />
-                            <Text
-                              type='secondary'
-                              style={{ fontSize: '11px' }}
-                            >
-                              {post.scoreFormatted}
-                            </Text>
-                          </Space>
-                          <Space size={2}>
-                            <MessageOutlined
-                              style={{
-                                color: '#8c8c8c',
-                                fontSize: '11px',
-                              }}
-                            />
-                            <Text
-                              type='secondary'
-                              style={{ fontSize: '11px' }}
-                            >
-                              {post.commentsFormatted}
-                            </Text>
-                          </Space>
-                        </Space>
-                      }
-                    />
-                  </List.Item>
-                );
-              }}
-            />
-          </div>
-        </Card>
-      );
-    }, [handleLinkClick, handleMouseEnter, handleMouseLeave]);
+                        }
+                      />
+                    </List.Item>
+                  );
+                }}
+              />
+            </div>
+          </Card>
+        );
+      },
+      [handleLinkClick, handleMouseEnter, handleMouseLeave]
+    );
 
     /**
      * 渲染Reddit数据展示（旧格式）
@@ -449,7 +505,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
       if (!hasRedditData) {
         return (
           <div
-            className="reddit-empty-container"
+            className='reddit-empty-container'
             style={{
               height: '120px',
               maxHeight: '120px',
@@ -460,7 +516,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
               alignItems: 'center',
               justifyContent: 'center',
               padding: '8px 0',
-              boxSizing: 'border-box'
+              boxSizing: 'border-box',
             }}
           >
             <Empty
@@ -469,8 +525,15 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
               }
               description={
                 <Space direction='vertical' size={2}>
-                  <Text style={{ fontSize: '13px', margin: 0 }}>No Reddit data available</Text>
-                  <Text type='secondary' style={{ fontSize: '12px', margin: 0 }}>Please start the Reddit workflow on the left to fetch data</Text>
+                  <Text style={{ fontSize: '13px', margin: 0 }}>
+                    No Reddit data available
+                  </Text>
+                  <Text
+                    type='secondary'
+                    style={{ fontSize: '12px', margin: 0 }}
+                  >
+                    Please start the Reddit workflow on the left to fetch data
+                  </Text>
                 </Space>
               }
             />
@@ -584,12 +647,12 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                                     </a>
                                     {post.category && (
                                       <Tag
-                                        size='small'
                                         style={{
                                           marginTop: '2px',
                                           backgroundColor: '#f0f0f0',
                                           color: '#666666',
-                                          borderColor: '#cccccc'
+                                          borderColor: '#cccccc',
+                                          fontSize: '10px',
                                         }}
                                       >
                                         {post.category}
@@ -635,8 +698,14 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                         }}
                       />
                       {posts.length > 5 && (
-                        <div style={{ textAlign: 'center', marginTop: '8px', padding: '4px 0' }}>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                        <div
+                          style={{
+                            textAlign: 'center',
+                            marginTop: '8px',
+                            padding: '4px 0',
+                          }}
+                        >
+                          <Text type='secondary' style={{ fontSize: '12px' }}>
                             {`And ${posts.length - 5} more...`}
                           </Text>
                         </div>
@@ -675,8 +744,22 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
             flexDirection: 'column',
           }}
         >
-          {/* 优先使用新的 Reddit 工作流数据格式 */}
-          {redditWorkflowData ? renderRedditWorkflowData() : renderRedditData()}
+          {/* 优先使用新的 Reddit 工作流数据格式，但需要验证数据有效性 */}
+          {(() => {
+            const useNewFormat = isValidRedditWorkflowData(redditWorkflowData);
+            console.log('ResultPanel: Data format selection:', {
+              useNewFormat,
+              hasRedditWorkflowData: !!redditWorkflowData,
+              redditWorkflowDataSuccess: redditWorkflowData?.success,
+              redditWorkflowDataSubredditsCount:
+                redditWorkflowData?.subreddits?.length || 0,
+              hasRedditData: hasRedditData,
+            });
+
+            return useNewFormat
+              ? renderRedditWorkflowData()
+              : renderRedditData();
+          })()}
         </div>
       </div>
     );

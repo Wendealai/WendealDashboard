@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { Result, Button, Spin } from 'antd';
+import { Result, Button, Spin, App as AppContext } from 'antd';
 import { LockOutlined, HomeOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts';
@@ -79,7 +79,7 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
 
   // 如果不需要认证，直接渲染子组件
   if (!requiresAuth) {
-    return <>{children}</>;
+    return <AppContext>{children}</AppContext>;
   }
 
   // 以下逻辑需要用户已认证且用户信息存在
@@ -104,12 +104,18 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
     if (mode === 'all') {
       // 需要满足所有权限
       return requiredPermissions.every(permission =>
-        PermissionService.getInstance().hasPermission(user, typeof permission === 'string' ? permission : permission.name)
+        PermissionService.getInstance().hasPermission(
+          user,
+          typeof permission === 'string' ? permission : permission.name
+        )
       );
     } else {
       // 满足任一权限即可
       return requiredPermissions.some(permission =>
-        PermissionService.getInstance().hasPermission(user, typeof permission === 'string' ? permission : permission.name)
+        PermissionService.getInstance().hasPermission(
+          user,
+          typeof permission === 'string' ? permission : permission.name
+        )
       );
     }
   };
@@ -134,7 +140,7 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
 
   // 如果有访问权限，渲染子组件
   if (hasAccess()) {
-    return <>{children}</>;
+    return <AppContext>{children}</AppContext>;
   }
 
   // 权限不足的处理

@@ -25,15 +25,73 @@ class RedditDataManager {
    */
   saveData(data: any[]): boolean {
     try {
-      console.log('RedditDataManager: Saving data to localStorage:', data.length, 'items');
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+      console.log(
+        'RedditDataManager: Saving data to localStorage:',
+        data.length,
+        'items'
+      );
+
+      // 确保数据格式正确
+      if (!Array.isArray(data)) {
+        console.warn(
+          'RedditDataManager: Data is not an array, converting:',
+          data
+        );
+        data = [];
+      }
+
+      // 验证数据结构
+      const validData = data.filter(item => {
+        if (!item || typeof item !== 'object') {
+          console.warn('RedditDataManager: Invalid data item:', item);
+          return false;
+        }
+        if (!item.name || !Array.isArray(item.posts)) {
+          console.warn(
+            'RedditDataManager: Invalid subreddit data structure:',
+            item
+          );
+          return false;
+        }
+        return true;
+      });
+
+      console.log('RedditDataManager: Valid data items:', validData.length);
+
+      // 创建完整的数据包，包含元数据
+      const dataPackage = {
+        data: validData,
+        metadata: {
+          savedAt: Date.now(),
+          version: '1.0',
+          totalItems: validData.length,
+          dataSource: 'reddit_workflow',
+          checksum: this.generateChecksum(validData),
+        },
+      };
+
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(dataPackage));
       localStorage.setItem(this.TIMESTAMP_KEY, Date.now().toString());
-      console.log('RedditDataManager: Data saved successfully');
+      console.log('RedditDataManager: Data saved successfully with metadata');
       return true;
     } catch (error) {
       console.error('RedditDataManager: Failed to save data:', error);
       return false;
     }
+  }
+
+  /**
+   * 生成数据校验和
+   */
+  private generateChecksum(data: any[]): string {
+    const dataStr = JSON.stringify(data);
+    let hash = 0;
+    for (let i = 0; i < dataStr.length; i++) {
+      const char = dataStr.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return hash.toString();
   }
 
   /**
@@ -48,9 +106,46 @@ class RedditDataManager {
         return null;
       }
 
-      const data = JSON.parse(dataStr);
-      console.log('RedditDataManager: Data loaded successfully:', data?.length || 0, 'items');
-      return data;
+      const dataPackage = JSON.parse(dataStr);
+
+      // 检查数据包结构
+      if (!dataPackage || !dataPackage.data || !dataPackage.metadata) {
+        console.warn(
+          'RedditDataManager: Invalid data package structure, falling back to legacy format'
+        );
+        // 尝试兼容旧格式
+        const legacyData = JSON.parse(dataStr);
+        if (Array.isArray(legacyData)) {
+          return legacyData;
+        }
+        return null;
+      }
+
+      // 验证数据完整性
+      const expectedChecksum = dataPackage.metadata.checksum;
+      const actualChecksum = this.generateChecksum(dataPackage.data);
+
+      if (expectedChecksum !== actualChecksum) {
+        console.warn(
+          'RedditDataManager: Data integrity check failed, data may be corrupted'
+        );
+        // 数据可能损坏，清除并返回null
+        this.clearData();
+        return null;
+      }
+
+      console.log(
+        'RedditDataManager: Data loaded successfully:',
+        dataPackage.data.length,
+        'items'
+      );
+      console.log('RedditDataManager: Data metadata:', {
+        savedAt: new Date(dataPackage.metadata.savedAt).toLocaleString(),
+        version: dataPackage.metadata.version,
+        totalItems: dataPackage.metadata.totalItems,
+      });
+
+      return dataPackage.data;
     } catch (error) {
       console.error('RedditDataManager: Failed to load data:', error);
       return null;
@@ -78,6 +173,120 @@ class RedditDataManager {
     const hasData = !!dataStr;
     console.log('RedditDataManager: Has data:', hasData);
     return hasData;
+  }
+
+  /**
+   * 获取数据保存时间戳
+   */
+  getDataTimestamp(): number | null {
+    try {
+      const timestampStr = localStorage.getItem(this.TIMESTAMP_KEY);
+      return timestampStr ? parseInt(timestampStr) : null;
+    } catch (error) {
+      console.error('RedditDataManager: Failed to get data timestamp:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 检查数据是否过期
+   * @param maxAgeHours 最大数据年龄（小时）
+   */
+  isDataExpired(maxAgeHours: number = 24): boolean {
+    const timestamp = this.getDataTimestamp();
+    if (!timestamp) {
+      return true;
+    }
+
+    const now = Date.now();
+    const ageHours = (now - timestamp) / (1000 * 60 * 60);
+    const isExpired = ageHours > maxAgeHours;
+
+    console.log('RedditDataManager: Data age check:', {
+      savedAt: new Date(timestamp).toLocaleString(),
+      ageHours: Math.round(ageHours * 100) / 100,
+      maxAgeHours,
+      isExpired,
+    });
+
+    return isExpired;
+  }
+
+  /**
+   * 获取数据元数据
+   */
+  getDataMetadata(): any {
+    try {
+      const dataStr = localStorage.getItem(this.STORAGE_KEY);
+      if (!dataStr) {
+        return null;
+      }
+
+      const dataPackage = JSON.parse(dataStr);
+      return dataPackage?.metadata || null;
+    } catch (error) {
+      console.error('RedditDataManager: Failed to get data metadata:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 检查数据是否需要刷新
+   * 基于数据年龄和数据完整性检查
+   */
+  shouldRefreshData(): boolean {
+    // 如果没有数据，肯定需要刷新
+    if (!this.hasData()) {
+      console.log('RedditDataManager: No data available, refresh needed');
+      return true;
+    }
+
+    // 检查数据是否过期（24小时）
+    if (this.isDataExpired(24)) {
+      console.log('RedditDataManager: Data is expired, refresh needed');
+      return true;
+    }
+
+    // 检查数据完整性
+    const data = this.loadData();
+    if (!data || data.length === 0) {
+      console.log(
+        'RedditDataManager: Data is empty or invalid, refresh needed'
+      );
+      return true;
+    }
+
+    console.log(
+      'RedditDataManager: Data is fresh and valid, no refresh needed'
+    );
+    return false;
+  }
+
+  /**
+   * 获取数据统计信息
+   */
+  getDataStats(): {
+    totalSubreddits: number;
+    totalPosts: number;
+    lastUpdated: Date | null;
+  } {
+    const data = this.loadData();
+    const timestamp = this.getDataTimestamp();
+
+    if (!data) {
+      return { totalSubreddits: 0, totalPosts: 0, lastUpdated: null };
+    }
+
+    const totalSubreddits = data.length;
+    const totalPosts = data.reduce((sum: number, subreddit: any) => {
+      return sum + (subreddit.posts ? subreddit.posts.length : 0);
+    }, 0);
+
+    return {
+      totalSubreddits,
+      totalPosts,
+      lastUpdated: timestamp ? new Date(timestamp) : null,
+    };
   }
 }
 
@@ -235,23 +444,29 @@ class RedditWebhookService {
     const isDevelopment =
       // 检查是否在本地开发服务器
       (typeof window !== 'undefined' &&
-       (window.location.hostname === 'localhost' ||
-        window.location.hostname === '127.0.0.1' ||
-        window.location.hostname.includes('.local'))) ||
+        (window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1' ||
+          window.location.hostname.includes('.local'))) ||
       // 检查Vite开发服务器端口
       (typeof window !== 'undefined' &&
-       (window.location.port === '5173' || window.location.port === '3000')) ||
+        (window.location.port === '5173' || window.location.port === '3000')) ||
       // 检查NODE_ENV
-      (typeof process !== 'undefined' && process.env.NODE_ENV === 'development');
+      (typeof process !== 'undefined' &&
+        process.env.NODE_ENV === 'development');
 
     console.log('🔍 环境检测详情:', {
-      hostname: typeof window !== 'undefined' ? window.location.hostname : 'N/A',
+      hostname:
+        typeof window !== 'undefined' ? window.location.hostname : 'N/A',
       port: typeof window !== 'undefined' ? window.location.port : 'N/A',
-      protocol: typeof window !== 'undefined' ? window.location.protocol : 'N/A',
+      protocol:
+        typeof window !== 'undefined' ? window.location.protocol : 'N/A',
       href: typeof window !== 'undefined' ? window.location.href : 'N/A',
       nodeEnv: typeof process !== 'undefined' ? process.env.NODE_ENV : 'N/A',
       isDevelopment,
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent.substring(0, 100) : 'N/A',
+      userAgent:
+        typeof navigator !== 'undefined'
+          ? navigator.userAgent.substring(0, 100)
+          : 'N/A',
     });
 
     // 临时强制使用生产环境URL来解决代理问题
@@ -319,7 +534,7 @@ class RedditWebhookService {
         return;
       }
 
-      const subredditName = lines[0].replace(/\*.*$/, '').trim();
+      const subredditName = lines[0]?.replace(/\*.*$/, '').trim() || '';
 
       const posts: ParsedRedditPost[] = [];
       let currentPost: Partial<ParsedRedditPost> = {};
@@ -341,9 +556,9 @@ class RedditWebhookService {
             posts.push(currentPost as ParsedRedditPost);
           }
 
-          rank = parseInt(titleMatch[1]);
+          rank = parseInt(titleMatch[1] || '0');
           currentPost = {
-            title: titleMatch[2],
+            title: titleMatch[2] || '',
             rank,
             subreddit: subredditName,
             upvotes: 0,
@@ -366,7 +581,9 @@ class RedditWebhookService {
         // 检测URL行
         const urlMatch = trimmedLine.match(/🔗\s*(.+)/);
         if (urlMatch && currentPost.title) {
-          currentPost.url = urlMatch[1].replace(/`/g, '').trim();
+          currentPost.url = urlMatch[1]
+            ? urlMatch[1].replace(/`/g, '').trim()
+            : '';
         }
       });
 
@@ -492,9 +709,17 @@ class RedditWebhookService {
 
     // 处理嵌套的json结构
     let actualData = response;
-    if (response.json && typeof response.json === 'object') {
+
+    // 处理数组响应格式
+    if (Array.isArray(response) && response.length > 0) {
+      console.log('检测到数组响应格式，提取第一个元素');
+      actualData = response[0];
+    }
+
+    // 处理嵌套的json结构
+    if (actualData && actualData.json && typeof actualData.json === 'object') {
       console.log('检测到嵌套json结构，提取实际数据');
-      actualData = response.json;
+      actualData = actualData.json;
     }
 
     console.log('实际数据结构:', {
@@ -502,6 +727,9 @@ class RedditWebhookService {
       dataKeys: actualData ? Object.keys(actualData) : [],
       hasTelegramMessage: !!actualData?.telegramMessage,
       telegramMessageLength: actualData?.telegramMessage?.length || 0,
+      hasSuccess: actualData?.success !== undefined,
+      hasSubreddits: !!actualData?.subreddits,
+      subredditsCount: actualData?.subreddits?.length || 0,
     });
 
     // 检查是否是新的 Reddit 工作流数据格式
@@ -591,8 +819,11 @@ class RedditWebhookService {
     console.log('🔍 测试webhook连接:', {
       originalUrl: webhookUrl || this.webhookUrl,
       resolvedUrl: testUrl,
-      isDevelopment: (typeof window !== 'undefined' && window.location.hostname === 'localhost') ||
-                    (typeof process !== 'undefined' && process.env.NODE_ENV === 'development'),
+      isDevelopment:
+        (typeof window !== 'undefined' &&
+          window.location.hostname === 'localhost') ||
+        (typeof process !== 'undefined' &&
+          process.env.NODE_ENV === 'development'),
     });
 
     try {
@@ -660,7 +891,8 @@ class RedditWebhookService {
           errorMessage.includes('NetworkError') ||
           errorMessage.includes('ERR_NETWORK')
         ) {
-          errorMessage = 'NetworkError: 无法连接到服务器，可能是网络连接、CORS或服务器问题';
+          errorMessage =
+            'NetworkError: 无法连接到服务器，可能是网络连接、CORS或服务器问题';
           errorType = 'NETWORK_ERROR';
         } else if (
           errorMessage.includes('timeout') ||
@@ -680,7 +912,6 @@ class RedditWebhookService {
       return {
         success: false,
         error: errorMessage,
-        errorType,
       };
     }
   }
@@ -737,7 +968,7 @@ class RedditWebhookService {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'WendealDashboard/1.0',
-        }
+        },
       });
 
       // 发送实际的webhook请求 - n8n webhook使用GET方法
@@ -898,25 +1129,86 @@ class RedditWebhookService {
    * @param workflowData 新的 Reddit 工作流数据
    * @returns 包含 subreddits 属性的对象
    */
-  convertNewRedditWorkflowToParsedData(workflowData: any): { subreddits: ParsedSubredditData[] } {
-    if (!workflowData.subreddits || !Array.isArray(workflowData.subreddits)) {
-      console.warn('Invalid workflow data structure:', workflowData);
+  convertNewRedditWorkflowToParsedData(workflowData: any): {
+    subreddits: ParsedSubredditData[];
+  } {
+    console.log('🔄 开始转换新的 Reddit 工作流数据格式:', {
+      hasWorkflowData: !!workflowData,
+      hasSubreddits: !!workflowData?.subreddits,
+      subredditsCount: workflowData?.subreddits?.length || 0,
+      subredditsData: workflowData?.subreddits?.map((s: any) => ({
+        name: s.name,
+        displayName: s.displayName,
+        postsCount: s.posts?.length || 0,
+        hasStats: !!s.stats,
+      })),
+    });
+
+    if (
+      !workflowData ||
+      !workflowData.subreddits ||
+      !Array.isArray(workflowData.subreddits)
+    ) {
+      console.warn('❌ 无效的工作流数据结构:', workflowData);
       return { subreddits: [] };
     }
 
-    const subreddits = workflowData.subreddits.map((subreddit: any) => ({
-      name: subreddit.name,
-      posts: subreddit.posts.map((post: any) => ({
-        title: post.title,
-        author: post.author,
-        upvotes: post.score,
-        comments: post.comments,
-        url: post.url,
-        subreddit: subreddit.name,
-        rank: post.rank,
+    const subreddits = workflowData.subreddits
+      .filter((subreddit: any) => {
+        const isValid =
+          subreddit &&
+          subreddit.name &&
+          subreddit.posts &&
+          Array.isArray(subreddit.posts);
+        if (!isValid) {
+          console.warn('❌ 跳过无效的subreddit数据:', subreddit);
+        }
+        return isValid;
+      })
+      .map((subreddit: any) => {
+        console.log('🔍 处理subreddit:', {
+          name: subreddit.name,
+          displayName: subreddit.displayName,
+          postsCount: subreddit.posts?.length || 0,
+          hasStats: !!subreddit.stats,
+        });
+
+        const posts = subreddit.posts
+          .filter((post: any) => {
+            const isValid = post && post.title;
+            if (!isValid) {
+              console.warn('❌ 跳过无效的post数据:', post);
+            }
+            return isValid;
+          })
+          .map((post: any, index: number) => ({
+            title: post.title || 'Untitled Post',
+            author: post.author || 'Unknown',
+            upvotes: post.score || 0,
+            comments: post.comments || 0,
+            url: post.url || post.redditUrl || '',
+            subreddit: subreddit.name || subreddit.displayName || 'Unknown',
+            rank: post.rank || index + 1,
+          }));
+
+        return {
+          name: subreddit.name || subreddit.displayName || 'Unknown',
+          posts,
+          totalPosts: subreddit.stats?.totalPosts || posts.length,
+        };
+      });
+
+    console.log('✅ 转换完成，结果:', {
+      subredditsCount: subreddits.length,
+      totalPosts: subreddits.reduce(
+        (sum: number, s: ParsedSubredditData) => sum + s.posts.length,
+        0
+      ),
+      subreddits: subreddits.map((s: ParsedSubredditData) => ({
+        name: s.name,
+        postsCount: s.posts.length,
       })),
-      totalPosts: subreddit.stats.totalPosts,
-    }));
+    });
 
     return { subreddits };
   }
@@ -948,20 +1240,50 @@ class RedditWebhookService {
       // 根据不同的响应格式提取数据
       let subredditsData: ParsedSubredditData[] = [];
 
-      if (processedData.data && processedData.data.subreddits) {
+      console.log('🔍 分析响应数据格式:', {
+        hasData: 'data' in processedData,
+        hasSubreddits: 'subreddits' in processedData,
+        hasPosts: 'posts' in processedData,
+        processedDataKeys: Object.keys(processedData),
+        processedData: processedData,
+      });
+
+      if (
+        'data' in processedData &&
+        processedData.data &&
+        processedData.data.subreddits
+      ) {
         // 新工作流响应格式
+        console.log('✅ 检测到新工作流响应格式，提取subreddits数据');
         subredditsData = processedData.data.subreddits;
-      } else if (processedData.subreddits) {
+      } else if ('subreddits' in processedData && processedData.subreddits) {
         // 旧格式
+        console.log('✅ 检测到旧格式subreddits数据');
         subredditsData = processedData.subreddits;
-      } else if (processedData.posts) {
+      } else if ('posts' in processedData && processedData.posts) {
         // 兼容旧的posts格式
-        console.warn('检测到旧的posts格式，正在转换为subreddits格式');
+        console.warn('⚠️ 检测到旧的posts格式，正在转换为subreddits格式');
         subredditsData = this.convertPostsToSubreddits(processedData.posts);
       } else {
-        console.error('无法识别的响应格式:', processedData);
+        console.error('❌ 无法识别的响应格式:', {
+          processedDataKeys: Object.keys(processedData),
+          processedDataType: typeof processedData,
+          processedData: processedData,
+        });
         throw new Error('Reddit工作流响应格式不正确');
       }
+
+      console.log('📊 提取的subreddits数据:', {
+        count: subredditsData.length,
+        subreddits: subredditsData.map(s => ({
+          name: s.name,
+          postsCount: s.posts?.length || 0,
+          postsSample: s.posts?.slice(0, 2).map(p => ({
+            title: p.title,
+            subreddit: p.subreddit,
+          })),
+        })),
+      });
 
       onProgress?.('工作流执行完成，正在处理数据...');
 
@@ -970,7 +1292,6 @@ class RedditWebhookService {
         data: subredditsData,
         message: 'Reddit工作流执行成功',
       };
-
     } catch (error) {
       console.error('Reddit工作流执行失败:', error);
       return {
@@ -986,29 +1307,63 @@ class RedditWebhookService {
    * @returns ParsedSubredditData数组
    */
   private convertPostsToSubreddits(posts: any[]): ParsedSubredditData[] {
+    console.log('🔄 开始转换posts数组到subreddits格式:', {
+      postsCount: posts?.length || 0,
+      postsSample: posts?.slice(0, 3).map((p: any) => ({
+        title: p.title,
+        subreddit: p.subreddit,
+        hasSubreddit: !!p.subreddit,
+      })),
+    });
+
+    if (!posts || !Array.isArray(posts)) {
+      console.warn('❌ posts参数无效:', posts);
+      return [];
+    }
+
     const subredditMap = new Map<string, ParsedRedditPost[]>();
 
-    posts.forEach(post => {
-      const subredditName = post.subreddit || 'unknown';
+    posts.forEach((post, index) => {
+      const subredditName = post?.subreddit || 'unknown';
+      console.log(`📝 处理post ${index}:`, {
+        title: post?.title,
+        subreddit: subredditName,
+        hasSubreddit: !!post?.subreddit,
+      });
+
       if (!subredditMap.has(subredditName)) {
         subredditMap.set(subredditName, []);
       }
 
       subredditMap.get(subredditName)!.push({
-        title: post.title || '',
-        upvotes: post.upvotes || post.score || 0,
-        comments: post.numComments || 0,
-        url: post.url || post.permalink || '',
+        title: post?.title || 'Untitled Post',
+        upvotes: post?.upvotes || post?.score || 0,
+        comments: post?.numComments || 0,
+        url: post?.url || post?.permalink || '',
         subreddit: subredditName,
         rank: subredditMap.get(subredditName)!.length + 1,
       });
     });
 
-    return Array.from(subredditMap.entries()).map(([name, posts]) => ({
+    const result = Array.from(subredditMap.entries()).map(([name, posts]) => ({
       name,
       posts,
       totalPosts: posts.length,
     }));
+
+    console.log('✅ 转换完成，结果:', {
+      subredditsCount: result.length,
+      totalPosts: result.reduce(
+        (sum: number, s: ParsedSubredditData) => sum + s.posts.length,
+        0
+      ),
+      subreddits: result.map((s: ParsedSubredditData) => ({
+        name: s.name,
+        postsCount: s.posts.length,
+      })),
+    });
+
+    return result;
   }
 
   /**
