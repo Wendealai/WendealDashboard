@@ -3,14 +3,24 @@
  * Smart Opportunities参数输入表单组件
  */
 
-import React, { useCallback } from 'react';
-import { Form, Input, Button, Space, Card, Typography, message } from 'antd';
+import React, { useCallback, useEffect } from 'react';
+import { Form, Input, Button, Space, Card, Typography } from 'antd';
 import { SendOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useMessage } from '@/hooks/useMessage';
 import type {
   InputFormProps,
   WorkflowParameters,
 } from '@/types/smartOpportunities';
+
+/**
+ * InputFormProps扩展接口，添加iframe相关属性
+ */
+interface ExtendedInputFormProps extends InputFormProps {
+  showIframe?: boolean;
+  iframeSrc?: string;
+  iframeTitle?: string;
+}
 
 const { Title, Text } = Typography;
 const { Item } = Form;
@@ -19,15 +29,26 @@ const { Item } = Form;
  * InputForm组件
  * 处理Smart Opportunities工作流的输入参数
  */
-const InputForm: React.FC<InputFormProps> = ({
+const InputForm: React.FC<ExtendedInputFormProps> = ({
   value,
   onChange,
   onSubmit,
   loading = false,
   disabled = false,
+  showIframe = false,
+  iframeSrc = 'https://nocodb.wendealai.com/dashboard/#/nc/view/24b9c8b5-ab0a-4e84-9789-24996ce17822',
+  iframeTitle = 'Business Opportunity Dashboard',
 }) => {
   const { t } = useTranslation();
   const [form] = Form.useForm();
+  const message = useMessage();
+
+  // 确保Form组件已连接
+  useEffect(() => {
+    if (form) {
+      console.log('InformationDashboard InputForm: Form instance connected');
+    }
+  }, [form]);
 
   /**
    * 处理表单值变化
@@ -243,7 +264,7 @@ const InputForm: React.FC<InputFormProps> = ({
                   marginLeft: '8px',
                   backgroundColor: '#f5f5f5',
                   borderColor: '#d9d9d9',
-                  color: '#666'
+                  color: '#666',
                 }}
               >
                 {loading ? 'Processing...' : 'Start Workflow'}
@@ -251,6 +272,28 @@ const InputForm: React.FC<InputFormProps> = ({
             </div>
           </Space>
         </div>
+
+        {/* Iframe Dashboard - 显示在输入框下方 */}
+        {showIframe && (
+          <div
+            style={{
+              marginTop: '16px',
+              border: '1px solid #d9d9d9',
+              borderRadius: '6px',
+              overflow: 'hidden',
+              height: '1200px',
+              backgroundColor: '#fafafa',
+            }}
+          >
+            <iframe
+              src={iframeSrc}
+              width='100%'
+              height='100%'
+              style={{ border: 'none' }}
+              title={iframeTitle}
+            />
+          </div>
+        )}
       </Form>
     </Card>
   );

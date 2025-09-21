@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Space, Upload, message, Modal, List, Typography } from 'antd';
+import { Button, Space, Upload, Modal, List, Typography } from 'antd';
 import {
   UploadOutlined,
   FolderOpenOutlined,
@@ -7,6 +7,7 @@ import {
   DeleteOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useMessage } from '@/hooks/useMessage';
 import type { UploadProps } from 'antd';
 import { ragApiService } from '../../../services/ragApi';
 
@@ -16,6 +17,7 @@ import { ragApiService } from '../../../services/ragApi';
  */
 const RAGToolbar: React.FC = () => {
   const { t } = useTranslation();
+  const message = useMessage();
   const [uploading, setUploading] = useState(false);
   const [knowledgeBaseFiles, setKnowledgeBaseFiles] = useState<any[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);

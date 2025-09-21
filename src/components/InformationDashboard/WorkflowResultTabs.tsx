@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, Empty, Spin, message } from 'antd';
+import { useMessage } from '@/hooks/useMessage';
+import { Card, Empty, Spin } from 'antd';
 import {
   PlayCircleOutlined,
   CheckCircleOutlined,
@@ -55,10 +56,9 @@ const WorkflowResultTabs: React.FC<WorkflowResultTabsProps> = ({
   loading = false,
   renderRedditData,
   renderWorkflowExecution,
-
-  className = '',
 }) => {
   const { t } = useTranslation();
+  const message = useMessage();
   const [activeTab, setActiveTab] = useState<string>('reddit-data');
 
   /**

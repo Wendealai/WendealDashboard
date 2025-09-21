@@ -539,7 +539,16 @@ export interface UniversalOCRQueryParams {
  * Universal OCR Default Settings
  */
 export const DEFAULT_UNIVERSAL_OCR_SETTINGS: UniversalOCRSettings = {
-  supportedFileTypes: ['pdf', 'jpg', 'jpeg', 'png', 'tiff', 'doc', 'docx', 'txt'],
+  supportedFileTypes: [
+    'pdf',
+    'jpg',
+    'jpeg',
+    'png',
+    'tiff',
+    'doc',
+    'docx',
+    'txt',
+  ],
   maxFileSize: 50, // 50MB
   language: 'auto',
   outputFormat: 'txt',
@@ -576,19 +585,20 @@ export const DEFAULT_UNIVERSAL_OCR_SETTINGS: UniversalOCRSettings = {
 /**
  * Supported file type extensions mapping
  */
-export const SUPPORTED_FILE_EXTENSIONS: Record<UniversalOCRFileType, string[]> = {
-  pdf: ['.pdf'],
-  jpg: ['.jpg', '.jpeg'],
-  jpeg: ['.jpg', '.jpeg'],
-  png: ['.png'],
-  tiff: ['.tiff', '.tif'],
-  bmp: ['.bmp'],
-  gif: ['.gif'],
-  doc: ['.doc'],
-  docx: ['.docx'],
-  txt: ['.txt'],
-  rtf: ['.rtf'],
-};
+export const SUPPORTED_FILE_EXTENSIONS: Record<UniversalOCRFileType, string[]> =
+  {
+    pdf: ['.pdf'],
+    jpg: ['.jpg', '.jpeg'],
+    jpeg: ['.jpg', '.jpeg'],
+    png: ['.png'],
+    tiff: ['.tiff', '.tif'],
+    bmp: ['.bmp'],
+    gif: ['.gif'],
+    doc: ['.doc'],
+    docx: ['.docx'],
+    txt: ['.txt'],
+    rtf: ['.rtf'],
+  };
 
 /**
  * File type MIME types mapping
@@ -602,7 +612,9 @@ export const FILE_TYPE_MIME_TYPES: Record<UniversalOCRFileType, string[]> = {
   bmp: ['image/bmp'],
   gif: ['image/gif'],
   doc: ['application/msword'],
-  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  docx: [
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ],
   txt: ['text/plain'],
   rtf: ['application/rtf', 'text/rtf'],
 };

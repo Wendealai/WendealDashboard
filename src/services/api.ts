@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
-import { message } from 'antd';
+import { getSafeMessage } from '@/hooks/useMessage';
 
 // API响应接口
 export interface ApiResponse<T = any> {
@@ -50,7 +50,12 @@ const createApiInstance = (): AxiosInstance => {
       // 如果API返回success为false，抛出错误
       if (data.success === false) {
         const errorMessage = data.message || '请求失败';
-        message.error(errorMessage);
+        const safeMessage = getSafeMessage();
+        if (safeMessage) {
+          safeMessage.error(errorMessage);
+        } else {
+          console.error('API Error:', errorMessage);
+        }
         return Promise.reject(new Error(errorMessage));
       }
 
@@ -61,29 +66,40 @@ const createApiInstance = (): AxiosInstance => {
       if (error.response) {
         const { status, data } = error.response;
 
+        const safeMessage = getSafeMessage();
         switch (status) {
           case 401:
-            message.error('未授权，请重新登录');
+            if (safeMessage) safeMessage.error('未授权，请重新登录');
+            console.error('API 401 Error: 未授权，请重新登录');
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
             window.location.href = '/login';
             break;
           case 403:
-            message.error('权限不足');
+            if (safeMessage) safeMessage.error('权限不足');
+            console.error('API 403 Error: 权限不足');
             break;
           case 404:
-            message.error('请求的资源不存在');
+            if (safeMessage) safeMessage.error('请求的资源不存在');
+            console.error('API 404 Error: 请求的资源不存在');
             break;
           case 500:
-            message.error('服务器内部错误');
+            if (safeMessage) safeMessage.error('服务器内部错误');
+            console.error('API 500 Error: 服务器内部错误');
             break;
           default:
-            message.error(data?.message || '请求失败');
+            const errorMsg = data?.message || '请求失败';
+            if (safeMessage) safeMessage.error(errorMsg);
+            console.error('API Error:', errorMsg);
         }
       } else if (error.request) {
-        message.error('网络错误，请检查网络连接');
+        const safeMessage = getSafeMessage();
+        if (safeMessage) safeMessage.error('网络错误，请检查网络连接');
+        console.error('API Network Error: 网络错误，请检查网络连接');
       } else {
-        message.error('请求配置错误');
+        const safeMessage = getSafeMessage();
+        if (safeMessage) safeMessage.error('请求配置错误');
+        console.error('API Config Error: 请求配置错误');
       }
 
       return Promise.reject(error);

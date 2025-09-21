@@ -1,10 +1,12 @@
 /* RAG Chat Component Styles */
 
 .rag-chat-container {
-  height: 100%; /* 占满父容器高度 */
+  height: 600px; /* 固定高度，允许页面正常滚动 */
+  max-height: 600px; /* 限制最大高度 */
   display: flex;
   flex-direction: row; /* 水平布局：侧边栏+聊天区域 */
   overflow: hidden;
+  margin: 20px 0; /* 上下边距，让页面可以滚动 */
 }
 
 /* 移除重复的.chat-sidebar定义，使用styles.css中的定义 */
@@ -24,6 +26,8 @@
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0; /* 防止头部被压缩 */
+  height: 60px; /* 固定头部高度 */
+  min-height: 60px; /* 最小高度 */
 }
 
 .chat-messages {
@@ -32,7 +36,8 @@
   overflow-y: auto;
   background-color: #fff;
   min-height: 0; /* 允许flex子项收缩 */
-  max-height: none; /* 移除最大高度限制 */
+  max-height: 460px; /* 减去头部(60px)和输入框(80px)高度 */
+  height: 460px; /* 固定高度 */
 }
 
 .messages-list {
@@ -90,6 +95,7 @@
 .message-bubble h6 {
   margin: 2px 0 1px 0;
   line-height: 1.1;
+  font-size: 14px; /* 统一标题字体大小，比正文稍大 */
 }
 
 .message-bubble blockquote {
@@ -153,6 +159,8 @@
   border-top: 1px solid #f0f0f0;
   background-color: #fff;
   flex-shrink: 0; /* 防止输入框被压缩 */
+  height: 80px; /* 固定输入框高度 */
+  min-height: 80px; /* 最小高度 */
 }
 
 .chat-input .ant-input {

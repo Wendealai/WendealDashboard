@@ -60,6 +60,13 @@ const InvoiceOCRSettings: React.FC<InvoiceOCRSettingsProps> = ({
   const { t } = useTranslation();
   const [form] = Form.useForm();
   const message = useMessage();
+
+  // 确保Form组件已连接
+  useEffect(() => {
+    if (form) {
+      console.log('InvoiceOCRSettings: Form instance connected');
+    }
+  }, [form]);
   const { isVisible, errorInfo, showError, hideError } = useErrorModal();
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);

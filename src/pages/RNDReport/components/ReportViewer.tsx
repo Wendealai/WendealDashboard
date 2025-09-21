@@ -29,7 +29,7 @@ import {
   CalendarOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { message } from 'antd';
+import { useMessage } from '@/hooks/useMessage';
 
 // Import iframe-resizer
 // Removed iframe-resizer due to import issues
@@ -85,17 +85,19 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
   className,
 }) => {
   const { t } = useTranslation();
+  const message = useMessage();
 
   // Refs
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const serviceRef = useRef<RNDReportService | null>(null);
 
   // State
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null);
+  const [readingProgress, setReadingProgress] =
+    useState<ReadingProgress | null>(null);
   const [currentScrollTop, setCurrentScrollTop] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
   const [htmlContent, setHtmlContent] = useState<string>('');
@@ -108,6 +110,8 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
     try {
       setLoading(true);
       setError(null);
+
+      console.log('🔄 开始加载报告内容:', report.name, report.id);
 
       // Initialize service if not ready
       if (!serviceRef.current) {
@@ -131,35 +135,107 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
 
       // Load HTML content from localStorage
       const content = localStorage.getItem(`rnd-report-content-${report.id}`);
+      console.log('📦 从localStorage获取内容:', {
+        key: `rnd-report-content-${report.id}`,
+        hasContent: !!content,
+        contentLength: content?.length || 0,
+        contentPreview: content?.substring(0, 200) + '...' || 'null',
+      });
+
       if (!content) {
         throw new Error('Report content not found');
       }
 
-      // Analyze HTML content for debugging
-      const analysis = analyzeHtmlContent(content);
-      console.log('📊 HTML Content Analysis for report:', report.name, analysis);
+      // Validate and repair HTML content
+      let validatedContent = content;
 
-      // Only process if there are potential issues or it's a fragment
-      let processedContent = content;
-      if (analysis.structure === 'fragment' || analysis.potentialIssues.length > 0) {
-        processedContent = processHtmlContent(content, report.id);
-        console.log('🔧 Applied HTML processing due to:', analysis.potentialIssues.length > 0 ? analysis.potentialIssues : 'fragment structure');
+      // Check for common corruption issues
+      if (content.includes('�') || content.includes('���')) {
+        console.warn(
+          '🚨 HTML content contains encoding errors, attempting to fix...'
+        );
+        validatedContent = content.replace(/�+/g, '');
+      }
+
+      // Check for truncated content
+      if (content.length < 100 && !content.includes('</html>')) {
+        console.warn('🚨 HTML content appears to be truncated');
+        validatedContent = `<html><head><title>${report.name}</title></head><body><div style="padding: 20px; color: #666;">Content appears to be truncated or corrupted. Please re-upload the report.</div></body></html>`;
+      }
+
+      // Analyze HTML content for debugging
+      const analysis = analyzeHtmlContent(validatedContent);
+      console.log(
+        '📊 HTML Content Analysis for report:',
+        report.name,
+        analysis
+      );
+
+      // Simplified HTML processing - try to handle common issues
+      let processedContent = validatedContent;
+
+      // Check if content needs basic HTML structure
+      const needsHtmlWrapper =
+        !validatedContent.includes('<html') &&
+        !validatedContent.includes('<HTML');
+      const needsBodyWrapper =
+        !validatedContent.includes('<body') &&
+        !validatedContent.includes('<BODY');
+
+      if (needsHtmlWrapper || needsBodyWrapper) {
+        console.log('🔧 Content needs HTML structure, wrapping...');
+        if (needsHtmlWrapper) {
+          processedContent = `<html><head><title>${report.name}</title></head><body>${processedContent}</body></html>`;
+        } else if (needsBodyWrapper) {
+          processedContent = processedContent
+            .replace('</head>', '</head><body>')
+            .replace('</html>', '</body></html>');
+        }
       } else {
         console.log('✅ HTML structure looks good, using original content');
       }
 
+      // Basic fixes for common display issues
+      processedContent = processedContent
+        .replace(/display:\s*none\s*;?/gi, 'display: block !important;')
+        .replace(
+          /visibility:\s*hidden\s*;?/gi,
+          'visibility: visible !important;'
+        )
+        .replace(/opacity:\s*0\s*;?/gi, 'opacity: 1 !important;');
+
       // Sanitize HTML content for security
-      const sanitizedContent = FileProcessingUtils.sanitizeHtmlContent(processedContent);
+      const sanitizedContent =
+        FileProcessingUtils.sanitizeHtmlContent(processedContent);
+      console.log('🧹 内容清理后长度:', sanitizedContent.length);
 
       // Create complete HTML document
       const fullHtml = createHtmlDocument(sanitizedContent);
+      console.log('📄 完整HTML文档长度:', fullHtml.length);
+      console.log('📄 HTML文档预览:', fullHtml.substring(0, 500) + '...');
+
+      // Validate HTML content before setting
+      if (!fullHtml || fullHtml.length === 0) {
+        console.warn('⚠️ Generated HTML content is empty, trying fallback...');
+        // Fallback: try to use validated content with minimal processing
+        const fallbackHtml = createHtmlDocument(validatedContent);
+        if (fallbackHtml && fallbackHtml.length > 0) {
+          console.log('🔄 使用验证后的内容作为fallback');
+          setHtmlContent(fallbackHtml);
+          return;
+        }
+        throw new Error('Generated HTML content is empty');
+      }
 
       setHtmlContent(fullHtml);
+      console.log('✅ HTML内容已设置到状态');
 
       // Load reading progress from service
       if (serviceRef.current) {
         try {
-          const progress = await serviceRef.current.getReadingProgress(report.id);
+          const progress = await serviceRef.current.getReadingProgress(
+            report.id
+          );
           setReadingProgress(progress);
           // Set currentScrollTop to percentage value for restoration
           setCurrentScrollTop(progress.currentPosition || 0);
@@ -167,7 +243,9 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
         } catch (progressError) {
           console.warn('Failed to load reading progress:', progressError);
           // Fallback to localStorage
-          const savedProgress = localStorage.getItem(`rnd-report-progress-${report.id}`);
+          const savedProgress = localStorage.getItem(
+            `rnd-report-progress-${report.id}`
+          );
           if (savedProgress) {
             const progress = JSON.parse(savedProgress);
             setReadingProgress(progress);
@@ -176,7 +254,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
           }
         }
       }
-
     } catch (err) {
       console.error('Failed to load report content:', err);
       setError(err instanceof Error ? err.message : 'Failed to load report');
@@ -291,8 +368,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
     `;
   };
 
-
-
   /**
    * Analyze HTML content for debugging
    */
@@ -303,8 +378,10 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
     const analysis = {
       hasHead: htmlContent.includes('<head>') || htmlContent.includes('<head '),
       hasBody: htmlContent.includes('<body>') || htmlContent.includes('<body '),
-      hasDoctype: htmlContent.includes('<!DOCTYPE') || htmlContent.includes('<!doctype'),
-      hasExternalCss: htmlContent.includes('<link') && htmlContent.includes('stylesheet'),
+      hasDoctype:
+        htmlContent.includes('<!DOCTYPE') || htmlContent.includes('<!doctype'),
+      hasExternalCss:
+        htmlContent.includes('<link') && htmlContent.includes('stylesheet'),
       hasInlineCss: htmlContent.includes('<style'),
       hasScript: htmlContent.includes('<script'),
       hasImages: htmlContent.includes('<img'),
@@ -317,11 +394,15 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
       hasHead: analysis.hasHead,
       hasBody: analysis.hasBody,
       hasDoctype: analysis.hasDoctype,
-      contentLength: analysis.contentLength
+      contentLength: analysis.contentLength,
     });
 
     // Determine HTML structure
-    if (htmlContent.includes('<html') && htmlContent.includes('<head') && htmlContent.includes('<body')) {
+    if (
+      htmlContent.includes('<html') &&
+      htmlContent.includes('<head') &&
+      htmlContent.includes('<body')
+    ) {
       analysis.structure = 'full';
     } else if (htmlContent.includes('<html') || htmlContent.includes('<body')) {
       analysis.structure = 'minimal';
@@ -331,34 +412,55 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
 
     // Check for potential issues
     if (analysis.hasExternalCss && analysis.structure === 'full') {
-      analysis.potentialIssues.push('Contains external CSS links that may not load in iframe');
+      analysis.potentialIssues.push(
+        'Contains external CSS links that may not load in iframe'
+      );
     }
 
     if (analysis.hasScript) {
-      analysis.potentialIssues.push('Contains scripts that may be restricted by iframe sandbox');
+      analysis.potentialIssues.push(
+        'Contains scripts that may be restricted by iframe sandbox'
+      );
     }
 
     // Check for problematic patterns
-    if (htmlContent.includes('display: none') || htmlContent.includes('visibility: hidden')) {
-      analysis.potentialIssues.push('Contains elements that may be intentionally hidden');
+    if (
+      htmlContent.includes('display: none') ||
+      htmlContent.includes('visibility: hidden')
+    ) {
+      analysis.potentialIssues.push(
+        'Contains elements that may be intentionally hidden'
+      );
     }
 
-    if (htmlContent.includes('position: fixed') || htmlContent.includes('position: absolute')) {
-      analysis.potentialIssues.push('Contains positioned elements that might cause layout issues');
+    if (
+      htmlContent.includes('position: fixed') ||
+      htmlContent.includes('position: absolute')
+    ) {
+      analysis.potentialIssues.push(
+        'Contains positioned elements that might cause layout issues'
+      );
     }
 
     // Check for source map references that may cause iframe errors
-    if (htmlContent.includes('sourceMappingURL') || htmlContent.includes('sourceURL')) {
-      analysis.potentialIssues.push('Contains source map references that may cause iframe errors');
+    if (
+      htmlContent.includes('sourceMappingURL') ||
+      htmlContent.includes('sourceURL')
+    ) {
+      analysis.potentialIssues.push(
+        'Contains source map references that may cause iframe errors'
+      );
     }
 
     console.log('🔍 HTML Content Analysis:', {
       structure: analysis.structure,
       length: `${analysis.contentLength} chars`,
       hasExternalResources: analysis.hasExternalCss || analysis.hasScript,
-      hasSourceMaps: htmlContent.includes('sourceMappingURL') || htmlContent.includes('sourceURL'),
+      hasSourceMaps:
+        htmlContent.includes('sourceMappingURL') ||
+        htmlContent.includes('sourceURL'),
       potentialIssues: analysis.potentialIssues.length,
-      issues: analysis.potentialIssues
+      issues: analysis.potentialIssues,
     });
 
     return analysis;
@@ -367,64 +469,132 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
   /**
    * Enhanced HTML processing for iframe compatibility
    */
-  const processHtmlContent = useCallback((originalContent: string, reportId: string) => {
-    let content = originalContent;
+  const processHtmlContent = useCallback(
+    (originalContent: string, reportId: string) => {
+      let content = originalContent;
 
-    console.log('🔧 开始处理HTML内容，原始长度:', content.length);
+      console.log('🔧 开始处理HTML内容，原始长度:', content.length);
 
-    // Only remove DOCTYPE if present (we'll add our own)
-    content = content.replace(/<!DOCTYPE[^>]*>/gi, '');
+      // Only remove DOCTYPE if present (we'll add our own)
+      content = content.replace(/<!DOCTYPE[^>]*>/gi, '');
 
-    // Remove source map references to prevent iframe errors
-    const contentBeforeProcessing = content;
-    content = content.replace(/\/\/#\s*sourceMappingURL\s*=\s*[^\s]*/gi, '');
-    content = content.replace(/\/\*#\s*sourceMappingURL\s*=\s*[^\s]*\*\//gi, '');
-    content = content.replace(/<!--#\s*sourceMappingURL\s*=\s*[^\s]*-->/gi, '');
+      // Remove source map references to prevent iframe errors
+      const contentBeforeProcessing = content;
+      content = content.replace(/\/\/#\s*sourceMappingURL\s*=\s*[^\s]*/gi, '');
+      content = content.replace(
+        /\/\*#\s*sourceMappingURL\s*=\s*[^\s]*\*\//gi,
+        ''
+      );
+      content = content.replace(
+        /<!--#\s*sourceMappingURL\s*=\s*[^\s]*-->/gi,
+        ''
+      );
 
-    // Remove sourceURL references
-    content = content.replace(/\/\/#\s*sourceURL\s*=\s*[^\s]*/gi, '');
+      // Remove sourceURL references
+      content = content.replace(/\/\/#\s*sourceURL\s*=\s*[^\s]*/gi, '');
 
-    // Log if source maps were removed
-    if (contentBeforeProcessing !== content) {
-      const removedSourceMaps = contentBeforeProcessing.length - content.length;
-      console.log(`🧹 已清理 ${removedSourceMaps} 个字符的source map引用`);
-    }
+      // Log if source maps were removed
+      if (contentBeforeProcessing !== content) {
+        const removedSourceMaps =
+          contentBeforeProcessing.length - content.length;
+        console.log(`🧹 已清理 ${removedSourceMaps} 个字符的source map引用`);
+      }
 
-    // Handle external CSS links - convert to comments to prevent 404 errors
-    const linkRegex = /<link[^>]*rel=["']stylesheet["'][^>]*href=["'][^"']*["'][^>]*>/gi;
-    const originalLinkCount = (content.match(linkRegex) || []).length;
-    content = content.replace(linkRegex, (match) => {
-      console.log('🔗 注释掉外部CSS链接:', match.substring(0, 100) + '...');
-      return `<!-- Commented out external CSS: ${match} -->`;
-    });
+      // Handle external CSS links - convert to comments to prevent 404 errors
+      const linkRegex =
+        /<link[^>]*rel=["']stylesheet["'][^>]*href=["'][^"']*["'][^>]*>/gi;
+      const originalLinkCount = (content.match(linkRegex) || []).length;
+      content = content.replace(linkRegex, match => {
+        console.log('🔗 注释掉外部CSS链接:', match.substring(0, 100) + '...');
+        return `<!-- Commented out external CSS: ${match} -->`;
+      });
 
-    if (originalLinkCount > 0) {
-      console.log(`🎨 已注释掉 ${originalLinkCount} 个外部CSS链接`);
-    }
+      if (originalLinkCount > 0) {
+        console.log(`🎨 已注释掉 ${originalLinkCount} 个外部CSS链接`);
+      }
 
-    // Handle scripts - add try-catch and defer to prevent blocking
-    const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
-    content = content.replace(scriptRegex, (match, scriptContent) => {
-      console.log('📜 处理JavaScript脚本');
-      return `<script>
+      // Handle scripts - add try-catch and defer to prevent blocking
+      const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+      content = content.replace(scriptRegex, (match, scriptContent) => {
+        console.log('📜 处理JavaScript脚本');
+        return `<script>
         try {
           ${scriptContent}
         } catch (error) {
           console.warn('Script execution failed in iframe:', error.message);
         }
       </script>`;
+      });
+
+      // If the content already has html/head/body structure, preserve it
+      if (
+        content.includes('<html') &&
+        content.includes('<head') &&
+        content.includes('<body')
+      ) {
+        console.log('✅ HTML结构完整，使用原始结构');
+        return content;
+      }
+
+      // For simple HTML content without full structure, wrap it minimally
+      console.log('🔄 HTML结构不完整，进行包装');
+      return `<html><head><title>Report</title></head><body>${content}</body></html>`;
+    },
+    []
+  );
+
+  /**
+   * Debug localStorage content
+   */
+  const debugLocalStorage = useCallback(() => {
+    console.log('🔍 Debugging localStorage for report:', report.id);
+    const keys = Object.keys(localStorage).filter(
+      key => key.includes('rnd-report') && key.includes(report.id)
+    );
+
+    keys.forEach(key => {
+      const value = localStorage.getItem(key);
+      console.log(`📦 ${key}:`, {
+        length: value?.length || 0,
+        preview: value?.substring(0, 200) + '...' || 'null',
+      });
+
+      // Special analysis for HTML content
+      if (key.includes('content') && value) {
+        console.log('🔍 HTML Content Analysis:');
+        console.log(
+          '- Is HTML:',
+          value.includes('<html') || value.includes('<HTML')
+        );
+        console.log(
+          '- Has head:',
+          value.includes('<head') || value.includes('<HEAD')
+        );
+        console.log(
+          '- Has body:',
+          value.includes('<body') || value.includes('<BODY')
+        );
+        console.log(
+          '- Has DOCTYPE:',
+          value.includes('<!DOCTYPE') || value.includes('<!doctype')
+        );
+        console.log('- Has scripts:', value.includes('<script'));
+        console.log('- Has styles:', value.includes('<style'));
+        console.log(
+          '- Has external CSS:',
+          value.includes('<link') && value.includes('stylesheet')
+        );
+        console.log(
+          '- Content structure:',
+          value.includes('<html') &&
+            value.includes('<head') &&
+            value.includes('<body')
+            ? 'Complete'
+            : 'Fragment'
+        );
+      }
     });
-
-    // If the content already has html/head/body structure, preserve it
-    if (content.includes('<html') && content.includes('<head') && content.includes('<body')) {
-      console.log('✅ HTML结构完整，使用原始结构');
-      return content;
-    }
-
-    // For simple HTML content without full structure, wrap it minimally
-    console.log('🔄 HTML结构不完整，进行包装');
-    return `<html><head><title>Report</title></head><body>${content}</body></html>`;
-  }, []);
+  }, [report.id]);
 
   /**
    * Handle iframe load
@@ -436,7 +606,9 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
       console.log('📄 Iframe loaded, setting up content...');
 
       // Set up scroll tracking (simplified without iframe-resizer)
-      const iframeDocument = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
+      const iframeDocument =
+        iframeRef.current.contentDocument ||
+        iframeRef.current.contentWindow?.document;
 
       if (!iframeDocument) {
         console.error('❌ Cannot access iframe document');
@@ -455,24 +627,28 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
       console.log('✅ Iframe body found:', {
         childNodes: bodyElement.childNodes.length,
         innerHTML: bodyElement.innerHTML.substring(0, 200) + '...',
-        computedStyle: window.getComputedStyle(bodyElement)
+        computedStyle: window.getComputedStyle(bodyElement),
       });
 
       // Basic debugging
       console.log('🔍 Iframe loaded:', {
         title: iframeDocument.title,
         bodyChildren: bodyElement.children.length,
-        bodyText: bodyElement.textContent?.substring(0, 50) + '...'
+        bodyText: bodyElement.textContent?.substring(0, 50) + '...',
       });
 
       // Simple visibility check
       try {
-        const hiddenElements = iframeDocument.querySelectorAll('[style*="display: none"], [hidden]');
+        const hiddenElements = iframeDocument.querySelectorAll(
+          '[style*="display: none"], [hidden]'
+        );
         if (hiddenElements.length > 0) {
-          console.warn(`🚨 Found ${hiddenElements.length} hidden elements, applying basic fixes`);
+          console.warn(
+            `🚨 Found ${hiddenElements.length} hidden elements, applying basic fixes`
+          );
           hiddenElements.forEach((el, index) => {
             if (index < 5 && !el.hasAttribute('data-fixed')) {
-              el.style.display = 'block';
+              (el as HTMLElement).style.display = 'block';
               el.setAttribute('data-fixed', 'true');
               console.log('✅ Fixed hidden element:', el.tagName);
             }
@@ -483,20 +659,31 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
       }
 
       // Minimal intervention - only fix if body is completely empty or hidden
-      const computedStyle = iframeDocument.defaultView?.getComputedStyle(bodyElement) || window.getComputedStyle(bodyElement);
+      const computedStyle =
+        iframeDocument.defaultView?.getComputedStyle(bodyElement) ||
+        window.getComputedStyle(bodyElement);
 
       // Only intervene if the body has no visible content at all
-      if (bodyElement.childNodes.length === 0 ||
-          (computedStyle.display === 'none' && !bodyElement.hasAttribute('data-original-display'))) {
-        console.warn('⚠️ Body appears to be empty or hidden, applying minimal fix');
+      if (
+        bodyElement.childNodes.length === 0 ||
+        (computedStyle.display === 'none' &&
+          !bodyElement.hasAttribute('data-original-display'))
+      ) {
+        console.warn(
+          '⚠️ Body appears to be empty or hidden, applying minimal fix'
+        );
         bodyElement.style.display = 'block';
         bodyElement.style.minHeight = '100px';
       }
 
       // Basic content validation
-      if (!bodyElement.textContent?.trim() && bodyElement.children.length === 0) {
+      if (
+        !bodyElement.textContent?.trim() &&
+        bodyElement.children.length === 0
+      ) {
         console.warn('⚠️ Body appears empty, setting basic content');
-        bodyElement.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">内容加载中...</div>';
+        bodyElement.innerHTML =
+          '<div style="padding: 20px; text-align: center; color: #666;">内容加载中...</div>';
       }
 
       if (iframeDocument) {
@@ -506,7 +693,9 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
           }
 
           scrollTimeoutRef.current = setTimeout(async () => {
-            const scrollTop = iframeDocument.documentElement.scrollTop || iframeDocument.body.scrollTop;
+            const scrollTop =
+              iframeDocument.documentElement.scrollTop ||
+              iframeDocument.body.scrollTop;
             const scrollHeight = iframeDocument.documentElement.scrollHeight;
             const clientHeight = iframeRef.current?.clientHeight || 600;
 
@@ -520,7 +709,18 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
               setContentHeight(scrollHeight);
 
               // Update currentScrollTop with percentage for consistency
-              const currentPercentage = scrollHeight <= clientHeight ? 100 : Math.min(100, Math.max(0, Math.round((scrollTop / (scrollHeight - clientHeight)) * 100)));
+              const currentPercentage =
+                scrollHeight <= clientHeight
+                  ? 100
+                  : Math.min(
+                      100,
+                      Math.max(
+                        0,
+                        Math.round(
+                          (scrollTop / (scrollHeight - clientHeight)) * 100
+                        )
+                      )
+                    );
               setCurrentScrollTop(currentPercentage);
 
               // Update progress
@@ -530,7 +730,16 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
               if (serviceRef.current && serviceReady) {
                 try {
                   const maxScrollTop = scrollHeight - clientHeight;
-                  const progressPercentage = scrollHeight <= clientHeight ? 100 : Math.min(100, Math.max(0, Math.round((scrollTop / maxScrollTop) * 100)));
+                  const progressPercentage =
+                    scrollHeight <= clientHeight
+                      ? 100
+                      : Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            Math.round((scrollTop / maxScrollTop) * 100)
+                          )
+                        );
 
                   const progressData: Partial<ReadingProgress> = {
                     currentPosition: progressPercentage,
@@ -538,14 +747,27 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                     currentPage: Math.ceil(scrollTop / clientHeight) + 1,
                   };
 
-                  const updatedProgress = await serviceRef.current.updateReadingProgress(report.id, progressData);
+                  const updatedProgress =
+                    await serviceRef.current.updateReadingProgress(
+                      report.id,
+                      progressData
+                    );
                   setReadingProgress(updatedProgress);
                   console.log('💾 Auto-saved reading progress:', progressData);
                 } catch (saveError) {
                   console.error('Failed to save reading progress:', saveError);
                   // Fallback to localStorage
                   const maxScrollTop = scrollHeight - clientHeight;
-                  const progressPercentage = scrollHeight <= clientHeight ? 100 : Math.min(100, Math.max(0, Math.round((scrollTop / maxScrollTop) * 100)));
+                  const progressPercentage =
+                    scrollHeight <= clientHeight
+                      ? 100
+                      : Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            Math.round((scrollTop / maxScrollTop) * 100)
+                          )
+                        );
 
                   const progressData: ReadingProgress = {
                     reportId: report.id,
@@ -555,13 +777,25 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                     lastReadAt: new Date(),
                     bookmarks: readingProgress?.bookmarks || [],
                   };
-                  localStorage.setItem(`rnd-report-progress-${report.id}`, JSON.stringify(progressData));
+                  localStorage.setItem(
+                    `rnd-report-progress-${report.id}`,
+                    JSON.stringify(progressData)
+                  );
                   setReadingProgress(progressData);
                 }
               } else {
                 // Fallback to localStorage if service not ready
                 const maxScrollTop = scrollHeight - clientHeight;
-                const progressPercentage = scrollHeight <= clientHeight ? 100 : Math.min(100, Math.max(0, Math.round((scrollTop / maxScrollTop) * 100)));
+                const progressPercentage =
+                  scrollHeight <= clientHeight
+                    ? 100
+                    : Math.min(
+                        100,
+                        Math.max(
+                          0,
+                          Math.round((scrollTop / maxScrollTop) * 100)
+                        )
+                      );
 
                 const progressData: ReadingProgress = {
                   reportId: report.id,
@@ -571,7 +805,10 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                   lastReadAt: new Date(),
                   bookmarks: readingProgress?.bookmarks || [],
                 };
-                localStorage.setItem(`rnd-report-progress-${report.id}`, JSON.stringify(progressData));
+                localStorage.setItem(
+                  `rnd-report-progress-${report.id}`,
+                  JSON.stringify(progressData)
+                );
                 setReadingProgress(progressData);
               }
             }
@@ -579,7 +816,9 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
         };
 
         // Add scroll event listener
-        iframeDocument.addEventListener('scroll', handleScroll, { passive: true });
+        iframeDocument.addEventListener('scroll', handleScroll, {
+          passive: true,
+        });
 
         // Restore scroll position if available
         if (currentScrollTop > 0 && readingProgress) {
@@ -596,7 +835,12 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
             }
 
             iframeDocument.documentElement.scrollTop = targetScrollTop;
-            console.log('📖 Restored scroll position:', targetScrollTop, 'from percentage:', currentScrollTop);
+            console.log(
+              '📖 Restored scroll position:',
+              targetScrollTop,
+              'from percentage:',
+              currentScrollTop
+            );
           }, 500);
         }
 
@@ -609,61 +853,74 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
       console.error('Failed to initialize iframe:', err);
       setError('Failed to initialize report viewer');
     }
-  }, [report.id, currentScrollTop, readingProgress, onProgressUpdate, serviceReady]);
+  }, [
+    report.id,
+    currentScrollTop,
+    readingProgress,
+    onProgressUpdate,
+    serviceReady,
+  ]);
 
   /**
    * Handle progress slider change
    */
-  const handleProgressChange = useCallback((value: number) => {
-    if (!iframeRef.current?.contentWindow) return;
+  const handleProgressChange = useCallback(
+    (value: number) => {
+      if (!iframeRef.current?.contentWindow) return;
 
-    const scrollHeight = contentHeight;
-    const clientHeight = iframeRef.current.contentWindow.innerHeight;
-    const maxScrollTop = scrollHeight - clientHeight;
-    const targetScrollTop = (value / 100) * maxScrollTop;
+      const scrollHeight = contentHeight;
+      const clientHeight = iframeRef.current.contentWindow.innerHeight;
+      const maxScrollTop = scrollHeight - clientHeight;
+      const targetScrollTop = (value / 100) * maxScrollTop;
 
-    iframeRef.current.contentWindow.scrollTo({
-      top: targetScrollTop,
-      behavior: 'smooth',
-    });
+      iframeRef.current.contentWindow.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth',
+      });
 
-    // Update currentScrollTop with the percentage value for consistency
-    setCurrentScrollTop(value);
-    onProgressUpdate(value);
-  }, [contentHeight, onProgressUpdate]);
+      // Update currentScrollTop with the percentage value for consistency
+      setCurrentScrollTop(value);
+      onProgressUpdate(value);
+    },
+    [contentHeight, onProgressUpdate]
+  );
 
   /**
    * Handle keyboard shortcuts
    */
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (!isOpen) return;
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (!isOpen) return;
 
-    switch (event.key) {
-      case 'Escape':
-        onClose();
-        break;
-      case 'F11':
-      case 'F':
-        if (event.ctrlKey || event.metaKey) {
-          event.preventDefault();
-          onFullscreenToggle();
-        }
-        break;
-      case 'S':
-        if (event.ctrlKey || event.metaKey) {
-          event.preventDefault();
-          onSettingsToggle();
-        }
-        break;
-    }
-  }, [isOpen, onClose, onFullscreenToggle, onSettingsToggle]);
+      switch (event.key) {
+        case 'Escape':
+          onClose();
+          break;
+        case 'F11':
+        case 'F':
+          if (event.ctrlKey || event.metaKey) {
+            event.preventDefault();
+            onFullscreenToggle();
+          }
+          break;
+        case 'S':
+          if (event.ctrlKey || event.metaKey) {
+            event.preventDefault();
+            onSettingsToggle();
+          }
+          break;
+      }
+    },
+    [isOpen, onClose, onFullscreenToggle, onSettingsToggle]
+  );
 
   // Effects
   useEffect(() => {
     if (isOpen) {
+      debugLocalStorage();
       loadReportContent();
     }
-  }, [isOpen, loadReportContent]);
+  }, [isOpen, loadReportContent, debugLocalStorage]);
 
   useEffect(() => {
     if (isOpen) {
@@ -690,23 +947,36 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
   return (
     <Modal
       title={
-        <Space direction="vertical" size={0} style={{ width: '100%' }}>
-          <Space align="center">
+        <Space direction='vertical' size={0} style={{ width: '100%' }}>
+          <Space align='center'>
             <FileTextOutlined />
             <Title level={4} style={{ margin: 0 }}>
               {report.name}
             </Title>
-            <Tag color="default" style={{ backgroundColor: '#666', color: 'white', borderColor: '#666' }}>
+            <Tag
+              color='default'
+              style={{
+                backgroundColor: '#666',
+                color: 'white',
+                borderColor: '#666',
+              }}
+            >
               {FileProcessingUtils.formatFileSize(report.fileSize)}
             </Tag>
             {readingProgress && (
-              <Tag style={{ backgroundColor: '#666', borderColor: '#666', color: 'white' }}>
+              <Tag
+                style={{
+                  backgroundColor: '#666',
+                  borderColor: '#666',
+                  color: 'white',
+                }}
+              >
                 {readingProgress.currentPosition}% {t('rndReport.viewer.read')}
               </Tag>
             )}
           </Space>
           {report.metadata?.title && report.metadata.title !== report.name && (
-            <Text type="secondary" style={{ fontSize: '14px' }}>
+            <Text type='secondary' style={{ fontSize: '14px' }}>
               {report.metadata.title}
             </Text>
           )}
@@ -726,34 +996,45 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
           padding: 0,
           display: 'flex',
           flexDirection: 'column',
-        }
+        },
       }}
       centered={!isFullscreen}
       destroyOnClose
       maskClosable={!isFullscreen}
-      className={className}
+      {...(className && { className })}
     >
-      <div ref={containerRef} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div
+        ref={containerRef}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+      >
         {/* Toolbar */}
-        <div style={{
-          padding: '12px 24px',
-          borderBottom: '1px solid #f0f0f0',
-          background: '#fafafa',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
+        <div
+          style={{
+            padding: '12px 24px',
+            borderBottom: '1px solid #f0f0f0',
+            background: '#fafafa',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <Space>
             <Tooltip title={t('rndReport.viewer.shortcuts.fullscreen')}>
               <Button
-                type="text"
-                icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+                type='text'
+                icon={
+                  isFullscreen ? (
+                    <FullscreenExitOutlined />
+                  ) : (
+                    <FullscreenOutlined />
+                  )
+                }
                 onClick={onFullscreenToggle}
               />
             </Tooltip>
             <Tooltip title={t('rndReport.viewer.shortcuts.settings')}>
               <Button
-                type="text"
+                type='text'
                 icon={<SettingOutlined />}
                 onClick={onSettingsToggle}
               />
@@ -762,9 +1043,12 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
 
           <Space>
             {readingProgress && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Text type="secondary" style={{ fontSize: '12px' }}>
-                  {t('rndReport.viewer.page')} {readingProgress.currentPage} / {readingProgress.totalPages}
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
+              >
+                <Text type='secondary' style={{ fontSize: '12px' }}>
+                  {t('rndReport.viewer.page')} {readingProgress.currentPage} /{' '}
+                  {readingProgress.totalPages}
                 </Text>
                 <div style={{ width: '200px' }}>
                   <Slider
@@ -772,15 +1056,15 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                     onChange={handleProgressChange}
                     min={0}
                     max={100}
-                    tooltip={{ formatter: (value) => `${value}%` }}
+                    tooltip={{ formatter: value => `${value}%` }}
                   />
                 </div>
-                <Text type="secondary" style={{ fontSize: '12px' }}>
+                <Text type='secondary' style={{ fontSize: '12px' }}>
                   {readingProgress.currentPosition}%
                 </Text>
               </div>
             )}
-            <Button type="text" icon={<CloseOutlined />} onClick={onClose}>
+            <Button type='text' icon={<CloseOutlined />} onClick={onClose}>
               {t('common.close')}
             </Button>
           </Space>
@@ -791,20 +1075,22 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
           {/* Main Content */}
           <div style={{ flex: 1, position: 'relative' }}>
             {loading && (
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: '#fff',
-                zIndex: 10,
-              }}>
-                <Space direction="vertical" align="center">
-                  <Spin size="large" />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#fff',
+                  zIndex: 10,
+                }}
+              >
+                <Space direction='vertical' align='center'>
+                  <Spin size='large' />
                   <Text>{t('rndReport.viewer.loading')}</Text>
                 </Space>
               </div>
@@ -815,22 +1101,61 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                 <Alert
                   message={t('rndReport.viewer.error')}
                   description={error}
-                  type="error"
+                  type='error'
                   showIcon
                 />
+                {htmlContent && (
+                  <div style={{ marginTop: '16px' }}>
+                    <Button
+                      onClick={() => {
+                        console.log('🔍 Testing HTML content directly...');
+                        console.log('HTML length:', htmlContent.length);
+                        console.log(
+                          'HTML preview:',
+                          htmlContent.substring(0, 1000) + '...'
+                        );
+
+                        // Try to create a simple test
+                        const testWindow = window.open('', '_blank');
+                        if (testWindow) {
+                          testWindow.document.write(htmlContent);
+                          testWindow.document.close();
+                        }
+                      }}
+                    >
+                      Test HTML Content in New Window
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
             {!loading && !error && htmlContent && (
-              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-
+              <div
+                style={{ position: 'relative', width: '100%', height: '100%' }}
+              >
                 <iframe
                   ref={iframeRef}
                   srcDoc={htmlContent}
-                  onLoad={handleIframeLoad}
-                  onError={(e) => {
+                  onLoad={e => {
+                    console.log('✅ Iframe loaded successfully');
+                    console.log(
+                      '📄 Iframe document:',
+                      iframeRef.current?.contentDocument?.body?.innerHTML?.substring(
+                        0,
+                        200
+                      ) + '...'
+                    );
+                    handleIframeLoad();
+                  }}
+                  onError={e => {
                     console.error('❌ Iframe failed to load:', e);
-                    setError('Failed to render HTML content');
+                    console.log('🔍 HTML content length:', htmlContent.length);
+                    console.log(
+                      '🔍 HTML content preview:',
+                      htmlContent.substring(0, 500) + '...'
+                    );
+                    setError('Iframe failed to load HTML content');
                   }}
                   style={{
                     width: '100%',
@@ -839,7 +1164,42 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                     background: '#fff',
                   }}
                   title={report.name}
-                  sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation"
+                  sandbox='allow-same-origin allow-scripts allow-forms allow-popups allow-presentation'
+                />
+              </div>
+            )}
+
+            {/* Fallback display if iframe fails */}
+            {!loading && error && htmlContent && (
+              <div
+                style={{ padding: '24px', height: '100%', overflow: 'auto' }}
+              >
+                <Alert
+                  message='Iframe加载失败'
+                  description='尝试直接显示HTML内容'
+                  type='warning'
+                  showIcon
+                  style={{ marginBottom: '16px' }}
+                />
+                <div
+                  dangerouslySetInnerHTML={{ __html: htmlContent }}
+                  style={{
+                    border: '1px solid #d9d9d9',
+                    padding: '16px',
+                    background: '#fff',
+                    minHeight: '400px',
+                  }}
+                />
+              </div>
+            )}
+
+            {!loading && !error && !htmlContent && (
+              <div style={{ padding: '24px', textAlign: 'center' }}>
+                <Alert
+                  message='HTML内容未加载'
+                  description='HTML内容为空或未正确设置'
+                  type='warning'
+                  showIcon
                 />
               </div>
             )}
@@ -847,28 +1207,44 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
 
           {/* Settings Panel */}
           {showSettings && (
-            <div style={{
-              width: '300px',
-              borderLeft: '1px solid #f0f0f0',
-              background: '#fafafa',
-              padding: '16px',
-              overflowY: 'auto',
-            }}>
+            <div
+              style={{
+                width: '300px',
+                borderLeft: '1px solid #f0f0f0',
+                background: '#fafafa',
+                padding: '16px',
+                overflowY: 'auto',
+              }}
+            >
               <Title level={5}>{t('rndReport.viewer.settings.title')}</Title>
               <Divider />
 
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <Space
+                direction='vertical'
+                size='middle'
+                style={{ width: '100%' }}
+              >
                 {/* Report Info */}
                 <div>
                   <Text strong>{t('rndReport.viewer.settings.info')}</Text>
                   <div style={{ marginTop: '8px' }}>
-                    <Space direction="vertical" size={4}>
-                      <Text><FileTextOutlined /> {report.name}</Text>
-                      <Text><CalendarOutlined /> {DateUtils.getRelativeTimeString(report.uploadDate)}</Text>
+                    <Space direction='vertical' size={4}>
+                      <Text>
+                        <FileTextOutlined /> {report.name}
+                      </Text>
+                      <Text>
+                        <CalendarOutlined />{' '}
+                        {DateUtils.getRelativeTimeString(report.uploadDate)}
+                      </Text>
                       {report.metadata?.author && (
-                        <Text><UserOutlined /> {report.metadata.author}</Text>
+                        <Text>
+                          <UserOutlined /> {report.metadata.author}
+                        </Text>
                       )}
-                      <Text><ClockCircleOutlined /> {FileProcessingUtils.formatFileSize(report.fileSize)}</Text>
+                      <Text>
+                        <ClockCircleOutlined />{' '}
+                        {FileProcessingUtils.formatFileSize(report.fileSize)}
+                      </Text>
                     </Space>
                   </div>
                 </div>
@@ -878,38 +1254,52 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                 {/* Reading Progress */}
                 {readingProgress && (
                   <div>
-                    <Text strong>{t('rndReport.viewer.settings.progress')}</Text>
+                    <Text strong>
+                      {t('rndReport.viewer.settings.progress')}
+                    </Text>
                     <div style={{ marginTop: '8px' }}>
                       <Progress
                         percent={readingProgress.currentPosition}
-                        size="small"
-                        strokeColor="#666"
+                        size='small'
+                        strokeColor='#666'
                       />
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        {t('rndReport.viewer.lastRead')}: {DateUtils.getRelativeTimeString(readingProgress.lastReadAt)}
+                      <Text type='secondary' style={{ fontSize: '12px' }}>
+                        {t('rndReport.viewer.lastRead')}:{' '}
+                        {DateUtils.getRelativeTimeString(
+                          readingProgress.lastReadAt
+                        )}
                       </Text>
                     </div>
                   </div>
                 )}
 
                 {/* Bookmarks */}
-                {readingProgress?.bookmarks && readingProgress.bookmarks.length > 0 && (
-                  <div>
-                    <Text strong>{t('rndReport.viewer.settings.bookmarks')}</Text>
-                    <div style={{ marginTop: '8px' }}>
-                      {readingProgress.bookmarks.map((bookmark, index) => (
-                        <div key={bookmark.id || index} style={{ marginBottom: '8px' }}>
-                          <Tag
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => handleProgressChange(bookmark.position)}
+                {readingProgress?.bookmarks &&
+                  readingProgress.bookmarks.length > 0 && (
+                    <div>
+                      <Text strong>
+                        {t('rndReport.viewer.settings.bookmarks')}
+                      </Text>
+                      <div style={{ marginTop: '8px' }}>
+                        {readingProgress.bookmarks.map((bookmark, index) => (
+                          <div
+                            key={bookmark.id || index}
+                            style={{ marginBottom: '8px' }}
                           >
-                            {bookmark.title || `${t('rndReport.viewer.bookmark')} ${index + 1}`}
-                          </Tag>
-                        </div>
-                      ))}
+                            <Tag
+                              style={{ cursor: 'pointer' }}
+                              onClick={() =>
+                                handleProgressChange(bookmark.position)
+                              }
+                            >
+                              {bookmark.title ||
+                                `${t('rndReport.viewer.bookmark')} ${index + 1}`}
+                            </Tag>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </Space>
             </div>
           )}

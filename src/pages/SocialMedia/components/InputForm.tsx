@@ -3,7 +3,7 @@
  * TK Viral Extract参数输入表单组件
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Form, Input, Button } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
 import { useMessage } from '@/hooks/useMessage';
@@ -22,23 +22,26 @@ const InputForm: React.FC<{
   onRefresh?: () => void;
   loading?: boolean;
   disabled?: boolean;
-}> = ({
-  value,
-  onSubmit,
-  onRefresh,
-  loading = false,
-  disabled = false,
-}) => {
+}> = ({ value, onSubmit, onRefresh, loading = false, disabled = false }) => {
   const [form] = Form.useForm();
   const message = useMessage();
 
+  // 确保Form组件已连接
+  useEffect(() => {
+    if (form) {
+      console.log('InputForm: Form instance connected');
+    }
+  }, [form]);
 
   /**
    * 处理表单提交
    */
   const handleSubmit = useCallback(
     async (values: WorkflowParameters) => {
-      console.log('TKViralExtract InputForm handleSubmit called with values:', values);
+      console.log(
+        'TKViralExtract InputForm handleSubmit called with values:',
+        values
+      );
       try {
         // Ant Design已经处理了表单验证，这里只需要清理输入值
         const cleanedValues: WorkflowParameters = {
@@ -80,7 +83,6 @@ const InputForm: React.FC<{
     { label: '180 - 最近180天', value: '180' },
   ];
 
-
   return (
     <div style={{ width: '100%' }}>
       <Form
@@ -89,11 +91,30 @@ const InputForm: React.FC<{
         initialValues={value}
         onFinish={handleSubmit}
         disabled={disabled || loading}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          flexWrap: 'wrap',
+        }}
       >
         {/* 检索关键词 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '300px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            minWidth: '300px',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '12px',
+              fontWeight: 'bold',
+              whiteSpace: 'nowrap',
+            }}
+          >
             关键词 <span style={{ color: '#ff4d4f' }}>*</span>
           </span>
           <Item
@@ -111,31 +132,55 @@ const InputForm: React.FC<{
         {/* 参数字段 - 横向排列 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>偏移</span>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 'bold',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              偏移
+            </span>
             <Item name='offset' style={{ marginBottom: 0, width: '70px' }}>
               <Input
                 placeholder='0'
                 style={{ height: '32px', fontSize: '12px', padding: '4px 6px' }}
-                type="number"
-                min="0"
+                type='number'
+                min='0'
               />
             </Item>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>数量</span>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 'bold',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              数量
+            </span>
             <Item name='count' style={{ marginBottom: 0, width: '70px' }}>
               <Input
                 placeholder='20'
                 style={{ height: '32px', fontSize: '12px', padding: '4px 6px' }}
-                type="number"
-                min="1"
+                type='number'
+                min='1'
               />
             </Item>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>排序</span>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 'bold',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              排序
+            </span>
             <Item name='sortMethod' style={{ marginBottom: 0, width: '120px' }}>
               <select
                 title='选择排序方法'
@@ -161,7 +206,15 @@ const InputForm: React.FC<{
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>时间</span>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 'bold',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              时间
+            </span>
             <Item name='timeRange' style={{ marginBottom: 0, width: '120px' }}>
               <select
                 title='选择发布时间范围'
@@ -188,7 +241,14 @@ const InputForm: React.FC<{
         </div>
 
         {/* 按钮组 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginLeft: 'auto',
+          }}
+        >
           {/* 刷新按钮 */}
           <Button
             type='default'
@@ -200,7 +260,7 @@ const InputForm: React.FC<{
               padding: '0 16px',
               backgroundColor: '#f5f5f5',
               borderColor: '#d9d9d9',
-              color: '#666'
+              color: '#666',
             }}
             icon={<span style={{ fontSize: '12px' }}>🔄</span>}
           >
@@ -219,7 +279,7 @@ const InputForm: React.FC<{
               padding: '0 16px',
               backgroundColor: '#f5f5f5',
               borderColor: '#d9d9d9',
-              color: '#666'
+              color: '#666',
             }}
             icon={<RocketOutlined />}
           >

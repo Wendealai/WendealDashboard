@@ -31,7 +31,16 @@ const grayTabStyles = `
 }
 </style>
 `;
-import { Tabs, Card, Typography, Space, Button, Badge, message, Tooltip, Alert } from 'antd';
+import {
+  Tabs,
+  Card,
+  Typography,
+  Space,
+  Button,
+  Badge,
+  Tooltip,
+  Alert,
+} from 'antd';
 import {
   FileTextOutlined,
   UploadOutlined,
@@ -42,6 +51,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useMessage } from '@/hooks/useMessage';
 
 // Import R&D Report components (will be created in subsequent tasks)
 import UploadZone from './components/UploadZone';
@@ -63,7 +73,6 @@ import { FileProcessingUtils } from '../../utils/rndReportUtils';
 
 // Import hooks and utilities
 import { useAppSelector, useAppDispatch } from '../../hooks';
-import { useMessage } from '../../hooks/useMessage';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -90,7 +99,6 @@ const RNDReport: React.FC = () => {
   });
 
   const [listViewState, setListViewState] = useState<ReportListViewState>({
-    selectedCategoryId: undefined,
     searchFilters: {},
     sortOptions: {
       field: 'uploadDate',
@@ -102,6 +110,12 @@ const RNDReport: React.FC = () => {
 
   const [viewerState, setViewerState] = useState<ReportViewerState>({
     isOpen: false,
+    readingProgress: {
+      reportId: '',
+      currentPosition: 0,
+      lastReadAt: new Date(),
+      bookmarks: [],
+    },
     isFullscreen: false,
     showSettings: false,
   });
@@ -111,7 +125,6 @@ const RNDReport: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [currentReport, setCurrentReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
-
 
   /**
    * Initialize R&D Report service
@@ -154,7 +167,6 @@ const RNDReport: React.FC = () => {
     initializeService();
   }, []);
 
-
   /**
    * Load initial data
    */
@@ -167,118 +179,145 @@ const RNDReport: React.FC = () => {
 
       // 为每个报告同步阅读进度
       const reportsWithProgress = await Promise.all(
-        reportsResponse.reports.map(async (report) => {
+        reportsResponse.reports.map(async report => {
           try {
-            const readingProgress = await rndService.getReadingProgress(report.id);
+            const readingProgress = await rndService.getReadingProgress(
+              report.id
+            );
             return {
               ...report,
-              readingProgress: readingProgress.currentPosition || 0
+              readingProgress: readingProgress.currentPosition || 0,
             };
           } catch (error) {
             // 如果获取失败，使用现有的readingProgress
-            console.warn(`Failed to load reading progress for report ${report.id}:`, error);
+            console.warn(
+              `Failed to load reading progress for report ${report.id}:`,
+              error
+            );
             return report;
           }
         })
       );
 
       setReports(reportsWithProgress);
-      console.log('📋 Reports loaded with progress:', reportsWithProgress.length);
+      console.log(
+        '📋 Reports loaded with progress:',
+        reportsWithProgress.length
+      );
 
       // Load categories
       const categoriesResponse = await rndService.getCategories();
       setCategories(categoriesResponse.categories);
-      console.log('📂 Categories loaded:', categoriesResponse.categories.length);
+      console.log(
+        '📂 Categories loaded:',
+        categoriesResponse.categories.length
+      );
 
-        console.log('✅ Initial data loading completed');
-        console.log('📊 Current state:', { reports: reportsResponse.reports.length, categories: categoriesResponse.categories.length });
+      console.log('✅ Initial data loading completed');
+      console.log('📊 Current state:', {
+        reports: reportsResponse.reports.length,
+        categories: categoriesResponse.categories.length,
+      });
 
-
-        // Check data consistency
-        const localStorageCount = Object.keys(localStorage).filter(key => key.startsWith('rnd-report-content-')).length;
-        if (reportsResponse.reports.length === 0 && localStorageCount > 0) {
-          console.warn('⚠️ Potential data inconsistency: No reports loaded but files exist in localStorage');
-        } else if (reportsResponse.reports.length > 0 && localStorageCount === 0) {
-          console.warn('⚠️ Potential data inconsistency: Reports exist but no files in localStorage');
-        }
-
+      // Check data consistency
+      const localStorageCount = Object.keys(localStorage).filter(key =>
+        key.startsWith('rnd-report-content-')
+      ).length;
+      if (reportsResponse.reports.length === 0 && localStorageCount > 0) {
+        console.warn(
+          '⚠️ Potential data inconsistency: No reports loaded but files exist in localStorage'
+        );
+      } else if (
+        reportsResponse.reports.length > 0 &&
+        localStorageCount === 0
+      ) {
+        console.warn(
+          '⚠️ Potential data inconsistency: Reports exist but no files in localStorage'
+        );
+      }
     } catch (error) {
       console.error('❌ Failed to load initial data:', error);
       messageApi.error(t('rndReport.errors.loadDataFailed'));
-
     }
   };
 
   /**
    * Handle file upload with individual category selection
    */
-  const handleFileUpload = useCallback(async (files: File[], fileCategories?: Map<string, string>) => {
-    if (!service || !isServiceReady) {
-      messageApi.error(t('rndReport.errors.serviceNotReady'));
-      return;
-    }
+  const handleFileUpload = useCallback(
+    async (files: File[], fileCategories?: Map<string, string>) => {
+      if (!service || !isServiceReady) {
+        messageApi.error(t('rndReport.errors.serviceNotReady'));
+        return;
+      }
 
-    setUploadState(prev => ({ ...prev, isUploading: true, progress: 0 }));
+      setUploadState(prev => ({ ...prev, isUploading: true, progress: 0 }));
 
-    try {
-      const uploadPromises = files.map(async (file, index) => {
-        // Get category for this file
-        const categoryId = fileCategories?.get(file.name) || '';
+      try {
+        const uploadPromises = files.map(async (file, index) => {
+          // Get category for this file
+          const categoryId = fileCategories?.get(file.name) || '';
 
-        // Upload file with its specific category
-        const result = await service.uploadFile(file, categoryId);
+          // Upload file with its specific category
+          const result = await service.uploadFile(file, categoryId);
 
-        // Update progress
+          // Update progress
+          setUploadState(prev => ({
+            ...prev,
+            progress: Math.round(((index + 1) / files.length) * 100),
+            uploadedFiles: [...prev.uploadedFiles, file.name],
+          }));
+
+          return result;
+        });
+
+        await Promise.all(uploadPromises);
+
+        // Reload data
+        console.log('🔄 Reloading data after upload...');
+        await loadInitialData(service);
+
+        messageApi.success(
+          t('rndReport.messages.uploadSuccess', { count: files.length })
+        );
+
+        setUploadState({
+          isUploading: false,
+          progress: 100,
+          uploadedFiles: [],
+        });
+      } catch (error) {
+        console.error('Upload failed:', error);
+        messageApi.error(t('rndReport.errors.uploadFailed'));
+
         setUploadState(prev => ({
           ...prev,
-          progress: Math.round(((index + 1) / files.length) * 100),
-          uploadedFiles: [...prev.uploadedFiles, file.name],
+          isUploading: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
         }));
-
-        return result;
-      });
-
-      await Promise.all(uploadPromises);
-
-      // Reload data
-      console.log('🔄 Reloading data after upload...');
-      await loadInitialData(service);
-
-      messageApi.success(t('rndReport.messages.uploadSuccess', { count: files.length }));
-
-      setUploadState({
-        isUploading: false,
-        progress: 100,
-        uploadedFiles: [],
-      });
-
-    } catch (error) {
-      console.error('Upload failed:', error);
-      messageApi.error(t('rndReport.errors.uploadFailed'));
-
-      setUploadState(prev => ({
-        ...prev,
-        isUploading: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }));
-    }
-  }, [service, isServiceReady, messageApi, t]);
+      }
+    },
+    [service, isServiceReady, messageApi, t]
+  );
 
   /**
    * Handle report selection
    */
-  const handleReportSelect = useCallback(async (reportId: string) => {
-    if (!service) return;
+  const handleReportSelect = useCallback(
+    async (reportId: string) => {
+      if (!service) return;
 
-    try {
-      const report = await service.getReport(reportId);
-      setCurrentReport(report);
-      setViewerState(prev => ({ ...prev, isOpen: true }));
-    } catch (error) {
-      console.error('Failed to load report:', error);
-      messageApi.error(t('rndReport.errors.loadReportFailed'));
-    }
-  }, [service, messageApi, t]);
+      try {
+        const report = await service.getReport(reportId);
+        setCurrentReport(report);
+        setViewerState(prev => ({ ...prev, isOpen: true }));
+      } catch (error) {
+        console.error('Failed to load report:', error);
+        messageApi.error(t('rndReport.errors.loadReportFailed'));
+      }
+    },
+    [service, messageApi, t]
+  );
 
   /**
    * Handle category selection
@@ -286,7 +325,8 @@ const RNDReport: React.FC = () => {
   const handleCategorySelect = useCallback((categoryId: string) => {
     setListViewState(prev => ({
       ...prev,
-      selectedCategoryId: categoryId === prev.selectedCategoryId ? undefined : categoryId,
+      selectedCategoryId:
+        categoryId === prev.selectedCategoryId ? '' : categoryId,
     }));
   }, []);
 
@@ -305,16 +345,19 @@ const RNDReport: React.FC = () => {
 
     // Category filter
     if (listViewState.selectedCategoryId) {
-      filtered = filtered.filter(report => report.categoryId === listViewState.selectedCategoryId);
+      filtered = filtered.filter(
+        report => report.categoryId === listViewState.selectedCategoryId
+      );
     }
 
     // Search filter
     if (listViewState.searchFilters.query) {
       const query = listViewState.searchFilters.query.toLowerCase();
-      filtered = filtered.filter(report =>
-        report.name.toLowerCase().includes(query) ||
-        report.metadata?.title?.toLowerCase().includes(query) ||
-        report.metadata?.description?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        report =>
+          report.name.toLowerCase().includes(query) ||
+          report.metadata?.title?.toLowerCase().includes(query) ||
+          report.metadata?.description?.toLowerCase().includes(query)
       );
     }
 
@@ -338,91 +381,110 @@ const RNDReport: React.FC = () => {
   /**
    * Handle report deletion
    */
-  const handleReportDelete = useCallback(async (reportId: string) => {
-    console.log('🚀 RNDReport handleReportDelete called with reportId:', reportId);
-    console.log('🔧 Service available:', !!service);
-    console.log('🔧 Service ready:', isServiceReady);
+  const handleReportDelete = useCallback(
+    async (reportId: string) => {
+      console.log(
+        '🚀 RNDReport handleReportDelete called with reportId:',
+        reportId
+      );
+      console.log('🔧 Service available:', !!service);
+      console.log('🔧 Service ready:', isServiceReady);
 
-    if (!service || !isServiceReady) {
-      console.error('❌ Service not ready');
-      messageApi.error(t('rndReport.errors.serviceNotReady'));
-      return;
-    }
+      if (!service || !isServiceReady) {
+        console.error('❌ Service not ready');
+        messageApi.error(t('rndReport.errors.serviceNotReady'));
+        return;
+      }
 
-    try {
-      console.log('🗑️ Starting report deletion process:', reportId);
-      const reportName = reports.find(r => r.id === reportId)?.name || 'Report';
-      console.log('📋 Report name:', reportName);
+      try {
+        console.log('🗑️ Starting report deletion process:', reportId);
+        const reportName =
+          reports.find(r => r.id === reportId)?.name || 'Report';
+        console.log('📋 Report name:', reportName);
 
-      // Delete the report
-      console.log('📡 Calling service.deleteReport...');
-      await service.deleteReport(reportId);
-      console.log('✅ service.deleteReport completed');
+        // Delete the report
+        console.log('📡 Calling service.deleteReport...');
+        await service.deleteReport(reportId);
+        console.log('✅ service.deleteReport completed');
 
-      // Update local state by removing the deleted report
-      console.log('🔄 Updating local state...');
-      setReports(prevReports => {
-        const filtered = prevReports.filter(report => report.id !== reportId);
-        console.log('📊 Reports count after filter:', filtered.length);
-        return filtered;
-      });
+        // Update local state by removing the deleted report
+        console.log('🔄 Updating local state...');
+        setReports(prevReports => {
+          const filtered = prevReports.filter(report => report.id !== reportId);
+          console.log('📊 Reports count after filter:', filtered.length);
+          return filtered;
+        });
 
+        console.log('✅ Showing success message');
+        messageApi.success(
+          t('rndReport.messages.deleteSuccess', { name: reportName })
+        );
 
-      console.log('✅ Showing success message');
-      messageApi.success(t('rndReport.messages.deleteSuccess', { name: reportName }));
-
-      console.log('✅ Report deleted successfully:', reportId);
-    } catch (error) {
-      console.error('❌ Failed to delete report:', error);
-      messageApi.error(t('rndReport.errors.deleteFailed', {
-        name: reports.find(r => r.id === reportId)?.name || 'Report'
-      }));
-    }
-  }, [service, isServiceReady, reports, messageApi, t]);
+        console.log('✅ Report deleted successfully:', reportId);
+      } catch (error) {
+        console.error('❌ Failed to delete report:', error);
+        messageApi.error(
+          t('rndReport.errors.deleteFailed', {
+            name: reports.find(r => r.id === reportId)?.name || 'Report',
+          })
+        );
+      }
+    },
+    [service, isServiceReady, reports, messageApi, t]
+  );
 
   /**
    * Handle report rename
    */
-  const handleReportRename = useCallback(async (reportId: string, newName: string) => {
-    if (!service || !isServiceReady) {
-      messageApi.error(t('rndReport.errors.serviceNotReady'));
-      return;
-    }
+  const handleReportRename = useCallback(
+    async (reportId: string, newName: string) => {
+      if (!service || !isServiceReady) {
+        messageApi.error(t('rndReport.errors.serviceNotReady'));
+        return;
+      }
 
-    if (!newName.trim()) {
-      messageApi.error(t('rndReport.errors.renameFailed', { name: 'Report' }));
-      return;
-    }
+      if (!newName.trim()) {
+        messageApi.error(
+          t('rndReport.errors.renameFailed', { name: 'Report' })
+        );
+        return;
+      }
 
-    try {
-      console.log('✏️ Renaming report:', reportId, 'to:', newName);
-      const oldName = reports.find(r => r.id === reportId)?.name || 'Report';
+      try {
+        console.log('✏️ Renaming report:', reportId, 'to:', newName);
+        const oldName = reports.find(r => r.id === reportId)?.name || 'Report';
 
-      // Update the report name
-      await service.updateReport(reportId, { name: newName.trim() });
+        // Update the report name
+        await service.updateReport(reportId, { name: newName.trim() });
 
-      // Update local state
-      setReports(prevReports =>
-        prevReports.map(report =>
-          report.id === reportId
-            ? { ...report, name: newName.trim() }
-            : report
-        )
-      );
+        // Update local state
+        setReports(prevReports =>
+          prevReports.map(report =>
+            report.id === reportId
+              ? { ...report, name: newName.trim() }
+              : report
+          )
+        );
 
-      messageApi.success(t('rndReport.messages.renameSuccess', {
-        oldName,
-        newName: newName.trim()
-      }));
+        messageApi.success(
+          t('rndReport.messages.renameSuccess', {
+            oldName,
+            newName: newName.trim(),
+          })
+        );
 
-      console.log('✅ Report renamed successfully:', reportId);
-    } catch (error) {
-      console.error('❌ Failed to rename report:', error);
-      messageApi.error(t('rndReport.errors.renameFailed', {
-        name: reports.find(r => r.id === reportId)?.name || 'Report'
-      }));
-    }
-  }, [service, isServiceReady, reports, messageApi, t]);
+        console.log('✅ Report renamed successfully:', reportId);
+      } catch (error) {
+        console.error('❌ Failed to rename report:', error);
+        messageApi.error(
+          t('rndReport.errors.renameFailed', {
+            name: reports.find(r => r.id === reportId)?.name || 'Report',
+          })
+        );
+      }
+    },
+    [service, isServiceReady, reports, messageApi, t]
+  );
 
   if (loading) {
     return (
@@ -440,7 +502,7 @@ const RNDReport: React.FC = () => {
       <div dangerouslySetInnerHTML={{ __html: grayTabStyles }} />
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+        <Space direction='vertical' size='small' style={{ width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Title level={4} style={{ margin: 0 }}>
               <FileTextOutlined style={{ marginRight: '8px' }} />
@@ -450,28 +512,28 @@ const RNDReport: React.FC = () => {
               <InfoCircleOutlined style={{ color: '#666', cursor: 'help' }} />
             </Tooltip>
           </div>
-
         </Space>
       </div>
-
 
       {/* Main Content */}
       <Card style={{ height: 'calc(100vh - 200px)' }}>
         <Tabs
           activeKey={activeTab}
           onChange={handleTabChange}
-          type="card"
-          size="small"
+          type='card'
+          size='small'
           tabBarStyle={{
             color: '#666',
           }}
-          style={{
-            '--ant-tabs-card-active-color': '#666',
-            '--ant-tabs-card-head-background': '#f5f5f5',
-            '--ant-tabs-card-tab-active-border-color': '#d9d9d9',
-          } as React.CSSProperties}
+          style={
+            {
+              '--ant-tabs-card-active-color': '#666',
+              '--ant-tabs-card-head-background': '#f5f5f5',
+              '--ant-tabs-card-tab-active-border-color': '#d9d9d9',
+            } as React.CSSProperties
+          }
           tabBarExtraContent={null}
-          className="gray-tabs"
+          className='gray-tabs'
         >
           {/* All Reports Tab - 主内容展示 */}
           <TabPane
@@ -479,25 +541,32 @@ const RNDReport: React.FC = () => {
               <span>
                 <FileTextOutlined style={{ marginRight: '8px' }} />
                 {t('rndReport.tabs.allReports')}
-                <Text type="secondary" style={{ marginLeft: '8px', fontSize: '12px' }}>
+                <Text
+                  type='secondary'
+                  style={{ marginLeft: '8px', fontSize: '12px' }}
+                >
                   ({filteredReports.length})
                 </Text>
               </span>
             }
-            key="all-reports"
+            key='all-reports'
           >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space direction='vertical' size='large' style={{ width: '100%' }}>
               {/* Report List - 优先展示 */}
-              <Card size="small" title={
-                <Space>
-                  <span>{t('rndReport.list.title')}</span>
-                  <Text type="secondary" style={{ fontSize: '11px' }}>
-                    Total: {reports.length} Reports, {categories.length} Categories
-                  </Text>
-                </Space>
-              }>
+              <Card
+                size='small'
+                title={
+                  <Space>
+                    <span>{t('rndReport.list.title')}</span>
+                    <Text type='secondary' style={{ fontSize: '11px' }}>
+                      Total: {reports.length} Reports, {categories.length}{' '}
+                      Categories
+                    </Text>
+                  </Space>
+                }
+              >
                 <ReportList
-                  reports={filteredReports}
+                  reports={reports}
                   categories={categories}
                   viewState={listViewState}
                   onReportSelect={handleReportSelect}
@@ -518,12 +587,14 @@ const RNDReport: React.FC = () => {
                 {t('rndReport.upload.title')}
               </span>
             }
-            key="upload"
+            key='upload'
           >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              <Card size="small">
+            <Space direction='vertical' size='large' style={{ width: '100%' }}>
+              <Card size='small'>
                 <UploadZone
-                  onFilesConfirmed={(files, categoryId, fileCategories) => handleFileUpload(files, fileCategories)}
+                  onFilesConfirmed={(files, categoryId, fileCategories) =>
+                    handleFileUpload(files, fileCategories)
+                  }
                   categories={categories}
                   isUploading={uploadState.isUploading}
                   progress={uploadState.progress}
@@ -541,7 +612,7 @@ const RNDReport: React.FC = () => {
                 {t('rndReport.tabs.categories')}
               </span>
             }
-            key="categories"
+            key='categories'
           >
             <CategoryManager
               categories={categories}
@@ -559,31 +630,44 @@ const RNDReport: React.FC = () => {
                 {t('rndReport.tabs.settings')}
               </span>
             }
-            key="settings"
+            key='settings'
           >
-            <Card title={t('rndReport.settings.title')} size="small">
-              <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Card title={t('rndReport.settings.title')} size='small'>
+              <Space
+                direction='vertical'
+                size='large'
+                style={{ width: '100%' }}
+              >
                 <Text>{t('rndReport.settings.description')}</Text>
 
                 {/* Service Status */}
-                <Card size="small" title={t('rndReport.settings.serviceStatus')}>
-                  <Space direction="vertical">
+                <Card
+                  size='small'
+                  title={t('rndReport.settings.serviceStatus')}
+                >
+                  <Space direction='vertical'>
                     <Text>
-                      <Text strong>{t('rndReport.settings.serviceReady')}:</Text>
+                      <Text strong>
+                        {t('rndReport.settings.serviceReady')}:
+                      </Text>
                       <Badge
                         status={isServiceReady ? 'success' : 'error'}
                         text={isServiceReady ? t('common.yes') : t('common.no')}
                       />
                     </Text>
                     <Text>
-                      <Text strong>{t('rndReport.settings.totalStorage')}:</Text>
+                      <Text strong>
+                        {t('rndReport.settings.totalStorage')}:
+                      </Text>
                       {FileProcessingUtils.formatFileSize(
-                        reports.reduce((sum, report) => sum + report.fileSize, 0)
+                        reports.reduce(
+                          (sum, report) => sum + report.fileSize,
+                          0
+                        )
                       )}
                     </Text>
                   </Space>
                 </Card>
-
               </Space>
             </Card>
           </TabPane>
@@ -598,21 +682,29 @@ const RNDReport: React.FC = () => {
           isFullscreen={viewerState.isFullscreen}
           showSettings={viewerState.showSettings}
           onClose={() => setViewerState(prev => ({ ...prev, isOpen: false }))}
-          onFullscreenToggle={() => setViewerState(prev => ({
-            ...prev,
-            isFullscreen: !prev.isFullscreen
-          }))}
-          onSettingsToggle={() => setViewerState(prev => ({
-            ...prev,
-            showSettings: !prev.showSettings
-          }))}
-          onProgressUpdate={async (progress) => {
+          onFullscreenToggle={() =>
+            setViewerState(prev => ({
+              ...prev,
+              isFullscreen: !prev.isFullscreen,
+            }))
+          }
+          onSettingsToggle={() =>
+            setViewerState(prev => ({
+              ...prev,
+              showSettings: !prev.showSettings,
+            }))
+          }
+          onProgressUpdate={async progress => {
             if (service) {
               // 更新阅读进度到服务
-              await service.updateReadingProgress(currentReport.id, { currentPosition: progress });
+              await service.updateReadingProgress(currentReport.id, {
+                currentPosition: progress,
+              });
 
               // 同时更新Report对象的readingProgress字段
-              setCurrentReport(prev => prev ? { ...prev, readingProgress: progress } : null);
+              setCurrentReport(prev =>
+                prev ? { ...prev, readingProgress: progress } : null
+              );
 
               // 更新reports列表中的对应报告
               setReports(prevReports =>

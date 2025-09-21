@@ -8,16 +8,20 @@ export interface RAGMessage {
   content: string;
   role: 'user' | 'assistant';
   timestamp: Date;
+  sources?: string[];
+  confidence?: number;
 }
 
 export interface RAGResponse {
   success: boolean;
   message?: string;
-  data?: {
-    response: string;
-    sources?: string[];
-    confidence?: number;
-  };
+  data:
+    | {
+        response: string;
+        sources?: string[];
+        confidence?: number;
+      }
+    | undefined;
   error?: string;
 }
 
@@ -53,70 +57,159 @@ class RAGApiService {
    */
   async sendMessage(message: string, sessionId?: string): Promise<RAGResponse> {
     try {
-      // 使用n8n webhook URL
-      // Use n8n webhook URL
-      const webhookUrl = 'https://n8n.wendealai.com/webhook/wendealRAG';
+      console.log('🚀 RAG API: Sending message to webhook...');
+      console.log('📝 Message:', message);
+      console.log('🔗 Session ID:', sessionId);
+
+      // 使用n8n webhook URL (注意大小写)
+      // Use n8n webhook URL (note capitalization)
+      const webhookUrl = 'https://n8n.wendealai.com/webhook/wendealRag';
+
+      console.log('🌐 Webhook URL:', webhookUrl);
+
+      // 尝试使用代理服务避免CORS问题
+      // Try using proxy service to avoid CORS issues
+      const proxyUrl =
+        'https://api.allorigins.win/get?url=' + encodeURIComponent(webhookUrl);
+
+      // 使用POST请求发送JSON数据到n8n webhook
+      // Use POST request to send JSON data to n8n webhook
+      console.log('🌐 Using POST request to n8n webhook...');
+
+      const requestData = {
+        message: message,
+        sessionId: sessionId || `session_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log('📤 Request data:', requestData);
 
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
-        body: JSON.stringify({
-          message,
-          sessionId: sessionId || `session_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-        }),
+        body: JSON.stringify(requestData),
+        mode: 'cors',
       });
+
+      console.log('📡 Response status:', response.status);
+      console.log(
+        '📡 Response headers:',
+        Object.fromEntries(response.headers.entries())
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseData = await response.json();
+      console.log('📥 Response data:', responseData);
 
-      // 处理数组格式的响应（n8n webhook可能返回数组）
-      // Handle array format response (n8n webhook might return array)
-      let responseData = data;
-      if (Array.isArray(data) && data.length > 0) {
-        responseData = data[0];
-      }
+      return this.processResponseData(responseData);
 
-      // 提取响应内容，支持多种格式
-      // Extract response content, support multiple formats
-      let responseText = '';
-      if (responseData.output) {
-        responseText = responseData.output;
-      } else if (responseData.response) {
-        responseText = responseData.response;
-      } else if (responseData.message) {
-        responseText = responseData.message;
-      } else if (typeof responseData === 'string') {
-        responseText = responseData;
-      } else {
-        responseText = '收到回复';
-      }
+      // 由于CORS问题，直接使用模拟响应
+      // Due to CORS issues, use mock response directly
+      console.warn(
+        '🚫 CORS issue detected - n8n server needs CORS configuration'
+      );
+      console.warn('📋 To fix this permanently, configure n8n server with:');
+      console.warn('   - Access-Control-Allow-Origin: *');
+      console.warn('   - Access-Control-Allow-Methods: GET, POST, OPTIONS');
+      console.warn(
+        '   - Access-Control-Allow-Headers: Content-Type, X-Requested-With'
+      );
 
-      return {
-        success: true,
-        data: {
-          response: responseText,
-          sources: responseData.sources || [],
-          confidence: responseData.confidence || 0.8,
-        },
-      };
+      return this.getMockResponse(message);
     } catch (error) {
       console.error('RAG API Error:', error);
+
+      // 检查是否是CORS错误或其他网络错误
+      // Check if it's a CORS error or other network error
+      if (
+        error instanceof TypeError &&
+        error.message.includes('NetworkError')
+      ) {
+        console.warn('CORS error detected, providing fallback response');
+        return {
+          success: false,
+          data: undefined,
+          error:
+            'CORS错误：无法访问RAG服务。请联系管理员配置服务器CORS设置，或使用开发环境模拟响应。',
+        };
+      }
+
+      // 检查是否是其他网络相关错误
+      // Check if it's other network-related errors
+      if (error instanceof Error) {
+        if (
+          error.message.includes('Failed to fetch') ||
+          error.message.includes('Network request failed')
+        ) {
+          console.warn('Network error detected:', error.message);
+          return {
+            success: false,
+            data: undefined,
+            error:
+              '网络连接错误：无法连接到RAG服务。请检查网络连接或联系管理员。',
+          };
+        }
+      }
+
       // 开发环境下提供fallback响应
       // Provide fallback response in development
       if (import.meta.env.DEV) {
         return this.getMockResponse(message);
       }
+
       return {
         success: false,
+        data: undefined,
         error: error instanceof Error ? error.message : '发送消息失败',
       };
     }
+  }
+
+  /**
+   * 处理响应数据
+   * Process response data
+   */
+  private processResponseData(data: any): RAGResponse {
+    // 处理数组格式的响应（n8n webhook可能返回数组）
+    // Handle array format response (n8n webhook might return array)
+    let responseData = data;
+    if (Array.isArray(data) && data.length > 0) {
+      responseData = data[0];
+    }
+
+    // 提取响应内容，支持多种格式
+    // Extract response content, support multiple formats
+    let responseText = '';
+    if (responseData.output) {
+      responseText = responseData.output;
+    } else if (responseData.response) {
+      responseText = responseData.response;
+    } else if (responseData.message) {
+      responseText = responseData.message;
+    } else if (typeof responseData === 'string') {
+      responseText = responseData;
+    } else {
+      responseText = '收到回复';
+    }
+
+    // 确保data属性始终存在且完整
+    // Ensure data property is always present and complete
+    const responseDataObj = {
+      response: responseText,
+      sources: responseData.sources || [],
+      confidence: responseData.confidence || 0.8,
+    };
+
+    return {
+      success: true,
+      data: responseDataObj,
+    } as RAGResponse;
   }
 
   /**
@@ -278,6 +371,86 @@ class RAGApiService {
   }
 
   /**
+   * 测试webhook连接
+   * Test webhook connection
+   */
+  async testConnection(): Promise<{
+    success: boolean;
+    message: string;
+    error?: string;
+  }> {
+    try {
+      console.log('🔍 Testing RAG webhook connection...');
+      const webhookUrl = 'https://n8n.wendealai.com/webhook/wendealRag';
+
+      // 尝试POST请求测试连接
+      // Try POST request to test connection
+      const testData = {
+        test: 'connection',
+        timestamp: Date.now(),
+        message: 'Connection test',
+      };
+      console.log('🧪 Test data:', testData);
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(testData),
+      });
+
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response type:', response.type);
+      console.log(
+        '📡 Response headers:',
+        Object.fromEntries(response.headers.entries())
+      );
+
+      if (response.status === 404) {
+        return {
+          success: false,
+          message: 'Webhook未找到 (404)',
+          error:
+            'n8n中没有名为"wendealRag"的webhook，或者webhook未激活。请检查n8n中的webhook配置。',
+        };
+      }
+
+      if (response.status === 500) {
+        return {
+          success: false,
+          message: 'Webhook服务器错误 (500)',
+          error: 'n8n服务器返回500错误。请检查n8n实例是否正常运行。',
+        };
+      }
+
+      if (response.status === 0 || response.type === 'opaque') {
+        return {
+          success: false,
+          message: '网络连接失败',
+          error: '无法连接到n8n服务器。请检查网络连接和n8n实例状态。',
+        };
+      }
+
+      const data = await response.text();
+      console.log('📄 Response data:', data);
+
+      return {
+        success: true,
+        message: `Webhook连接测试成功 (状态: ${response.status})`,
+      };
+    } catch (error) {
+      console.error('❌ Webhook connection test failed:', error);
+      return {
+        success: false,
+        message: 'Webhook连接测试失败',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
    * 删除知识库文件
    * Delete knowledge base file
    */
@@ -321,3 +494,18 @@ class RAGApiService {
 // Export singleton instance
 export const ragApiService = new RAGApiService();
 export default ragApiService;
+
+// 开发环境下在全局对象上暴露测试函数
+// Expose test function on global object in development
+if (import.meta.env.DEV) {
+  (window as any).testRAGConnection = async () => {
+    console.log('🧪 Starting RAG connection test...');
+    const result = await ragApiService.testConnection();
+    console.log('📊 Test result:', result);
+    return result;
+  };
+
+  console.log(
+    '🔧 RAG Debug: Use testRAGConnection() in console to test webhook'
+  );
+}

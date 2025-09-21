@@ -297,7 +297,7 @@ const SettingsPage: React.FC<SettingsPageProps> = () => {
         </Space>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .settings-card {
           height: 100%;
         }

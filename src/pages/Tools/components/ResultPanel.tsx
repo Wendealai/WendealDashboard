@@ -45,16 +45,53 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
   ({ redditData, loading = false }) => {
     const { t } = useTranslation();
 
+    // 调试日志
+    console.log('ResultPanel: Received redditData:', redditData);
+
     // 使用useMemo优化数据处理
     const groupedRedditData = useMemo(() => {
       if (!redditData || redditData.length === 0) {
+        console.log('ResultPanel: No redditData available');
         return {};
       }
 
+      console.log(
+        'ResultPanel: Processing redditData with',
+        redditData.length,
+        'items'
+      );
+
       return redditData.reduce(
-        (acc, subredditData) => {
-          const subreddit = subredditData.subreddit;
-          acc[subreddit] = subredditData.posts;
+        (acc, subredditData, index) => {
+          // 验证数据结构
+          if (!subredditData || typeof subredditData !== 'object') {
+            console.warn(
+              'ResultPanel: Invalid subredditData at index',
+              index,
+              subredditData
+            );
+            return acc;
+          }
+
+          const subreddit =
+            subredditData.name || subredditData.subreddit || 'unknown';
+          console.log(
+            'ResultPanel: Processing subreddit:',
+            subreddit,
+            'with',
+            subredditData.posts?.length || 0,
+            'posts'
+          );
+
+          if (!subreddit || subreddit === 'undefined') {
+            console.warn(
+              'ResultPanel: Subreddit name is undefined or invalid:',
+              subredditData
+            );
+            return acc;
+          }
+
+          acc[subreddit] = subredditData.posts || [];
           return acc;
         },
         {} as Record<string, any[]>
@@ -87,10 +124,18 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
      * 渲染Reddit数据展示
      */
     const renderRedditData = () => {
+      console.log(
+        'ResultPanel: renderRedditData called, hasRedditData:',
+        hasRedditData
+      );
+
       if (!hasRedditData) {
+        console.log(
+          'ResultPanel: No Reddit data available, showing empty state'
+        );
         return (
           <div
-            className="reddit-empty-container"
+            className='reddit-empty-container'
             style={{
               height: '120px',
               display: 'flex',
@@ -106,14 +151,26 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
               }
               description={
                 <Space direction='vertical' size={2}>
-                  <Text style={{ fontSize: '13px', margin: 0 }}>No Reddit data available</Text>
-                  <Text type='secondary' style={{ fontSize: '12px', margin: 0 }}>Please start the Reddit workflow to fetch data</Text>
+                  <Text style={{ fontSize: '13px', margin: 0 }}>
+                    No Reddit data available
+                  </Text>
+                  <Text
+                    type='secondary'
+                    style={{ fontSize: '12px', margin: 0 }}
+                  >
+                    Please start the Reddit workflow to fetch data
+                  </Text>
                 </Space>
               }
             />
           </div>
         );
       }
+
+      console.log(
+        'ResultPanel: Rendering Reddit data, groupedData keys:',
+        Object.keys(groupedRedditData)
+      );
 
       // 使用预计算的分组数据
       const groupedData = groupedRedditData;
@@ -133,7 +190,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
                 gap: '8px',
-                width: '100%'
+                width: '100%',
               }}
             >
               {row.map(([subreddit, posts]) => (
@@ -248,8 +305,14 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                       )}
                     />
                     {posts.length > 5 && (
-                      <div style={{ textAlign: 'center', marginTop: '8px', padding: '4px 0' }}>
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                      <div
+                        style={{
+                          textAlign: 'center',
+                          marginTop: '8px',
+                          padding: '4px 0',
+                        }}
+                      >
+                        <Text type='secondary' style={{ fontSize: '12px' }}>
                           {`And ${posts.length - 5} more...`}
                         </Text>
                       </div>
@@ -265,7 +328,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
 
     return (
       <div
-        className="compact-layout"
+        className='compact-layout'
         style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
       >
         {/* 内容区域 */}

@@ -546,7 +546,7 @@ const ProfilePage: React.FC = () => {
                       <Title level={5}>
                         {t('profile.preferences.languageAndRegion')}
                       </Title>
-                      <Form layout='vertical'>
+                      <Form layout='vertical' form={form}>
                         <Row gutter={16}>
                           <Col span={12}>
                             <Form.Item

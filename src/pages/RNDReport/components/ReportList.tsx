@@ -19,6 +19,8 @@ import {
   Modal,
   App,
   Progress,
+  Badge,
+  message,
 } from 'antd';
 import {
   FileTextOutlined,
@@ -98,9 +100,12 @@ const ReportList: React.FC<ReportListProps> = ({
   loading = false,
 }) => {
   const { t } = useTranslation();
+  const { modal } = App.useApp();
 
   // Local state for search input
-  const [searchInput, setSearchInput] = useState(viewState.searchFilters.query || '');
+  const [searchInput, setSearchInput] = useState(
+    viewState.searchFilters.query || ''
+  );
 
   // Local state for delete operations
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
@@ -121,10 +126,13 @@ const ReportList: React.FC<ReportListProps> = ({
    */
   const getCategoryStats = useMemo(() => {
     const stats = new Map<string, number>();
+
+    // Always calculate statistics from all reports to show total counts per category
     reports.forEach(report => {
       const count = stats.get(report.categoryId) || 0;
       stats.set(report.categoryId, count + 1);
     });
+
     return stats;
   }, [reports]);
 
@@ -136,17 +144,20 @@ const ReportList: React.FC<ReportListProps> = ({
 
     // Apply category filter
     if (viewState.selectedCategoryId) {
-      filtered = filtered.filter(report => report.categoryId === viewState.selectedCategoryId);
+      filtered = filtered.filter(
+        report => report.categoryId === viewState.selectedCategoryId
+      );
     }
 
     // Apply search filter
     if (viewState.searchFilters.query) {
       const query = viewState.searchFilters.query.toLowerCase();
-      filtered = filtered.filter(report =>
-        report.name.toLowerCase().includes(query) ||
-        report.metadata?.title?.toLowerCase().includes(query) ||
-        report.metadata?.description?.toLowerCase().includes(query) ||
-        report.metadata?.author?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        report =>
+          report.name.toLowerCase().includes(query) ||
+          report.metadata?.title?.toLowerCase().includes(query) ||
+          report.metadata?.description?.toLowerCase().includes(query) ||
+          report.metadata?.author?.toLowerCase().includes(query)
       );
     }
 
@@ -180,8 +191,10 @@ const ReportList: React.FC<ReportListProps> = ({
           return 0;
       }
 
-      if (aValue < bValue) return viewState.sortOptions.direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return viewState.sortOptions.direction === 'asc' ? 1 : -1;
+      if (aValue < bValue)
+        return viewState.sortOptions.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue)
+        return viewState.sortOptions.direction === 'asc' ? 1 : -1;
       return 0;
     });
 
@@ -206,8 +219,11 @@ const ReportList: React.FC<ReportListProps> = ({
    * Handle sort option change
    */
   const handleSortChange = (field: ReportSortOptions['field']) => {
-    const newDirection = viewState.sortOptions.field === field &&
-                        viewState.sortOptions.direction === 'asc' ? 'desc' : 'asc';
+    const newDirection =
+      viewState.sortOptions.field === field &&
+      viewState.sortOptions.direction === 'asc'
+        ? 'desc'
+        : 'asc';
 
     onViewStateChange({
       ...viewState,
@@ -225,7 +241,7 @@ const ReportList: React.FC<ReportListProps> = ({
     onViewStateChange({
       ...viewState,
       selectedCategoryId: categoryId || undefined,
-    });
+    } as ReportListViewState);
   };
 
   /**
@@ -314,7 +330,7 @@ const ReportList: React.FC<ReportListProps> = ({
           <Space>
             {isExpanded ? <FolderOpenOutlined /> : <FolderOutlined />}
             <Text strong={isSelected}>{category.name}</Text>
-            <Badge count={reportCount} showZero size="small" />
+            <Badge count={reportCount} showZero size='small' />
           </Space>
         ),
         children: isExpanded ? [] : undefined,
@@ -331,18 +347,17 @@ const ReportList: React.FC<ReportListProps> = ({
    * Render report card
    */
   const renderReportCard = (report: Report) => {
-    // 获取App上下文中的modal实例以支持动态主题
-    const { modal } = App.useApp();
-
     const category = getCategoryById(report.categoryId);
     const hasReadingProgress = report.readingProgress >= 0;
-    const isRecentlyRead = report.lastReadDate &&
-                          Date.now() - report.lastReadDate.getTime() < 24 * 60 * 60 * 1000;
+    const isRecentlyRead =
+      report.lastReadDate &&
+      Date.now() - report.lastReadDate.getTime() < 24 * 60 * 60 * 1000;
 
     // 截断标题，最长20字符
-    const truncatedName = report.name.length > 20
-      ? report.name.substring(0, 20) + '...'
-      : report.name;
+    const truncatedName =
+      report.name.length > 20
+        ? report.name.substring(0, 20) + '...'
+        : report.name;
 
     /**
      * Handle download report
@@ -406,12 +421,18 @@ const ReportList: React.FC<ReportListProps> = ({
         danger: true,
         disabled: deletingReportId === report.id,
         onClick: () => {
-          console.log('🗑️ Delete button clicked for report:', report.id, report.name);
+          console.log(
+            '🗑️ Delete button clicked for report:',
+            report.id,
+            report.name
+          );
           console.log('🔧 onReportDelete available:', !!onReportDelete);
 
           modal.confirm({
             title: t('rndReport.list.deleteConfirm.title'),
-            content: t('rndReport.list.deleteConfirm.content', { name: report.name }),
+            content: t('rndReport.list.deleteConfirm.content', {
+              name: report.name,
+            }),
             okText: t('rndReport.list.deleteConfirm.okText'),
             cancelText: t('rndReport.list.deleteConfirm.cancelText'),
             okType: 'danger',
@@ -428,7 +449,7 @@ const ReportList: React.FC<ReportListProps> = ({
     return (
       <Card
         key={report.id}
-        size="small"
+        size='small'
         hoverable
         style={{
           cursor: 'pointer',
@@ -442,9 +463,9 @@ const ReportList: React.FC<ReportListProps> = ({
           body: {
             padding: 0,
             backgroundColor: 'transparent',
-          }
+          },
         }}
-        onClick={(e) => {
+        onClick={e => {
           // 只有在非按钮区域点击时才打开报告
           const target = e.target as HTMLElement;
           if (!target.closest('button') && !target.closest('.ant-dropdown')) {
@@ -453,34 +474,39 @@ const ReportList: React.FC<ReportListProps> = ({
         }}
       >
         {hasReadingProgress && (
-          <div style={{
-            position: 'absolute',
-            top: '8px',
-            right: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            zIndex: 10,
-          }}>
-            <div style={{
-              backgroundColor: report.readingProgress === 100 ? '#666' : '#999',
-              color: 'white',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              fontSize: '12px',
-              fontWeight: 'bold',
-            }}>
+          <div
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              zIndex: 10,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor:
+                  report.readingProgress === 100 ? '#666' : '#999',
+                color: 'white',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+              }}
+            >
               {report.readingProgress}%
             </div>
             <Dropdown
               menu={{ items: menuItems }}
               trigger={['click']}
-              placement="bottomRight"
+              placement='bottomRight'
             >
               <Button
-                type="text"
+                type='text'
                 icon={<MoreOutlined />}
-                onClick={(e) => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
                 style={{
                   border: 'none',
                   boxShadow: 'none',
@@ -497,7 +523,7 @@ const ReportList: React.FC<ReportListProps> = ({
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
           <Avatar
             icon={<FileTextOutlined />}
-            size="small"
+            size='small'
             style={{
               backgroundColor: category?.color || '#666',
               flexShrink: 0,
@@ -506,58 +532,103 @@ const ReportList: React.FC<ReportListProps> = ({
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ marginBottom: '4px' }}>
               {renamingReportId === report.id ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flexWrap: 'wrap',
+                  }}
+                >
                   <Input
                     value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
+                    onChange={e => setNewName(e.target.value)}
                     onPressEnter={() => handleReportRename(report.id)}
                     onBlur={() => cancelRenaming()}
                     autoFocus
-                    size="small"
-                    style={{ flex: 1, minWidth: '100px', fontSize: '13px', fontWeight: 'bold' }}
+                    size='small'
+                    style={{
+                      flex: 1,
+                      minWidth: '100px',
+                      fontSize: '13px',
+                      fontWeight: 'bold',
+                    }}
                     placeholder={t('rndReport.list.rename.placeholder')}
                   />
                   <Button
-                    type="primary"
-                    size="small"
+                    type='primary'
+                    size='small'
                     onClick={() => handleReportRename(report.id)}
                     disabled={!newName.trim()}
-                    style={{ fontSize: '12px', padding: '0 8px', height: '24px' }}
+                    style={{
+                      fontSize: '12px',
+                      padding: '0 8px',
+                      height: '24px',
+                    }}
                   >
                     {t('common.save')}
                   </Button>
                   <Button
-                    size="small"
+                    size='small'
                     onClick={cancelRenaming}
-                    style={{ fontSize: '12px', padding: '0 8px', height: '24px' }}
+                    style={{
+                      fontSize: '12px',
+                      padding: '0 8px',
+                      height: '24px',
+                    }}
                   >
                     {t('common.cancel')}
                   </Button>
                 </div>
               ) : (
                 <div>
-                  <Tooltip title={report.name.length > 20 ? report.name : undefined}>
-                    <Text strong style={{ fontSize: '14px', display: 'block', marginBottom: '2px' }}>
+                  <Tooltip
+                    title={report.name.length > 20 ? report.name : undefined}
+                  >
+                    <Text
+                      strong
+                      style={{
+                        fontSize: '14px',
+                        display: 'block',
+                        marginBottom: '2px',
+                      }}
+                    >
                       {truncatedName}
                     </Text>
                   </Tooltip>
-                  {report.metadata?.title && report.metadata.title !== report.name && (
-                    <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '2px' }}>
-                      {report.metadata.title}
-                    </Text>
-                  )}
+                  {report.metadata?.title &&
+                    report.metadata.title !== report.name && (
+                      <Text
+                        type='secondary'
+                        style={{
+                          fontSize: '11px',
+                          display: 'block',
+                          marginBottom: '2px',
+                        }}
+                      >
+                        {report.metadata.title}
+                      </Text>
+                    )}
                 </div>
               )}
             </div>
 
-            <Space direction="vertical" size={2} style={{ width: '100%' }}>
+            <Space direction='vertical' size={2} style={{ width: '100%' }}>
               <Space size={4} wrap>
                 {category && (
-                  <Tag color={category.color} size="small" style={{ fontSize: '10px', padding: '0 4px', height: '18px', lineHeight: '16px' }}>
+                  <Tag
+                    color={category.color || 'default'}
+                    style={{
+                      fontSize: '10px',
+                      padding: '0 4px',
+                      height: '18px',
+                      lineHeight: '16px',
+                    }}
+                  >
                     {category.name}
                   </Tag>
                 )}
-                <Text type="secondary" style={{ fontSize: '10px' }}>
+                <Text type='secondary' style={{ fontSize: '10px' }}>
                   {(() => {
                     const now = new Date();
                     const diffMs = now.getTime() - report.uploadDate.getTime();
@@ -569,20 +640,24 @@ const ReportList: React.FC<ReportListProps> = ({
                     if (diffMinutes < 60) return `${diffMinutes}m ago`;
                     if (diffHours < 24) return `${diffHours}h ago`;
                     if (diffDays < 7) return `${diffDays}d ago`;
-                    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-                    if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+                    if (diffDays < 30)
+                      return `${Math.floor(diffDays / 7)}w ago`;
+                    if (diffDays < 365)
+                      return `${Math.floor(diffDays / 30)}mo ago`;
                     return `${Math.floor(diffDays / 365)}y ago`;
                   })()}
                 </Text>
                 {isRecentlyRead && (
-                  <Tag color="success" size="small">
+                  <Tag color='success'>
                     <ClockCircleOutlined style={{ marginRight: '2px' }} />
                     {t('rndReport.list.recentlyRead')}
                   </Tag>
                 )}
                 {report.metadata?.author && (
-                  <Text type="secondary" style={{ fontSize: '10px' }}>
-                    <UserOutlined style={{ marginRight: '2px', fontSize: '10px' }} />
+                  <Text type='secondary' style={{ fontSize: '10px' }}>
+                    <UserOutlined
+                      style={{ marginRight: '2px', fontSize: '10px' }}
+                    />
                     {report.metadata.author}
                   </Text>
                 )}
@@ -590,8 +665,16 @@ const ReportList: React.FC<ReportListProps> = ({
 
               {report.metadata?.description && (
                 <Paragraph
-                  ellipsis={{ rows: 2, expandable: true, symbol: t('common.more') }}
-                  style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#666' }}
+                  ellipsis={{
+                    rows: 2,
+                    expandable: true,
+                    symbol: t('common.more'),
+                  }}
+                  style={{
+                    fontSize: '11px',
+                    margin: '4px 0 0 0',
+                    color: '#666',
+                  }}
                 >
                   {report.metadata.description}
                 </Paragraph>
@@ -610,16 +693,18 @@ const ReportList: React.FC<ReportListProps> = ({
     if (viewState.sortOptions.field !== field) {
       return <SortAscendingOutlined />;
     }
-    return viewState.sortOptions.direction === 'asc' ?
-           <SortAscendingOutlined /> :
-           <SortDescendingOutlined />;
+    return viewState.sortOptions.direction === 'asc' ? (
+      <SortAscendingOutlined />
+    ) : (
+      <SortDescendingOutlined />
+    );
   };
 
   return (
     <div className={className}>
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Space direction='vertical' size='middle' style={{ width: '100%' }}>
         {/* Filters and Search */}
-        <Card size="small">
+        <Card size='small'>
           <Space style={{ width: '100%', alignItems: 'center' }}>
             {/* Category Tags */}
             <Space wrap size={4} style={{ flex: 1 }}>
@@ -630,12 +715,14 @@ const ReportList: React.FC<ReportListProps> = ({
                   <Tag.CheckableTag
                     key={category.id}
                     checked={isSelected}
-                    onChange={() => handleCategoryFilter(isSelected ? null : category.id)}
+                    onChange={() =>
+                      handleCategoryFilter(isSelected ? null : category.id)
+                    }
                     style={{
                       cursor: 'pointer',
                       backgroundColor: isSelected ? '#666' : 'transparent',
                       color: isSelected ? 'white' : 'inherit',
-                      borderColor: '#666'
+                      borderColor: '#666',
                     }}
                   >
                     {category.name} ({reportCount})
@@ -650,11 +737,11 @@ const ReportList: React.FC<ReportListProps> = ({
                 placeholder={t('rndReport.list.search.placeholder')}
                 prefix={<SearchOutlined />}
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                onChange={e => setSearchInput(e.target.value)}
                 onPressEnter={() => handleSearchChange(searchInput)}
                 allowClear
                 style={{ width: '200px' }}
-                size="small"
+                size='small'
               />
             </div>
 
@@ -684,9 +771,9 @@ const ReportList: React.FC<ReportListProps> = ({
                 selectedKeys: [viewState.sortOptions.field],
               }}
               trigger={['click']}
-              placement="bottomRight"
+              placement='bottomRight'
             >
-              <Button type="default" size="small">
+              <Button type='default' size='small'>
                 <Space>
                   {getSortIcon(viewState.sortOptions.field)}
                   {t('rndReport.list.sort.title')}
@@ -697,10 +784,9 @@ const ReportList: React.FC<ReportListProps> = ({
           </Space>
         </Card>
 
-
         {/* Report Cards Grid */}
         {processedReports.length === 0 ? (
-          <Card size="small">
+          <Card size='small'>
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
               description={
@@ -709,18 +795,22 @@ const ReportList: React.FC<ReportListProps> = ({
                   : t('rndReport.list.noReports')
               }
             >
-              {(viewState.searchFilters.query || viewState.selectedCategoryId) && (
+              {(viewState.searchFilters.query ||
+                viewState.selectedCategoryId) && (
                 <Button
-                  type="default"
+                  type='default'
                   onClick={() => {
                     setSearchInput('');
                     onViewStateChange({
                       ...viewState,
                       searchFilters: {},
-                      selectedCategoryId: undefined,
-                    });
+                    } as ReportListViewState);
                   }}
-                  style={{ backgroundColor: '#666', borderColor: '#666', color: 'white' }}
+                  style={{
+                    backgroundColor: '#666',
+                    borderColor: '#666',
+                    color: 'white',
+                  }}
                 >
                   {t('rndReport.list.clearFilters')}
                 </Button>
@@ -763,7 +853,7 @@ const ReportList: React.FC<ReportListProps> = ({
 
             {/* Results Summary */}
             <div style={{ marginTop: '16px', textAlign: 'center' }}>
-              <Text type="secondary">
+              <Text type='secondary'>
                 {t('rndReport.list.results', {
                   shown: processedReports.length,
                   total: reports.length,

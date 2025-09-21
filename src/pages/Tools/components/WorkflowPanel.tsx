@@ -48,7 +48,10 @@ import type {
   WorkflowTriggerRequest,
   WorkflowStatus,
 } from '../types';
-import type { ParsedSubredditData, RedditWorkflowResponse } from '@/services/redditWebhookService';
+import type {
+  ParsedSubredditData,
+  RedditWorkflowResponse,
+} from '@/services/redditWebhookService';
 import WorkflowGrid from '@/components/workflow/WorkflowGrid';
 
 const { Text } = Typography;
@@ -108,13 +111,21 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
     );
     const [triggerForm] = Form.useForm();
 
+    // 确保Form组件已连接
+    useEffect(() => {
+      if (triggerForm) {
+        console.log('WorkflowPanel: Trigger form instance connected');
+      }
+    }, [triggerForm]);
+
     // Reddit workflow state
     const [redditLoading, setRedditLoading] = useState(false);
     const [redditError, setRedditError] = useState<string | null>(null);
     const [redditProgressStatus, setRedditProgressStatus] =
       useState<string>('');
     const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
-    const [redditWorkflowData, setRedditWorkflowData] = useState<RedditWorkflowResponse | null>(null);
+    const [redditWorkflowData, setRedditWorkflowData] =
+      useState<RedditWorkflowResponse | null>(null);
 
     /**
      * Initialize data loading
@@ -206,22 +217,60 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
           }
 
           // Also provide backward compatibility with old format
-          const subredditsData = workflowResponse.subreddits?.map(sub => ({
-            name: sub.name,
-            posts: sub.posts.map(post => ({
-              title: post.title,
-              author: post.author,
-              score: post.score,
-              comments: post.comments,
-              url: post.url,
-              subreddit: sub.name,
-              rank: post.rank,
-            })),
-            totalPosts: sub.stats.totalPosts,
-          })) || [];
+          const subredditsData =
+            workflowResponse.subreddits
+              ?.map(sub => {
+                // 验证subreddit数据
+                if (!sub || !sub.name) {
+                  console.warn('WorkflowPanel: Invalid subreddit data:', sub);
+                  return null;
+                }
 
+                const subredditName = sub.displayName || sub.name;
+                console.log(
+                  'WorkflowPanel: Processing subreddit:',
+                  subredditName
+                );
+
+                const posts =
+                  sub.posts
+                    ?.map(post => {
+                      // 验证post数据
+                      if (!post || !post.title) {
+                        console.warn('WorkflowPanel: Invalid post data:', post);
+                        return null;
+                      }
+
+                      return {
+                        title: post.title,
+                        author: post.author || 'Unknown',
+                        score: post.score || 0,
+                        comments: post.comments || 0,
+                        url: post.url || post.redditUrl || '',
+                        subreddit: subredditName,
+                        rank: post.rank || 0,
+                      };
+                    })
+                    .filter(Boolean) || []; // 过滤掉null值
+
+                return {
+                  name: subredditName,
+                  posts: posts,
+                  totalPosts: sub.stats?.totalPosts || posts.length,
+                };
+              })
+              .filter(Boolean) || []; // 过滤掉null值
+
+          console.log(
+            'WorkflowPanel: Processed subredditsData:',
+            subredditsData
+          );
           setRedditData(subredditsData);
           if (onRedditDataReceived) {
+            console.log(
+              'WorkflowPanel: Calling onRedditDataReceived with data:',
+              subredditsData
+            );
             onRedditDataReceived(subredditsData);
           }
 

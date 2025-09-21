@@ -61,7 +61,7 @@ body {
     Arial,
     sans-serif;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Remove -moz-osx-font-smoothing to avoid CSS warnings */
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 

@@ -42,13 +42,8 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
-import type {
-  AirtableTableProps,
-  ViralContentRecord,
-} from '../types';
-import {
-  TKViralExtractAirtableService,
-} from '@/services/tkViralExtractAirtableService';
+import type { AirtableTableProps, ViralContentRecord } from '../types';
+import { TKViralExtractAirtableService } from '@/services/tkViralExtractAirtableService';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -68,8 +63,17 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
   const { t } = useTranslation();
 
   // 编辑状态管理
-  const [editingRecord, setEditingRecord] = useState<ViralContentRecord | null>(null);
+  const [editingRecord, setEditingRecord] = useState<ViralContentRecord | null>(
+    null
+  );
   const [editForm] = Form.useForm();
+
+  // 确保Form组件已连接
+  useEffect(() => {
+    if (editForm) {
+      console.log('AirtableTable: Edit form instance connected');
+    }
+  }, [editForm]);
 
   // 分页状态管理
   const [currentPage, setCurrentPage] = useState(1);
@@ -132,12 +136,18 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       return 'default';
     }
     switch (platform.toLowerCase()) {
-      case 'tiktok': return 'red';
-      case 'instagram': return 'purple';
-      case 'youtube': return 'red';
-      case 'twitter': return 'blue';
-      case 'facebook': return 'blue';
-      default: return 'default';
+      case 'tiktok':
+        return 'red';
+      case 'instagram':
+        return 'purple';
+      case 'youtube':
+        return 'red';
+      case 'twitter':
+        return 'blue';
+      case 'facebook':
+        return 'blue';
+      default:
+        return 'default';
     }
   }, []);
 
@@ -149,140 +159,146 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
   const columns: ColumnsType<ViralContentRecord> = useMemo(() => {
     // TK Viral Extract表格列定义 - 基于Smart Opportunities架构
     return [
-        {
-          title: 'Title',
-          dataIndex: ['fields', 'Title'],
-          key: 'title',
-          width: 250,
-          render: (text: string) => (
-            <Text strong style={{ fontSize: '13px' }}>
-              {text || 'N/A'}
-            </Text>
-          ),
-        },
-        {
-          title: 'Content',
-          dataIndex: ['fields', 'Content'],
-          key: 'content',
-          width: 300,
-          render: (text: string) => (
-            <Paragraph
-              ellipsis={{ rows: 2, expandable: true, symbol: 'more' }}
-              style={{ fontSize: '12px', margin: 0 }}
-            >
-              {text || 'N/A'}
-            </Paragraph>
-          ),
-        },
-        {
-          title: 'Platform',
-          dataIndex: ['fields', 'Platform'],
-          key: 'platform',
-          width: 120,
-          render: (text: string) => (
-            <Tag color='blue' style={{ fontSize: '12px' }}>
-              {text || 'N/A'}
-            </Tag>
-          ),
-        },
-        {
-          title: 'Views',
-          dataIndex: ['fields', 'Views'],
-          key: 'views',
-          width: 100,
-          render: (views: number) => (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <GlobalOutlined style={{ fontSize: '12px', color: '#1890ff' }} />
-              <Text style={{ fontSize: '12px' }}>{views?.toLocaleString() || '0'}</Text>
-            </div>
-          ),
-        },
-        {
-          title: 'Likes',
-          dataIndex: ['fields', 'Likes'],
-          key: 'likes',
-          width: 100,
-          render: (likes: number) => (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <MailOutlined style={{ fontSize: '12px', color: '#52c41a' }} />
-              <Text style={{ fontSize: '12px' }}>{likes?.toLocaleString() || '0'}</Text>
-            </div>
-          ),
-        },
-        {
-          title: 'Shares',
-          dataIndex: ['fields', 'Shares'],
-          key: 'shares',
-          width: 100,
-          render: (shares: number) => (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <ShopOutlined style={{ fontSize: '12px', color: '#faad14' }} />
-              <Text style={{ fontSize: '12px' }}>{shares?.toLocaleString() || '0'}</Text>
-            </div>
-          ),
-        },
-        {
-          title: 'Creator',
-          dataIndex: ['fields', 'Creator'],
-          key: 'creator',
-          width: 150,
-          render: (text: string) => (
-            <Text style={{ fontSize: '12px' }}>{text || 'N/A'}</Text>
-          ),
-        },
-        {
-          title: 'Viral Score',
-          dataIndex: ['fields', 'Viral Score'],
-          key: 'viralScore',
-          width: 100,
-          render: (score: number) => (
-            <Tag color='green' style={{ fontSize: '12px' }}>
-              {score || '0'}
-            </Tag>
-          ),
-        },
-        {
-          title: 'URL',
-          dataIndex: ['fields', 'URL'],
-          key: 'url',
-          width: 80,
-          render: (text: string) =>
-            text ? (
-              <Tooltip title='Visit URL'>
-                <LinkOutlined
-                  style={{
-                    fontSize: '14px',
-                    color: '#1890ff',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => window.open(text, '_blank')}
-                />
-              </Tooltip>
-            ) : (
-              <Text style={{ fontSize: '12px', color: '#999' }}>N/A</Text>
-            ),
-        },
-        {
-          title: 'Contact Info',
-          dataIndex: ['fields', 'Contact'],
-          key: 'contactInfo',
-          width: 150,
-          render: (text: string) => (
-            <Text style={{ fontSize: '12px' }}>{text || 'N/A'}</Text>
-          ),
-        },
-        {
-          title: 'Created Time',
-          dataIndex: ['fields', 'Created Time'],
-          key: 'createdTime',
-          width: 120,
-          render: (text: string) => (
+      {
+        title: 'Title',
+        dataIndex: ['fields', 'Title'],
+        key: 'title',
+        width: 250,
+        render: (text: string) => (
+          <Text strong style={{ fontSize: '13px' }}>
+            {text || 'N/A'}
+          </Text>
+        ),
+      },
+      {
+        title: 'Content',
+        dataIndex: ['fields', 'Content'],
+        key: 'content',
+        width: 300,
+        render: (text: string) => (
+          <Paragraph
+            ellipsis={{ rows: 2, expandable: true, symbol: 'more' }}
+            style={{ fontSize: '12px', margin: 0 }}
+          >
+            {text || 'N/A'}
+          </Paragraph>
+        ),
+      },
+      {
+        title: 'Platform',
+        dataIndex: ['fields', 'Platform'],
+        key: 'platform',
+        width: 120,
+        render: (text: string) => (
+          <Tag color='blue' style={{ fontSize: '12px' }}>
+            {text || 'N/A'}
+          </Tag>
+        ),
+      },
+      {
+        title: 'Views',
+        dataIndex: ['fields', 'Views'],
+        key: 'views',
+        width: 100,
+        render: (views: number) => (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <GlobalOutlined style={{ fontSize: '12px', color: '#1890ff' }} />
             <Text style={{ fontSize: '12px' }}>
-              {text ? new Date(text).toLocaleDateString('en-US') : 'N/A'}
+              {views?.toLocaleString() || '0'}
             </Text>
+          </div>
+        ),
+      },
+      {
+        title: 'Likes',
+        dataIndex: ['fields', 'Likes'],
+        key: 'likes',
+        width: 100,
+        render: (likes: number) => (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <MailOutlined style={{ fontSize: '12px', color: '#52c41a' }} />
+            <Text style={{ fontSize: '12px' }}>
+              {likes?.toLocaleString() || '0'}
+            </Text>
+          </div>
+        ),
+      },
+      {
+        title: 'Shares',
+        dataIndex: ['fields', 'Shares'],
+        key: 'shares',
+        width: 100,
+        render: (shares: number) => (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <ShopOutlined style={{ fontSize: '12px', color: '#faad14' }} />
+            <Text style={{ fontSize: '12px' }}>
+              {shares?.toLocaleString() || '0'}
+            </Text>
+          </div>
+        ),
+      },
+      {
+        title: 'Creator',
+        dataIndex: ['fields', 'Creator'],
+        key: 'creator',
+        width: 150,
+        render: (text: string) => (
+          <Text style={{ fontSize: '12px' }}>{text || 'N/A'}</Text>
+        ),
+      },
+      {
+        title: 'Viral Score',
+        dataIndex: ['fields', 'Viral Score'],
+        key: 'viralScore',
+        width: 100,
+        render: (score: number) => (
+          <Tag color='green' style={{ fontSize: '12px' }}>
+            {score || '0'}
+          </Tag>
+        ),
+      },
+      {
+        title: 'URL',
+        dataIndex: ['fields', 'URL'],
+        key: 'url',
+        width: 80,
+        render: (text: string) =>
+          text ? (
+            <Tooltip title='Visit URL'>
+              <LinkOutlined
+                style={{
+                  fontSize: '14px',
+                  color: '#1890ff',
+                  cursor: 'pointer',
+                }}
+                onClick={() => window.open(text, '_blank')}
+              />
+            </Tooltip>
+          ) : (
+            <Text style={{ fontSize: '12px', color: '#999' }}>N/A</Text>
           ),
-        },
-      ];
+      },
+      {
+        title: 'Contact Info',
+        dataIndex: ['fields', 'Contact'],
+        key: 'contactInfo',
+        width: 150,
+        render: (text: string) => (
+          <Text style={{ fontSize: '12px' }}>{text || 'N/A'}</Text>
+        ),
+      },
+      {
+        title: 'Created Time',
+        dataIndex: ['fields', 'Created Time'],
+        key: 'createdTime',
+        width: 120,
+        render: (text: string) => (
+          <Text style={{ fontSize: '12px' }}>
+            {text ? new Date(text).toLocaleDateString('en-US') : 'N/A'}
+          </Text>
+        ),
+      },
+    ];
   }, []);
 
   /**
@@ -336,20 +352,23 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
   /**
    * 处理编辑记录
    */
-  const handleEdit = useCallback((record: ViralContentRecord) => {
-    setEditingRecord(record);
-    editForm.setFieldsValue({
-      Title: record.fields?.Title || '',
-      Content: record.fields?.Content || '',
-      Platform: record.fields?.Platform || '',
-      Views: record.fields?.Views || 0,
-      Likes: record.fields?.Likes || 0,
-      Shares: record.fields?.Shares || 0,
-      Creator: record.fields?.Creator || '',
-      URL: record.fields?.URL || '',
-      Contact: record.fields?.Contact || '',
-    });
-  }, [editForm]);
+  const handleEdit = useCallback(
+    (record: ViralContentRecord) => {
+      setEditingRecord(record);
+      editForm.setFieldsValue({
+        Title: record.fields?.Title || '',
+        Content: record.fields?.Content || '',
+        Platform: record.fields?.Platform || '',
+        Views: record.fields?.Views || 0,
+        Likes: record.fields?.Likes || 0,
+        Shares: record.fields?.Shares || 0,
+        Creator: record.fields?.Creator || '',
+        URL: record.fields?.URL || '',
+        Contact: record.fields?.Contact || '',
+      });
+    },
+    [editForm]
+  );
 
   /**
    * 处理保存编辑
@@ -380,7 +399,10 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       };
 
       // 更新Airtable记录
-      const updatedRecord = await airtableService.updateRecord(editingRecord.id, updateData);
+      const updatedRecord = await airtableService.updateRecord(
+        editingRecord.id,
+        updateData
+      );
 
       console.log('Record updated successfully:', updatedRecord);
 
@@ -413,20 +435,23 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
   /**
    * 处理表格变化（排序、分页）
    */
-  const handleTableChange = useCallback((pagination: any, filters: any, sorter: any) => {
-    // 更新分页状态
-    setCurrentPage(pagination.current);
-    setPageSize(pagination.pageSize);
+  const handleTableChange = useCallback(
+    (pagination: any, filters: any, sorter: any) => {
+      // 更新分页状态
+      setCurrentPage(pagination.current);
+      setPageSize(pagination.pageSize);
 
-    // 处理排序
-    if (sorter.field && sorter.order) {
-      const direction = sorter.order === 'ascend' ? 'asc' : 'desc';
-      onSort?.(sorter.field, direction);
-    }
+      // 处理排序
+      if (sorter.field && sorter.order) {
+        const direction = sorter.order === 'ascend' ? 'asc' : 'desc';
+        onSort?.(sorter.field, direction);
+      }
 
-    // 处理分页变化
-    onPageChange?.(pagination.current, pagination.pageSize);
-  }, [onSort, onPageChange]);
+      // 处理分页变化
+      onPageChange?.(pagination.current, pagination.pageSize);
+    },
+    [onSort, onPageChange]
+  );
 
   /**
    * 刷新数据
@@ -447,13 +472,11 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       title={
         <Space>
           <DatabaseOutlined />
-          <span>
-            TikTok 内容结果
-          </span>
-          <Text type="secondary" style={{ fontSize: '12px' }}>
+          <span>TikTok 内容结果</span>
+          <Text type='secondary' style={{ fontSize: '12px' }}>
             ({data.length} 条结果)
           </Text>
-          <Tag color="blue" size="small">
+          <Tag color='blue' size='small'>
             Airtable
           </Tag>
         </Space>
@@ -461,33 +484,33 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       extra={
         <Space>
           <Button
-            type="text"
+            type='text'
             icon={<DownloadOutlined />}
             onClick={handleExportCSV}
-            size="small"
+            size='small'
             disabled={loading || data.length === 0}
           >
             Export CSV
           </Button>
           <Button
-            type="default"
+            type='default'
             icon={<ReloadOutlined />}
             onClick={handleRefresh}
             loading={loading}
-            size="small"
+            size='small'
           >
             Refresh
           </Button>
         </Space>
       }
-      size="small"
+      size='small'
       style={{ height: '100%' }}
     >
       {error ? (
         <Alert
-          message="Error loading viral content data"
+          message='Error loading viral content data'
           description={error}
-          type="error"
+          type='error'
           showIcon
           style={{ marginBottom: 16 }}
         />
@@ -496,13 +519,13 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       {data.length === 0 && !loading ? (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="未找到病毒内容。请调整搜索参数后重试。"
+          description='未找到病毒内容。请调整搜索参数后重试。'
         />
       ) : (
         <Table
           columns={columns}
           dataSource={data}
-          rowKey="id"
+          rowKey='id'
           loading={loading}
           pagination={{
             current: currentPage,
@@ -514,7 +537,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
               `Showing ${range[0]}-${range[1]} of ${total} items`,
           }}
           onChange={handleTableChange}
-          size="small"
+          size='small'
           scroll={{ x: 1200, y: 'calc(100vh - 300px)' }}
           style={{ marginTop: 16 }}
         />
@@ -522,124 +545,98 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
 
       {/* 编辑对话框 */}
       <Modal
-        title="编辑病毒内容"
+        title='编辑病毒内容'
         open={!!editingRecord}
         onOk={handleSaveEdit}
         onCancel={handleCancelEdit}
         width={600}
-        okText="保存"
-        cancelText="取消"
+        okText='保存'
+        cancelText='取消'
       >
-      <Form
-        form={editForm}
-        layout="vertical"
-        style={{ marginTop: 16 }}
-      >
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              name="Title"
-              label="Title"
-              rules={[{ required: true, message: '请输入标题' }]}
-            >
-              <Input placeholder="请输入内容标题" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="Platform"
-              label="Platform"
-              rules={[{ required: true, message: '请选择平台' }]}
-            >
-              <Select placeholder="选择平台">
-                <Select.Option value="TikTok">TikTok</Select.Option>
-                <Select.Option value="Douyin">Douyin</Select.Option>
-                <Select.Option value="Bilibili">Bilibili</Select.Option>
-                <Select.Option value="WeChat Video">WeChat Video</Select.Option>
-                <Select.Option value="Kuaishou">Kuaishou</Select.Option>
-                <Select.Option value="Weibo">Weibo</Select.Option>
-                <Select.Option value="Other">Other</Select.Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        </Row>
+        <Form form={editForm} layout='vertical' style={{ marginTop: 16 }}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name='Title'
+                label='Title'
+                rules={[{ required: true, message: '请输入标题' }]}
+              >
+                <Input placeholder='请输入内容标题' />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name='Platform'
+                label='Platform'
+                rules={[{ required: true, message: '请选择平台' }]}
+              >
+                <Select placeholder='选择平台'>
+                  <Select.Option value='TikTok'>TikTok</Select.Option>
+                  <Select.Option value='Douyin'>Douyin</Select.Option>
+                  <Select.Option value='Bilibili'>Bilibili</Select.Option>
+                  <Select.Option value='WeChat Video'>
+                    WeChat Video
+                  </Select.Option>
+                  <Select.Option value='Kuaishou'>Kuaishou</Select.Option>
+                  <Select.Option value='Weibo'>Weibo</Select.Option>
+                  <Select.Option value='Other'>Other</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
 
-        <Form.Item
-          name="Content"
-          label="Content"
-        >
-          <Input.TextArea
-            placeholder="请输入内容描述"
-            rows={3}
-          />
-        </Form.Item>
+          <Form.Item name='Content' label='Content'>
+            <Input.TextArea placeholder='请输入内容描述' rows={3} />
+          </Form.Item>
 
-        <Row gutter={16}>
-          <Col span={8}>
-            <Form.Item
-              name="Views"
-              label="Views"
-            >
-              <InputNumber
-                placeholder="Views"
-                min={0}
-                style={{ width: '100%' }}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={8}>
-            <Form.Item
-              name="Likes"
-              label="Likes"
-            >
-              <InputNumber
-                placeholder="Likes"
-                min={0}
-                style={{ width: '100%' }}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={8}>
-            <Form.Item
-              name="Shares"
-              label="Shares"
-            >
-              <InputNumber
-                placeholder="Shares"
-                min={0}
-                style={{ width: '100%' }}
-              />
-            </Form.Item>
-          </Col>
-        </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name='Views' label='Views'>
+                <InputNumber
+                  placeholder='Views'
+                  min={0}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name='Likes' label='Likes'>
+                <InputNumber
+                  placeholder='Likes'
+                  min={0}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name='Shares' label='Shares'>
+                <InputNumber
+                  placeholder='Shares'
+                  min={0}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
 
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              name="Creator"
-              label="Creator"
-            >
-              <Input placeholder="Creator nickname" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="Contact"
-              label="Contact Info"
-            >
-              <Input placeholder="Contact information" />
-            </Form.Item>
-          </Col>
-        </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name='Creator' label='Creator'>
+                <Input placeholder='Creator nickname' />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name='Contact' label='Contact Info'>
+                <Input placeholder='Contact information' />
+              </Form.Item>
+            </Col>
+          </Row>
 
-        <Form.Item
-          name="URL"
-          label="URL"
-        >
-          <Input placeholder="https://..." />
-        </Form.Item>
-      </Form>
-    </Modal>
+          <Form.Item name='URL' label='URL'>
+            <Input placeholder='https://...' />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Card>
   );
 };

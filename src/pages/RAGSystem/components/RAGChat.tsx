@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Input, Button, Card, Typography, Space, Spin, message } from 'antd';
+import { Input, Button, Card, Typography, Space, Spin } from 'antd';
 import { SendOutlined, ClearOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useMessage } from '@/hooks/useMessage';
 import ReactMarkdown from 'react-markdown';
 import { ragApiService } from '../../../services/ragApi';
 import type { RAGMessage } from '../../../services/ragApi';
@@ -9,7 +10,7 @@ import useChatHistory from '../hooks/useChatHistory';
 import './RAGChat.css';
 
 const { TextArea } = Input;
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 // 使用RAG API中定义的Message接口
 // Use Message interface defined in RAG API
@@ -20,6 +21,7 @@ const { Text, Paragraph } = Typography;
  */
 const RAGChat: React.FC = () => {
   const { t } = useTranslation();
+  const message = useMessage();
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -87,8 +89,10 @@ const RAGChat: React.FC = () => {
         content: response.data?.response || response.message || '无响应内容',
         role: 'assistant',
         timestamp: new Date(),
-        sources: response.data?.sources,
-        confidence: response.data?.confidence,
+        ...(response.data?.sources && { sources: response.data.sources }),
+        ...(response.data?.confidence && {
+          confidence: response.data.confidence,
+        }),
       };
 
       // 添加助手消息到当前对话
@@ -205,6 +209,8 @@ const RAGChat: React.FC = () => {
                 alignItems: 'center',
                 height: '100%',
                 flexDirection: 'column',
+                padding: '40px 20px',
+                textAlign: 'center',
               }}
             >
               <Typography.Title level={4} type='secondary'>

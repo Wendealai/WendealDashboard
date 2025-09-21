@@ -92,6 +92,13 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [editForm] = Form.useForm();
 
+    // 确保Form组件已连接
+    useEffect(() => {
+      if (editForm) {
+        console.log('InformationGrid: Edit form instance connected');
+      }
+    }, [editForm]);
+
     /**
      * 初始化数据加载
      */

@@ -429,27 +429,6 @@ const InformationDashboard: React.FC = () => {
 
                 {/* Test buttons */}
                 <Space>
-                  <Tooltip title='Test Message API'>
-                    <Button
-                      type='dashed'
-                      size='small'
-                      onClick={() => {
-                        console.log('Testing message API manually...');
-                        console.log('Current message instance:', message);
-                        try {
-                          message.success('Message API test successful!');
-                          console.log('Message API test passed');
-                        } catch (error) {
-                          console.error('Message API test failed:', error);
-                          message.error('Message API test failed!');
-                        }
-                      }}
-                      style={{ marginRight: 8 }}
-                    >
-                      Test Message
-                    </Button>
-                  </Tooltip>
-
                   {/* Reddit workflow start button - 仅在未选中Smart Opportunities时显示 */}
                   {selectedWorkflow?.id !== 'smart-opportunities' && (
                     <Tooltip title='Start Reddit Hot Posts Workflow'>

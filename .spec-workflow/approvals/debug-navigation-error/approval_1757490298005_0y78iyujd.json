@@ -3,8 +3,10 @@
   "title": "Navigation Error Debug - 需求确认",
   "filePath": ".spec-workflow/specs/debug-navigation-error/requirements.md",
   "type": "document",
-  "status": "pending",
+  "status": "rejected",
   "createdAt": "2025-09-10T07:44:58.006Z",
   "category": "spec",
-  "categoryName": "debug-navigation-error"
+  "categoryName": "debug-navigation-error",
+  "response": "no need",
+  "respondedAt": "2025-09-21T12:47:12.034Z"
 }

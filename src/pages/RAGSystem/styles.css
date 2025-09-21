@@ -1,31 +1,36 @@
 /* RAG System 页面样式 */
 .rag-system-layout {
-  height: 100%; /* 使用父容器的高度 */
-  max-height: 100%; /* 限制最大高度 */
-  background: #f5f5f5;
-  overflow: hidden; /* 防止页面滚动 */
   position: relative;
   display: flex;
   flex-direction: column;
+  min-height: auto;
+  flex-shrink: 0; /* 防止被压缩 */
+  flex-grow: 0; /* 防止扩展 */
+  background: transparent; /* 移除背景色 */
 }
 
 .rag-system-content {
   padding: 4px; /* 进一步减少内边距 */
-  height: 100%;
-  max-height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   box-sizing: border-box;
+  width: 100%;
+  background: #f5f5f5; /* 背景色移到内容区域 */
+  flex-shrink: 0; /* 防止被压缩 */
+  flex-grow: 0; /* 防止扩展 */
+  min-height: auto; /* 自动高度，不强制最小高度 */
 }
 
 .rag-system-container {
-  height: 100%;
-  max-height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   box-sizing: border-box;
+  width: 100%;
+  max-width: 1400px; /* 限制最大宽度 */
+  margin: 0 auto; /* 居中对齐 */
+  flex-shrink: 0; /* 防止被压缩 */
+  flex-grow: 0; /* 防止扩展 */
+  min-height: auto; /* 自动高度 */
 }
 
 /* 工具栏区域 */
@@ -39,14 +44,21 @@
   flex-shrink: 0;
   min-height: auto;
   height: auto;
+  width: 100%;
+  align-self: flex-start; /* 防止垂直拉伸 */
+  flex-shrink: 0; /* 防止被压缩 */
+  flex-grow: 0; /* 防止扩展 */
 }
 
 /* 主要内容区域 - 包含侧边栏和对话区域 */
 .rag-main-section {
-  flex: 1;
   display: flex;
   min-height: 0;
-  overflow: hidden;
+  width: 100%;
+  align-items: flex-start; /* 顶部对齐，防止拉伸 */
+  flex-shrink: 0; /* 防止被压缩 */
+  flex-grow: 0; /* 防止扩展 */
+  min-height: auto; /* 自动高度 */
 }
 
 /* 聊天侧边栏 */
@@ -60,6 +72,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex-shrink: 0; /* 防止侧边栏被压缩 */
+  align-self: flex-start; /* 防止垂直拉伸 */
+  flex-grow: 0; /* 防止扩展 */
+  min-height: auto; /* 自动高度 */
 }
 
 /* 对话区域 */
@@ -68,13 +84,15 @@
   border-radius: 6px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   border: 1px solid #f0f0f0;
-  flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
   margin-left: 8px; /* 与侧边栏的间距 */
   min-width: 0; /* 允许flex收缩 */
+  flex: 1; /* 占据剩余空间 */
+  align-self: flex-start; /* 防止垂直拉伸 */
+  flex-shrink: 0; /* 防止被压缩 */
+  min-height: auto; /* 自动高度 */
 }
 
 /* 工具栏样式 */
