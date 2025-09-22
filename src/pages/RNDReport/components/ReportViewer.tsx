@@ -46,6 +46,69 @@ import { FileProcessingUtils, DateUtils } from '../../../utils/rndReportUtils';
 const { Text, Title } = Typography;
 
 /**
+ * Generate a simple hash for content integrity checking
+ */
+const generateContentHash = async (content: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .substring(0, 16);
+};
+
+/**
+ * Validate content integrity with multiple checks
+ */
+const validateContentIntegrity = (
+  content: string,
+  report: Report
+): { isValid: boolean; issues: string[] } => {
+  const issues: string[] = [];
+
+  // Check 1: Basic length validation
+  if (content.length < 50) {
+    issues.push('Content is too short');
+  }
+
+  // Check 2: Encoding validation
+  if (content.includes('�') || content.includes('���')) {
+    issues.push('Content contains encoding errors');
+  }
+
+  // Check 3: HTML structure validation
+  const hasHtmlTag = content.includes('<html') || content.includes('<HTML');
+  const hasHeadTag = content.includes('<head') || content.includes('<HEAD');
+  const hasBodyTag = content.includes('<body') || content.includes('<BODY');
+
+  if (!hasHtmlTag && !hasHeadTag && !hasBodyTag) {
+    issues.push('Content lacks basic HTML structure');
+  }
+
+  // Check 4: Check for suspicious patterns
+  if (
+    content.includes('display: none') &&
+    content.includes('position: absolute')
+  ) {
+    issues.push('Content may contain hidden malicious elements');
+  }
+
+  // Check 5: Check for broken references
+  const scriptCount = (content.match(/<script/g) || []).length;
+  const scriptCloseCount = (content.match(/<\/script>/g) || []).length;
+  if (scriptCount !== scriptCloseCount) {
+    issues.push('Unclosed script tags detected');
+  }
+
+  return {
+    isValid: issues.length === 0,
+    issues,
+  };
+};
+
+/**
  * ReportViewer Props Interface
  */
 export interface ReportViewerProps {
@@ -104,7 +167,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
   const [serviceReady, setServiceReady] = useState(false);
 
   /**
-   * Load report content
+   * Load report content with improved caching and consistency checks
    */
   const loadReportContent = useCallback(async () => {
     try {
@@ -134,8 +197,8 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
       }
 
       // Load HTML content from localStorage
-      const content = localStorage.getItem(`rnd-report-content-${report.id}`);
-      console.log('📦 从localStorage获取内容:', {
+      let content = localStorage.getItem(`rnd-report-content-${report.id}`);
+      console.log('📦 从localStorage获取原始内容:', {
         key: `rnd-report-content-${report.id}`,
         hasContent: !!content,
         contentLength: content?.length || 0,
@@ -143,92 +206,90 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
       });
 
       if (!content) {
-        throw new Error('Report content not found');
+        console.warn('⚠️ Report content not found, attempting recovery...');
+
+        // Try to recover content
+        const recovered = await attemptContentRecovery(report);
+        if (recovered) {
+          console.log('✅ Content recovered successfully');
+          // Reload content after recovery
+          content = localStorage.getItem(`rnd-report-content-${report.id}`);
+          if (!content) {
+            throw new Error('Content recovery failed - no content available');
+          }
+        } else {
+          throw new Error('Report content not found and recovery failed');
+        }
       }
 
-      // Validate and repair HTML content
-      let validatedContent = content;
+      // Generate content hash for consistency checking
+      const contentHash = await generateContentHash(content);
+      const storedHash = localStorage.getItem(`rnd-report-hash-${report.id}`);
 
-      // Check for common corruption issues
-      if (content.includes('�') || content.includes('���')) {
-        console.warn(
-          '🚨 HTML content contains encoding errors, attempting to fix...'
-        );
-        validatedContent = content.replace(/�+/g, '');
-      }
+      // Check if content has changed
+      const contentChanged = storedHash && storedHash !== contentHash;
 
-      // Check for truncated content
-      if (content.length < 100 && !content.includes('</html>')) {
-        console.warn('🚨 HTML content appears to be truncated');
-        validatedContent = `<html><head><title>${report.name}</title></head><body><div style="padding: 20px; color: #666;">Content appears to be truncated or corrupted. Please re-upload the report.</div></body></html>`;
-      }
-
-      // Analyze HTML content for debugging
-      const analysis = analyzeHtmlContent(validatedContent);
-      console.log(
-        '📊 HTML Content Analysis for report:',
-        report.name,
-        analysis
+      // Check for cached processed content
+      const cacheKey = `rnd-report-processed-${report.id}`;
+      const cachedContent = localStorage.getItem(cacheKey);
+      const cacheMetadataKey = `rnd-report-cache-metadata-${report.id}`;
+      const cacheMetadata = JSON.parse(
+        localStorage.getItem(cacheMetadataKey) || '{}'
       );
 
-      // Simplified HTML processing - try to handle common issues
-      let processedContent = validatedContent;
+      // Determine if we need to re-process content
+      const needsReprocessing =
+        !cachedContent ||
+        contentChanged ||
+        !cacheMetadata.processedAt ||
+        !cacheMetadata.processingVersion ||
+        cacheMetadata.processingVersion !== '2.0' || // Version check for consistency
+        Date.now() - cacheMetadata.processedAt > 24 * 60 * 60 * 1000; // 24 hours
 
-      // Check if content needs basic HTML structure
-      const needsHtmlWrapper =
-        !validatedContent.includes('<html') &&
-        !validatedContent.includes('<HTML');
-      const needsBodyWrapper =
-        !validatedContent.includes('<body') &&
-        !validatedContent.includes('<BODY');
+      let processedContent = cachedContent;
 
-      if (needsHtmlWrapper || needsBodyWrapper) {
-        console.log('🔧 Content needs HTML structure, wrapping...');
-        if (needsHtmlWrapper) {
-          processedContent = `<html><head><title>${report.name}</title></head><body>${processedContent}</body></html>`;
-        } else if (needsBodyWrapper) {
-          processedContent = processedContent
-            .replace('</head>', '</head><body>')
-            .replace('</html>', '</body></html>');
+      if (needsReprocessing) {
+        console.log('🔄 需要重新处理内容:', {
+          noCache: !cachedContent,
+          contentChanged,
+          cacheExpired:
+            !cacheMetadata.processedAt ||
+            Date.now() - cacheMetadata.processedAt > 24 * 60 * 60 * 1000,
+        });
+
+        // Process content with consistent logic
+        processedContent = await processContentConsistently(content, report);
+
+        // Cache the processed content
+        if (processedContent) {
+          localStorage.setItem(cacheKey, processedContent);
         }
+
+        // Store cache metadata
+        const metadata = {
+          processedAt: Date.now(),
+          contentHash,
+          processingVersion: '2.0', // Version for future compatibility
+        };
+        localStorage.setItem(cacheMetadataKey, JSON.stringify(metadata));
+
+        console.log('💾 Processed content cached with metadata');
       } else {
-        console.log('✅ HTML structure looks good, using original content');
+        console.log('📋 使用缓存的处理后内容');
       }
 
-      // Basic fixes for common display issues
-      processedContent = processedContent
-        .replace(/display:\s*none\s*;?/gi, 'display: block !important;')
-        .replace(
-          /visibility:\s*hidden\s*;?/gi,
-          'visibility: visible !important;'
-        )
-        .replace(/opacity:\s*0\s*;?/gi, 'opacity: 1 !important;');
-
-      // Sanitize HTML content for security
-      const sanitizedContent =
-        FileProcessingUtils.sanitizeHtmlContent(processedContent);
-      console.log('🧹 内容清理后长度:', sanitizedContent.length);
-
-      // Create complete HTML document
-      const fullHtml = createHtmlDocument(sanitizedContent);
-      console.log('📄 完整HTML文档长度:', fullHtml.length);
-      console.log('📄 HTML文档预览:', fullHtml.substring(0, 500) + '...');
-
-      // Validate HTML content before setting
-      if (!fullHtml || fullHtml.length === 0) {
-        console.warn('⚠️ Generated HTML content is empty, trying fallback...');
-        // Fallback: try to use validated content with minimal processing
-        const fallbackHtml = createHtmlDocument(validatedContent);
-        if (fallbackHtml && fallbackHtml.length > 0) {
-          console.log('🔄 使用验证后的内容作为fallback');
-          setHtmlContent(fallbackHtml);
-          return;
-        }
-        throw new Error('Generated HTML content is empty');
+      // Update content hash if changed
+      if (contentChanged || !storedHash) {
+        localStorage.setItem(`rnd-report-hash-${report.id}`, contentHash);
+        console.log('🔐 Updated content hash');
       }
 
-      setHtmlContent(fullHtml);
-      console.log('✅ HTML内容已设置到状态');
+      if (processedContent) {
+        setHtmlContent(processedContent);
+        console.log('✅ HTML content loaded successfully');
+      } else {
+        throw new Error('Failed to process content - result is null');
+      }
 
       // Load reading progress from service
       if (serviceRef.current) {
@@ -237,19 +298,16 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
             report.id
           );
           setReadingProgress(progress);
-          // Set currentScrollTop to percentage value for restoration
           setCurrentScrollTop(progress.currentPosition || 0);
           console.log('📖 Loaded reading progress:', progress);
         } catch (progressError) {
           console.warn('Failed to load reading progress:', progressError);
-          // Fallback to localStorage
           const savedProgress = localStorage.getItem(
             `rnd-report-progress-${report.id}`
           );
           if (savedProgress) {
             const progress = JSON.parse(savedProgress);
             setReadingProgress(progress);
-            // Set currentScrollTop to percentage value for restoration
             setCurrentScrollTop(progress.currentPosition || 0);
           }
         }
@@ -263,91 +321,153 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
   }, [report.id]);
 
   /**
-   * Create complete HTML document
+   * Process content consistently to ensure same input produces same output
+   */
+  const processContentConsistently = async (
+    content: string,
+    report: Report
+  ): Promise<string> => {
+    console.log('🔧 Processing content consistently for report:', report.id);
+
+    // Step 1: Validate content integrity first
+    const integrityCheck = validateContentIntegrity(content, report);
+    if (!integrityCheck.isValid) {
+      console.warn(
+        '⚠️ Content integrity issues detected:',
+        integrityCheck.issues
+      );
+      // Continue processing but log the issues
+    }
+
+    // Step 2: Clean encoding errors
+    let processedContent = content.replace(/�+/g, '');
+
+    // Step 3: Check for very short content that might be corrupted
+    if (processedContent.length < 50) {
+      console.warn('🚨 HTML content appears to be too short or corrupted');
+      processedContent = `<html><head><title>${report.name}</title></head><body><div style="padding: 20px; color: #666; text-align: center;">Content appears to be corrupted or too short. Please re-upload the report.</div></body></html>`;
+    }
+
+    // Step 4: Basic HTML structure validation and fixing
+    const hasHtmlTag =
+      processedContent.includes('<html') || processedContent.includes('<HTML');
+    const hasHeadTag =
+      processedContent.includes('<head') || processedContent.includes('<HEAD');
+    const hasBodyTag =
+      processedContent.includes('<body') || processedContent.includes('<BODY');
+
+    // Ensure basic HTML structure
+    if (!hasHtmlTag) {
+      processedContent = `<html><head><title>${report.name}</title></head><body>${processedContent}</body></html>`;
+      console.log('🔧 Added HTML structure wrapper');
+    } else if (!hasBodyTag) {
+      processedContent = processedContent
+        .replace('</head>', '</head><body>')
+        .replace('</html>', '</body></html>');
+      console.log('🔧 Added body wrapper');
+    }
+
+    // Step 5: Sanitize HTML content for security
+    const sanitizedContent =
+      FileProcessingUtils.sanitizeHtmlContent(processedContent);
+    console.log('🧹 Content sanitized, length:', sanitizedContent.length);
+
+    // Step 6: Create complete HTML document with consistent styling
+    const fullHtml = createHtmlDocument(sanitizedContent);
+
+    if (!fullHtml || fullHtml.length === 0) {
+      throw new Error('Failed to create HTML document');
+    }
+
+    // Step 7: Final validation
+    const finalIntegrityCheck = validateContentIntegrity(fullHtml, report);
+    if (!finalIntegrityCheck.isValid) {
+      console.error(
+        '❌ Final content validation failed:',
+        finalIntegrityCheck.issues
+      );
+      // Still return the content but log the error
+    } else {
+      console.log('✅ Content processing completed successfully');
+    }
+
+    return fullHtml;
+  };
+
+  /**
+   * Create complete HTML document with minimal styling
    */
   const createHtmlDocument = (content: string): string => {
     const baseStyles = `
       <style>
-        /* Minimal intervention styles - only fix critical visibility issues */
+        /* Reset and base styles */
+        * {
+          box-sizing: border-box;
+        }
 
-        /* Base document setup */
         html, body {
           margin: 0;
           padding: 20px;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
           line-height: 1.6;
+          background: white;
+          color: #333;
         }
 
-        /* CRITICAL FIXES - Only for elements that are completely hidden */
-        /* Only override if element is explicitly hidden, preserve original styles */
-        [style*="display: none"]:not([data-original-display]) {
+        /* Ensure content is visible */
+        body {
+          min-height: 100px;
+        }
+
+        /* Fix common visibility issues */
+        [style*="display: none"] {
           display: block !important;
-          background: inherit !important;
-          color: inherit !important;
         }
 
-        [hidden]:not([data-original-hidden]) {
-          display: block !important;
-          background: inherit !important;
-          color: inherit !important;
-        }
-
-        [style*="visibility: hidden"]:not([data-original-visibility]) {
+        [style*="visibility: hidden"] {
           visibility: visible !important;
         }
 
-        [style*="opacity: 0"]:not([data-original-opacity]) {
+        [style*="opacity: 0"] {
           opacity: 1 !important;
         }
 
-        /* Fix iframe-specific issues without breaking original styles */
-        body {
-          /* Only ensure minimum visibility, don't override colors/backgrounds */
-          min-height: 100px; /* Prevent empty appearance */
-        }
-
-        /* Ensure images load properly */
-        img {
-          max-width: 100%;
-          height: auto;
-        }
-
-        /* Fix any potential layout issues that prevent content from showing */
-        .container, .content, .main, .wrapper {
-          /* Only fix if these elements are causing content to be hidden */
-          min-width: 0;
-        }
-
-        /* Preserve original styles by not overriding them unless absolutely necessary */
-        /* Only add minimal fixes for known issues */
-
-        /* Fix for common frameworks that hide content */
-        .markdown-body:not([data-original-display]) {
-          display: block;
-        }
-
-        /* Ensure table content is visible */
-        table {
-          border-collapse: collapse;
-        }
-
-        /* Prevent content from being pushed outside viewport */
+        /* Fix positioning issues */
         [style*="position: fixed"][style*="top: -9999px"],
         [style*="position: absolute"][style*="left: -9999px"] {
           position: static !important;
         }
 
-        /* Fix elements that might be positioned off-screen */
         [style*="margin-left: -9999px"],
         [style*="margin-top: -9999px"] {
           margin: 0 !important;
         }
 
-        /* Emergency fix for completely invisible content */
-        [style*="color: transparent"],
-        [style*="background: transparent"][style*="color: transparent"] {
-          color: inherit !important;
-          background: inherit !important;
+        /* Ensure images are responsive */
+        img {
+          max-width: 100%;
+          height: auto;
+        }
+
+        /* Basic table styling */
+        table {
+          border-collapse: collapse;
+          width: 100%;
+        }
+
+        th, td {
+          border: 1px solid #ddd;
+          padding: 8px;
+          text-align: left;
+        }
+
+        th {
+          background-color: #f5f5f5;
+        }
+
+        /* Fix for hidden elements */
+        [hidden] {
+          display: block !important;
         }
       </style>
     `;
@@ -467,83 +587,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
   }, []);
 
   /**
-   * Enhanced HTML processing for iframe compatibility
-   */
-  const processHtmlContent = useCallback(
-    (originalContent: string, reportId: string) => {
-      let content = originalContent;
-
-      console.log('🔧 开始处理HTML内容，原始长度:', content.length);
-
-      // Only remove DOCTYPE if present (we'll add our own)
-      content = content.replace(/<!DOCTYPE[^>]*>/gi, '');
-
-      // Remove source map references to prevent iframe errors
-      const contentBeforeProcessing = content;
-      content = content.replace(/\/\/#\s*sourceMappingURL\s*=\s*[^\s]*/gi, '');
-      content = content.replace(
-        /\/\*#\s*sourceMappingURL\s*=\s*[^\s]*\*\//gi,
-        ''
-      );
-      content = content.replace(
-        /<!--#\s*sourceMappingURL\s*=\s*[^\s]*-->/gi,
-        ''
-      );
-
-      // Remove sourceURL references
-      content = content.replace(/\/\/#\s*sourceURL\s*=\s*[^\s]*/gi, '');
-
-      // Log if source maps were removed
-      if (contentBeforeProcessing !== content) {
-        const removedSourceMaps =
-          contentBeforeProcessing.length - content.length;
-        console.log(`🧹 已清理 ${removedSourceMaps} 个字符的source map引用`);
-      }
-
-      // Handle external CSS links - convert to comments to prevent 404 errors
-      const linkRegex =
-        /<link[^>]*rel=["']stylesheet["'][^>]*href=["'][^"']*["'][^>]*>/gi;
-      const originalLinkCount = (content.match(linkRegex) || []).length;
-      content = content.replace(linkRegex, match => {
-        console.log('🔗 注释掉外部CSS链接:', match.substring(0, 100) + '...');
-        return `<!-- Commented out external CSS: ${match} -->`;
-      });
-
-      if (originalLinkCount > 0) {
-        console.log(`🎨 已注释掉 ${originalLinkCount} 个外部CSS链接`);
-      }
-
-      // Handle scripts - add try-catch and defer to prevent blocking
-      const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
-      content = content.replace(scriptRegex, (match, scriptContent) => {
-        console.log('📜 处理JavaScript脚本');
-        return `<script>
-        try {
-          ${scriptContent}
-        } catch (error) {
-          console.warn('Script execution failed in iframe:', error.message);
-        }
-      </script>`;
-      });
-
-      // If the content already has html/head/body structure, preserve it
-      if (
-        content.includes('<html') &&
-        content.includes('<head') &&
-        content.includes('<body')
-      ) {
-        console.log('✅ HTML结构完整，使用原始结构');
-        return content;
-      }
-
-      // For simple HTML content without full structure, wrap it minimally
-      console.log('🔄 HTML结构不完整，进行包装');
-      return `<html><head><title>Report</title></head><body>${content}</body></html>`;
-    },
-    []
-  );
-
-  /**
    * Debug localStorage content
    */
   const debugLocalStorage = useCallback(() => {
@@ -597,15 +640,213 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
   }, [report.id]);
 
   /**
+   * Clean up orphaned cache entries
+   */
+  const cleanupOrphanedCaches = useCallback(() => {
+    console.log('🧹 Cleaning up orphaned cache entries...');
+
+    const keys = Object.keys(localStorage);
+    let cleaned = 0;
+
+    keys.forEach(key => {
+      if (
+        key.includes('rnd-report-processed-') ||
+        key.includes('rnd-report-hash-') ||
+        key.includes('rnd-report-cache-metadata-')
+      ) {
+        const reportId = key.includes('processed-')
+          ? key.replace('rnd-report-processed-', '')
+          : key.includes('hash-')
+            ? key.replace('rnd-report-hash-', '')
+            : key.replace('rnd-report-cache-metadata-', '');
+
+        const contentKey = `rnd-report-content-${reportId}`;
+        const hasContent = localStorage.getItem(contentKey) !== null;
+
+        if (!hasContent) {
+          localStorage.removeItem(key);
+          cleaned++;
+          console.log(`🗑️ Removed orphaned cache: ${key}`);
+        }
+      }
+    });
+
+    if (cleaned > 0) {
+      console.log(`✅ Cleaned up ${cleaned} orphaned cache entries`);
+    } else {
+      console.log('✅ No orphaned cache entries found');
+    }
+
+    return cleaned;
+  }, []);
+
+  /**
+   * Optimize storage by removing old cache entries
+   */
+  const optimizeStorage = useCallback(() => {
+    console.log('🔧 Optimizing storage...');
+
+    const keys = Object.keys(localStorage);
+    const cacheMetadataKeys = keys.filter(key =>
+      key.includes('rnd-report-cache-metadata-')
+    );
+
+    let optimized = 0;
+
+    cacheMetadataKeys.forEach(key => {
+      try {
+        const metadata = JSON.parse(localStorage.getItem(key) || '{}');
+        const reportId = key.replace('rnd-report-cache-metadata-', '');
+
+        // Check if cache is older than 7 days
+        if (
+          metadata.processedAt &&
+          Date.now() - metadata.processedAt > 7 * 24 * 60 * 60 * 1000
+        ) {
+          const cacheKey = `rnd-report-processed-${reportId}`;
+          const hashKey = `rnd-report-hash-${reportId}`;
+
+          // Remove old cache entries
+          localStorage.removeItem(cacheKey);
+          localStorage.removeItem(hashKey);
+          localStorage.removeItem(key);
+
+          optimized++;
+          console.log(`🗑️ Removed old cache for report: ${reportId}`);
+        }
+      } catch (error) {
+        console.warn(`⚠️ Failed to parse cache metadata for ${key}:`, error);
+      }
+    });
+
+    if (optimized > 0) {
+      console.log(
+        `✅ Optimized storage by removing ${optimized} old cache entries`
+      );
+    } else {
+      console.log('✅ Storage is already optimized');
+    }
+
+    return optimized;
+  }, []);
+
+  /**
+   * Attempt to recover corrupted or missing content
+   */
+  const attemptContentRecovery = useCallback(
+    async (report: Report): Promise<boolean> => {
+      console.log('🔄 Attempting content recovery for report:', report.id);
+
+      try {
+        // Check if we have any backup or alternative content
+        const backupKeys = Object.keys(localStorage).filter(
+          key =>
+            key.includes(report.id) &&
+            (key.includes('backup') || key.includes('temp'))
+        );
+
+        if (backupKeys.length > 0) {
+          console.log('📋 Found backup content, attempting recovery...');
+
+          for (const backupKey of backupKeys) {
+            const backupContent = localStorage.getItem(backupKey);
+            if (backupContent && backupContent.length > 50) {
+              // Validate the backup content
+              const integrityCheck = validateContentIntegrity(
+                backupContent,
+                report
+              );
+              if (integrityCheck.isValid) {
+                // Restore from backup
+                localStorage.setItem(
+                  `rnd-report-content-${report.id}`,
+                  backupContent
+                );
+
+                // Generate new hash
+                const contentHash = await generateContentHash(backupContent);
+                localStorage.setItem(
+                  `rnd-report-hash-${report.id}`,
+                  contentHash
+                );
+
+                console.log('✅ Content recovered from backup successfully');
+                return true;
+              }
+            }
+          }
+        }
+
+        // Try to reconstruct content from processed cache if available
+        const processedKey = `rnd-report-processed-${report.id}`;
+        const processedContent = localStorage.getItem(processedKey);
+
+        if (processedContent) {
+          console.log('📝 Attempting recovery from processed content...');
+
+          // Extract content from the processed HTML
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = processedContent;
+
+          // Remove our wrapper styles and scripts
+          const styleTags = tempDiv.querySelectorAll('style');
+          styleTags.forEach(style => {
+            if (
+              style.textContent &&
+              style.textContent.includes('box-sizing: border-box')
+            ) {
+              style.remove();
+            }
+          });
+
+          const scripts = tempDiv.querySelectorAll('script');
+          scripts.forEach(script => script.remove());
+
+          const recoveredContent = tempDiv.innerHTML;
+
+          if (recoveredContent && recoveredContent.length > 50) {
+            const integrityCheck = validateContentIntegrity(
+              recoveredContent,
+              report
+            );
+            if (integrityCheck.isValid) {
+              localStorage.setItem(
+                `rnd-report-content-${report.id}`,
+                recoveredContent
+              );
+
+              const contentHash = await generateContentHash(recoveredContent);
+              localStorage.setItem(`rnd-report-hash-${report.id}`, contentHash);
+
+              console.log(
+                '✅ Content recovered from processed cache successfully'
+              );
+              return true;
+            }
+          }
+        }
+
+        console.warn(
+          '⚠️ Content recovery failed - no valid backup or processed content found'
+        );
+        return false;
+      } catch (error) {
+        console.error('❌ Content recovery failed:', error);
+        return false;
+      }
+    },
+    []
+  );
+
+  /**
    * Handle iframe load
    */
   const handleIframeLoad = useCallback(() => {
     if (!iframeRef.current) return;
 
     try {
-      console.log('📄 Iframe loaded, setting up content...');
+      console.log('📄 Iframe loaded successfully');
 
-      // Set up scroll tracking (simplified without iframe-resizer)
       const iframeDocument =
         iframeRef.current.contentDocument ||
         iframeRef.current.contentWindow?.document;
@@ -616,7 +857,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
         return;
       }
 
-      // Check if content loaded successfully
       const bodyElement = iframeDocument.body;
       if (!bodyElement) {
         console.error('❌ Iframe body not found');
@@ -624,231 +864,88 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
         return;
       }
 
-      console.log('✅ Iframe body found:', {
-        childNodes: bodyElement.childNodes.length,
-        innerHTML: bodyElement.innerHTML.substring(0, 200) + '...',
-        computedStyle: window.getComputedStyle(bodyElement),
-      });
-
-      // Basic debugging
-      console.log('🔍 Iframe loaded:', {
+      console.log('✅ Iframe content loaded:', {
         title: iframeDocument.title,
         bodyChildren: bodyElement.children.length,
-        bodyText: bodyElement.textContent?.substring(0, 50) + '...',
+        hasContent: bodyElement.textContent?.trim().length > 0,
       });
 
-      // Simple visibility check
-      try {
-        const hiddenElements = iframeDocument.querySelectorAll(
-          '[style*="display: none"], [hidden]'
-        );
-        if (hiddenElements.length > 0) {
-          console.warn(
-            `🚨 Found ${hiddenElements.length} hidden elements, applying basic fixes`
-          );
-          hiddenElements.forEach((el, index) => {
-            if (index < 5 && !el.hasAttribute('data-fixed')) {
-              (el as HTMLElement).style.display = 'block';
-              el.setAttribute('data-fixed', 'true');
-              console.log('✅ Fixed hidden element:', el.tagName);
-            }
-          });
+      // Basic scroll tracking setup
+      const handleScroll = () => {
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
         }
-      } catch (error) {
-        console.warn('Visibility check failed:', error);
-      }
 
-      // Minimal intervention - only fix if body is completely empty or hidden
-      const computedStyle =
-        iframeDocument.defaultView?.getComputedStyle(bodyElement) ||
-        window.getComputedStyle(bodyElement);
+        scrollTimeoutRef.current = setTimeout(() => {
+          const scrollTop =
+            iframeDocument.documentElement.scrollTop ||
+            iframeDocument.body.scrollTop;
+          const scrollHeight = iframeDocument.documentElement.scrollHeight;
+          const clientHeight = iframeRef.current?.clientHeight || 600;
 
-      // Only intervene if the body has no visible content at all
-      if (
-        bodyElement.childNodes.length === 0 ||
-        (computedStyle.display === 'none' &&
-          !bodyElement.hasAttribute('data-original-display'))
-      ) {
-        console.warn(
-          '⚠️ Body appears to be empty or hidden, applying minimal fix'
-        );
-        bodyElement.style.display = 'block';
-        bodyElement.style.minHeight = '100px';
-      }
+          if (scrollHeight > clientHeight) {
+            const progress = FileProcessingUtils.calculateReadingProgress(
+              scrollTop,
+              scrollHeight,
+              clientHeight
+            );
 
-      // Basic content validation
-      if (
-        !bodyElement.textContent?.trim() &&
-        bodyElement.children.length === 0
-      ) {
-        console.warn('⚠️ Body appears empty, setting basic content');
-        bodyElement.innerHTML =
-          '<div style="padding: 20px; text-align: center; color: #666;">内容加载中...</div>';
-      }
+            setContentHeight(scrollHeight);
 
-      if (iframeDocument) {
-        const handleScroll = () => {
-          if (scrollTimeoutRef.current) {
-            clearTimeout(scrollTimeoutRef.current);
-          }
-
-          scrollTimeoutRef.current = setTimeout(async () => {
-            const scrollTop =
-              iframeDocument.documentElement.scrollTop ||
-              iframeDocument.body.scrollTop;
-            const scrollHeight = iframeDocument.documentElement.scrollHeight;
-            const clientHeight = iframeRef.current?.clientHeight || 600;
-
-            if (scrollHeight > clientHeight) {
-              const progress = FileProcessingUtils.calculateReadingProgress(
-                scrollTop,
-                scrollHeight,
-                clientHeight
-              );
-
-              setContentHeight(scrollHeight);
-
-              // Update currentScrollTop with percentage for consistency
-              const currentPercentage =
-                scrollHeight <= clientHeight
-                  ? 100
-                  : Math.min(
-                      100,
-                      Math.max(
-                        0,
-                        Math.round(
-                          (scrollTop / (scrollHeight - clientHeight)) * 100
-                        )
-                      )
-                    );
-              setCurrentScrollTop(currentPercentage);
-
-              // Update progress
-              onProgressUpdate(progress);
-
-              // Save progress to service
-              if (serviceRef.current && serviceReady) {
-                try {
-                  const maxScrollTop = scrollHeight - clientHeight;
-                  const progressPercentage =
-                    scrollHeight <= clientHeight
-                      ? 100
-                      : Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            Math.round((scrollTop / maxScrollTop) * 100)
-                          )
-                        );
-
-                  const progressData: Partial<ReadingProgress> = {
-                    currentPosition: progressPercentage,
-                    totalPages: Math.ceil(scrollHeight / clientHeight),
-                    currentPage: Math.ceil(scrollTop / clientHeight) + 1,
-                  };
-
-                  const updatedProgress =
-                    await serviceRef.current.updateReadingProgress(
-                      report.id,
-                      progressData
-                    );
-                  setReadingProgress(updatedProgress);
-                  console.log('💾 Auto-saved reading progress:', progressData);
-                } catch (saveError) {
-                  console.error('Failed to save reading progress:', saveError);
-                  // Fallback to localStorage
-                  const maxScrollTop = scrollHeight - clientHeight;
-                  const progressPercentage =
-                    scrollHeight <= clientHeight
-                      ? 100
-                      : Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            Math.round((scrollTop / maxScrollTop) * 100)
-                          )
-                        );
-
-                  const progressData: ReadingProgress = {
-                    reportId: report.id,
-                    currentPosition: progressPercentage,
-                    totalPages: Math.ceil(scrollHeight / clientHeight),
-                    currentPage: Math.ceil(scrollTop / clientHeight) + 1,
-                    lastReadAt: new Date(),
-                    bookmarks: readingProgress?.bookmarks || [],
-                  };
-                  localStorage.setItem(
-                    `rnd-report-progress-${report.id}`,
-                    JSON.stringify(progressData)
+            // Calculate percentage
+            const maxScrollTop = scrollHeight - clientHeight;
+            const progressPercentage =
+              scrollHeight <= clientHeight
+                ? 100
+                : Math.min(
+                    100,
+                    Math.max(0, Math.round((scrollTop / maxScrollTop) * 100))
                   );
-                  setReadingProgress(progressData);
-                }
-              } else {
-                // Fallback to localStorage if service not ready
-                const maxScrollTop = scrollHeight - clientHeight;
-                const progressPercentage =
-                  scrollHeight <= clientHeight
-                    ? 100
-                    : Math.min(
-                        100,
-                        Math.max(
-                          0,
-                          Math.round((scrollTop / maxScrollTop) * 100)
-                        )
-                      );
 
-                const progressData: ReadingProgress = {
-                  reportId: report.id,
+            setCurrentScrollTop(progressPercentage);
+            onProgressUpdate(progress);
+
+            // Save progress
+            if (serviceRef.current && serviceReady) {
+              serviceRef.current
+                .updateReadingProgress(report.id, {
                   currentPosition: progressPercentage,
                   totalPages: Math.ceil(scrollHeight / clientHeight),
                   currentPage: Math.ceil(scrollTop / clientHeight) + 1,
-                  lastReadAt: new Date(),
-                  bookmarks: readingProgress?.bookmarks || [],
-                };
-                localStorage.setItem(
-                  `rnd-report-progress-${report.id}`,
-                  JSON.stringify(progressData)
-                );
-                setReadingProgress(progressData);
-              }
+                })
+                .catch(error => {
+                  console.warn('Failed to save progress to service:', error);
+                });
             }
-          }, 100);
-        };
+          }
+        }, 100);
+      };
 
-        // Add scroll event listener
-        iframeDocument.addEventListener('scroll', handleScroll, {
-          passive: true,
-        });
+      // Add scroll listener
+      iframeDocument.addEventListener('scroll', handleScroll, {
+        passive: true,
+      });
 
-        // Restore scroll position if available
-        if (currentScrollTop > 0 && readingProgress) {
-          setTimeout(() => {
-            // Convert percentage to actual scroll position
-            const scrollHeight = iframeDocument.documentElement.scrollHeight;
-            const clientHeight = iframeRef.current?.clientHeight || 600;
-            const maxScrollTop = scrollHeight - clientHeight;
+      // Restore scroll position
+      if (currentScrollTop > 0 && readingProgress) {
+        setTimeout(() => {
+          const scrollHeight = iframeDocument.documentElement.scrollHeight;
+          const clientHeight = iframeRef.current?.clientHeight || 600;
+          const maxScrollTop = scrollHeight - clientHeight;
+          const targetScrollTop =
+            currentScrollTop <= 100
+              ? (currentScrollTop / 100) * maxScrollTop
+              : currentScrollTop;
 
-            // If currentScrollTop is percentage (0-100), convert it
-            let targetScrollTop = currentScrollTop;
-            if (currentScrollTop <= 100) {
-              targetScrollTop = (currentScrollTop / 100) * maxScrollTop;
-            }
-
-            iframeDocument.documentElement.scrollTop = targetScrollTop;
-            console.log(
-              '📖 Restored scroll position:',
-              targetScrollTop,
-              'from percentage:',
-              currentScrollTop
-            );
-          }, 500);
-        }
-
-        // Cleanup function
-        return () => {
-          iframeDocument.removeEventListener('scroll', handleScroll);
-        };
+          iframeDocument.documentElement.scrollTop = targetScrollTop;
+          console.log('📖 Restored scroll position:', targetScrollTop);
+        }, 300);
       }
+
+      // Cleanup function
+      return () => {
+        iframeDocument.removeEventListener('scroll', handleScroll);
+      };
     } catch (err) {
       console.error('Failed to initialize iframe:', err);
       setError('Failed to initialize report viewer');
@@ -1300,6 +1397,40 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                       </div>
                     </div>
                   )}
+
+                {/* Cache Management */}
+                <Divider />
+                <div>
+                  <Text strong>Cache Management</Text>
+                  <div style={{ marginTop: '8px' }}>
+                    <Space direction='vertical' size={4}>
+                      <Button
+                        size='small'
+                        type='default'
+                        onClick={() => {
+                          const cacheKey = `rnd-report-processed-${report.id}`;
+                          const hashKey = `rnd-report-hash-${report.id}`;
+
+                          localStorage.removeItem(cacheKey);
+                          localStorage.removeItem(hashKey);
+
+                          message.success(
+                            'Cache cleared. Report will be re-processed on next load.'
+                          );
+                          console.log(
+                            '🗑️ Cache cleared for report:',
+                            report.id
+                          );
+                        }}
+                      >
+                        Clear Cache
+                      </Button>
+                      <Text type='secondary' style={{ fontSize: '12px' }}>
+                        Clear cached content to force re-processing
+                      </Text>
+                    </Space>
+                  </div>
+                </div>
               </Space>
             </div>
           )}

@@ -3,7 +3,7 @@ import React, {
   useContext,
   useReducer,
   useEffect,
-  ReactNode,
+  type ReactNode,
 } from 'react';
 import { ConfigProvider, theme } from 'antd';
 import type { ThemeConfig } from 'antd';
@@ -251,7 +251,21 @@ interface ThemeProviderProps {
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(themeReducer, {
-    currentTheme: PRESET_THEMES[0],
+    currentTheme: PRESET_THEMES[0] || {
+      id: 'default',
+      name: '默认主题',
+      primaryColor: '#1890ff',
+      backgroundColor: '#f5f5f5',
+      textColor: '#262626',
+      borderColor: '#d9d9d9',
+      headerColor: '#ffffff',
+      sidebarColor: '#f8f9fa',
+      cardColor: '#ffffff',
+      isDark: false,
+      fontSize: { small: 12, medium: 14, large: 16 },
+      borderRadius: 6,
+      spacing: { small: 8, medium: 16, large: 24 },
+    },
     customThemes: [],
     isCustomizing: false,
   });
@@ -266,7 +280,21 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         STORAGE_KEYS.CUSTOM_THEMES
       );
 
-      let currentTheme = PRESET_THEMES[0];
+      let currentTheme: CustomTheme = PRESET_THEMES[0] || {
+        id: 'default',
+        name: '默认主题',
+        primaryColor: '#1890ff',
+        backgroundColor: '#f5f5f5',
+        textColor: '#262626',
+        borderColor: '#d9d9d9',
+        headerColor: '#ffffff',
+        sidebarColor: '#f8f9fa',
+        cardColor: '#ffffff',
+        isDark: false,
+        fontSize: { small: 12, medium: 14, large: 16 },
+        borderRadius: 6,
+        spacing: { small: 8, medium: 16, large: 24 },
+      };
       let customThemes: CustomTheme[] = [];
 
       if (savedCustomThemes) {
@@ -373,7 +401,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         : theme.defaultAlgorithm,
       token: {
         colorPrimary: currentTheme.primaryColor,
-        colorBgBase: currentTheme.cardColor,
+        colorBgBase: currentTheme.backgroundColor,
         colorTextBase: currentTheme.textColor,
         colorBorder: currentTheme.borderColor,
         borderRadius: currentTheme.borderRadius,
@@ -383,9 +411,12 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       },
       components: {
         Layout: {
-          bodyBg: currentTheme.backgroundColor,
+          colorBgLayout: currentTheme.backgroundColor,
+          colorBgHeader: currentTheme.headerColor,
+          colorBgBody: currentTheme.backgroundColor,
           headerBg: currentTheme.headerColor,
           siderBg: currentTheme.sidebarColor,
+          bodyBg: currentTheme.backgroundColor,
         },
         Card: {
           colorBgContainer: currentTheme.cardColor,

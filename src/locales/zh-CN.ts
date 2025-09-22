@@ -1017,32 +1017,6 @@ export default {
     },
   },
 
-  // 通知
-  notification: {
-    title: '通知中心',
-    markAsRead: '标记为已读',
-    markAllAsRead: '全部标记为已读',
-    delete: '删除通知',
-    deleteAll: '删除全部',
-    clear: '清空通知',
-    settings: '通知设置',
-    types: {
-      info: '信息',
-      success: '成功',
-      warning: '警告',
-      error: '错误',
-      system: '系统',
-      user: '用户',
-      order: '订单',
-      payment: '支付',
-      security: '安全',
-    },
-    empty: '暂无通知',
-    unread: '未读',
-    read: '已读',
-    all: '全部',
-  },
-
   // 表格
   table: {
     columns: '列设置',
@@ -1419,10 +1393,208 @@ export default {
     },
   },
 
+  // 设置页面
+  settings: {
+    title: '系统设置',
+    subtitle: '管理您的应用偏好和配置选项',
+
+    // 外观设置
+    appearance: {
+      title: '外观设置',
+      darkMode: '深色模式',
+      darkModeDesc: '切换到深色主题以减少眼睛疲劳',
+      darkLabel: '深色',
+      lightLabel: '浅色',
+      language: '界面语言',
+      languageDesc: '选择您偏好的界面语言',
+      chinese: '简体中文',
+      english: 'English',
+    },
+
+    // 消息提示
+    messages: {
+      dark: '深色模式',
+      light: '浅色模式',
+      themeChanged: '主题已切换为{{mode}}',
+      languageChanged: '语言已切换为{{language}}',
+      settingsSaved: '设置保存成功',
+      settingsSaveFailed: '设置保存失败',
+      settingsReset: '设置已重置为默认值',
+    },
+
+    // 通知设置
+    notifications: {
+      title: '通知设置',
+      desktop: '桌面通知',
+      desktopDesc: '在桌面显示系统通知',
+      email: '邮件通知',
+      emailDesc: '通过邮件接收重要通知',
+      sound: '声音提醒',
+      soundDesc: '播放通知音效',
+      test: '通知演示',
+      testDesc: '打开完整的通知系统演示页面',
+      testButton: '打开演示页面',
+      testSuccess: '测试通知发送成功',
+      testFailed: '测试通知发送失败',
+    },
+
+    // 安全设置
+    security: {
+      title: '安全设置',
+      autoLogout: '自动登出',
+      autoLogoutDesc: '在指定时间后自动登出账户',
+      timeOptions: {
+        '15min': '15分钟',
+        '30min': '30分钟',
+        '1hour': '1小时',
+        never: '永不',
+      },
+      twoFactor: '双因素认证',
+      twoFactorDesc: '启用双因素认证以增强账户安全性',
+    },
+
+    // 系统信息
+    systemInfo: {
+      title: '系统信息',
+      appVersion: '应用版本',
+      buildTime: '构建时间',
+      environment: '运行环境',
+      development: '开发环境',
+      browser: '浏览器',
+    },
+
+    // 操作按钮
+    buttons: {
+      save: '保存设置',
+      reset: '重置设置',
+    },
+  },
+
+  // 通知演示页面
+  notificationDemo: {
+    title: '通知系统演示',
+    subtitle: '完整的通知系统演示，包含真实数据和完整的中文本地化',
+
+    // 测试控制
+    testControls: {
+      title: '测试通知',
+      successButton: '生成成功通知',
+      errorButton: '生成错误通知',
+      warningButton: '生成警告通知',
+      infoButton: '生成信息通知',
+      systemButton: '生成系统通知',
+    },
+
+    // Toast测试
+    toastTest: {
+      title: 'Toast通知',
+      successTitle: '成功！',
+      successMessage: '操作已成功完成。',
+      errorTitle: '错误！',
+      errorMessage: '出现错误，请重试。',
+      warningTitle: '警告！',
+      warningMessage: '请检查当前设置。',
+      infoTitle: '信息',
+      infoMessage: '这是给您的信息。',
+      successButton: '显示成功Toast',
+      errorButton: '显示错误Toast',
+      warningButton: '显示警告Toast',
+      infoButton: '显示信息Toast',
+    },
+
+    // 统计信息
+    statistics: {
+      title: '统计信息',
+      total: '总通知数',
+      unread: '未读',
+      read: '已读',
+      archived: '已归档',
+    },
+
+    // 收件箱
+    inbox: {
+      title: '通知收件箱',
+    },
+
+    // 设置
+    settings: {
+      title: '通知设置',
+    },
+
+    // 功能特性
+    features: {
+      title: '演示功能',
+      realisticData: {
+        title: '真实数据',
+        description: '包含适当元数据的真实通知',
+      },
+      localization: {
+        title: '完整本地化',
+        description: '完整的中文界面和内容',
+      },
+      realtime: {
+        title: '实时更新',
+        description: '通过WebSocket的实时通知',
+      },
+      components: {
+        title: '丰富组件',
+        description: '收件箱、设置和Toast通知',
+      },
+      offline: {
+        title: '离线支持',
+        description: '带同步功能的IndexedDB存储',
+      },
+      typesafety: {
+        title: '类型安全',
+        description: '完整的TypeScript覆盖',
+      },
+    },
+  },
+
+  // 通知中心
+  notification: {
+    title: '通知中心',
+    markAsRead: '标记为已读',
+    markAllAsRead: '全部标记为已读',
+    delete: '删除通知',
+    deleteAll: '删除全部',
+    clear: '清空通知',
+    settings: '通知设置',
+    types: {
+      info: '信息',
+      success: '成功',
+      warning: '警告',
+      error: '错误',
+      system: '系统',
+      user: '用户',
+      order: '订单',
+      payment: '支付',
+      security: '安全',
+    },
+    priority: {
+      low: '低',
+      medium: '中',
+      high: '高',
+    },
+    empty: '暂无通知',
+    unread: '未读',
+    read: '已读',
+    all: '全部',
+    tabs: {
+      all: '全部',
+      unread: '未读',
+      system: '系统',
+      security: '安全',
+      update: '更新',
+      message: '消息',
+    },
+  },
+
   // R&D报告模块
   rndReport: {
     title: 'R&D报告管理',
-    description: '专业的HTML报告文档管理系统，支持上传、分类、阅读进度跟踪等功能',
+    description:
+      '专业的HTML报告文档管理系统，支持上传、分类、阅读进度跟踪等功能',
     loading: '正在加载报告模块...',
 
     // 统计信息
@@ -1474,7 +1646,8 @@ export default {
       uploadingFiles: '正在上传文件...',
       progress: '进度',
       largeUploadWarning: '批量上传提醒',
-      largeUploadMessage: '您正在上传多个文件，这可能需要一些时间。请不要关闭页面。',
+      largeUploadMessage:
+        '您正在上传多个文件，这可能需要一些时间。请不要关闭页面。',
     },
 
     // 报告列表

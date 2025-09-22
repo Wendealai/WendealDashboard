@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Layout as AntLayout,
   Menu,
@@ -14,7 +14,21 @@ import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router-dom';
 import NotificationCenter from '../Notification/NotificationCenter';
 import NotificationButton from '../Notification/NotificationButton';
-import { useNotifications } from '../../hooks/useNotifications';
+import { notificationService } from '@/services/notificationService';
+
+// Legacy NotificationItem interface for backward compatibility
+interface NotificationItem {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  content: string;
+  priority: 'low' | 'medium' | 'high';
+  category: string;
+  read: boolean;
+  timestamp: Date;
+  actionUrl?: string;
+  actionText?: string;
+}
 import ThemeToggle from '../common/ThemeToggle';
 import LanguageSwitcher from '../common/LanguageSwitcher';
 
@@ -59,21 +73,101 @@ const MainLayout: React.FC = () => {
   const message = useMessage();
   const { isVisible, errorInfo, showError, hideError } = useErrorModal();
 
-  const { sidebarCollapsed } = useAppSelector(state => state.ui);
+  const { sidebarCollapsed, theme } = useAppSelector(state => state.ui);
 
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [mobileDrawerVisible, setMobileDrawerVisible] = useState(false);
   const [notificationVisible, setNotificationVisible] = useState(false);
 
   // Notification related state and methods
-  const {
-    notifications,
-    unreadCount,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
-    clearAllNotifications,
-  } = useNotifications({ messageApi: message });
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Load notifications from service
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const loadNotifications = async () => {
+    try {
+      const response = await notificationService.getNotifications();
+      const adaptedNotifications = response.notifications.map(notification => ({
+        id: notification.id,
+        type: notification.type === 'system' ? 'info' : notification.type,
+        title: notification.title,
+        content: notification.content,
+        priority: (notification.priority === 'urgent'
+          ? 'high'
+          : notification.priority === 'normal'
+            ? 'medium'
+            : 'low') as 'low' | 'medium' | 'high',
+        category: notification.category,
+        read: notification.status === 'read',
+        timestamp: notification.createdAt,
+        actionUrl: notification.actions[0]?.url || '',
+        actionText: notification.actions[0]?.label || '',
+      }));
+      setNotifications(adaptedNotifications);
+      setUnreadCount(response.unreadCount);
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
+    }
+  };
+
+  // Notification actions
+  const markAsRead = async (id: string) => {
+    try {
+      await notificationService.markAsRead(id);
+      setNotifications(prev =>
+        prev.map(n => (n.id === id ? { ...n, read: true } : n))
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      message.success('已标记为已读');
+    } catch (error) {
+      console.error('Failed to mark as read:', error);
+      message.error('标记已读失败');
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const unreadNotifications = notifications.filter(n => !n.read);
+      for (const notification of unreadNotifications) {
+        await notificationService.markAsRead(notification.id);
+      }
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+      message.success('所有通知已标记为已读');
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+      message.error('全部标记已读失败');
+    }
+  };
+
+  const deleteNotification = async (id: string) => {
+    try {
+      await notificationService.deleteNotification(id);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      message.success('通知已删除');
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+      message.error('删除通知失败');
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    try {
+      for (const notification of notifications) {
+        await notificationService.deleteNotification(notification.id);
+      }
+      setNotifications([]);
+      setUnreadCount(0);
+      message.success('所有通知已清空');
+    } catch (error) {
+      console.error('Failed to clear all notifications:', error);
+      message.error('清空通知失败');
+    }
+  };
 
   // Handle sidebar toggle
   const handleSidebarToggle = () => {
@@ -102,10 +196,10 @@ const MainLayout: React.FC = () => {
       message.success(t('auth.logoutSuccess'));
       navigate('/login');
     } catch (error) {
-      showError(
-        t('auth.logoutError'),
-        error instanceof Error ? error.message : String(error)
-      );
+      showError({
+        title: t('auth.logoutError'),
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 
@@ -192,12 +286,12 @@ const MainLayout: React.FC = () => {
   const sidebarContent = (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div className='layout-logo'>
-        <Text strong style={{ color: '#333333', fontSize: '18px' }}>
+        <Text strong style={{ color: 'var(--text-color)', fontSize: '18px' }}>
           {sidebarCollapsed && !isMobile ? 'WD' : 'WendealDashboard'}
         </Text>
       </div>
       <Menu
-        theme='light'
+        theme={theme === 'dark' ? 'dark' : 'light'}
         mode='inline'
         selectedKeys={[location.pathname]}
         items={menuItems}
@@ -230,7 +324,7 @@ const MainLayout: React.FC = () => {
             left: 0,
             top: 0,
             bottom: 0,
-            background: '#f5f5f5',
+            background: 'var(--sidebar-color)',
           }}
         >
           {sidebarContent}
@@ -245,9 +339,14 @@ const MainLayout: React.FC = () => {
           onClose={() => setMobileDrawerVisible(false)}
           open={mobileDrawerVisible}
           styles={{ body: { padding: 0 } }}
-          headerStyle={{ backgroundColor: '#f5f5f5', color: '#333333' }}
+          headerStyle={{
+            backgroundColor: 'var(--sidebar-color)',
+            color: 'var(--text-color)',
+          }}
         >
-          <div style={{ backgroundColor: '#f5f5f5', height: '100%' }}>
+          <div
+            style={{ backgroundColor: 'var(--sidebar-color)', height: '100%' }}
+          >
             {sidebarContent}
           </div>
         </Drawer>
@@ -263,7 +362,7 @@ const MainLayout: React.FC = () => {
         <Header
           style={{
             padding: '0 24px',
-            background: '#f5f5f5',
+            background: 'var(--header-color)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -313,14 +412,16 @@ const MainLayout: React.FC = () => {
                   icon={<UserOutlined />}
                   src={user?.avatar || null}
                   style={{
-                    backgroundColor: isAuthenticated ? '#666666' : '#cccccc',
+                    backgroundColor: isAuthenticated
+                      ? 'var(--color-text-secondary, #666666)'
+                      : 'var(--color-border, #cccccc)',
                   }}
                 >
                   {!user?.avatar && isAuthenticated && user?.username
                     ? user.username.charAt(0).toUpperCase()
                     : undefined}
                 </Avatar>
-                <Text style={{ color: '#333333', fontWeight: 500 }}>
+                <Text style={{ color: 'var(--text-color)', fontWeight: 500 }}>
                   {isAuthenticated
                     ? user?.displayName || user?.username || t('common.user')
                     : t('common.notLoggedIn')}
@@ -334,8 +435,10 @@ const MainLayout: React.FC = () => {
                     }
                     style={{
                       backgroundColor:
-                        user.role === 'admin' ? '#666666' : '#999999',
-                      color: '#ffffff',
+                        user.role === 'admin'
+                          ? 'var(--color-text-secondary, #666666)'
+                          : 'var(--color-border, #999999)',
+                      color: 'var(--color-white, #ffffff)',
                       fontSize: '10px',
                       height: '16px',
                       lineHeight: '16px',
@@ -353,9 +456,9 @@ const MainLayout: React.FC = () => {
           style={{
             margin: '24px',
             padding: '24px',
-            background: '#ffffff',
+            background: 'var(--card-color)',
             borderRadius: '8px',
-            border: '1px solid #e8e8e8',
+            border: '1px solid var(--border-color)',
             minHeight: 'calc(100vh - 112px)',
           }}
         >
@@ -375,8 +478,10 @@ const MainLayout: React.FC = () => {
       />
 
       <ErrorModal
-        isVisible={isVisible}
-        errorInfo={errorInfo}
+        visible={isVisible}
+        title={errorInfo?.title || '错误'}
+        message={errorInfo?.message || ''}
+        {...(errorInfo?.details && { details: errorInfo.details })}
         onClose={hideError}
       />
     </AntLayout>

@@ -153,7 +153,7 @@ const RAGChat: React.FC = () => {
           {message.role === 'assistant' ? (
             <ReactMarkdown>{message.content}</ReactMarkdown>
           ) : (
-            <div>{message.content}</div>
+            <div style={{ color: '#000000' }}>{message.content}</div>
           )}
           <div
             style={{
@@ -236,7 +236,7 @@ const RAGChat: React.FC = () => {
                   maxWidth: '70%',
                   padding: '12px 16px',
                   borderRadius: '18px',
-                  backgroundColor: '#f5f5f5',
+                  backgroundColor: 'var(--color-bg-container)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
@@ -258,8 +258,8 @@ const RAGChat: React.FC = () => {
           className='chat-input'
           style={{
             padding: '4px 8px' /* 再次减少输入区域padding */,
-            borderTop: '1px solid #f0f0f0',
-            backgroundColor: '#fff',
+            borderTop: '1px solid var(--border-color, #f0f0f0)',
+            backgroundColor: 'var(--card-color)',
           }}
         >
           <Space.Compact style={{ width: '100%' }}>
@@ -273,11 +273,25 @@ const RAGChat: React.FC = () => {
               style={{ fontSize: '14px' }}
             />
             <Button
-              type='primary'
+              type='default'
               icon={<SendOutlined />}
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || loading}
-              style={{ height: 'auto' }}
+              style={{
+                height: 'auto',
+                backgroundColor:
+                  !inputValue.trim() || loading
+                    ? 'var(--card-color)'
+                    : 'var(--color-white)',
+                borderColor:
+                  !inputValue.trim() || loading
+                    ? 'var(--border-color)'
+                    : 'var(--border-color)',
+                color:
+                  !inputValue.trim() || loading
+                    ? 'var(--text-color)'
+                    : 'var(--text-color)',
+              }}
               size='large'
             >
               {t('ragSystem.chat.send')}

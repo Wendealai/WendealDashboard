@@ -219,14 +219,30 @@ const RNDReport: React.FC = () => {
         categories: categoriesResponse.categories.length,
       });
 
-      // Check data consistency
+      // Check data consistency and run repair if needed
       const localStorageCount = Object.keys(localStorage).filter(key =>
         key.startsWith('rnd-report-content-')
       ).length;
+
       if (reportsResponse.reports.length === 0 && localStorageCount > 0) {
         console.warn(
           '⚠️ Potential data inconsistency: No reports loaded but files exist in localStorage'
         );
+        // Attempt to repair data consistency
+        try {
+          const consistencyResult =
+            await rndService.checkAndRepairDataConsistency();
+          if (consistencyResult.issuesFixed.length > 0) {
+            console.log(
+              '🔧 Data consistency issues fixed:',
+              consistencyResult.issuesFixed
+            );
+            // Reload data after repair
+            await loadInitialData(rndService);
+          }
+        } catch (repairError) {
+          console.error('❌ Failed to repair data consistency:', repairError);
+        }
       } else if (
         reportsResponse.reports.length > 0 &&
         localStorageCount === 0
@@ -234,6 +250,21 @@ const RNDReport: React.FC = () => {
         console.warn(
           '⚠️ Potential data inconsistency: Reports exist but no files in localStorage'
         );
+        // Attempt to repair data consistency
+        try {
+          const consistencyResult =
+            await rndService.checkAndRepairDataConsistency();
+          if (consistencyResult.issuesFixed.length > 0) {
+            console.log(
+              '🔧 Data consistency issues fixed:',
+              consistencyResult.issuesFixed
+            );
+            // Reload data after repair
+            await loadInitialData(rndService);
+          }
+        } catch (repairError) {
+          console.error('❌ Failed to repair data consistency:', repairError);
+        }
       }
     } catch (error) {
       console.error('❌ Failed to load initial data:', error);
@@ -357,7 +388,8 @@ const RNDReport: React.FC = () => {
         report =>
           report.name.toLowerCase().includes(query) ||
           report.metadata?.title?.toLowerCase().includes(query) ||
-          report.metadata?.description?.toLowerCase().includes(query)
+          report.metadata?.description?.toLowerCase().includes(query) ||
+          report.metadata?.author?.toLowerCase().includes(query)
       );
     }
 
@@ -485,6 +517,242 @@ const RNDReport: React.FC = () => {
     },
     [service, isServiceReady, reports, messageApi, t]
   );
+
+  /**
+   * Test report deletion and rename functionality
+   */
+  const testReportOperations = useCallback(async () => {
+    if (reports.length === 0) {
+      console.log('⚠️ No reports available for testing');
+      return;
+    }
+
+    const testReport = reports[0];
+    if (!testReport) {
+      console.log('⚠️ Test report is undefined');
+      return;
+    }
+
+    console.log('🧪 Testing report operations with:', testReport.name);
+
+    // Test 1: Rename operation
+    try {
+      console.log('✏️ Testing rename operation...');
+      const newName = `Test_${testReport.name}_${Date.now()}`;
+      await handleReportRename(testReport.id, newName);
+      console.log('✅ Rename test completed');
+
+      // Test 2: Delete operation (commented out to avoid actual deletion)
+      // console.log('🗑️ Testing delete operation...');
+      // await handleReportDelete(testReport.id);
+      // console.log('✅ Delete test completed');
+    } catch (error) {
+      console.error('❌ Test operation failed:', error);
+    }
+  }, [reports, handleReportRename, handleReportDelete]);
+
+  /**
+   * Debug function to test report list functionality
+   */
+  const debugReportList = useCallback(() => {
+    console.log('🔍 Debug Report List Functionality:');
+    console.log('📊 Total reports:', reports.length);
+    console.log('📂 Categories:', categories.length);
+    console.log('🔍 Current filters:', listViewState);
+    console.log(
+      '📋 Reports data:',
+      reports.map(r => ({
+        id: r.id,
+        name: r.name,
+        categoryId: r.categoryId,
+        fileSize: r.fileSize,
+        uploadDate: r.uploadDate,
+        readingProgress: r.readingProgress,
+      }))
+    );
+
+    const filtered = getFilteredReports();
+    console.log('🎯 Filtered reports:', filtered.length);
+
+    // Test search functionality
+    if (reports.length > 0 && reports[0]) {
+      const testQuery = reports[0].name.substring(0, 3);
+      console.log('🧪 Testing search with query:', testQuery);
+      const searchResults = reports.filter(report =>
+        report.name.toLowerCase().includes(testQuery.toLowerCase())
+      );
+      console.log('🔍 Search results:', searchResults.length);
+    }
+
+    // Test category filtering
+    if (categories.length > 0 && categories[0]) {
+      const categoryTest = categories[0];
+      console.log('🧪 Testing category filter:', categoryTest.name);
+      const categoryResults = reports.filter(
+        report => report.categoryId === categoryTest.id
+      );
+      console.log('📂 Category results:', categoryResults.length);
+    }
+  }, [reports, categories, listViewState, getFilteredReports]);
+
+  /**
+   * Test reading progress functionality
+   */
+  const testReadingProgress = useCallback(async () => {
+    if (reports.length === 0) {
+      console.log('⚠️ No reports available for testing reading progress');
+      return;
+    }
+
+    const testReport = reports[0];
+    if (!testReport) {
+      console.log('⚠️ Test report is undefined');
+      return;
+    }
+
+    console.log(
+      '📖 Testing reading progress functionality with:',
+      testReport.name
+    );
+
+    try {
+      // Test 1: Get current reading progress
+      console.log('📖 Getting current reading progress...');
+      const progress = await service?.getReadingProgress(testReport.id);
+      console.log('📊 Current progress:', progress);
+
+      // Test 2: Update reading progress
+      console.log('📝 Updating reading progress to 50%...');
+      const updatedProgress = await service?.updateReadingProgress(
+        testReport.id,
+        {
+          currentPosition: 50,
+          totalPages: 10,
+          currentPage: 5,
+        }
+      );
+      console.log('✅ Updated progress:', updatedProgress);
+
+      // Test 3: Verify progress was saved
+      console.log('🔍 Verifying progress was saved...');
+      const verifiedProgress = await service?.getReadingProgress(testReport.id);
+      console.log('✅ Verified progress:', verifiedProgress);
+    } catch (error) {
+      console.error('❌ Reading progress test failed:', error);
+    }
+  }, [reports, service]);
+
+  /**
+   * Handle data consistency check and repair
+   */
+  const handleDataConsistencyCheck = useCallback(async () => {
+    if (!service || !isServiceReady) {
+      messageApi.error(t('rndReport.errors.serviceNotReady'));
+      return;
+    }
+
+    try {
+      console.log('🔍 Starting data consistency check...');
+      messageApi.info(t('rndReport.messages.consistencyCheckStarted'));
+
+      const consistencyResult = await service.checkAndRepairDataConsistency();
+
+      console.log('✅ Data consistency check completed:', consistencyResult);
+
+      if (consistencyResult.issuesFixed.length > 0) {
+        messageApi.success(
+          t('rndReport.messages.consistencyCheckSuccess', {
+            count: consistencyResult.issuesFixed.length,
+          })
+        );
+
+        // Reload data after repair
+        await loadInitialData(service);
+      } else {
+        messageApi.info(t('rndReport.messages.consistencyCheckNoIssues'));
+      }
+
+      // Show detailed results in console
+      console.log('📊 Consistency Check Results:');
+      console.log('- Issues Found:', consistencyResult.issuesFound);
+      console.log('- Issues Fixed:', consistencyResult.issuesFixed);
+      console.log('- Orphaned Content:', consistencyResult.orphanedContent);
+      console.log('- Missing Content:', consistencyResult.missingContent);
+      console.log('- Cache Issues:', consistencyResult.cacheIssues);
+    } catch (error) {
+      console.error('❌ Data consistency check failed:', error);
+      messageApi.error(t('rndReport.errors.consistencyCheckFailed'));
+    }
+  }, [service, isServiceReady, messageApi, t]);
+
+  /**
+   * Handle cache clearing
+   */
+  const handleClearCache = useCallback(async () => {
+    if (!service || !isServiceReady) {
+      messageApi.error(t('rndReport.errors.serviceNotReady'));
+      return;
+    }
+
+    try {
+      console.log('🧹 Starting cache clearing...');
+      messageApi.info(t('rndReport.messages.cacheClearStarted'));
+
+      // Clear processed content cache
+      const cacheKeys = Object.keys(localStorage).filter(key =>
+        key.startsWith('rnd-report-processed-')
+      );
+
+      cacheKeys.forEach(key => {
+        localStorage.removeItem(key);
+      });
+
+      console.log('✅ Cache cleared:', cacheKeys.length, 'entries removed');
+
+      if (cacheKeys.length > 0) {
+        messageApi.success(
+          t('rndReport.messages.cacheClearSuccess', {
+            count: cacheKeys.length,
+          })
+        );
+      } else {
+        messageApi.info(t('rndReport.messages.cacheClearNoEntries'));
+      }
+    } catch (error) {
+      console.error('❌ Cache clearing failed:', error);
+      messageApi.error(t('rndReport.errors.cacheClearFailed'));
+    }
+  }, [service, isServiceReady, messageApi, t]);
+
+  /**
+   * Comprehensive test function for all R&D Report functionality
+   */
+  const runComprehensiveTest = useCallback(async () => {
+    console.log('🚀 Starting comprehensive R&D Report system test...');
+
+    // Test 1: Data consistency check
+    console.log('🔍 Test 1: Data consistency check');
+    try {
+      const consistencyResult = await service?.checkAndRepairDataConsistency();
+      console.log('✅ Data consistency check completed:', consistencyResult);
+    } catch (error) {
+      console.error('❌ Data consistency check failed:', error);
+    }
+
+    // Test 2: Report list functionality
+    console.log('📋 Test 2: Report list functionality');
+    debugReportList();
+
+    // Test 3: Reading progress functionality
+    console.log('📖 Test 3: Reading progress functionality');
+    await testReadingProgress();
+
+    // Test 4: Report operations
+    console.log('🧪 Test 4: Report operations');
+    await testReportOperations();
+
+    console.log('🎉 Comprehensive test completed!');
+  }, [service, debugReportList, testReadingProgress, testReportOperations]);
 
   if (loading) {
     return (
@@ -666,6 +934,107 @@ const RNDReport: React.FC = () => {
                         )
                       )}
                     </Text>
+                  </Space>
+                </Card>
+
+                {/* Data Management */}
+                <Card
+                  size='small'
+                  title={t('rndReport.settings.dataManagement')}
+                >
+                  <Space
+                    direction='vertical'
+                    size='middle'
+                    style={{ width: '100%' }}
+                  >
+                    <Text>
+                      {t('rndReport.settings.dataManagementDescription')}
+                    </Text>
+
+                    <Space
+                      direction='vertical'
+                      size='small'
+                      style={{ width: '100%' }}
+                    >
+                      {/* Data Consistency Check */}
+                      <Card size='small' type='inner'>
+                        <Space
+                          direction='vertical'
+                          size='small'
+                          style={{ width: '100%' }}
+                        >
+                          <Text strong>
+                            {t('rndReport.settings.consistencyCheck')}
+                          </Text>
+                          <Text type='secondary' style={{ fontSize: '12px' }}>
+                            {t(
+                              'rndReport.settings.consistencyCheckDescription'
+                            )}
+                          </Text>
+                          <Button
+                            type='primary'
+                            size='small'
+                            onClick={handleDataConsistencyCheck}
+                            loading={false}
+                            icon={<BarChartOutlined />}
+                          >
+                            {t('rndReport.settings.runConsistencyCheck')}
+                          </Button>
+                        </Space>
+                      </Card>
+
+                      {/* Cache Management */}
+                      <Card size='small' type='inner'>
+                        <Space
+                          direction='vertical'
+                          size='small'
+                          style={{ width: '100%' }}
+                        >
+                          <Text strong>
+                            {t('rndReport.settings.cacheManagement')}
+                          </Text>
+                          <Text type='secondary' style={{ fontSize: '12px' }}>
+                            {t('rndReport.settings.cacheManagementDescription')}
+                          </Text>
+                          <Button
+                            type='default'
+                            size='small'
+                            onClick={handleClearCache}
+                            loading={false}
+                            icon={<FolderOutlined />}
+                          >
+                            {t('rndReport.settings.clearCache')}
+                          </Button>
+                        </Space>
+                      </Card>
+                    </Space>
+                  </Space>
+                </Card>
+
+                {/* Debug Tools */}
+                <Card size='small' title={t('rndReport.settings.debugTools')}>
+                  <Space
+                    direction='vertical'
+                    size='middle'
+                    style={{ width: '100%' }}
+                  >
+                    <Text>{t('rndReport.settings.debugToolsDescription')}</Text>
+
+                    <Space
+                      direction='vertical'
+                      size='small'
+                      style={{ width: '100%' }}
+                    >
+                      <Button
+                        type='dashed'
+                        size='small'
+                        onClick={runComprehensiveTest}
+                        loading={false}
+                        icon={<InfoCircleOutlined />}
+                      >
+                        {t('rndReport.settings.runComprehensiveTest')}
+                      </Button>
+                    </Space>
                   </Space>
                 </Card>
               </Space>

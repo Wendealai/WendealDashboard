@@ -49,11 +49,21 @@ const WhatsNewPanel: React.FC<WhatsNewPanelProps> = ({ collapsed = false }) => {
   const getIcon = (type: string) => {
     switch (type) {
       case 'security':
-        return <SafetyOutlined style={{ color: '#52c41a' }} />;
+        return (
+          <SafetyOutlined style={{ color: 'var(--color-success, #52c41a)' }} />
+        );
       case 'feature':
-        return <ExclamationCircleOutlined style={{ color: '#1890ff' }} />;
+        return (
+          <ExclamationCircleOutlined
+            style={{ color: 'var(--color-primary, #1890ff)' }}
+          />
+        );
       case 'report':
-        return <FileTextOutlined style={{ color: '#fa8c16' }} />;
+        return (
+          <FileTextOutlined
+            style={{ color: 'var(--color-warning, #fa8c16)' }}
+          />
+        );
       default:
         return <ExclamationCircleOutlined />;
     }
@@ -69,15 +79,21 @@ const WhatsNewPanel: React.FC<WhatsNewPanelProps> = ({ collapsed = false }) => {
         size='small'
         title={
           <Space>
-            <ExclamationCircleOutlined style={{ color: '#722ed1' }} />
-            <Text strong style={{ color: 'white', fontSize: '14px' }}>
+            <ExclamationCircleOutlined
+              style={{ color: 'var(--color-accent, #722ed1)' }}
+            />
+            <Text
+              strong
+              style={{ color: 'var(--color-white, white)', fontSize: '14px' }}
+            >
               {t('whatsNew.title', "What's New")}
             </Text>
           </Space>
         }
         styles={{
           header: {
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            backgroundColor:
+              'var(--color-bg-whatsnew-header, rgba(255, 255, 255, 0.1))',
             border: 'none',
             borderRadius: '8px 8px 0 0',
             minHeight: '40px',
@@ -85,12 +101,14 @@ const WhatsNewPanel: React.FC<WhatsNewPanelProps> = ({ collapsed = false }) => {
           },
           body: {
             padding: '8px',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            backgroundColor:
+              'var(--color-bg-whatsnew-body, rgba(255, 255, 255, 0.05))',
           },
         }}
         style={{
           backgroundColor: 'transparent',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          border:
+            '1px solid var(--color-border-whatsnew, rgba(255, 255, 255, 0.1))',
           borderRadius: '8px',
         }}
       >
@@ -113,7 +131,8 @@ const WhatsNewPanel: React.FC<WhatsNewPanelProps> = ({ collapsed = false }) => {
                   {getIcon(item.type)}
                   <Text
                     style={{
-                      color: 'rgba(255, 255, 255, 0.85)',
+                      color:
+                        'var(--color-text-whatsnew, rgba(255, 255, 255, 0.85))',
                       fontSize: '12px',
                     }}
                   >
@@ -129,7 +148,8 @@ const WhatsNewPanel: React.FC<WhatsNewPanelProps> = ({ collapsed = false }) => {
                 </Space>
                 <RightOutlined
                   style={{
-                    color: 'rgba(255, 255, 255, 0.45)',
+                    color:
+                      'var(--color-text-whatsnew-secondary, rgba(255, 255, 255, 0.45))',
                     fontSize: '10px',
                   }}
                 />

@@ -17,14 +17,14 @@
 
 .login-title {
   margin-bottom: 8px !important;
-  color: #2c3e50;
+  color: var(--color-text, #2c3e50);
   font-weight: 600;
   font-size: 24px;
 }
 
 .login-subtitle {
   font-size: 14px;
-  color: #666;
+  color: var(--color-text-secondary, #666);
 }
 
 .login-error-alert {
@@ -38,13 +38,13 @@
 
 .login-form .ant-form-item-label > label {
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text, #374151);
 }
 
 .login-form .ant-input-affix-wrapper,
 .login-form .ant-input {
   border-radius: 6px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--color-border, #d9d9d9);
   padding: 12px 16px;
   transition: all 0.2s ease;
 }
@@ -84,7 +84,7 @@
 .login-form-footer {
   text-align: center;
   padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--color-border-secondary, #e5e7eb);
   margin-bottom: 20px;
 }
 
@@ -116,23 +116,23 @@
 /* 暗色主题支持 - 保持白色背景 */
 @media (prefers-color-scheme: dark) {
   .login-form-card {
-    background: #ffffff;
-    color: #2c3e50;
+    background: var(--color-bg-container, #ffffff);
+    color: var(--color-text, #2c3e50);
   }
 
   .login-title {
-    color: #2c3e50;
+    color: var(--color-text, #2c3e50);
   }
 
   .login-subtitle {
-    color: #666;
+    color: var(--color-text-secondary, #666);
   }
 
   .login-form .ant-form-item-label > label {
-    color: #374151;
+    color: var(--color-text, #374151);
   }
 
   .login-demo-accounts {
-    background: #f5f5f5;
+    background: var(--color-bg-elevated, #f5f5f5);
   }
 }

@@ -104,6 +104,16 @@ const AppContent: React.FC = () => {
     algorithm: currentTheme.isDark
       ? theme.darkAlgorithm
       : theme.defaultAlgorithm,
+    components: {
+      Layout: {
+        bodyBg: currentTheme.backgroundColor,
+        headerBg: currentTheme.headerColor,
+        siderBg: currentTheme.sidebarColor,
+      },
+      Card: {
+        colorBgContainer: currentTheme.cardColor,
+      },
+    },
   };
 
   return (

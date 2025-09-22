@@ -130,13 +130,29 @@ const getHotLevel = (
   score: number
 ): { level: string; color: string; icon: React.ReactNode } => {
   if (score >= 1000) {
-    return { level: '热门', color: '#ff4d4f', icon: <FireOutlined /> };
+    return {
+      level: '热门',
+      color: 'var(--color-error, #ff4d4f)',
+      icon: <FireOutlined />,
+    };
   } else if (score >= 500) {
-    return { level: '受欢迎', color: '#fa8c16', icon: <TrophyOutlined /> };
+    return {
+      level: '受欢迎',
+      color: 'var(--color-warning, #fa8c16)',
+      icon: <TrophyOutlined />,
+    };
   } else if (score >= 100) {
-    return { level: '一般', color: '#1890ff', icon: <EyeOutlined /> };
+    return {
+      level: '一般',
+      color: 'var(--color-primary, #1890ff)',
+      icon: <EyeOutlined />,
+    };
   }
-  return { level: '冷门', color: '#d9d9d9', icon: <EyeOutlined /> };
+  return {
+    level: '冷门',
+    color: 'var(--color-text-secondary, #d9d9d9)',
+    icon: <EyeOutlined />,
+  };
 };
 
 /**
@@ -248,101 +264,122 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
       const { headerInfo, summary, subreddits } = redditWorkflowData;
 
       return (
-        <Space direction='vertical' style={{ width: '100%' }} size={16}>
-          {/* 标题信息 */}
-          <Card size='small'>
-            <Space direction='vertical' size={8}>
-              <Title level={4} style={{ margin: 0, color: '#ff4500' }}>
-                {headerInfo.title}
-              </Title>
-              <Text type='secondary'>{headerInfo.subtitle}</Text>
-              <Space size={16}>
-                <Tag>Time Range: {headerInfo.timeRange}</Tag>
-                <Tag>Total Posts: {headerInfo.totalPosts}</Tag>
-              </Space>
-            </Space>
-          </Card>
-
-          {/* 汇总统计 */}
-          <Card size='small' title='数据汇总'>
-            <Row gutter={[16, 8]}>
-              <Col xs={12} sm={6}>
-                <Statistic
-                  title='活跃社区'
-                  value={summary.totalSubreddits}
-                  suffix='个'
-                />
-              </Col>
-              <Col xs={12} sm={6}>
-                <Statistic
-                  title='总帖子数'
-                  value={summary.totalPosts}
-                  suffix='篇'
-                />
-              </Col>
-              <Col xs={12} sm={6}>
-                <Statistic
-                  title='总分数'
-                  value={summary.totalScore}
-                  suffix='分'
-                />
-              </Col>
-              <Col xs={12} sm={6}>
-                <Statistic
-                  title='总评论数'
-                  value={summary.totalComments}
-                  suffix='条'
-                />
-              </Col>
-            </Row>
-            <Divider />
-            <Space size={8} wrap>
-              <Text>热门社区:</Text>
-              {summary.categories.map(category => (
-                <Tag key={category}>{category}</Tag>
-              ))}
-            </Space>
-          </Card>
-
-          {/* 社区列表 */}
-          <Space direction='vertical' style={{ width: '100%' }} size={8}>
-            {subreddits.map((subreddit, index) => {
-              const rowIndex = Math.floor(index / 2);
-              const isFirstInRow = index % 2 === 0;
-
-              if (isFirstInRow) {
-                const nextSubreddit = subreddits[index + 1];
-                const rowItems = nextSubreddit
-                  ? [subreddit, nextSubreddit]
-                  : [subreddit];
-
-                return (
-                  <Row
-                    key={`row-${rowIndex}`}
-                    gutter={[8, 8]}
-                    style={{ width: '100%' }}
+        <div style={{ height: '100%', overflow: 'auto' }}>
+          <Space direction='vertical' style={{ width: '100%' }} size={16}>
+            {/* 标题信息 */}
+            <Card size='small'>
+              <Space direction='vertical' size={8}>
+                <Title
+                  level={4}
+                  style={{ margin: 0, color: 'var(--color-primary, #ff4500)' }}
+                >
+                  {headerInfo.title}
+                </Title>
+                <Text type='secondary' style={{ color: 'var(--text-color)' }}>
+                  {headerInfo.subtitle}
+                </Text>
+                <Space size={16}>
+                  <Tag
+                    style={{
+                      color: 'var(--text-color)',
+                      borderColor: 'var(--border-color)',
+                    }}
                   >
-                    {rowItems.map(sub => (
-                      <Col
-                        key={sub.name}
-                        xs={24}
-                        sm={24}
-                        md={12}
-                        lg={12}
-                        xl={12}
-                        style={{ display: 'flex' }}
-                      >
-                        {renderSubredditCard(sub)}
-                      </Col>
-                    ))}
-                  </Row>
-                );
-              }
+                    Time Range: {headerInfo.timeRange}
+                  </Tag>
+                  <Tag
+                    style={{
+                      color: 'var(--text-color)',
+                      borderColor: 'var(--border-color)',
+                    }}
+                  >
+                    Total Posts: {headerInfo.totalPosts}
+                  </Tag>
+                </Space>
+              </Space>
+            </Card>
 
-              return null; // Skip odd-indexed items as they're handled in pairs
-            })}
+            {/* 汇总统计 */}
+            <Card size='small' title='数据汇总'>
+              <Row gutter={[16, 8]}>
+                <Col xs={12} sm={6}>
+                  <Statistic
+                    title='活跃社区'
+                    value={summary.totalSubreddits}
+                    suffix='个'
+                  />
+                </Col>
+                <Col xs={12} sm={6}>
+                  <Statistic
+                    title='总帖子数'
+                    value={summary.totalPosts}
+                    suffix='篇'
+                  />
+                </Col>
+                <Col xs={12} sm={6}>
+                  <Statistic
+                    title='总分数'
+                    value={summary.totalScore}
+                    suffix='分'
+                  />
+                </Col>
+                <Col xs={12} sm={6}>
+                  <Statistic
+                    title='总评论数'
+                    value={summary.totalComments}
+                    suffix='条'
+                  />
+                </Col>
+              </Row>
+              <Divider />
+              <Space size={8} wrap>
+                <Text>热门社区:</Text>
+                {summary.categories.map(category => (
+                  <Tag key={category}>{category}</Tag>
+                ))}
+              </Space>
+            </Card>
+
+            {/* 社区列表 */}
+            <Space direction='vertical' style={{ width: '100%' }} size={8}>
+              {subreddits.map((subreddit, index) => {
+                const rowIndex = Math.floor(index / 2);
+                const isFirstInRow = index % 2 === 0;
+
+                if (isFirstInRow) {
+                  const nextSubreddit = subreddits[index + 1];
+                  const rowItems = nextSubreddit
+                    ? [subreddit, nextSubreddit]
+                    : [subreddit];
+
+                  return (
+                    <Row
+                      key={`row-${rowIndex}`}
+                      gutter={[8, 8]}
+                      style={{ width: '100%' }}
+                    >
+                      {rowItems.map(sub => (
+                        <Col
+                          key={sub.name}
+                          xs={24}
+                          sm={24}
+                          md={12}
+                          lg={12}
+                          xl={12}
+                          style={{ display: 'flex' }}
+                        >
+                          {renderSubredditCard(sub)}
+                        </Col>
+                      ))}
+                    </Row>
+                  );
+                }
+
+                return null; // Skip odd-indexed items as they're handled in pairs
+              })}
+            </Space>
           </Space>
-        </Space>
+        </div>
       );
     }, [redditWorkflowData]);
 
@@ -367,7 +404,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
               width: '100%',
               display: 'flex',
               flexDirection: 'column',
-              minHeight: '250px',
+              flex: 1,
             }}
             styles={{
               body: {
@@ -375,6 +412,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                 display: 'flex',
                 flexDirection: 'column',
                 padding: '8px',
+                overflow: 'hidden',
               },
             }}
           >
@@ -426,7 +464,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                               style={{
                                 fontSize: 13,
                                 fontWeight: 500,
-                                color: '#1890ff',
+                                color: 'var(--color-primary, #1890ff)',
                                 textDecoration: 'none',
                                 display: 'block',
                                 overflow: 'hidden',
@@ -445,7 +483,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                             <Space size={2}>
                               <UserOutlined
                                 style={{
-                                  color: '#8c8c8c',
+                                  color: 'var(--color-text-secondary, #8c8c8c)',
                                   fontSize: '11px',
                                 }}
                               />
@@ -459,7 +497,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                             <Space size={2}>
                               <LikeOutlined
                                 style={{
-                                  color: '#8c8c8c',
+                                  color: 'var(--color-text-secondary, #8c8c8c)',
                                   fontSize: '11px',
                                 }}
                               />
@@ -473,7 +511,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                             <Space size={2}>
                               <MessageOutlined
                                 style={{
-                                  color: '#8c8c8c',
+                                  color: 'var(--color-text-secondary, #8c8c8c)',
                                   fontSize: '11px',
                                 }}
                               />
@@ -521,7 +559,12 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
           >
             <Empty
               image={
-                <RedditOutlined style={{ fontSize: 32, color: '#666666' }} />
+                <RedditOutlined
+                  style={{
+                    fontSize: 32,
+                    color: 'var(--color-text-secondary, #666666)',
+                  }}
+                />
               }
               description={
                 <Space direction='vertical' size={2}>
@@ -552,171 +595,188 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
       }
 
       return (
-        <Space direction='vertical' style={{ width: '100%' }} size={8}>
-          {rows.map((row, rowIndex) => (
-            <Row
-              key={`row-${rowIndex}`}
-              gutter={[8, 8]}
-              style={{ width: '100%' }}
-            >
-              {row.map(([subreddit, posts]) => (
-                <Col
-                  key={subreddit}
-                  xs={24}
-                  sm={24}
-                  md={12}
-                  lg={12}
-                  xl={12}
-                  style={{ display: 'flex' }}
-                >
-                  <Card
-                    size='small'
-                    title={
-                      <Space>
-                        <Avatar
-                          style={{ backgroundColor: '#666666' }}
-                          icon={<RedditOutlined />}
-                          size='small'
-                        />
-                        <Text strong>r/{subreddit}</Text>
-                        <Badge count={posts.length} showZero color='#666666' />
-                      </Space>
-                    }
-                    className='compact-spacing'
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      maxHeight: '400px',
-                    }}
-                    styles={{
-                      body: {
-                        flex: 1,
+        <div style={{ height: '100%', overflow: 'auto' }}>
+          <Space direction='vertical' style={{ width: '100%' }} size={8}>
+            {rows.map((row, rowIndex) => (
+              <Row
+                key={`row-${rowIndex}`}
+                gutter={[8, 8]}
+                style={{ width: '100%' }}
+              >
+                {row.map(([subreddit, posts]) => (
+                  <Col
+                    key={subreddit}
+                    xs={24}
+                    sm={24}
+                    md={12}
+                    lg={12}
+                    xl={12}
+                    style={{ display: 'flex' }}
+                  >
+                    <Card
+                      size='small'
+                      title={
+                        <Space>
+                          <Avatar
+                            style={{
+                              backgroundColor:
+                                'var(--color-text-secondary, #666666)',
+                            }}
+                            icon={<RedditOutlined />}
+                            size='small'
+                          />
+                          <Text strong>r/{subreddit}</Text>
+                          <Badge
+                            count={posts.length}
+                            showZero
+                            color='var(--color-text-secondary, #666666)'
+                          />
+                        </Space>
+                      }
+                      className='compact-spacing'
+                      style={{
+                        width: '100%',
                         display: 'flex',
                         flexDirection: 'column',
-                        padding: '8px',
-                        maxHeight: '320px',
-                        overflow: 'auto',
-                      },
-                    }}
-                  >
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <List
-                        size='small'
-                        dataSource={posts.slice(0, 5)} // 限制最多显示5条帖子
-                        style={{ height: '100%' }}
-                        renderItem={post => {
-                          const hotLevel = getHotLevel(post.score || 0);
-                          return (
-                            <List.Item
-                              className='compact-spacing'
-                              style={{ padding: '4px 0' }}
-                              actions={[
-                                <Tooltip title='查看原帖' key='link'>
-                                  <Button
-                                    type='text'
-                                    icon={<LinkOutlined />}
-                                    onClick={() => handleLinkClick(post.url)}
-                                    size='small'
-                                    style={{ padding: '2px 4px' }}
-                                  />
-                                </Tooltip>,
-                              ]}
-                            >
-                              <List.Item.Meta
-                                title={
-                                  <div style={{ marginBottom: '2px' }}>
-                                    <a
-                                      href={post.url}
-                                      target='_blank'
-                                      rel='noopener noreferrer'
-                                      style={{
-                                        fontSize: 13,
-                                        fontWeight: 500,
-                                        color: '#666666',
-                                        textDecoration: 'none',
-                                        display: 'block',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                      }}
-                                      onMouseEnter={handleMouseEnter}
-                                      onMouseLeave={handleMouseLeave}
+                        flex: 1,
+                      }}
+                      styles={{
+                        body: {
+                          flex: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          padding: '8px',
+                          overflow: 'hidden',
+                        },
+                      }}
+                    >
+                      <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <List
+                          size='small'
+                          dataSource={posts.slice(0, 5)} // 限制最多显示5条帖子
+                          style={{ height: '100%' }}
+                          renderItem={post => {
+                            const hotLevel = getHotLevel(post.score || 0);
+                            return (
+                              <List.Item
+                                className='compact-spacing'
+                                style={{ padding: '4px 0' }}
+                                actions={[
+                                  <Tooltip title='查看原帖' key='link'>
+                                    <Button
+                                      type='text'
+                                      icon={<LinkOutlined />}
+                                      onClick={() => handleLinkClick(post.url)}
+                                      size='small'
+                                      style={{ padding: '2px 4px' }}
+                                    />
+                                  </Tooltip>,
+                                ]}
+                              >
+                                <List.Item.Meta
+                                  title={
+                                    <div style={{ marginBottom: '2px' }}>
+                                      <a
+                                        href={post.url}
+                                        target='_blank'
+                                        rel='noopener noreferrer'
+                                        style={{
+                                          fontSize: 13,
+                                          fontWeight: 500,
+                                          color:
+                                            'var(--color-text-secondary, #666666)',
+                                          textDecoration: 'none',
+                                          display: 'block',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                          whiteSpace: 'nowrap',
+                                        }}
+                                        onMouseEnter={handleMouseEnter}
+                                        onMouseLeave={handleMouseLeave}
+                                      >
+                                        {post.title}
+                                      </a>
+                                      {post.category && (
+                                        <Tag
+                                          style={{
+                                            marginTop: '2px',
+                                            backgroundColor:
+                                              'var(--color-bg-container, #f0f0f0)',
+                                            color:
+                                              'var(--color-text-secondary, #666666)',
+                                            borderColor:
+                                              'var(--color-border, #cccccc)',
+                                            fontSize: '10px',
+                                          }}
+                                        >
+                                          {post.category}
+                                        </Tag>
+                                      )}
+                                    </div>
+                                  }
+                                  description={
+                                    <Space
+                                      size={6}
+                                      style={{ fontSize: '11px' }}
                                     >
-                                      {post.title}
-                                    </a>
-                                    {post.category && (
-                                      <Tag
-                                        style={{
-                                          marginTop: '2px',
-                                          backgroundColor: '#f0f0f0',
-                                          color: '#666666',
-                                          borderColor: '#cccccc',
-                                          fontSize: '10px',
-                                        }}
-                                      >
-                                        {post.category}
-                                      </Tag>
-                                    )}
-                                  </div>
-                                }
-                                description={
-                                  <Space size={6} style={{ fontSize: '11px' }}>
-                                    <Space size={2}>
-                                      <UserOutlined
-                                        style={{
-                                          color: '#8c8c8c',
-                                          fontSize: '11px',
-                                        }}
-                                      />
-                                      <Text
-                                        type='secondary'
-                                        style={{ fontSize: '11px' }}
-                                      >
-                                        {post.author}
-                                      </Text>
+                                      <Space size={2}>
+                                        <UserOutlined
+                                          style={{
+                                            color:
+                                              'var(--color-text-secondary, #8c8c8c)',
+                                            fontSize: '11px',
+                                          }}
+                                        />
+                                        <Text
+                                          type='secondary'
+                                          style={{ fontSize: '11px' }}
+                                        >
+                                          {post.author}
+                                        </Text>
+                                      </Space>
+                                      <Space size={2}>
+                                        <ClockCircleOutlined
+                                          style={{
+                                            color:
+                                              'var(--color-text-secondary, #8c8c8c)',
+                                            fontSize: '11px',
+                                          }}
+                                        />
+                                        <Text
+                                          type='secondary'
+                                          style={{ fontSize: '11px' }}
+                                        >
+                                          {post.created}
+                                        </Text>
+                                      </Space>
                                     </Space>
-                                    <Space size={2}>
-                                      <ClockCircleOutlined
-                                        style={{
-                                          color: '#8c8c8c',
-                                          fontSize: '11px',
-                                        }}
-                                      />
-                                      <Text
-                                        type='secondary'
-                                        style={{ fontSize: '11px' }}
-                                      >
-                                        {post.created}
-                                      </Text>
-                                    </Space>
-                                  </Space>
-                                }
-                              />
-                            </List.Item>
-                          );
-                        }}
-                      />
-                      {posts.length > 5 && (
-                        <div
-                          style={{
-                            textAlign: 'center',
-                            marginTop: '8px',
-                            padding: '4px 0',
+                                  }
+                                />
+                              </List.Item>
+                            );
                           }}
-                        >
-                          <Text type='secondary' style={{ fontSize: '12px' }}>
-                            {`And ${posts.length - 5} more...`}
-                          </Text>
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                </Col>
-              ))}
-            </Row>
-          ))}
-        </Space>
+                        />
+                        {posts.length > 5 && (
+                          <div
+                            style={{
+                              textAlign: 'center',
+                              marginTop: '8px',
+                              padding: '4px 0',
+                            }}
+                          >
+                            <Text type='secondary' style={{ fontSize: '12px' }}>
+                              {`And ${posts.length - 5} more...`}
+                            </Text>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            ))}
+          </Space>
+        </div>
       );
     }, [
       hasRedditData,
@@ -733,15 +793,20 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
     return (
       <div
         className={`${className} compact-layout`}
-        style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+        style={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
       >
         {/* 内容区域 - 直接显示，无额外包装 */}
         <div
           style={{
             flex: 1,
-            padding: '16px',
             display: 'flex',
             flexDirection: 'column',
+            overflow: 'hidden',
           }}
         >
           {/* 优先使用新的 Reddit 工作流数据格式，但需要验证数据有效性 */}

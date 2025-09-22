@@ -453,8 +453,8 @@ const ReportList: React.FC<ReportListProps> = ({
         hoverable
         style={{
           cursor: 'pointer',
-          backgroundColor: '#fafafa',
-          border: '1px solid #e8e8e8',
+          backgroundColor: 'var(--card-color, #fafafa)',
+          border: '1px solid var(--border-color, #e8e8e8)',
           position: 'relative',
           padding: '12px',
           marginBottom: '8px',
@@ -488,7 +488,9 @@ const ReportList: React.FC<ReportListProps> = ({
             <div
               style={{
                 backgroundColor:
-                  report.readingProgress === 100 ? '#666' : '#999',
+                  report.readingProgress === 100
+                    ? 'var(--color-text-secondary, #666)'
+                    : 'var(--color-text-secondary, #999)',
                 color: 'white',
                 padding: '2px 6px',
                 borderRadius: '4px',
@@ -514,7 +516,7 @@ const ReportList: React.FC<ReportListProps> = ({
                   width: '24px',
                   height: '24px',
                   borderRadius: '4px',
-                  backgroundColor: '#f0f0f0',
+                  backgroundColor: 'var(--color-bg-container, #f0f0f0)',
                 }}
               />
             </Dropdown>
@@ -525,7 +527,8 @@ const ReportList: React.FC<ReportListProps> = ({
             icon={<FileTextOutlined />}
             size='small'
             style={{
-              backgroundColor: category?.color || '#666',
+              backgroundColor:
+                category?.color || 'var(--color-text-secondary, #666)',
               flexShrink: 0,
             }}
           />
@@ -673,7 +676,7 @@ const ReportList: React.FC<ReportListProps> = ({
                   style={{
                     fontSize: '11px',
                     margin: '4px 0 0 0',
-                    color: '#666',
+                    color: 'var(--text-color, #666)',
                   }}
                 >
                   {report.metadata.description}
@@ -720,9 +723,13 @@ const ReportList: React.FC<ReportListProps> = ({
                     }
                     style={{
                       cursor: 'pointer',
-                      backgroundColor: isSelected ? '#666' : 'transparent',
-                      color: isSelected ? 'white' : 'inherit',
-                      borderColor: '#666',
+                      backgroundColor: isSelected
+                        ? 'var(--color-text-secondary, #666)'
+                        : 'transparent',
+                      color: isSelected
+                        ? 'var(--color-white, white)'
+                        : 'inherit',
+                      borderColor: 'var(--color-text-secondary, #666)',
                     }}
                   >
                     {category.name} ({reportCount})
@@ -807,9 +814,9 @@ const ReportList: React.FC<ReportListProps> = ({
                     } as ReportListViewState);
                   }}
                   style={{
-                    backgroundColor: '#666',
-                    borderColor: '#666',
-                    color: 'white',
+                    backgroundColor: 'var(--color-text-secondary, #666)',
+                    borderColor: 'var(--color-text-secondary, #666)',
+                    color: 'var(--color-white, white)',
                   }}
                 >
                   {t('rndReport.list.clearFilters')}
@@ -829,7 +836,8 @@ const ReportList: React.FC<ReportListProps> = ({
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    background: 'rgba(255, 255, 255, 0.8)',
+                    background:
+                      'var(--color-bg-loading, rgba(255, 255, 255, 0.8))',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',

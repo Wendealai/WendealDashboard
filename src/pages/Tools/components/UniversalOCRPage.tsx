@@ -59,7 +59,7 @@ import type {
   UniversalOCRFileType,
   UniversalOCRStatus,
   UniversalOCRSettings,
-  DEFAULT_UNIVERSAL_OCR_SETTINGS
+  DEFAULT_UNIVERSAL_OCR_SETTINGS,
 } from '../types/universalOCR';
 import type { EnhancedWebhookResponse } from '@/types/workflow';
 
@@ -76,7 +76,6 @@ type ProcessingStatus =
   | 'processing'
   | 'completed'
   | 'error';
-
 
 /**
  * Universal OCR main page component
@@ -165,10 +164,8 @@ const UniversalOCRPage: React.FC = () => {
           setCurrentStep(3);
           setLoading(false);
         }, 3000);
-
       } catch (err: any) {
-        const errorMessage =
-          err.message || 'Universal OCR processing failed';
+        const errorMessage = err.message || 'Universal OCR processing failed';
         setError(errorMessage);
         setProcessingStatus('error');
         showError(
@@ -262,10 +259,13 @@ const UniversalOCRPage: React.FC = () => {
   /**
    * Handle file deletion
    */
-  const handleFileDelete = useCallback((fileId: string) => {
-    setOcrResults(prev => prev.filter(result => result.id !== fileId));
-    message.success('File deleted successfully');
-  }, [message]);
+  const handleFileDelete = useCallback(
+    (fileId: string) => {
+      setOcrResults(prev => prev.filter(result => result.id !== fileId));
+      message.success('File deleted successfully');
+    },
+    [message]
+  );
 
   /**
    * Get processing steps configuration
@@ -353,7 +353,7 @@ const UniversalOCRPage: React.FC = () => {
       />
       {error && (
         <Alert
-          message="Processing Failed"
+          message='Processing Failed'
           description={error}
           type='error'
           showIcon
@@ -375,7 +375,7 @@ const UniversalOCRPage: React.FC = () => {
     if (processingStatus === 'idle' || processingStatus === 'uploading') {
       return (
         <Card
-          title="Upload Documents for OCR"
+          title='Upload Documents for OCR'
           extra={
             <Space>
               <InfoCircleOutlined />
@@ -386,22 +386,32 @@ const UniversalOCRPage: React.FC = () => {
           }
         >
           {/* Placeholder for file upload component - will be implemented */}
-          <div style={{
-            padding: '40px',
-            textAlign: 'center',
-            border: '2px dashed #d9d9d9',
-            borderRadius: '8px',
-            backgroundColor: '#fafafa'
-          }}>
-            <UploadOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
+          <div
+            style={{
+              padding: '40px',
+              textAlign: 'center',
+              border: '2px dashed var(--border-color)',
+              borderRadius: '8px',
+              backgroundColor: 'var(--card-color)',
+            }}
+          >
+            <UploadOutlined
+              style={{
+                fontSize: '48px',
+                color: '#d9d9d9',
+                marginBottom: '16px',
+              }}
+            />
             <div>
               <Text strong>Drag and drop files here or click to browse</Text>
             </div>
             <div style={{ marginTop: '8px' }}>
-              <Text type="secondary">Support for PDF, images, and document files up to 50MB each</Text>
+              <Text type='secondary'>
+                Support for PDF, images, and document files up to 50MB each
+              </Text>
             </div>
             <Button
-              type="primary"
+              type='primary'
               icon={<UploadOutlined />}
               style={{ marginTop: '16px' }}
               onClick={() => {
@@ -418,17 +428,19 @@ const UniversalOCRPage: React.FC = () => {
 
     // Placeholder for results display - will be implemented
     return (
-      <Card title="OCR Results">
+      <Card title='OCR Results'>
         <div style={{ padding: '40px', textAlign: 'center' }}>
-          <CheckCircleOutlined style={{ fontSize: '48px', color: '#52c41a', marginBottom: '16px' }} />
+          <CheckCircleOutlined
+            style={{ fontSize: '48px', color: '#52c41a', marginBottom: '16px' }}
+          />
           <div>
             <Text strong>OCR Processing Completed</Text>
           </div>
           <div style={{ marginTop: '8px' }}>
-            <Text type="secondary">Results display will be implemented</Text>
+            <Text type='secondary'>Results display will be implemented</Text>
           </div>
           <Space style={{ marginTop: '16px' }}>
-            <Button type="primary" onClick={handleRestart}>
+            <Button type='primary' onClick={handleRestart}>
               Process More Files
             </Button>
             <Button>Download Results</Button>
@@ -439,7 +451,9 @@ const UniversalOCRPage: React.FC = () => {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
+    <Layout
+      style={{ minHeight: '100vh', background: 'var(--background-color)' }}
+    >
       <Content style={{ padding: '24px' }}>
         {renderHeader()}
 
@@ -450,7 +464,7 @@ const UniversalOCRPage: React.FC = () => {
 
         {/* Settings modal */}
         <Modal
-          title="Universal OCR Settings"
+          title='Universal OCR Settings'
           open={settingsVisible}
           onCancel={() => setSettingsVisible(false)}
           footer={null}

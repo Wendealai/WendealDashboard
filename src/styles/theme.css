@@ -29,9 +29,9 @@
   --primary-color: #17a2b8;
   --background-color: #f8f9fa;
   --text-color: #212529;
-  --border-color: #dee2e6;
+  --border-color: #e9ecef;
   --header-color: #ffffff;
-  --sidebar-color: #2c3e50;
+  --sidebar-color: #ffffff;
   --card-color: #ffffff;
 
   /* 字体大小变量 */
@@ -94,14 +94,14 @@ body.theme-dark {
   --color-text-tertiary: #808080;
   --color-text-quaternary: #606060;
 
-  --color-border: #404040;
-  --color-border-secondary: #333333;
+  --color-border: #434343;
+  --color-border-secondary: #525252;
 
   /* Legacy variables for backward compatibility */
   --background-color: #1a1a1a;
   --text-color: #ffffff;
-  --border-color: #404040;
-  --header-color: #2d2d2d;
+  --border-color: #434343;
+  --header-color: #1a1a1a;
   --sidebar-color: #1a1a1a;
   --card-color: #2d2d2d;
 
@@ -467,6 +467,44 @@ body.theme-dark .ant-layout {
 body.theme-dark .ant-layout-header {
   background: var(--header-color);
   border-bottom: 1px solid var(--border-color);
+}
+
+body.theme-light .ant-layout-sider {
+  background: #ffffff !important;
+}
+
+body.theme-light .ant-layout {
+  background: var(--background-color);
+}
+
+body.theme-light .ant-layout-header {
+  background: var(--header-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+body.theme-light .ant-menu {
+  background: transparent;
+  color: var(--text-color);
+}
+
+body.theme-light .ant-card {
+  background: var(--card-color);
+  border-color: var(--border-color);
+}
+
+body.theme-light .ant-table {
+  background: var(--card-color);
+}
+
+body.theme-light .ant-table-thead > tr > th {
+  background: var(--background-color);
+  border-color: var(--border-color);
+  color: var(--text-color);
+}
+
+body.theme-light .ant-table-tbody > tr > td {
+  border-color: var(--border-color);
+  color: var(--text-color);
 }
 
 body.theme-dark .ant-layout-sider {

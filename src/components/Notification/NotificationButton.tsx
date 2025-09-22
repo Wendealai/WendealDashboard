@@ -15,7 +15,7 @@ const NotificationButton: React.FC<NotificationButtonProps> = ({
   className = '',
 }) => {
   return (
-    <Tooltip title='通知中心' placement='bottom'>
+    <Tooltip title='Notification Center' placement='bottom'>
       <Badge
         count={count}
         size='small'

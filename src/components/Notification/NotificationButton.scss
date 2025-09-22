@@ -7,16 +7,16 @@
     height: 40px;
     border-radius: 8px;
     transition: all 0.3s ease;
-    color: #595959;
+    color: var(--color-text-tertiary, #595959);
 
     &:hover {
-      background-color: #f5f5f5;
-      color: #1890ff;
+      background-color: var(--color-bg-elevated, #f5f5f5);
+      color: var(--color-primary, #1890ff);
     }
 
     &:focus {
-      background-color: #f5f5f5;
-      color: #1890ff;
+      background-color: var(--color-bg-elevated, #f5f5f5);
+      color: var(--color-primary, #1890ff);
     }
 
     .anticon {
@@ -25,9 +25,9 @@
   }
 
   .ant-badge-count {
-    background-color: #ff4d4f;
-    border-color: #ff4d4f;
-    box-shadow: 0 0 0 1px #fff;
+    background-color: var(--color-error, #ff4d4f);
+    border-color: var(--color-error, #ff4d4f);
+    box-shadow: 0 0 0 1px var(--color-bg-base, #fff);
     font-size: 10px;
     min-width: 16px;
     height: 16px;
@@ -57,16 +57,16 @@
 [data-theme='dark'] {
   .notification-button {
     .notification-btn {
-      color: #d9d9d9;
+      color: var(--color-text-secondary, #d9d9d9);
 
       &:hover {
-        background-color: #1f1f1f;
-        color: #1890ff;
+        background-color: var(--color-bg-container, #1f1f1f);
+        color: var(--color-primary, #1890ff);
       }
 
       &:focus {
-        background-color: #1f1f1f;
-        color: #1890ff;
+        background-color: var(--color-bg-container, #1f1f1f);
+        color: var(--color-primary, #1890ff);
       }
     }
   }

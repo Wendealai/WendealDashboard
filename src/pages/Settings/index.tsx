@@ -17,11 +17,13 @@ import {
   GlobalOutlined,
   BellOutlined,
   SecurityScanOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleTheme, setLanguage } from '@/store/slices/uiSlice';
 import type { ThemeMode, Language } from '@/types/ui';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -31,6 +33,7 @@ interface SettingsPageProps {}
 const SettingsPage: React.FC<SettingsPageProps> = () => {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { theme, language } = useAppSelector(state => state.ui);
   const [loading, setLoading] = useState(false);
   const message = useMessage();
@@ -77,6 +80,12 @@ const SettingsPage: React.FC<SettingsPageProps> = () => {
       dispatch(toggleTheme());
     }
     message.success(t('settings.messages.settingsReset'));
+  };
+
+  // 通知测试
+  const handleNotificationTest = () => {
+    // 跳转到通知演示页面
+    navigate('/notification-demo');
   };
 
   return (
@@ -185,6 +194,25 @@ const SettingsPage: React.FC<SettingsPageProps> = () => {
                 </Text>
               </div>
               <Switch />
+            </div>
+
+            <Divider />
+
+            <div className='setting-item'>
+              <div className='setting-label'>
+                <Text strong>{t('settings.notifications.test')}</Text>
+                <br />
+                <Text type='secondary' style={{ fontSize: '12px' }}>
+                  {t('settings.notifications.testDesc')}
+                </Text>
+              </div>
+              <Button
+                icon={<ExperimentOutlined />}
+                onClick={handleNotificationTest}
+                type='default'
+              >
+                {t('settings.notifications.testButton')}
+              </Button>
             </div>
           </Card>
         </Col>
@@ -319,7 +347,7 @@ const SettingsPage: React.FC<SettingsPageProps> = () => {
           justify-content: space-between;
           margin: 12px 0;
           padding: 8px 0;
-          border-bottom: 1px solid #f0f0f0;
+          border-bottom: 1px solid var(--border-color, #f0f0f0);
         }
 
         .system-info .info-item:last-child {

@@ -98,7 +98,20 @@ const InformationDashboard: React.FC = () => {
     console.log(
       'InformationDashboard: Initializing with persisted Reddit data'
     );
+
+    // 尝试加载持久化数据
     const persistedData = redditDataManager.loadData();
+    console.log('InformationDashboard: Loaded persisted data:', {
+      hasData: !!persistedData,
+      dataLength: persistedData?.length || 0,
+      dataSample: persistedData?.slice(0, 2).map(item => ({
+        name: item.name,
+        postsCount: item.posts?.length || 0,
+      })),
+      dataMetadata: redditDataManager.getDataMetadata(),
+      dataTimestamp: redditDataManager.getDataTimestamp(),
+    });
+
     return persistedData || [];
   });
 
@@ -113,6 +126,68 @@ const InformationDashboard: React.FC = () => {
   const [redditWorkflowData, setRedditWorkflowData] =
     useState<RedditWorkflowResponse | null>(null);
 
+  /**
+   * 尝试从其他存储位置恢复数据
+   */
+  const attemptDataRecovery = useCallback((): ParsedSubredditData[] | null => {
+    try {
+      console.log('InformationDashboard: Attempting data recovery...');
+
+      // 尝试从sessionStorage恢复
+      const sessionData = sessionStorage.getItem('wendeal_reddit_backup');
+      if (sessionData) {
+        try {
+          const parsed = JSON.parse(sessionData);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            console.log(
+              'InformationDashboard: Recovered data from sessionStorage'
+            );
+            return parsed;
+          }
+        } catch (error) {
+          console.warn(
+            'InformationDashboard: Failed to parse sessionStorage data:',
+            error
+          );
+        }
+      }
+
+      // 尝试从其他可能的localStorage键恢复
+      const possibleKeys = [
+        'reddit_data',
+        'reddit_posts',
+        'wendeal_reddit_cache',
+        'reddit_workflow_data',
+      ];
+
+      for (const key of possibleKeys) {
+        try {
+          const data = localStorage.getItem(key);
+          if (data) {
+            const parsed = JSON.parse(data);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              console.log(
+                `InformationDashboard: Recovered data from localStorage key: ${key}`
+              );
+              return parsed;
+            }
+          }
+        } catch (error) {
+          console.warn(
+            `InformationDashboard: Failed to recover from key ${key}:`,
+            error
+          );
+        }
+      }
+
+      console.log('InformationDashboard: No recoverable data found');
+      return null;
+    } catch (error) {
+      console.error('InformationDashboard: Data recovery failed:', error);
+      return null;
+    }
+  }, []);
+
   // 数据恢复和自动选择工作流逻辑
   useEffect(() => {
     console.log(
@@ -126,11 +201,22 @@ const InformationDashboard: React.FC = () => {
         'items'
       );
 
-      // 检查数据是否过期
-      const isExpired = redditDataManager.isDataExpired(24); // 24小时过期
+      // 检查数据是否过期 - 延长过期时间到7天
+      const isExpired = redditDataManager.isDataExpired(168); // 7天过期
       if (isExpired) {
         console.log(
           'InformationDashboard: Persisted data is expired, clearing...'
+        );
+        redditDataManager.clearData();
+        setRedditData([]);
+        return;
+      }
+
+      // 检查数据完整性
+      const currentDataStats = redditDataManager.getDataStats();
+      if (currentDataStats.totalPosts === 0) {
+        console.log(
+          'InformationDashboard: Persisted data is empty, clearing...'
         );
         redditDataManager.clearData();
         setRedditData([]);
@@ -164,6 +250,30 @@ const InformationDashboard: React.FC = () => {
       }
     } else {
       console.log('InformationDashboard: No persisted Reddit data found');
+
+      // 尝试数据恢复 - 检查是否有其他存储位置的数据
+      try {
+        const recoveredData = attemptDataRecovery();
+        if (recoveredData && recoveredData.length > 0) {
+          console.log('InformationDashboard: Data recovery successful:', {
+            recoveredCount: recoveredData.length,
+            dataSample: recoveredData.slice(0, 2).map(item => ({
+              name: item.name,
+              postsCount: item.posts?.length || 0,
+            })),
+          });
+
+          setRedditData(recoveredData);
+          redditDataManager.saveData(recoveredData);
+
+          // 通知用户数据已恢复
+          if (message && typeof message.info === 'function') {
+            message.info('Reddit数据已从缓存中恢复');
+          }
+        }
+      } catch (error) {
+        console.warn('InformationDashboard: Data recovery failed:', error);
+      }
     }
   }, [redditData.length, selectedWorkflow]);
 
@@ -218,6 +328,22 @@ const InformationDashboard: React.FC = () => {
       const success = redditDataManager.saveData(validData);
       if (success) {
         console.log('💾 InformationDashboard: Reddit数据持久化成功');
+
+        // 同时备份到sessionStorage作为额外保障
+        try {
+          sessionStorage.setItem(
+            'wendeal_reddit_backup',
+            JSON.stringify(validData)
+          );
+          console.log(
+            '💾 InformationDashboard: Reddit数据备份到sessionStorage成功'
+          );
+        } catch (error) {
+          console.warn(
+            'InformationDashboard: Failed to backup to sessionStorage:',
+            error
+          );
+        }
       } else {
         console.error('❌ InformationDashboard: Reddit数据持久化失败');
       }
@@ -317,22 +443,34 @@ const InformationDashboard: React.FC = () => {
     <div className='information-dashboard'>
       {/* Page title */}
       <div className='page-header'>
-        <Title level={2} style={{ marginBottom: 8 }}>
+        <Title
+          level={2}
+          style={{ marginBottom: 8, color: 'var(--text-color)' }}
+        >
           <span style={{ display: 'flex', alignItems: 'center' }}>
-            <DashboardOutlined style={{ marginRight: 12 }} />
+            <DashboardOutlined
+              style={{ marginRight: 12, color: 'var(--text-color)' }}
+            />
             {t('informationDashboard.title')}
             <Popover
               content={
                 <div style={{ maxWidth: '550px' }}>
                   <div style={{ marginBottom: '12px' }}>
-                    <Text strong style={{ fontSize: '16px' }}>
+                    <Text
+                      strong
+                      style={{ fontSize: '16px', color: 'var(--text-color)' }}
+                    >
                       Core Business Value
                     </Text>
                   </div>
                   <div style={{ marginBottom: '12px' }}>
                     <Text
                       type='secondary'
-                      style={{ lineHeight: '1.6', fontSize: '14px' }}
+                      style={{
+                        lineHeight: '1.6',
+                        fontSize: '14px',
+                        color: 'var(--text-color)',
+                      }}
                     >
                       Integrate multi-source data to provide intelligent
                       analysis, helping enterprises quickly discover market
@@ -341,14 +479,17 @@ const InformationDashboard: React.FC = () => {
                     </Text>
                   </div>
                   <div style={{ marginBottom: '8px' }}>
-                    <Text strong style={{ fontSize: '14px' }}>
+                    <Text
+                      strong
+                      style={{ fontSize: '14px', color: 'var(--text-color)' }}
+                    >
                       Key Features:
                     </Text>
                   </div>
                   <Space
                     direction='vertical'
                     size='small'
-                    style={{ fontSize: '13px' }}
+                    style={{ fontSize: '13px', color: 'var(--text-color)' }}
                   >
                     <div>• Real-time Business Insights</div>
                     <div>• Automated Process Optimization</div>
@@ -358,7 +499,11 @@ const InformationDashboard: React.FC = () => {
                   <div style={{ marginTop: '12px' }}>
                     <Text
                       type='secondary'
-                      style={{ fontSize: '13px', lineHeight: '1.6' }}
+                      style={{
+                        fontSize: '13px',
+                        lineHeight: '1.6',
+                        color: 'var(--text-color)',
+                      }}
                     >
                       Integrate multi-source data to provide intelligent
                       analysis, helping enterprises quickly discover market
@@ -375,7 +520,7 @@ const InformationDashboard: React.FC = () => {
             >
               <InfoCircleOutlined
                 style={{
-                  color: '#888888',
+                  color: 'var(--text-color)',
                   cursor: 'pointer',
                   marginLeft: '8px',
                   fontSize: '18px',
@@ -439,9 +584,9 @@ const InformationDashboard: React.FC = () => {
                         loading={redditLoading}
                         onClick={handleRedditWorkflowStart}
                         style={{
-                          backgroundColor: '#f5f5f5',
-                          borderColor: '#d9d9d9',
-                          color: '#666',
+                          backgroundColor: 'var(--color-bg-container, #f5f5f5)',
+                          borderColor: 'var(--color-border, #d9d9d9)',
+                          color: 'var(--color-text-secondary, #666)',
                           marginLeft: 'auto',
                         }}
                       >
@@ -453,12 +598,28 @@ const InformationDashboard: React.FC = () => {
               </div>
             }
             className='data-display-card'
-            style={{ height: 'calc(100vh - 200px)', minHeight: '600px' }}
+            style={{
+              height: 'calc(100vh - 200px)',
+              minHeight: '600px',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            styles={{
+              body: {
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '16px',
+                overflow: 'hidden',
+              },
+            }}
           >
             {selectedWorkflow?.id === 'smart-opportunities' ? (
               <SmartOpportunities />
             ) : (
-              <>
+              <div
+                style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+              >
                 <WorkflowPanel
                   onRedditDataReceived={handleRedditDataReceived}
                   onRedditWorkflowDataReceived={
@@ -466,12 +627,14 @@ const InformationDashboard: React.FC = () => {
                   }
                 />
                 <Divider />
-                <ResultPanel
-                  redditData={redditData}
-                  redditWorkflowData={redditWorkflowData}
-                  selectedWorkflow={selectedWorkflow}
-                />
-              </>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <ResultPanel
+                    redditData={redditData}
+                    redditWorkflowData={redditWorkflowData}
+                    selectedWorkflow={selectedWorkflow}
+                  />
+                </div>
+              </div>
             )}
           </Card>
         </Col>

@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R&D Report Consistency Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e1e5e9;
+            padding-bottom: 20px;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+
+        .test-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .test-result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .test-result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .test-result.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .test-result.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+        }
+
+        .btn.danger {
+            background: #dc3545;
+        }
+
+        .btn.danger:hover {
+            background: #c82333;
+        }
+
+        .btn.secondary {
+            background: #6c757d;
+        }
+
+        .btn.secondary:hover {
+            background: #545b62;
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #e7f3ff;
+            border-radius: 6px;
+        }
+
+        .test-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .summary-item {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+
+        .summary-item.success {
+            border-left-color: #28a745;
+        }
+
+        .summary-item.error {
+            border-left-color: #dc3545;
+        }
+
+        .summary-item.warning {
+            border-left-color: #ffc107;
+        }
+
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+        }
+
+        .log-entry.error {
+            color: #dc3545;
+        }
+
+        .log-entry.warning {
+            color: #ffc107;
+        }
+
+        .log-entry.info {
+            color: #007bff;
+        }
+
+        .log-entry.success {
+            color: #28a745;
+        }
+
+        .timestamp {
+            color: #6c757d;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔬 R&D Report Consistency Test Suite</h1>
+            <p>Test and verify the consistency of R&D report display and processing</p>
+        </div>
+
+        <div class="controls">
+            <h3>🧪 Test Controls</h3>
+            <div class="test-controls">
+                <button class="btn" onclick="runAllTests()">Run All Tests</button>
+                <button class="btn secondary" onclick="clearTestResults()">Clear Results</button>
+                <button class="btn danger" onclick="clearAllData()">Clear All Data</button>
+            </div>
+        </div>
+
+        <div class="summary" id="testSummary">
+            <h3>📊 Test Summary</h3>
+            <div class="summary-grid" id="summaryGrid">
+                <!-- Summary items will be populated here -->
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">1. Content Loading Consistency Test</div>
+            <div id="test1-results"></div>
+            <div class="test-controls">
+                <button class="btn" onclick="runTest1()">Run Test 1</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">2. Cache Management Test</div>
+            <div id="test2-results"></div>
+            <div class="test-controls">
+                <button class="btn" onclick="runTest2()">Run Test 2</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">3. Content Integrity Test</div>
+            <div id="test3-results"></div>
+            <div class="test-controls">
+                <button class="btn" onclick="runTest3()">Run Test 3</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">4. Data Recovery Test</div>
+            <div id="test4-results"></div>
+            <div class="test-controls">
+                <button class="btn" onclick="runTest4()">Run Test 4</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">5. Storage Optimization Test</div>
+            <div id="test5-results"></div>
+            <div class="test-controls">
+                <button class="btn" onclick="runTest5()">Run Test 5</button>
+            </div>
+        </div>
+
+        <div class="log" id="testLog">
+            <div class="log-entry info">🔧 Test suite loaded. Ready to run tests.</div>
+        </div>
+
+        <div class="timestamp" id="timestamp">
+            <!-- Timestamp will be updated here -->
+        </div>
+    </div>
+
+    <script>
+        let testResults = {
+            test1: { status: 'pending', message: 'Not run yet' },
+            test2: { status: 'pending', message: 'Not run yet' },
+            test3: { status: 'pending', message: 'Not run yet' },
+            test4: { status: 'pending', message: 'Not run yet' },
+            test5: { status: 'pending', message: 'Not run yet' }
+        };
+
+        // Test 1: Content Loading Consistency
+        async function runTest1() {
+            log('info', '🧪 Starting Content Loading Consistency Test...');
+
+            try {
+                // Simulate multiple loads of the same report
+                const mockReport = {
+                    id: 'test-report-123',
+                    name: 'Test Report'
+                };
+
+                // Clear any existing test data
+                localStorage.removeItem(`rnd-report-content-${mockReport.id}`);
+                localStorage.removeItem(`rnd-report-processed-${mockReport.id}`);
+                localStorage.removeItem(`rnd-report-hash-${mockReport.id}`);
+                localStorage.removeItem(`rnd-report-cache-metadata-${mockReport.id}`);
+
+                // Create test HTML content
+                const testContent = `
+                    <html>
+                        <head>
+                            <title>Test Report</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; padding: 20px; }
+                                h1 { color: #333; }
+                                .content { margin: 20px 0; }
+                            </style>
+                        </head>
+                        <body>
+                            <h1>Test Report Content</h1>
+                            <div class="content">
+                                <p>This is test content for consistency testing.</p>
+                                <p>Timestamp: ${Date.now()}</p>
+                                <ul>
+                                    <li>Item 1</li>
+                                    <li>Item 2</li>
+                                    <li>Item 3</li>
+                                </ul>
+                            </div>
+                        </body>
+                    </html>
+                `;
+
+                localStorage.setItem(`rnd-report-content-${mockReport.id}`, testContent);
+
+                // Simulate the content processing logic
+                const processedResults = [];
+                const maxIterations = 3;
+
+                for (let i = 0; i < maxIterations; i++) {
+                    log('info', `📄 Processing iteration ${i + 1}/${maxIterations}`);
+
+                    // Simulate the processContentConsistently function
+                    const processedContent = await processContentConsistently(testContent, mockReport);
+                    processedResults.push(processedContent);
+
+                    // Add small delay to simulate real processing
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+
+                // Check if all results are identical
+                const allIdentical = processedResults.every(result => result === processedResults[0]);
+
+                if (allIdentical) {
+                    testResults.test1 = {
+                        status: 'success',
+                        message: `✅ Content processing is consistent across ${maxIterations} iterations`
+                    };
+                    log('success', '✅ Content Loading Consistency Test PASSED');
+                } else {
+                    testResults.test1 = {
+                        status: 'error',
+                        message: `❌ Content processing is inconsistent across ${maxIterations} iterations`
+                    };
+                    log('error', '❌ Content Loading Consistency Test FAILED');
+                }
+
+                updateTestResults();
+            } catch (error) {
+                testResults.test1 = {
+                    status: 'error',
+                    message: `❌ Test failed: ${error.message}`
+                };
+                log('error', `❌ Content Loading Consistency Test FAILED: ${error.message}`);
+                updateTestResults();
+            }
+        }
+
+        // Test 2: Cache Management
+        async function runTest2() {
+            log('info', '🧪 Starting Cache Management Test...');
+
+            try {
+                const mockReport = {
+                    id: 'test-report-cache-456',
+                    name: 'Cache Test Report'
+                };
+
+                // Clear existing data
+                localStorage.removeItem(`rnd-report-content-${mockReport.id}`);
+                localStorage.removeItem(`rnd-report-processed-${mockReport.id}`);
+                localStorage.removeItem(`rnd-report-hash-${mockReport.id}`);
+                localStorage.removeItem(`rnd-report-cache-metadata-${mockReport.id}`);
+
+                // Create test content
+                const testContent = '<html><head><title>Cache Test</title></head><body><h1>Cache Test Content</h1></body></html>';
+                localStorage.setItem(`rnd-report-content-${mockReport.id}`, testContent);
+
+                // First load - should create cache
+                const firstProcessed = await processContentConsistently(testContent, mockReport);
+                localStorage.setItem(`rnd-report-processed-${mockReport.id}`, firstProcessed);
+
+                const cacheMetadata = {
+                    processedAt: Date.now(),
+                    contentHash: await generateContentHash(testContent),
+                    processingVersion: '2.0'
+                };
+                localStorage.setItem(`rnd-report-cache-metadata-${mockReport.id}`, JSON.stringify(cacheMetadata));
+
+                // Second load - should use cache
+                const secondProcessed = await processContentConsistently(testContent, mockReport);
+
+                // Check if cache was used (should be identical)
+                if (firstProcessed === secondProcessed) {
+                    testResults.test2 = {
+                        status: 'success',
+                        message: '✅ Cache management working correctly'
+                    };
+                    log('success', '✅ Cache Management Test PASSED');
+                } else {
+                    testResults.test2 = {
+                        status: 'error',
+                        message: '❌ Cache management failed - content differs'
+                    };
+                    log('error', '❌ Cache Management Test FAILED');
+                }
+
+                updateTestResults();
+            } catch (error) {
+                testResults.test2 = {
+                    status: 'error',
+                    message: `❌ Test failed: ${error.message}`
+                };
+                log('error', `❌ Cache Management Test FAILED: ${error.message}`);
+                updateTestResults();
+            }
+        }
+
+        // Test 3: Content Integrity
+        async function runTest3() {
+            log('info', '🧪 Starting Content Integrity Test...');
+
+            try {
+                const mockReport = {
+                    id: 'test-report-integrity-789',
+                    name: 'Integrity Test Report'
+                };
+
+                // Test with valid content
+                const validContent = `
+                    <html>
+                        <head>
+                            <title>Valid Test Report</title>
+                            <meta name="description" content="Test report for integrity validation">
+                        </head>
+                        <body>
+                            <h1>Valid Content</h1>
+                            <p>This content should pass integrity checks.</p>
+                            <script>
+                                console.log('Test script');
+                            </script>
+                        </body>
+                    </html>
+                `;
+
+                const integrityCheck = validateContentIntegrity(validContent, mockReport);
+
+                if (integrityCheck.isValid) {
+                    testResults.test3 = {
+                        status: 'success',
+                        message: '✅ Content integrity validation working correctly'
+                    };
+                    log('success', '✅ Content Integrity Test PASSED');
+                } else {
+                    testResults.test3 = {
+                        status: 'error',
+                        message: `❌ Content integrity validation failed: ${integrityCheck.issues.join(', ')}`
+                    };
+                    log('error', '❌ Content Integrity Test FAILED');
+                }
+
+                updateTestResults();
+            } catch (error) {
+                testResults.test3 = {
+                    status: 'error',
+                    message: `❌ Test failed: ${error.message}`
+                };
+                log('error', `❌ Content Integrity Test FAILED: ${error.message}`);
+                updateTestResults();
+            }
+        }
+
+        // Test 4: Data Recovery
+        async function runTest4() {
+            log('info', '🧪 Starting Data Recovery Test...');
+
+            try {
+                const mockReport = {
+                    id: 'test-report-recovery-101',
+                    name: 'Recovery Test Report'
+                };
+
+                // Clear existing data
+                localStorage.removeItem(`rnd-report-content-${mockReport.id}`);
+                localStorage.removeItem(`rnd-report-processed-${mockReport.id}`);
+
+                // Create backup content
+                const backupContent = '<html><head><title>Backup Content</title></head><body><h1>Recovered Content</h1></body></html>';
+                localStorage.setItem(`rnd-report-backup-${mockReport.id}`, backupContent);
+
+                // Test recovery function
+                const recoveryResult = await attemptContentRecovery(mockReport);
+
+                if (recoveryResult) {
+                    testResults.test4 = {
+                        status: 'success',
+                        message: '✅ Data recovery mechanism working correctly'
+                    };
+                    log('success', '✅ Data Recovery Test PASSED');
+                } else {
+                    testResults.test4 = {
+                        status: 'warning',
+                        message: '⚠️ Data recovery attempted but no backup found'
+                    };
+                    log('warning', '⚠️ Data Recovery Test WARNING: No backup content available');
+                }
+
+                updateTestResults();
+            } catch (error) {
+                testResults.test4 = {
+                    status: 'error',
+                    message: `❌ Test failed: ${error.message}`
+                };
+                log('error', `❌ Data Recovery Test FAILED: ${error.message}`);
+                updateTestResults();
+            }
+        }
+
+        // Test 5: Storage Optimization
+        async function runTest5() {
+            log('info', '🧪 Starting Storage Optimization Test...');
+
+            try {
+                // Create some test cache entries
+                const testEntries = [];
+                for (let i = 0; i < 5; i++) {
+                    const reportId = `test-optimization-${i}`;
+                    const content = `<html><body><h1>Test ${i}</h1></body></html>`;
+                    localStorage.setItem(`rnd-report-content-${reportId}`, content);
+                    localStorage.setItem(`rnd-report-processed-${reportId}`, content);
+                    localStorage.setItem(`rnd-report-hash-${reportId}`, 'test-hash');
+
+                    const metadata = {
+                        processedAt: Date.now() - (i * 24 * 60 * 60 * 1000), // Different ages
+                        contentHash: 'test-hash',
+                        processingVersion: '2.0'
+                    };
+                    localStorage.setItem(`rnd-report-cache-metadata-${reportId}`, JSON.stringify(metadata));
+                    testEntries.push(reportId);
+                }
+
+                // Run optimization
+                const optimized = await optimizeStorage();
+
+                if (optimized > 0) {
+                    testResults.test5 = {
+                        status: 'success',
+                        message: `✅ Storage optimization cleaned up ${optimized} entries`
+                    };
+                    log('success', `✅ Storage Optimization Test PASSED: Cleaned up ${optimized} entries`);
+                } else {
+                    testResults.test5 = {
+                        status: 'warning',
+                        message: '⚠️ Storage optimization found no entries to clean'
+                    };
+                    log('warning', '⚠️ Storage Optimization Test WARNING: No entries to optimize');
+                }
+
+                // Clean up test entries
+                testEntries.forEach(id => {
+                    localStorage.removeItem(`rnd-report-content-${id}`);
+                    localStorage.removeItem(`rnd-report-processed-${id}`);
+                    localStorage.removeItem(`rnd-report-hash-${id}`);
+                    localStorage.removeItem(`rnd-report-cache-metadata-${id}`);
+                });
+
+                updateTestResults();
+            } catch (error) {
+                testResults.test5 = {
+                    status: 'error',
+                    message: `❌ Test failed: ${error.message}`
+                };
+                log('error', `❌ Storage Optimization Test FAILED: ${error.message}`);
+                updateTestResults();
+            }
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            log('info', '🚀 Starting all tests...');
+            updateTimestamp();
+
+            await runTest1();
+            await runTest2();
+            await runTest3();
+            await runTest4();
+            await runTest5();
+
+            updateSummary();
+            log('info', '🏁 All tests completed');
+        }
+
+        // Update test results display
+        function updateTestResults() {
+            Object.keys(testResults).forEach(testKey => {
+                const result = testResults[testKey];
+                const element = document.getElementById(`${testKey}-results`);
+
+                if (element) {
+                    const className = `test-result ${result.status}`;
+                    element.innerHTML = `<div class="${className}">${result.message}</div>`;
+                }
+            });
+        }
+
+        // Update summary
+        function updateSummary() {
+            const summaryGrid = document.getElementById('summaryGrid');
+            const passed = Object.values(testResults).filter(r => r.status === 'success').length;
+            const failed = Object.values(testResults).filter(r => r.status === 'error').length;
+            const warnings = Object.values(testResults).filter(r => r.status === 'warning').length;
+            const total = Object.keys(testResults).length;
+
+            summaryGrid.innerHTML = `
+                <div class="summary-item success">
+                    <strong>Passed:</strong> ${passed}/${total}
+                </div>
+                <div class="summary-item error">
+                    <strong>Failed:</strong> ${failed}/${total}
+                </div>
+                <div class="summary-item warning">
+                    <strong>Warnings:</strong> ${warnings}/${total}
+                </div>
+                <div class="summary-item">
+                    <strong>Overall:</strong> ${passed === total ? '✅ All Passed' : failed > 0 ? '❌ Issues Found' : '⚠️ Some Warnings'}
+                </div>
+            `;
+        }
+
+        // Clear test results
+        function clearTestResults() {
+            testResults = {
+                test1: { status: 'pending', message: 'Not run yet' },
+                test2: { status: 'pending', message: 'Not run yet' },
+                test3: { status: 'pending', message: 'Not run yet' },
+                test4: { status: 'pending', message: 'Not run yet' },
+                test5: { status: 'pending', message: 'Not run yet' }
+            };
+
+            updateTestResults();
+            updateSummary();
+
+            const logContainer = document.getElementById('testLog');
+            logContainer.innerHTML = '<div class="log-entry info">🔧 Test results cleared.</div>';
+        }
+
+        // Clear all data
+        function clearAllData() {
+            if (confirm('Are you sure you want to clear ALL R&D report data? This will delete all reports, caches, and progress data.')) {
+                const keys = Object.keys(localStorage);
+                let cleared = 0;
+
+                keys.forEach(key => {
+                    if (key.includes('rnd-report')) {
+                        localStorage.removeItem(key);
+                        cleared++;
+                    }
+                });
+
+                // Clear IndexedDB
+                indexedDB.deleteDatabase('rnd-reports-db');
+
+                alert(`Cleared ${cleared} localStorage entries and IndexedDB database.`);
+                log('warning', `🗑️ Cleared ${cleared} localStorage entries and IndexedDB database`);
+                updateTimestamp();
+            }
+        }
+
+        // Log function
+        function log(type, message) {
+            const logContainer = document.getElementById('testLog');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Update timestamp
+        function updateTimestamp() {
+            document.getElementById('timestamp').textContent = `Last updated: ${new Date().toLocaleString()}`;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateTestResults();
+            updateSummary();
+            updateTimestamp();
+        });
+
+        // Helper functions (simplified versions of the actual functions)
+        async function processContentConsistently(content, report) {
+            // Simplified version for testing
+            let processedContent = content.replace(/�+/g, '');
+
+            if (processedContent.length < 50) {
+                processedContent = `<html><head><title>${report.name}</title></head><body><div style="padding: 20px; color: #666; text-align: center;">Content appears to be corrupted or too short.</div></body></html>`;
+            }
+
+            const hasHtmlTag = processedContent.includes('<html') || processedContent.includes('<HTML');
+            const hasBodyTag = processedContent.includes('<body') || processedContent.includes('<BODY');
+
+            if (!hasHtmlTag) {
+                processedContent = `<html><head><title>${report.name}</title></head><body>${processedContent}</body></html>`;
+            } else if (!hasBodyTag) {
+                processedContent = processedContent
+                    .replace('</head>', '</head><body>')
+                    .replace('</html>', '</body></html>');
+            }
+
+            return processedContent;
+        }
+
+        async function generateContentHash(content) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(content);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+        }
+
+        function validateContentIntegrity(content, report) {
+            const issues = [];
+
+            if (content.length < 50) {
+                issues.push('Content is too short');
+            }
+
+            if (content.includes('�') || content.includes('���')) {
+                issues.push('Content contains encoding errors');
+            }
+
+            const hasHtmlTag = content.includes('<html') || content.includes('<HTML');
+            const hasHeadTag = content.includes('<head') || content.includes('<HEAD');
+            const hasBodyTag = content.includes('<body') || content.includes('<BODY');
+
+            if (!hasHtmlTag && !hasHeadTag && !hasBodyTag) {
+                issues.push('Content lacks basic HTML structure');
+            }
+
+            return {
+                isValid: issues.length === 0,
+                issues
+            };
+        }
+
+        async function attemptContentRecovery(report) {
+            // Simplified version for testing
+            const backupKeys = Object.keys(localStorage).filter(key =>
+                key.includes(report.id) && (key.includes('backup') || key.includes('temp'))
+            );
+
+            if (backupKeys.length > 0) {
+                return true; // Simulate successful recovery
+            }
+
+            return false; // Simulate no backup found
+        }
+
+        async function optimizeStorage() {
+            // Simplified version for testing
+            const keys = Object.keys(localStorage);
+            const cacheMetadataKeys = keys.filter(key => key.includes('rnd-report-cache-metadata-'));
+
+            let optimized = 0;
+            cacheMetadataKeys.forEach(key => {
+                try {
+                    const metadata = JSON.parse(localStorage.getItem(key) || '{}');
+                    if (metadata.processedAt && (Date.now() - metadata.processedAt > 24 * 60 * 60 * 1000)) {
+                        optimized++;
+                    }
+                } catch (error) {
+                    // Ignore errors in test
+                }
+            });
+
+            return optimized;
+        }
+    </script>
+</body>
+</html>

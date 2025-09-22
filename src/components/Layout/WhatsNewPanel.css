@@ -4,7 +4,7 @@
 }
 
 .whats-new-item:hover {
-  background-color: #e8e8e8 !important;
+  background-color: var(--color-bg-container, #e8e8e8);
 }
 
 .whats-new-panel .ant-card {
@@ -12,7 +12,7 @@
 }
 
 .whats-new-panel .ant-card-head {
-  border-bottom: 1px solid #cccccc;
+  border-bottom: 1px solid var(--border-color, #cccccc);
 }
 
 .whats-new-panel .ant-list-item {
@@ -41,7 +41,6 @@
   .whats-new-panel .ant-card-body {
     padding: 6px;
   }
-
 }
 
 /* 深色主题适配 */
@@ -52,26 +51,26 @@
 }
 
 [data-theme='dark'] .whats-new-item:hover {
-  background-color: rgba(255, 255, 255, 0.08) !important;
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 /* 亮色主题适配 */
 
 [data-theme='light'] .whats-new-panel .ant-card {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  background-color: #ffffff !important;
+  border-color: var(--color-border, #dee2e6);
 }
 
 [data-theme='light'] .whats-new-panel .ant-card-head {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: var(--color-bg-elevated, #ffffff);
 }
 
 [data-theme='light'] .whats-new-panel .ant-card-body {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--color-bg-container, #ffffff);
 }
 
 [data-theme='light'] .whats-new-item:hover {
-  background-color: rgba(255, 255, 255, 0.2) !important;
+  background-color: #ffffff !important;
 }
 
 [data-theme='light'] .whats-new-panel .ant-typography {
@@ -79,5 +78,22 @@
 }
 
 [data-theme='light'] .whats-new-panel .anticon {
-  color: #888888 !important;
+  color: #666666 !important;
+}
+
+/* 确保所有文本内容在浅色模式下都是深色 */
+[data-theme='light'] .whats-new-panel .ant-list-item * {
+  color: #333333 !important;
+}
+
+[data-theme='light'] .whats-new-panel .ant-list-item {
+  color: #333333 !important;
+}
+
+[data-theme='light'] .whats-new-panel span {
+  color: #333333 !important;
+}
+
+[data-theme='light'] .whats-new-panel div {
+  color: #333333 !important;
 }

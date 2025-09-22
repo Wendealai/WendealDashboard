@@ -156,7 +156,8 @@ export default {
     },
     reddit: {
       dataCollection: 'Real-time Market Intelligence',
-      getHotPosts: 'Automatically collect and analyze trending industry discussions and market insights from Reddit',
+      getHotPosts:
+        'Automatically collect and analyze trending industry discussions and market insights from Reddit',
       category: 'Hot',
     },
   },
@@ -409,7 +410,8 @@ export default {
       workflowStopped: 'Workflow stopped',
       workflowError: 'Workflow execution error',
       noPostsFound: 'No posts found',
-      tryDifferentSubreddits: 'Try different subreddits or check your connection',
+      tryDifferentSubreddits:
+        'Try different subreddits or check your connection',
       connectionError: 'Failed to connect to Reddit API',
       rateLimitExceeded: 'API rate limit exceeded',
       invalidSubreddit: 'Invalid subreddit',
@@ -566,6 +568,7 @@ export default {
     redditWorkflow: 'Reddit Workflow',
     rndReport: 'R&D Report',
     tools: 'Tools',
+    notificationDemo: 'Notification Test',
     logout: 'Logout',
   },
 
@@ -981,7 +984,8 @@ export default {
   // 404 Page
   notFound: {
     title: 'Page Not Found',
-    description: 'The page you are looking for does not exist or has been moved.',
+    description:
+      'The page you are looking for does not exist or has been moved.',
     suggestion: 'Please check the URL or return to the homepage.',
     buttons: {
       goHome: 'Go Home',
@@ -1200,6 +1204,11 @@ export default {
       emailDesc: 'Receive notifications via email',
       sound: 'Sound Alerts',
       soundDesc: 'Play sound for notifications',
+      test: 'Notification Demo',
+      testDesc: 'Open the complete notification system demo page',
+      testButton: 'Open Demo Page',
+      testSuccess: 'Notification test completed successfully',
+      testFailed: 'Notification test failed',
     },
     security: {
       title: 'Security',
@@ -1531,10 +1540,137 @@ export default {
     },
   },
 
+  // Notification Demo Page
+  notificationDemo: {
+    title: 'Notification System Demo',
+    subtitle:
+      'Complete notification system with realistic data and full English localization',
+
+    // Test Controls
+    testControls: {
+      title: 'Test Notifications',
+      successButton: 'Generate Success Notification',
+      errorButton: 'Generate Error Notification',
+      warningButton: 'Generate Warning Notification',
+      infoButton: 'Generate Info Notification',
+      systemButton: 'Generate System Notification',
+    },
+
+    // Toast Test
+    toastTest: {
+      title: 'Toast Notifications',
+      successTitle: 'Success!',
+      successMessage: 'Operation completed successfully.',
+      errorTitle: 'Error!',
+      errorMessage: 'Something went wrong. Please try again.',
+      warningTitle: 'Warning!',
+      warningMessage: 'Please review the current settings.',
+      infoTitle: 'Info',
+      infoMessage: 'Here is some information for you.',
+      successButton: 'Show Success Toast',
+      errorButton: 'Show Error Toast',
+      warningButton: 'Show Warning Toast',
+      infoButton: 'Show Info Toast',
+    },
+
+    // Statistics
+    statistics: {
+      title: 'Statistics',
+      total: 'Total Notifications',
+      unread: 'Unread',
+      read: 'Read',
+      archived: 'Archived',
+    },
+
+    // Inbox
+    inbox: {
+      title: 'Notification Inbox',
+    },
+
+    // Settings
+    settings: {
+      title: 'Notification Settings',
+    },
+
+    // Features
+    features: {
+      title: 'Features Demonstrated',
+      realisticData: {
+        title: 'Realistic Data',
+        description: 'Authentic notifications with proper metadata',
+      },
+      localization: {
+        title: 'Full Localization',
+        description: 'Complete English interface and content',
+      },
+      realtime: {
+        title: 'Real-time Updates',
+        description: 'Live notifications via WebSocket',
+      },
+      components: {
+        title: 'Rich Components',
+        description: 'Inbox, settings, and toast notifications',
+      },
+      offline: {
+        title: 'Offline Support',
+        description: 'IndexedDB storage with sync capabilities',
+      },
+      typesafety: {
+        title: 'Type Safety',
+        description: 'Full TypeScript coverage',
+      },
+    },
+  },
+
+  // Notification System
+  notification: {
+    title: 'Notification Center',
+    markAsRead: 'Mark as Read',
+    markAllAsRead: 'Mark All as Read',
+    delete: 'Delete',
+    clear: 'Clear',
+    settings: 'Settings',
+    types: {
+      all: 'All',
+      system: 'System',
+      user: 'User',
+      workflow: 'Workflow',
+      error: 'Error',
+      warning: 'Warning',
+      info: 'Information',
+      success: 'Success',
+    },
+    priority: {
+      low: 'Low',
+      medium: 'Medium',
+      high: 'High',
+    },
+    empty: 'No notifications',
+    unread: 'Unread',
+    read: 'Read',
+    tabs: {
+      all: 'All',
+      unread: 'Unread',
+      read: 'Read',
+      system: 'System',
+      security: 'Security',
+      update: 'Updates',
+      message: 'Messages',
+    },
+    messages: {
+      loadFailed: 'Failed to load notifications',
+      markAsReadFailed: 'Failed to mark as read',
+      markAllAsReadFailed: 'Failed to mark all as read',
+      deleteFailed: 'Failed to delete notification',
+      clearAllFailed: 'Failed to clear all notifications',
+    },
+  },
+
   // R&D Report Module
   rndReport: {
     title: 'R&D Report Management',
-    description: 'Professional HTML report document management system supporting upload, categorization, reading progress tracking, and more',
+    description:
+      'Professional HTML report document management system supporting upload, categorization, reading progress tracking, and more',
     loading: 'Loading report module...',
 
     // Statistics
@@ -1586,7 +1722,8 @@ export default {
       uploadingFiles: 'Uploading files...',
       progress: 'Progress',
       largeUploadWarning: 'Bulk Upload Notice',
-      largeUploadMessage: 'You are uploading multiple files, this may take some time. Please do not close the page.',
+      largeUploadMessage:
+        'You are uploading multiple files, this may take some time. Please do not close the page.',
     },
 
     // Report List
@@ -1625,7 +1762,8 @@ export default {
       },
       deleteConfirm: {
         title: 'Confirm Delete',
-        content: 'Are you sure you want to delete report "{{name}}"? This action cannot be undone.',
+        content:
+          'Are you sure you want to delete report "{{name}}"? This action cannot be undone.',
         okText: 'Delete',
         cancelText: 'Cancel',
       },
@@ -1748,12 +1886,14 @@ export default {
       },
       danger: {
         title: 'Danger Zone',
-        description: 'The following actions cannot be undone. Please proceed with caution.',
+        description:
+          'The following actions cannot be undone. Please proceed with caution.',
       },
       delete: {
         title: 'Delete Report',
         confirm: 'Are you sure you want to delete report "{{name}}"?',
-        warning: 'This will permanently delete the report file and all related data.',
+        warning:
+          'This will permanently delete the report file and all related data.',
         button: 'Delete Report',
         success: 'Report deleted successfully',
         error: 'Failed to delete report',

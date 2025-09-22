@@ -30,8 +30,8 @@ describe('NotificationCenter', () => {
   it('renders notification center correctly', () => {
     renderWithProviders(<NotificationCenter />);
 
-    expect(screen.getByText('通知中心')).toBeInTheDocument();
-    expect(screen.getByText('全部标记为已读')).toBeInTheDocument();
+    expect(screen.getByText('Notification Center')).toBeInTheDocument();
+    expect(screen.getByText('Mark All as Read')).toBeInTheDocument();
     expect(screen.getByText('清空所有')).toBeInTheDocument();
   });
 

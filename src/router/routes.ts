@@ -38,6 +38,11 @@ const RNDReport = lazy(() => import('@/pages/RNDReport/RNDReport'));
 // Tools
 const Tools = lazy(() => import('@/pages/Tools/Tools'));
 
+// Notification Demo
+const NotificationDemo = lazy(
+  () => import('@/pages/NotificationDemo/NotificationDemo')
+);
+
 export const routes: RouteConfig[] = [
   // Routes without layout (login, register)
   {
@@ -151,6 +156,17 @@ export const routes: RouteConfig[] = [
           requiresAuth: true,
           roles: ['admin', 'user'],
           icon: 'SettingOutlined',
+        },
+      },
+      {
+        path: 'notification-demo',
+        element: NotificationDemo,
+        meta: {
+          title: 'navigation.notificationDemo',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'BellOutlined',
+          hideInMenu: true,
         },
       },
     ],

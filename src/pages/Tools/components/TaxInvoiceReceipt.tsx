@@ -46,7 +46,8 @@ const TaxInvoiceReceipt: React.FC = () => {
         body {
             font-family: 'Inter', sans-serif;
             color: var(--text-color);
-            background-color: #f3f4f6;
+            background-color: var(--background-color);
+            padding: 20px;
         }
 
         .receipt-container {
@@ -337,9 +338,9 @@ const TaxInvoiceReceipt: React.FC = () => {
             position: sticky;
             top: 0;
             z-index: 100;
-            background-color: rgba(255, 255, 255, 0.9);
+            background-color: var(--card-color);
             backdrop-filter: blur(4px);
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid var(--border-color);
         }
 
         /* 日期输入框样式 */
@@ -1272,9 +1273,9 @@ const TaxInvoiceReceipt: React.FC = () => {
             height: '100%',
             minHeight: '900px',
             border: 'none',
-            borderRadius: '8px'
+            borderRadius: '8px',
           }}
-          title="Tax Invoice/Receipt Template"
+          title='Tax Invoice/Receipt Template'
         />
       </div>
     </div>

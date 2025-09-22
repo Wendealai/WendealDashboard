@@ -14,7 +14,10 @@ import type {
   RNDReportError,
   RNDReportErrorCode,
 } from '../types/rndReport';
-import { DEFAULT_CATEGORIES, DEFAULT_RND_REPORT_CONFIG } from '../types/rndReport';
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_RND_REPORT_CONFIG,
+} from '../types/rndReport';
 import type { IRNDReportService } from './IRNDReportService';
 
 /**
@@ -62,7 +65,11 @@ export class RNDReportService implements IRNDReportService {
 
       this.isInitialized = true;
     } catch (error) {
-      throw this.createError('UNKNOWN_ERROR', 'Failed to initialize R&D Report service', error);
+      throw this.createError(
+        'UNKNOWN_ERROR',
+        'Failed to initialize R&D Report service',
+        error
+      );
     }
   }
 
@@ -79,25 +86,38 @@ export class RNDReportService implements IRNDReportService {
         resolve();
       };
 
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = event => {
         const db = (event.target as IDBOpenDBRequest).result;
 
         // 创建对象存储
         if (!db.objectStoreNames.contains(this.STORES.REPORTS)) {
-          const reportsStore = db.createObjectStore(this.STORES.REPORTS, { keyPath: 'id' });
-          reportsStore.createIndex('categoryId', 'categoryId', { unique: false });
-          reportsStore.createIndex('uploadDate', 'uploadDate', { unique: false });
+          const reportsStore = db.createObjectStore(this.STORES.REPORTS, {
+            keyPath: 'id',
+          });
+          reportsStore.createIndex('categoryId', 'categoryId', {
+            unique: false,
+          });
+          reportsStore.createIndex('uploadDate', 'uploadDate', {
+            unique: false,
+          });
           reportsStore.createIndex('name', 'name', { unique: false });
         }
 
         if (!db.objectStoreNames.contains(this.STORES.CATEGORIES)) {
-          const categoriesStore = db.createObjectStore(this.STORES.CATEGORIES, { keyPath: 'id' });
+          const categoriesStore = db.createObjectStore(this.STORES.CATEGORIES, {
+            keyPath: 'id',
+          });
           categoriesStore.createIndex('name', 'name', { unique: true });
         }
 
         if (!db.objectStoreNames.contains(this.STORES.READING_PROGRESS)) {
-          const progressStore = db.createObjectStore(this.STORES.READING_PROGRESS, { keyPath: 'reportId' });
-          progressStore.createIndex('lastReadAt', 'lastReadAt', { unique: false });
+          const progressStore = db.createObjectStore(
+            this.STORES.READING_PROGRESS,
+            { keyPath: 'reportId' }
+          );
+          progressStore.createIndex('lastReadAt', 'lastReadAt', {
+            unique: false,
+          });
         }
 
         if (!db.objectStoreNames.contains(this.STORES.METADATA)) {
@@ -114,7 +134,9 @@ export class RNDReportService implements IRNDReportService {
     try {
       // 检查是否支持File System Access API
       if (!('showDirectoryPicker' in window)) {
-        console.warn('File System Access API not supported, falling back to localStorage');
+        console.warn(
+          'File System Access API not supported, falling back to localStorage'
+        );
         return;
       }
 
@@ -130,10 +152,21 @@ export class RNDReportService implements IRNDReportService {
    */
   private async initializeDefaultCategories(): Promise<void> {
     try {
-      const existingCategories = await this.getCategories();
-      console.log('📂 检查现有分类:', existingCategories.categories.length, '个');
+      // 确保数据库已完全初始化
+      if (!this.db) {
+        console.warn(
+          'Database not initialized, skipping category initialization'
+        );
+        return;
+      }
 
-      if (existingCategories.categories.length === 0) {
+      // 检查现有分类
+      const existingCategories = await this.getAllFromIndexedDB<Category>(
+        this.STORES.CATEGORIES
+      );
+      console.log('📂 检查现有分类:', existingCategories.length, '个');
+
+      if (existingCategories.length === 0) {
         console.log('🏗️ 初始化默认分类...');
         for (const category of DEFAULT_CATEGORIES) {
           console.log(`➕ 创建分类: ${category.name}`);
@@ -141,10 +174,23 @@ export class RNDReportService implements IRNDReportService {
         }
         console.log('✅ 默认分类初始化完成');
       } else {
-        console.log('📋 现有分类:', existingCategories.categories.map(c => `${c.name} (${c.id})`));
+        console.log(
+          '📋 现有分类:',
+          existingCategories.map(c => `${c.name} (${c.id})`)
+        );
       }
     } catch (error) {
       console.warn('Failed to initialize default categories:', error);
+      // 如果初始化失败，尝试直接创建默认分类
+      try {
+        console.log('🔄 尝试直接创建默认分类...');
+        for (const category of DEFAULT_CATEGORIES) {
+          await this.createCategory(category);
+        }
+        console.log('✅ 默认分类创建完成');
+      } catch (retryError) {
+        console.error('❌ 无法创建默认分类:', retryError);
+      }
     }
   }
 
@@ -153,7 +199,12 @@ export class RNDReportService implements IRNDReportService {
   async validateFile(file: File): Promise<FileValidationResult> {
     try {
       // 检查文件类型
-      if (!this.config.allowedFileTypes.some(type => file.type === type || file.name.toLowerCase().endsWith('.html'))) {
+      if (
+        !this.config.allowedFileTypes.some(
+          type =>
+            file.type === type || file.name.toLowerCase().endsWith('.html')
+        )
+      ) {
         return {
           isValid: false,
           error: 'File type not allowed. Only HTML files are accepted.',
@@ -190,12 +241,18 @@ export class RNDReportService implements IRNDReportService {
     }
   }
 
-  async uploadFile(file: File, categoryId?: string): Promise<FileProcessingResult> {
+  async uploadFile(
+    file: File,
+    categoryId?: string
+  ): Promise<FileProcessingResult> {
     try {
       // 验证文件
       const validation = await this.validateFile(file);
       if (!validation.isValid) {
-        throw this.createError('VALIDATION_ERROR', validation.error || 'File validation failed');
+        throw this.createError(
+          'VALIDATION_ERROR',
+          validation.error || 'File validation failed'
+        );
       }
 
       // 生成报告ID
@@ -220,13 +277,31 @@ export class RNDReportService implements IRNDReportService {
         metadata,
       };
 
-      // 存储文件内容（暂时使用localStorage，后续可扩展为文件系统）
+      // 存储文件内容到localStorage
       localStorage.setItem(`rnd-report-content-${reportId}`, content);
       console.log('📁 File content stored in localStorage:', reportId);
 
       // 存储报告元数据到IndexedDB
       await this.storeInIndexedDB(this.STORES.REPORTS, report);
       console.log('💾 Report metadata stored in IndexedDB:', report);
+
+      // 验证数据存储完整性
+      const contentCheck = localStorage.getItem(
+        `rnd-report-content-${reportId}`
+      );
+      const reportCheck = await this.getFromIndexedDB<Report>(
+        this.STORES.REPORTS,
+        reportId
+      );
+
+      if (!contentCheck || !reportCheck) {
+        throw this.createError(
+          'UNKNOWN_ERROR',
+          'Data storage verification failed - content or metadata missing'
+        );
+      }
+
+      console.log('✅ Data storage verification passed');
 
       // 更新分类报告计数
       if (categoryId) {
@@ -271,11 +346,18 @@ export class RNDReportService implements IRNDReportService {
     try {
       const content = localStorage.getItem(`rnd-report-content-${reportId}`);
       if (!content) {
-        throw this.createError('FILE_NOT_FOUND', `Report content not found: ${reportId}`);
+        throw this.createError(
+          'FILE_NOT_FOUND',
+          `Report content not found: ${reportId}`
+        );
       }
       return content;
     } catch (error) {
-      throw this.createError('UNKNOWN_ERROR', 'Failed to get report content', error);
+      throw this.createError(
+        'UNKNOWN_ERROR',
+        'Failed to get report content',
+        error
+      );
     }
   }
 
@@ -313,7 +395,9 @@ export class RNDReportService implements IRNDReportService {
       let categoriesCount = 0;
 
       try {
-        const reports = await this.getAllFromIndexedDB<Report>(this.STORES.REPORTS);
+        const reports = await this.getAllFromIndexedDB<Report>(
+          this.STORES.REPORTS
+        );
         reportsCount = reports.length;
         console.log('📋 Reports in IndexedDB:', reportsCount);
       } catch (error) {
@@ -321,7 +405,9 @@ export class RNDReportService implements IRNDReportService {
       }
 
       try {
-        const categories = await this.getAllFromIndexedDB<Category>(this.STORES.CATEGORIES);
+        const categories = await this.getAllFromIndexedDB<Category>(
+          this.STORES.CATEGORIES
+        );
         categoriesCount = categories.length;
         console.log('📂 Categories in IndexedDB:', categoriesCount);
       } catch (error) {
@@ -352,6 +438,207 @@ export class RNDReportService implements IRNDReportService {
     }
   }
 
+  /**
+   * 检查和修复数据一致性问题
+   */
+  async checkAndRepairDataConsistency(): Promise<{
+    issuesFound: string[];
+    issuesFixed: string[];
+    orphanedContent: string[];
+    missingContent: string[];
+    cacheIssues: string[];
+  }> {
+    try {
+      console.log('🔍 Checking data consistency...');
+
+      const issuesFound: string[] = [];
+      const issuesFixed: string[] = [];
+      const orphanedContent: string[] = [];
+      const missingContent: string[] = [];
+      const cacheIssues: string[] = [];
+
+      // 获取所有报告元数据
+      const reports = await this.getAllFromIndexedDB<Report>(
+        this.STORES.REPORTS
+      );
+      console.log(`📋 Found ${reports.length} reports in IndexedDB`);
+
+      // 获取所有localStorage中的报告内容
+      const localStorageKeys = Object.keys(localStorage).filter(key =>
+        key.startsWith('rnd-report-content-')
+      );
+      console.log(
+        `📦 Found ${localStorageKeys.length} report contents in localStorage`
+      );
+
+      // 获取所有缓存的处理后内容
+      const cacheKeys = Object.keys(localStorage).filter(key =>
+        key.startsWith('rnd-report-processed-')
+      );
+      console.log(
+        `💾 Found ${cacheKeys.length} cached processed contents in localStorage`
+      );
+
+      // 检查每个报告的内容是否存在
+      for (const report of reports) {
+        const contentKey = `rnd-report-content-${report.id}`;
+        const cacheKey = `rnd-report-processed-${report.id}`;
+        const hashKey = `rnd-report-hash-${report.id}`;
+        const hasContent = localStorageKeys.includes(contentKey);
+        const hasCache = cacheKeys.includes(cacheKey);
+        const hasHash = localStorage.getItem(hashKey);
+
+        if (!hasContent) {
+          issuesFound.push(
+            `Missing content for report: ${report.name} (${report.id})`
+          );
+          missingContent.push(report.id);
+
+          // 尝试从其他可能的存储位置恢复内容
+          const recovered = await this.attemptContentRecovery(report);
+          if (recovered) {
+            issuesFixed.push(`Recovered content for report: ${report.name}`);
+          }
+        } else {
+          // 检查内容完整性
+          const content = localStorage.getItem(contentKey);
+          if (content) {
+            const currentHash = await this.generateContentHash(content);
+            const storedHash = localStorage.getItem(hashKey);
+
+            if (storedHash && storedHash !== currentHash) {
+              issuesFound.push(
+                `Content hash mismatch for report: ${report.name} (${report.id})`
+              );
+              cacheIssues.push(report.id);
+
+              // 清除缓存，强制重新处理
+              localStorage.removeItem(cacheKey);
+              localStorage.setItem(hashKey, currentHash);
+              issuesFixed.push(`Fixed content hash for report: ${report.name}`);
+            }
+          }
+        }
+
+        // 检查缓存是否需要更新
+        if (hasContent && !hasCache) {
+          console.log(
+            `📝 Cache missing for report: ${report.name}, will be created on next load`
+          );
+        }
+      }
+
+      // 检查是否有孤立的localStorage内容（没有对应的报告元数据）
+      for (const key of localStorageKeys) {
+        const reportId = key.replace('rnd-report-content-', '');
+        const hasMetadata = reports.some(report => report.id === reportId);
+
+        if (!hasMetadata) {
+          issuesFound.push(`Orphaned content found: ${key}`);
+          orphanedContent.push(reportId);
+
+          // 清理孤立内容
+          localStorage.removeItem(key);
+          issuesFixed.push(`Cleaned up orphaned content: ${key}`);
+        }
+      }
+
+      // 检查孤立的缓存内容
+      for (const key of cacheKeys) {
+        const reportId = key.replace('rnd-report-processed-', '');
+        const hasMetadata = reports.some(report => report.id === reportId);
+
+        if (!hasMetadata) {
+          issuesFound.push(`Orphaned cache found: ${key}`);
+          cacheIssues.push(reportId);
+
+          // 清理孤立缓存
+          localStorage.removeItem(key);
+          issuesFixed.push(`Cleaned up orphaned cache: ${key}`);
+        }
+      }
+
+      // 检查报告元数据完整性
+      for (const report of reports) {
+        if (!report.name || !report.uploadDate) {
+          issuesFound.push(`Incomplete metadata for report: ${report.id}`);
+          // 尝试修复元数据
+          if (!report.name && report.originalName) {
+            report.name = report.originalName.replace(/\.html?$/i, '');
+            await this.storeInIndexedDB(this.STORES.REPORTS, report);
+            issuesFixed.push(`Fixed metadata for report: ${report.id}`);
+          }
+        }
+      }
+
+      console.log('✅ Data consistency check completed:', {
+        issuesFound: issuesFound.length,
+        issuesFixed: issuesFixed.length,
+        orphanedContent: orphanedContent.length,
+        missingContent: missingContent.length,
+        cacheIssues: cacheIssues.length,
+      });
+
+      return {
+        issuesFound,
+        issuesFixed,
+        orphanedContent,
+        missingContent,
+        cacheIssues,
+      };
+    } catch (error) {
+      console.error('❌ Data consistency check failed:', error);
+      throw this.createError(
+        'UNKNOWN_ERROR',
+        'Data consistency check failed',
+        error
+      );
+    }
+  }
+
+  /**
+   * 尝试恢复报告内容
+   */
+  private async attemptContentRecovery(report: Report): Promise<boolean> {
+    try {
+      // 这里可以添加从备份或其他存储位置恢复内容的逻辑
+      // 目前暂时返回false，表示无法恢复
+      console.warn(
+        `⚠️ Cannot recover content for report: ${report.name} (${report.id})`
+      );
+      return false;
+    } catch (error) {
+      console.error('❌ Content recovery failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 生成内容哈希值用于完整性检查
+   */
+  private async generateContentHash(content: string): Promise<string> {
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(content);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+        .substring(0, 16);
+    } catch (error) {
+      console.warn('Failed to generate content hash:', error);
+      // Fallback to simple hash
+      let hash = 0;
+      for (let i = 0; i < content.length; i++) {
+        const char = content.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      return Math.abs(hash).toString(16).substring(0, 16);
+    }
+  }
+
   // ==================== 报告管理方法 ====================
 
   async getReports(
@@ -361,8 +648,14 @@ export class RNDReportService implements IRNDReportService {
     pageSize = this.config.itemsPerPage
   ): Promise<ReportListResponse> {
     try {
-      const reports = await this.getAllFromIndexedDB<Report>(this.STORES.REPORTS);
-      console.log('📋 Loaded reports from IndexedDB:', reports.length, 'reports');
+      const reports = await this.getAllFromIndexedDB<Report>(
+        this.STORES.REPORTS
+      );
+      console.log(
+        '📋 Loaded reports from IndexedDB:',
+        reports.length,
+        'reports'
+      );
 
       let filteredReports = reports;
 
@@ -394,9 +687,15 @@ export class RNDReportService implements IRNDReportService {
 
   async getReport(reportId: string): Promise<Report> {
     try {
-      const report = await this.getFromIndexedDB<Report>(this.STORES.REPORTS, reportId);
+      const report = await this.getFromIndexedDB<Report>(
+        this.STORES.REPORTS,
+        reportId
+      );
       if (!report) {
-        throw this.createError('FILE_NOT_FOUND', `Report not found: ${reportId}`);
+        throw this.createError(
+          'FILE_NOT_FOUND',
+          `Report not found: ${reportId}`
+        );
       }
       return report;
     } catch (error) {
@@ -404,7 +703,10 @@ export class RNDReportService implements IRNDReportService {
     }
   }
 
-  async updateReport(reportId: string, updates: Partial<Report>): Promise<Report> {
+  async updateReport(
+    reportId: string,
+    updates: Partial<Report>
+  ): Promise<Report> {
     try {
       const report = await this.getReport(reportId);
       const updatedReport = { ...report, ...updates };
@@ -416,9 +718,14 @@ export class RNDReportService implements IRNDReportService {
     }
   }
 
-  async searchReports(query: string, filters?: ReportSearchFilters): Promise<ReportListResponse> {
+  async searchReports(
+    query: string,
+    filters?: ReportSearchFilters
+  ): Promise<ReportListResponse> {
     try {
-      const reports = await this.getAllFromIndexedDB<Report>(this.STORES.REPORTS);
+      const reports = await this.getAllFromIndexedDB<Report>(
+        this.STORES.REPORTS
+      );
       const searchFilters = { ...filters, query };
 
       const filteredReports = this.applyFilters(reports, searchFilters);
@@ -437,12 +744,18 @@ export class RNDReportService implements IRNDReportService {
 
   async getCategories(): Promise<CategoryListResponse> {
     try {
-      const categories = await this.getAllFromIndexedDB<Category>(this.STORES.CATEGORIES);
-      console.log('📂 Loaded categories from IndexedDB:', categories.length, 'categories');
+      const categories = await this.getAllFromIndexedDB<Category>(
+        this.STORES.CATEGORIES
+      );
+      console.log(
+        '📂 Loaded categories from IndexedDB:',
+        categories.length,
+        'categories'
+      );
 
       // 更新报告计数
       const updatedCategories = await Promise.all(
-        categories.map(async (category) => {
+        categories.map(async category => {
           const reports = await this.getReports({ categoryIds: [category.id] });
           return { ...category, reportCount: reports.totalCount };
         })
@@ -453,15 +766,25 @@ export class RNDReportService implements IRNDReportService {
         totalCount: updatedCategories.length,
       };
     } catch (error) {
-      throw this.createError('UNKNOWN_ERROR', 'Failed to get categories', error);
+      throw this.createError(
+        'UNKNOWN_ERROR',
+        'Failed to get categories',
+        error
+      );
     }
   }
 
   async getCategory(categoryId: string): Promise<Category> {
     try {
-      const category = await this.getFromIndexedDB<Category>(this.STORES.CATEGORIES, categoryId);
+      const category = await this.getFromIndexedDB<Category>(
+        this.STORES.CATEGORIES,
+        categoryId
+      );
       if (!category) {
-        throw this.createError('FILE_NOT_FOUND', `Category not found: ${categoryId}`);
+        throw this.createError(
+          'FILE_NOT_FOUND',
+          `Category not found: ${categoryId}`
+        );
       }
       return category;
     } catch (error) {
@@ -469,7 +792,9 @@ export class RNDReportService implements IRNDReportService {
     }
   }
 
-  async createCategory(category: Omit<Category, 'id' | 'createdDate' | 'reportCount'>): Promise<Category> {
+  async createCategory(
+    category: Omit<Category, 'id' | 'createdDate' | 'reportCount'>
+  ): Promise<Category> {
     try {
       const categoryId = `category_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -483,11 +808,18 @@ export class RNDReportService implements IRNDReportService {
       await this.storeInIndexedDB(this.STORES.CATEGORIES, newCategory);
       return newCategory;
     } catch (error) {
-      throw this.createError('UNKNOWN_ERROR', 'Failed to create category', error);
+      throw this.createError(
+        'UNKNOWN_ERROR',
+        'Failed to create category',
+        error
+      );
     }
   }
 
-  async updateCategory(categoryId: string, updates: Partial<Category>): Promise<Category> {
+  async updateCategory(
+    categoryId: string,
+    updates: Partial<Category>
+  ): Promise<Category> {
     try {
       const category = await this.getCategory(categoryId);
       const updatedCategory = { ...category, ...updates };
@@ -495,7 +827,11 @@ export class RNDReportService implements IRNDReportService {
       await this.storeInIndexedDB(this.STORES.CATEGORIES, updatedCategory);
       return updatedCategory;
     } catch (error) {
-      throw this.createError('UNKNOWN_ERROR', 'Failed to update category', error);
+      throw this.createError(
+        'UNKNOWN_ERROR',
+        'Failed to update category',
+        error
+      );
     }
   }
 
@@ -512,7 +848,11 @@ export class RNDReportService implements IRNDReportService {
       // 删除分类
       await this.deleteFromIndexedDB(this.STORES.CATEGORIES, categoryId);
     } catch (error) {
-      throw this.createError('UNKNOWN_ERROR', 'Failed to delete category', error);
+      throw this.createError(
+        'UNKNOWN_ERROR',
+        'Failed to delete category',
+        error
+      );
     }
   }
 
@@ -520,7 +860,10 @@ export class RNDReportService implements IRNDReportService {
 
   async getReadingProgress(reportId: string): Promise<ReadingProgress> {
     try {
-      let progress = await this.getFromIndexedDB<ReadingProgress>(this.STORES.READING_PROGRESS, reportId);
+      let progress = await this.getFromIndexedDB<ReadingProgress>(
+        this.STORES.READING_PROGRESS,
+        reportId
+      );
 
       if (!progress) {
         progress = {
@@ -535,11 +878,18 @@ export class RNDReportService implements IRNDReportService {
 
       return progress;
     } catch (error) {
-      throw this.createError('UNKNOWN_ERROR', 'Failed to get reading progress', error);
+      throw this.createError(
+        'UNKNOWN_ERROR',
+        'Failed to get reading progress',
+        error
+      );
     }
   }
 
-  async updateReadingProgress(reportId: string, progressData: Partial<ReadingProgress>): Promise<ReadingProgress> {
+  async updateReadingProgress(
+    reportId: string,
+    progressData: Partial<ReadingProgress>
+  ): Promise<ReadingProgress> {
     try {
       const existingProgress = await this.getReadingProgress(reportId);
       const updatedProgress: ReadingProgress = {
@@ -549,14 +899,24 @@ export class RNDReportService implements IRNDReportService {
         lastReadAt: new Date(),
       };
 
-      await this.storeInIndexedDB(this.STORES.READING_PROGRESS, updatedProgress);
+      await this.storeInIndexedDB(
+        this.STORES.READING_PROGRESS,
+        updatedProgress
+      );
       return updatedProgress;
     } catch (error) {
-      throw this.createError('UNKNOWN_ERROR', 'Failed to update reading progress', error);
+      throw this.createError(
+        'UNKNOWN_ERROR',
+        'Failed to update reading progress',
+        error
+      );
     }
   }
 
-  async addBookmark(reportId: string, bookmark: Omit<ReadingProgress['bookmarks'][0], 'id' | 'createdAt'>): Promise<ReadingProgress['bookmarks'][0]> {
+  async addBookmark(
+    reportId: string,
+    bookmark: Omit<ReadingProgress['bookmarks'][0], 'id' | 'createdAt'>
+  ): Promise<ReadingProgress['bookmarks'][0]> {
     try {
       const progress = await this.getReadingProgress(reportId);
       const newBookmark = {
@@ -580,7 +940,11 @@ export class RNDReportService implements IRNDReportService {
       progress.bookmarks = progress.bookmarks.filter(b => b.id !== bookmarkId);
       await this.storeInIndexedDB(this.STORES.READING_PROGRESS, progress);
     } catch (error) {
-      throw this.createError('UNKNOWN_ERROR', 'Failed to remove bookmark', error);
+      throw this.createError(
+        'UNKNOWN_ERROR',
+        'Failed to remove bookmark',
+        error
+      );
     }
   }
 
@@ -589,28 +953,45 @@ export class RNDReportService implements IRNDReportService {
   async getStorageInfo(): Promise<StorageInfo> {
     try {
       // 计算存储使用情况
-      const reports = await this.getAllFromIndexedDB<Report>(this.STORES.REPORTS);
-      const totalSize = reports.reduce((sum, report) => sum + report.fileSize, 0);
+      const reports = await this.getAllFromIndexedDB<Report>(
+        this.STORES.REPORTS
+      );
+      const totalSize = reports.reduce(
+        (sum, report) => sum + report.fileSize,
+        0
+      );
 
       return {
         totalSpace: 500 * 1024 * 1024, // 假设500MB可用空间
         usedSpace: totalSize,
         availableSpace: 500 * 1024 * 1024 - totalSize,
         reportsCount: reports.length,
-        categoriesCount: (await this.getAllFromIndexedDB<Category>(this.STORES.CATEGORIES)).length,
+        categoriesCount: (
+          await this.getAllFromIndexedDB<Category>(this.STORES.CATEGORIES)
+        ).length,
       };
     } catch (error) {
-      throw this.createError('UNKNOWN_ERROR', 'Failed to get storage info', error);
+      throw this.createError(
+        'UNKNOWN_ERROR',
+        'Failed to get storage info',
+        error
+      );
     }
   }
 
-  async cleanupStorage(olderThanDays = 30): Promise<{ deletedCount: number; freedSpace: number }> {
+  async cleanupStorage(
+    olderThanDays = 30
+  ): Promise<{ deletedCount: number; freedSpace: number }> {
     try {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
-      const reports = await this.getAllFromIndexedDB<Report>(this.STORES.REPORTS);
-      const oldReports = reports.filter(report => report.uploadDate < cutoffDate);
+      const reports = await this.getAllFromIndexedDB<Report>(
+        this.STORES.REPORTS
+      );
+      const oldReports = reports.filter(
+        report => report.uploadDate < cutoffDate
+      );
 
       let deletedCount = 0;
       let freedSpace = 0;
@@ -627,9 +1008,14 @@ export class RNDReportService implements IRNDReportService {
     }
   }
 
-  async exportReports(reportIds: string[], format: 'json' | 'csv'): Promise<string> {
+  async exportReports(
+    reportIds: string[],
+    format: 'json' | 'csv'
+  ): Promise<string> {
     try {
-      const reports = await Promise.all(reportIds.map(id => this.getReport(id)));
+      const reports = await Promise.all(
+        reportIds.map(id => this.getReport(id))
+      );
 
       if (format === 'json') {
         const data = JSON.stringify(reports, null, 2);
@@ -637,7 +1023,14 @@ export class RNDReportService implements IRNDReportService {
         return URL.createObjectURL(blob);
       } else {
         // CSV format
-        const headers = ['ID', 'Name', 'Category', 'File Size', 'Upload Date', 'Reading Progress'];
+        const headers = [
+          'ID',
+          'Name',
+          'Category',
+          'File Size',
+          'Upload Date',
+          'Reading Progress',
+        ];
         const rows = reports.map(report => [
           report.id,
           report.name,
@@ -692,9 +1085,16 @@ export class RNDReportService implements IRNDReportService {
     lastSyncDate?: Date;
   }> {
     try {
-      const reports = await this.getAllFromIndexedDB<Report>(this.STORES.REPORTS);
-      const categories = await this.getAllFromIndexedDB<Category>(this.STORES.CATEGORIES);
-      const totalStorageUsed = reports.reduce((sum, report) => sum + report.fileSize, 0);
+      const reports = await this.getAllFromIndexedDB<Report>(
+        this.STORES.REPORTS
+      );
+      const categories = await this.getAllFromIndexedDB<Category>(
+        this.STORES.CATEGORIES
+      );
+      const totalStorageUsed = reports.reduce(
+        (sum, report) => sum + report.fileSize,
+        0
+      );
 
       return {
         totalReports: reports.length,
@@ -722,7 +1122,11 @@ export class RNDReportService implements IRNDReportService {
 
   // ==================== 辅助方法 ====================
 
-  private createError(code: RNDReportErrorCode, message: string, details?: any): RNDReportError {
+  private createError(
+    code: RNDReportErrorCode,
+    message: string,
+    details?: any
+  ): RNDReportError {
     return {
       code,
       message,
@@ -737,21 +1141,32 @@ export class RNDReportService implements IRNDReportService {
       const doc = parser.parseFromString(content, 'text/html');
 
       const title = doc.querySelector('title')?.textContent?.trim();
-      const description = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim();
-      const author = doc.querySelector('meta[name="author"]')?.getAttribute('content')?.trim();
+      const description = doc
+        .querySelector('meta[name="description"]')
+        ?.getAttribute('content')
+        ?.trim();
+      const author = doc
+        .querySelector('meta[name="author"]')
+        ?.getAttribute('content')
+        ?.trim();
 
-      return {
-        title,
-        description,
-        author,
-      };
+      const metadata: Report['metadata'] = {};
+
+      if (title) metadata.title = title;
+      if (description) metadata.description = description;
+      if (author) metadata.author = author;
+
+      return metadata;
     } catch (error) {
       console.warn('Failed to extract metadata:', error);
       return {};
     }
   }
 
-  private applyFilters(reports: Report[], filters: ReportSearchFilters): Report[] {
+  private applyFilters(
+    reports: Report[],
+    filters: ReportSearchFilters
+  ): Report[] {
     return reports.filter(report => {
       // 分类过滤
       if (filters.categoryIds && filters.categoryIds.length > 0) {
@@ -761,7 +1176,10 @@ export class RNDReportService implements IRNDReportService {
       }
 
       // 日期范围过滤
-      if (filters.dateRange?.start && report.uploadDate < filters.dateRange.start) {
+      if (
+        filters.dateRange?.start &&
+        report.uploadDate < filters.dateRange.start
+      ) {
         return false;
       }
       if (filters.dateRange?.end && report.uploadDate > filters.dateRange.end) {
@@ -769,25 +1187,38 @@ export class RNDReportService implements IRNDReportService {
       }
 
       // 文件大小过滤
-      if (filters.fileSizeRange?.min && report.fileSize < filters.fileSizeRange.min) {
+      if (
+        filters.fileSizeRange?.min &&
+        report.fileSize < filters.fileSizeRange.min
+      ) {
         return false;
       }
-      if (filters.fileSizeRange?.max && report.fileSize > filters.fileSizeRange.max) {
+      if (
+        filters.fileSizeRange?.max &&
+        report.fileSize > filters.fileSizeRange.max
+      ) {
         return false;
       }
 
       // 阅读进度过滤
-      if (filters.readingProgressRange?.min && report.readingProgress < filters.readingProgressRange.min) {
+      if (
+        filters.readingProgressRange?.min &&
+        report.readingProgress < filters.readingProgressRange.min
+      ) {
         return false;
       }
-      if (filters.readingProgressRange?.max && report.readingProgress > filters.readingProgressRange.max) {
+      if (
+        filters.readingProgressRange?.max &&
+        report.readingProgress > filters.readingProgressRange.max
+      ) {
         return false;
       }
 
       // 搜索查询
       if (filters.query) {
         const query = filters.query.toLowerCase();
-        const searchableText = `${report.name} ${report.metadata?.title || ''} ${report.metadata?.description || ''}`.toLowerCase();
+        const searchableText =
+          `${report.name} ${report.metadata?.title || ''} ${report.metadata?.description || ''}`.toLowerCase();
         if (!searchableText.includes(query)) {
           return false;
         }
@@ -797,7 +1228,10 @@ export class RNDReportService implements IRNDReportService {
     });
   }
 
-  private applySorting(reports: Report[], sortOptions: ReportSortOptions): Report[] {
+  private applySorting(
+    reports: Report[],
+    sortOptions: ReportSortOptions
+  ): Report[] {
     return [...reports].sort((a, b) => {
       let aValue: any;
       let bValue: any;
@@ -833,7 +1267,10 @@ export class RNDReportService implements IRNDReportService {
     });
   }
 
-  private async updateCategoryReportCount(categoryId: string, delta: number): Promise<void> {
+  private async updateCategoryReportCount(
+    categoryId: string,
+    delta: number
+  ): Promise<void> {
     try {
       const category = await this.getCategory(categoryId);
       await this.updateCategory(categoryId, {
@@ -866,7 +1303,10 @@ export class RNDReportService implements IRNDReportService {
     });
   }
 
-  private async getFromIndexedDB<T>(storeName: string, key: string | number): Promise<T | null> {
+  private async getFromIndexedDB<T>(
+    storeName: string,
+    key: string | number
+  ): Promise<T | null> {
     if (!this.db) throw new Error('Database not initialized');
 
     return new Promise((resolve, reject) => {
@@ -893,13 +1333,21 @@ export class RNDReportService implements IRNDReportService {
       };
       request.onsuccess = () => {
         const result = request.result || [];
-        console.log('✅ Data retrieved from IndexedDB:', storeName, result.length, 'items');
+        console.log(
+          '✅ Data retrieved from IndexedDB:',
+          storeName,
+          result.length,
+          'items'
+        );
         resolve(result);
       };
     });
   }
 
-  private async deleteFromIndexedDB(storeName: string, key: string | number): Promise<void> {
+  private async deleteFromIndexedDB(
+    storeName: string,
+    key: string | number
+  ): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     return new Promise((resolve, reject) => {

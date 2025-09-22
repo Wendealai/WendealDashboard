@@ -8,7 +8,7 @@
 .user-profile-card {
   border-radius: 20px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--color-border, #dee2e6);
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -72,9 +72,9 @@
 }
 
 .profile-form .ant-input:disabled {
-  background-color: #fafafa;
-  border-color: #d9d9d9;
-  color: #595959;
+  background-color: var(--color-bg-secondary, #fafafa);
+  border-color: var(--color-border-secondary, #d9d9d9);
+  color: var(--color-text-tertiary, #595959);
 }
 
 /* 安全设置 */
@@ -236,7 +236,7 @@
 }
 
 .security-item:hover {
-  background-color: #fafafa;
+  background-color: var(--color-bg-elevated, #f8f9fa);
 }
 
 [data-theme='dark'] .security-item:hover {

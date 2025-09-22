@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>R&D Report Data Analysis Tool</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #e1e5e9;
+      padding-bottom: 20px;
+    }
+
+    .controls {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 6px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 0 10px;
+      font-size: 16px;
+    }
+
+    .btn:hover {
+      background: #0056b3;
+    }
+
+    .btn.danger {
+      background: #dc3545;
+    }
+
+    .btn.danger:hover {
+      background: #c82333;
+    }
+
+    .btn.secondary {
+      background: #6c757d;
+    }
+
+    .btn.secondary:hover {
+      background: #545b62;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      display: none;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #007bff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .results {
+      display: none;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .summary-card {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 6px;
+      border-left: 4px solid #007bff;
+    }
+
+    .summary-card.error {
+      border-left-color: #dc3545;
+      background: #f8d7da;
+    }
+
+    .summary-card.warning {
+      border-left-color: #ffc107;
+      background: #fff3cd;
+    }
+
+    .issues {
+      margin-bottom: 30px;
+    }
+
+    .issue-list {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+    }
+
+    .issue-item {
+      padding: 8px 0;
+      border-bottom: 1px solid #e1e5e9;
+    }
+
+    .issue-item:last-child {
+      border-bottom: none;
+    }
+
+    .recommendations {
+      margin-bottom: 30px;
+    }
+
+    .recommendation {
+      background: #e7f3ff;
+      border: 1px solid #b3d4fc;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+    }
+
+    .recommendation.error {
+      background: #f8d7da;
+      border-color: #f5c6cb;
+    }
+
+    .recommendation.warning {
+      background: #fff3cd;
+      border-color: #ffeaa7;
+    }
+
+    .actions {
+      text-align: center;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e1e5e9;
+    }
+
+    .timestamp {
+      color: #6c757d;
+      font-size: 14px;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .log {
+      background: #f8f9fa;
+      border: 1px solid #e1e5e9;
+      border-radius: 6px;
+      padding: 15px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    .log-entry {
+      margin-bottom: 5px;
+    }
+
+    .log-entry.error {
+      color: #dc3545;
+    }
+
+    .log-entry.warning {
+      color: #ffc107;
+    }
+
+    .log-entry.info {
+      color: #007bff;
+    }
+
+    .log-entry.success {
+      color: #28a745;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔍 R&D Report Data Analysis Tool</h1>
+      <p>Analyze and fix data consistency issues in R&D reports</p>
+    </div>
+
+    <div class="controls">
+      <button class="btn" onclick="runAnalysis()">Run Full Analysis</button>
+      <button class="btn secondary" onclick="clearOrphanedCaches()">Clear Orphaned Caches</button>
+      <button class="btn danger" onclick="clearAllReportData()">Clear All Data</button>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Analyzing R&D report data...</p>
+      <p id="loadingStatus">Initializing...</p>
+    </div>
+
+    <div class="results" id="results">
+      <div class="summary" id="summary">
+        <!-- Summary cards will be populated here -->
+      </div>
+
+      <div class="issues" id="issuesSection">
+        <!-- Issues will be populated here -->
+      </div>
+
+      <div class="recommendations" id="recommendationsSection">
+        <!-- Recommendations will be populated here -->
+      </div>
+
+      <div class="actions">
+        <button class="btn" onclick="fixIssues()">Fix Issues Automatically</button>
+        <button class="btn secondary" onclick="exportReport()">Export Report</button>
+      </div>
+    </div>
+
+    <div class="log" id="log">
+      <div class="log-entry info">🔧 R&D Report Analyzer loaded. Ready to analyze data.</div>
+    </div>
+
+    <div class="timestamp" id="timestamp">
+      <!-- Timestamp will be updated here -->
+    </div>
+  </div>
+
+  <script src="analyze-rnd-data.js"></script>
+
+  <script>
+    let analyzer = null;
+    let currentReport = null;
+
+    // Initialize analyzer
+    document.addEventListener('DOMContentLoaded', () => {
+      analyzer = new RNDReportAnalyzer();
+      updateTimestamp();
+      log('info', '🔧 Analyzer initialized and ready');
+    });
+
+    // Run full analysis
+    async function runAnalysis() {
+      showLoading('Running comprehensive data analysis...');
+
+      try {
+        log('info', '🚀 Starting R&D Report Data Analysis...');
+        const result = await analyzer.runAnalysis();
+
+        currentReport = result;
+        hideLoading();
+        showResults(result.consistencyReport, result.recommendations);
+
+        log('success', '✅ Analysis completed successfully');
+        log('info', `📊 Found ${result.consistencyReport.summary.totalIssues} issues`);
+        log('info', `💡 Generated ${result.recommendations.length} recommendations`);
+
+      } catch (error) {
+        hideLoading();
+        log('error', `❌ Analysis failed: ${error.message}`);
+        alert(`Analysis failed: ${error.message}`);
+      }
+    }
+
+    // Show loading state
+    function showLoading(status) {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('results').style.display = 'none';
+      document.getElementById('loadingStatus').textContent = status;
+    }
+
+    // Hide loading state
+    function hideLoading() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('results').style.display = 'block';
+    }
+
+    // Show results
+    function showResults(consistencyReport, recommendations) {
+      showSummary(consistencyReport.summary);
+      showIssues(consistencyReport);
+      showRecommendations(recommendations);
+      updateTimestamp();
+    }
+
+    // Show summary
+    function showSummary(summary) {
+      const summaryHtml = `
+        <div class="summary-card">
+          <h3>📦 localStorage</h3>
+          <p><strong>Content Files:</strong> ${summary.localStorageCount || 0}</p>
+          <p><strong>Processed Cache:</strong> ${summary.processedCount || 0}</p>
+          <p><strong>Hash Files:</strong> ${summary.hashCount || 0}</p>
+        </div>
+
+        <div class="summary-card">
+          <h3>💾 IndexedDB</h3>
+          <p><strong>Reports:</strong> ${summary.reportsCount || 0}</p>
+          <p><strong>Categories:</strong> ${summary.categoriesCount || 0}</p>
+          <p><strong>Reading Progress:</strong> ${summary.progressCount || 0}</p>
+        </div>
+
+        <div class="summary-card ${summary.totalIssues > 0 ? 'error' : ''}">
+          <h3>⚠️ Issues Found</h3>
+          <p><strong>Total Issues:</strong> ${summary.totalIssues}</p>
+          <p><strong>Orphaned Content:</strong> ${summary.orphanedContent || 0}</p>
+          <p><strong>Missing Content:</strong> ${summary.missingContent || 0}</p>
+        </div>
+      `;
+
+      document.getElementById('summary').innerHTML = summaryHtml;
+    }
+
+    // Show issues
+    function showIssues(consistencyReport) {
+      const issuesSection = document.getElementById('issuesSection');
+      const localStorageIssues = consistencyReport.localStorage?.issues || [];
+      const indexedDBIssues = consistencyReport.indexedDB?.issues || [];
+
+      if (localStorageIssues.length === 0 && indexedDBIssues.length === 0) {
+        issuesSection.innerHTML = '<p>✅ No issues found!</p>';
+        return;
+      }
+
+      let issuesHtml = '';
+
+      if (localStorageIssues.length > 0) {
+        issuesHtml += `
+          <h3>🔧 localStorage Issues</h3>
+          <div class="issue-list">
+            ${localStorageIssues.map(issue => `<div class="issue-item">• ${issue}</div>`).join('')}
+          </div>
+        `;
+      }
+
+      if (indexedDBIssues.length > 0) {
+        issuesHtml += `
+          <h3>🔧 IndexedDB Issues</h3>
+          <div class="issue-list">
+            ${indexedDBIssues.map(issue => `<div class="issue-item">• ${issue}</div>`).join('')}
+          </div>
+        `;
+      }
+
+      issuesSection.innerHTML = issuesHtml;
+    }
+
+    // Show recommendations
+    function showRecommendations(recommendations) {
+      const recommendationsSection = document.getElementById('recommendationsSection');
+
+      if (recommendations.length === 0) {
+        recommendationsSection.innerHTML = '<p>✅ No recommendations needed!</p>';
+        return;
+      }
+
+      const recommendationsHtml = `
+        <h3>💡 Recommendations</h3>
+        ${recommendations.map(rec => `
+          <div class="recommendation ${rec.type}">
+            <h4>${rec.title}</h4>
+            <p>${rec.description}</p>
+            <strong>Action:</strong> ${rec.action}
+          </div>
+        `).join('')}
+      `;
+
+      recommendationsSection.innerHTML = recommendationsHtml;
+    }
+
+    // Fix issues automatically
+    async function fixIssues() {
+      if (!currentReport) {
+        alert('Please run analysis first');
+        return;
+      }
+
+      if (currentReport.consistencyReport.summary.totalIssues === 0) {
+        alert('No issues to fix!');
+        return;
+      }
+
+      if (!confirm('Are you sure you want to automatically fix the detected issues? This may modify or delete data.')) {
+        return;
+      }
+
+      showLoading('Fixing issues...');
+
+      try {
+        // Clear orphaned caches
+        const keys = Object.keys(localStorage);
+        let cleared = 0;
+
+        keys.forEach(key => {
+          if (key.includes('rnd-report-processed-') || key.includes('rnd-report-hash-')) {
+            const reportId = key.includes('processed-')
+              ? key.replace('rnd-report-processed-', '')
+              : key.replace('rnd-report-hash-', '');
+
+            const contentKey = `rnd-report-content-${reportId}`;
+            const hasContent = localStorage.getItem(contentKey) !== null;
+
+            if (!hasContent) {
+              localStorage.removeItem(key);
+              cleared++;
+            }
+          }
+        });
+
+        log('success', `🗑️ Cleared ${cleared} orphaned cache entries`);
+
+        // Re-run analysis
+        await runAnalysis();
+
+      } catch (error) {
+        hideLoading();
+        log('error', `❌ Failed to fix issues: ${error.message}`);
+        alert(`Failed to fix issues: ${error.message}`);
+      }
+    }
+
+    // Export report
+    function exportReport() {
+      if (!currentReport) {
+        alert('Please run analysis first');
+        return;
+      }
+
+      const data = {
+        timestamp: new Date().toISOString(),
+        consistencyReport: currentReport.consistencyReport,
+        recommendations: currentReport.recommendations
+      };
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rnd-report-analysis-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      URL.revokeObjectURL(url);
+      log('success', '📄 Report exported successfully');
+    }
+
+    // Clear orphaned caches
+    function clearOrphanedCaches() {
+      if (confirm('Are you sure you want to clear orphaned caches? This action cannot be undone.')) {
+        const keys = Object.keys(localStorage);
+        let cleared = 0;
+
+        keys.forEach(key => {
+          if (key.includes('rnd-report-processed-') || key.includes('rnd-report-hash-')) {
+            const reportId = key.includes('processed-')
+              ? key.replace('rnd-report-processed-', '')
+              : key.replace('rnd-report-hash-', '');
+
+            const contentKey = `rnd-report-content-${reportId}`;
+            const hasContent = localStorage.getItem(contentKey) !== null;
+
+            if (!hasContent) {
+              localStorage.removeItem(key);
+              cleared++;
+            }
+          }
+        });
+
+        alert(`Cleared ${cleared} orphaned cache entries.`);
+        log('success', `🗑️ Cleared ${cleared} orphaned cache entries`);
+        updateTimestamp();
+      }
+    }
+
+    // Clear all report data
+    function clearAllReportData() {
+      if (confirm('Are you sure you want to clear ALL R&D report data? This will delete all reports, caches, and progress data. This action cannot be undone.')) {
+        const keys = Object.keys(localStorage);
+        let cleared = 0;
+
+        keys.forEach(key => {
+          if (key.includes('rnd-report')) {
+            localStorage.removeItem(key);
+            cleared++;
+          }
+        });
+
+        // Clear IndexedDB
+        indexedDB.deleteDatabase('rnd-reports-db');
+
+        alert(`Cleared ${cleared} localStorage entries and IndexedDB database.`);
+        log('warning', `🗑️ Cleared ${cleared} localStorage entries and IndexedDB database`);
+        updateTimestamp();
+      }
+    }
+
+    // Log function
+    function log(type, message) {
+      const logContainer = document.getElementById('log');
+      const logEntry = document.createElement('div');
+      logEntry.className = `log-entry ${type}`;
+      logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logContainer.appendChild(logEntry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    // Update timestamp
+    function updateTimestamp() {
+      document.getElementById('timestamp').textContent = `Last updated: ${new Date().toLocaleString()}`;
+    }
+  </script>
+</body>
+</html>

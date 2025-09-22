@@ -34,16 +34,16 @@
           border: 1px solid transparent;
 
           &:hover {
-            background-color: #f5f5f5;
-            border-color: #d9d9d9;
+            background-color: var(--color-bg-elevated, #f5f5f5);
+            border-color: var(--color-border, #d9d9d9);
           }
 
           &.unread {
-            background-color: #f6ffed;
-            border-color: #b7eb8f;
+            background-color: var(--color-bg-success-light, #f6ffed);
+            border-color: var(--color-success-light, #b7eb8f);
 
             &:hover {
-              background-color: #f0f9e8;
+              background-color: var(--color-bg-success-lighter, #f0f9e8);
             }
           }
 
@@ -59,7 +59,7 @@
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            background-color: #fafafa;
+            background-color: var(--color-bg-secondary, #fafafa);
 
             .unread-indicator {
               position: absolute;
@@ -67,9 +67,9 @@
               right: -2px;
               width: 8px;
               height: 8px;
-              background-color: #ff4d4f;
+              background-color: var(--color-error, #ff4d4f);
               border-radius: 50%;
-              border: 2px solid #fff;
+              border: 2px solid var(--color-bg-base, #fff);
             }
           }
 
@@ -81,7 +81,7 @@
 
             span {
               font-weight: 500;
-              color: #262626;
+              color: var(--color-text, #262626);
             }
           }
 
@@ -133,16 +133,16 @@
     }
 
     &::-webkit-scrollbar-track {
-      background: #f1f1f1;
+      background: var(--color-bg-secondary, #f1f1f1);
       border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #c1c1c1;
+      background: var(--color-border-secondary, #c1c1c1);
       border-radius: 3px;
 
       &:hover {
-        background: #a8a8a8;
+        background: var(--color-text-tertiary, #a8a8a8);
       }
     }
   }

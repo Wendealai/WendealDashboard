@@ -72,8 +72,12 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
         style={{
           marginBottom: 8,
           cursor: 'pointer',
-          border: isActive ? '2px solid #1890ff' : '1px solid #d9d9d9',
-          backgroundColor: isActive ? '#f6ffed' : '#ffffff',
+          border: isActive
+            ? '2px solid var(--color-primary)'
+            : '1px solid var(--border-color)',
+          backgroundColor: isActive
+            ? 'var(--color-success-bg, #f6ffed)'
+            : 'var(--card-color)',
           transition: 'all 0.3s ease',
         }}
         onClick={() => onSelectConversation(conversation.sessionId)}
@@ -82,7 +86,9 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
           {/* 消息图标 */}
           <MessageOutlined
             style={{
-              color: isActive ? '#1890ff' : '#8c8c8c',
+              color: isActive
+                ? 'var(--color-primary)'
+                : 'var(--text-color-secondary)',
               fontSize: '16px',
               marginTop: '2px',
               flexShrink: 0,
@@ -105,7 +111,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   strong={isActive}
                   style={{
                     fontSize: '14px',
-                    color: isActive ? '#1890ff' : '#262626',
+                    color: isActive ? '#1890ff' : '#000000',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -134,7 +140,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   icon={<DeleteOutlined />}
                   onClick={e => e.stopPropagation()}
                   style={{
-                    color: '#ff4d4f',
+                    color: 'var(--color-error)',
                     padding: '2px 4px',
                     height: 'auto',
                     minWidth: 'auto',
@@ -155,6 +161,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   marginBottom: '4px',
+                  color: '#666666',
                 }}
               >
                 {conversation.lastMessage}
@@ -169,11 +176,17 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 alignItems: 'center',
               }}
             >
-              <Text type='secondary' style={{ fontSize: '11px' }}>
+              <Text
+                type='secondary'
+                style={{ fontSize: '11px', color: '#999999' }}
+              >
                 {conversation.timestamp.toLocaleDateString()}
               </Text>
-              <Text type='secondary' style={{ fontSize: '11px' }}>
-                {conversation.messageCount} {t('ragSystem.sidebar.messages')}
+              <Text
+                type='secondary'
+                style={{ fontSize: '11px', color: '#999999' }}
+              >
+                {conversation.messageCount} {t('common.messages')}
               </Text>
             </div>
           </div>
@@ -188,12 +201,12 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
       <div
         style={{
           padding: '16px',
-          borderBottom: '1px solid #f0f0f0',
-          backgroundColor: '#ffffff',
+          borderBottom: '1px solid var(--border-color)',
+          backgroundColor: 'var(--card-color)',
         }}
       >
         <Space direction='vertical' style={{ width: '100%' }}>
-          <Text strong style={{ fontSize: '16px' }}>
+          <Text strong style={{ fontSize: '16px', color: '#ffffff' }}>
             {t('ragSystem.sidebar.title')}
           </Text>
           <Button
@@ -220,13 +233,15 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
             style={{
               textAlign: 'center',
               padding: '40px 20px',
-              color: '#8c8c8c',
+              color: 'var(--text-color-secondary)',
             }}
           >
             <MessageOutlined
               style={{ fontSize: '32px', marginBottom: '16px' }}
             />
-            <div>{t('ragSystem.sidebar.noConversations')}</div>
+            <div style={{ color: '#666666' }}>
+              {t('ragSystem.sidebar.noConversations')}
+            </div>
           </div>
         ) : (
           <List
