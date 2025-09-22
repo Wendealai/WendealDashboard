@@ -390,31 +390,6 @@ body.theme-dark {
   width: 60%;
 }
 
-/* 主题定制器特定样式 */
-.theme-customizer .ant-drawer-body {
-  padding: 16px;
-}
-
-.theme-customizer .ant-card {
-  margin-bottom: 16px;
-}
-
-.theme-customizer .ant-card:last-child {
-  margin-bottom: 0;
-}
-
-.theme-customizer .color-picker-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.theme-customizer .slider-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 /* 主题切换按钮样式 */
 .theme-toggle-button {
   border-radius: var(--border-radius);
@@ -423,40 +398,6 @@ body.theme-dark {
 
 .theme-toggle-button:hover {
   transform: scale(1.05);
-}
-
-/* 主题选择器样式 */
-.theme-selector {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
-  padding: 16px;
-}
-
-.theme-selector-item {
-  cursor: pointer;
-  border-radius: var(--border-radius);
-  overflow: hidden;
-  transition: all var(--transition-fast);
-  border: 2px solid transparent;
-}
-
-.theme-selector-item:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-medium);
-}
-
-.theme-selector-item.active {
-  border-color: var(--color-primary, var(--primary-color));
-}
-
-.theme-selector-item .theme-name {
-  padding: 8px;
-  text-align: center;
-  background-color: var(--card-color);
-  color: var(--text-color);
-  font-size: var(--font-size-small);
-  font-weight: 500;
 }
 
 /* 深色模式下的特殊样式调整 */
@@ -555,22 +496,12 @@ body.theme-dark .ant-table-tbody > tr > td {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .theme-selector {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 8px;
-    padding: 12px;
-  }
-
-  .theme-customizer .ant-drawer {
-    width: 100% !important;
+  .theme-toggle-button {
+    padding: 4px 8px;
   }
 }
 
 @media (max-width: 576px) {
-  .theme-selector {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .theme-toggle-button {
     padding: 4px 8px;
   }

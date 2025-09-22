@@ -11,7 +11,3 @@ export {
   default as ExportButton,
   type ExportButtonProps,
 } from '../common/ExportButton';
-export {
-  default as ThemeCustomizer,
-  type ThemeCustomizerProps,
-} from '../common/ThemeCustomizer';
