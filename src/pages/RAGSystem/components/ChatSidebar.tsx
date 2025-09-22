@@ -10,6 +10,7 @@ import {
 } from 'antd';
 import { DeleteOutlined, MessageOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const { Text } = Typography;
 
@@ -51,6 +52,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onNewConversation,
 }) => {
   const { t } = useTranslation();
+  const { state } = useTheme();
 
   // 调试日志：检查ChatSidebar接收到的数据
   console.log('ChatSidebar received conversations:', conversations);
@@ -206,7 +208,13 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
         }}
       >
         <Space direction='vertical' style={{ width: '100%' }}>
-          <Text strong style={{ fontSize: '16px', color: '#ffffff' }}>
+          <Text
+            strong
+            style={{
+              fontSize: '16px',
+              color: state.currentTheme.isDark ? '#ffffff' : '#000000',
+            }}
+          >
             {t('ragSystem.sidebar.title')}
           </Text>
           <Button
