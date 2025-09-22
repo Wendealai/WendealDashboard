@@ -37,6 +37,7 @@ import {
   HddOutlined,
   WifiOutlined,
   ThunderboltOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useAppDispatch, useAppSelector, useMessage } from '@/hooks';
@@ -845,9 +846,9 @@ const DashboardPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* 最近活动 */}
-      <Row gutter={[24, 24]} className='activity-section'>
-        <Col span={24}>
+      {/* 聊天和活动区域 */}
+      <Row gutter={[24, 24]} className='bottom-section'>
+        <Col xs={24} lg={16}>
           <Card
             title={t('dashboard.recentActivities.title')}
             className='activity-card'

@@ -789,6 +789,29 @@ export default {
       exportSuccess: 'Data exported successfully',
       exportFailed: 'Failed to export data',
     },
+    chat: {
+      title: 'Wendeal Assistant',
+      placeholder: 'Type your message...',
+      welcome: 'Hello! I am your AI assistant, how can I help you today?',
+      connecting: 'Connecting...',
+      connected: 'Connected',
+      disconnected: 'Disconnected',
+      error: 'Connection error',
+      retry: 'Retry',
+      clear: 'Clear Chat',
+      send: 'Send',
+      typing: 'AI is typing...',
+      messages: {
+        user: 'You',
+        assistant: 'AI Assistant',
+        error:
+          'Sorry, an error occurred while processing your request. Please try again later.',
+        networkError:
+          'Network connection error, please check your network connection.',
+        timeout: 'Request timeout, please try again later.',
+        serverError: 'Server error, please try again later.',
+      },
+    },
   },
 
   // User

@@ -20,6 +20,7 @@ import { setGlobalMessageInstance } from '@/hooks/useMessage';
 import '@/styles/global.css';
 import '@/styles/theme.css';
 import '@/styles/compact.css';
+import GlobalChat from '@/components/GlobalChat';
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -126,6 +127,7 @@ const AppContent: React.FC = () => {
         <div data-theme={currentTheme.isDark ? 'dark' : 'light'}>
           <AuthProvider>
             <AppRouter />
+            <GlobalChat />
           </AuthProvider>
         </div>
       </AntApp>

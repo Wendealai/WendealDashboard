@@ -577,6 +577,27 @@ export default {
         error: '错误',
       },
     },
+    chat: {
+      title: 'AI助手',
+      placeholder: '输入您的问题...',
+      welcome: '您好！我是您的AI助手，有什么可以帮助您的吗？',
+      connecting: '连接中...',
+      connected: '已连接',
+      disconnected: '已断开连接',
+      error: '连接错误',
+      retry: '重试',
+      clear: '清空对话',
+      send: '发送',
+      typing: 'AI正在输入...',
+      messages: {
+        user: '您',
+        assistant: 'AI助手',
+        error: '抱歉，处理您的请求时出现了错误，请稍后重试。',
+        networkError: '网络连接错误，请检查网络连接。',
+        timeout: '请求超时，请稍后重试。',
+        serverError: '服务器错误，请稍后重试。',
+      },
+    },
   },
 
   // 用户管理

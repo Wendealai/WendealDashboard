@@ -34,11 +34,11 @@ export class NotificationService {
 
   // Configuration
   private config = {
-    apiBaseUrl: process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001',
-    socketUrl: process.env.REACT_APP_SOCKET_URL || 'http://localhost:3001',
-    appId: process.env.REACT_APP_NOVU_APP_ID || '',
+    apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001',
+    socketUrl: import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001',
+    appId: import.meta.env.VITE_NOVU_APP_ID || '',
     subscriberId: '',
-    enableWebSocket: true,
+    enableWebSocket: import.meta.env.VITE_ENABLE_WEBSOCKET !== 'false',
     enableOfflineSupport: true,
     maxCacheSize: 1000,
     cacheTTL: 300000, // 5 minutes
@@ -84,6 +84,11 @@ export class NotificationService {
       return;
     }
 
+    if (!this.config.enableWebSocket) {
+      console.warn('WebSocket is disabled, skipping WebSocket initialization');
+      return;
+    }
+
     try {
       this.socket = io(this.config.socketUrl, {
         transports: ['websocket', 'polling'],
@@ -92,6 +97,8 @@ export class NotificationService {
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: this.reconnectDelay,
+        addTrailingSlash: false, // 避免路径问题
+        tryAllTransports: true, // 尝试所有传输方式
       });
 
       this.socket.on('connect', () => {
@@ -115,7 +122,40 @@ export class NotificationService {
 
       this.socket.on('connect_error', error => {
         console.error('WebSocket connection error:', error);
+        console.error('Connection error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+        });
         this.handleReconnection();
+      });
+
+      // 添加更详细的错误处理
+      this.socket.on('connect_timeout', () => {
+        console.error('WebSocket connection timeout');
+      });
+
+      this.socket.on('error', error => {
+        console.error('WebSocket general error:', error);
+      });
+
+      // 监听重连事件
+      this.socket.io.on('reconnect', attemptNumber => {
+        console.log(`WebSocket reconnected after ${attemptNumber} attempts`);
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+      });
+
+      this.socket.io.on('reconnect_attempt', attemptNumber => {
+        console.log(`WebSocket reconnection attempt ${attemptNumber}`);
+      });
+
+      this.socket.io.on('reconnect_error', error => {
+        console.error('WebSocket reconnection error:', error);
+      });
+
+      this.socket.io.on('reconnect_failed', () => {
+        console.error('WebSocket reconnection failed after max attempts');
       });
 
       // Handle real-time notification events
@@ -199,6 +239,35 @@ export class NotificationService {
    */
   getSubscriberId(): string {
     return this.config.subscriberId;
+  }
+
+  /**
+   * Disable WebSocket connection
+   */
+  disableWebSocket(): void {
+    this.config.enableWebSocket = false;
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+      this.isConnected = false;
+    }
+    console.log('WebSocket connection disabled');
+  }
+
+  /**
+   * Enable WebSocket connection
+   */
+  enableWebSocket(): void {
+    this.config.enableWebSocket = true;
+    this.initializeWebSocket();
+    console.log('WebSocket connection enabled');
+  }
+
+  /**
+   * Check if WebSocket is connected
+   */
+  isWebSocketConnected(): boolean {
+    return this.isConnected && this.socket?.connected === true;
   }
 
   /**
