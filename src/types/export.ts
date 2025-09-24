@@ -253,7 +253,7 @@ export interface ExportConfig {
   /** 项目根路径 */
   rootPath: string;
   /** 扫描选项 */
-  scanOptions: ScanOptions;
+  scanOptions: ExportScanOptions;
   /** 导出规则 */
   rules: ExportRule[];
   /** 命名约定 */

@@ -8,15 +8,9 @@ import { notificationService } from '@/services/notificationService';
 import type {
   Notification,
   NotificationFilter,
-  NotificationListResponse,
   NotificationObserver,
-  NotificationSettings,
 } from '@/types/notification';
-import {
-  NotificationStatus,
-  NotificationCategory,
-  NotificationPriority,
-} from '@/types/notification';
+import { NotificationStatus } from '@/types/notification';
 import NotificationItem from './NotificationItem';
 
 interface NotificationInboxProps {
@@ -35,10 +29,8 @@ interface NotificationInboxProps {
 
 export const NotificationInbox: React.FC<NotificationInboxProps> = ({
   subscriberId,
-  applicationIdentifier,
   onNotificationClick,
   onNotificationAction,
-  theme = 'auto',
   position = 'top-right',
   maxHeight = 400,
   className = '',
@@ -57,7 +49,6 @@ export const NotificationInbox: React.FC<NotificationInboxProps> = ({
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [settings, setSettings] = useState<NotificationSettings | null>(null);
 
   const inboxRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<NotificationObserver | null>(null);
@@ -80,8 +71,7 @@ export const NotificationInbox: React.FC<NotificationInboxProps> = ({
         setUnreadCount(response.unreadCount);
 
         // Load settings
-        const userSettings = await notificationService.getSettings();
-        setSettings(userSettings);
+        await notificationService.getSettings();
 
         // Set up observer for real-time updates
         if (enableRealTime) {

@@ -462,10 +462,11 @@ export class NotificationService {
       );
 
       // Notify observers about bulk deletion
-      this.notifyObservers('onBulkOperation', {
-        operation: 'clear_all',
-        count: notifications.length,
-      });
+      this.notifyObservers(
+        'onBulkOperation',
+        'clear_all',
+        notifications.length
+      );
 
       // Send to server if online
       if (navigator.onLine) {
@@ -640,19 +641,23 @@ export class NotificationService {
     return actions;
   }
 
-  private notifyObservers(method: keyof NotificationObserver, data: any): void {
+  private notifyObservers(
+    method: keyof NotificationObserver,
+    ...args: any[]
+  ): void {
     this.observers.forEach(observer => {
       try {
         if (
           method === 'onBulkOperation' &&
-          typeof data === 'object' &&
-          data.operation &&
-          data.count !== undefined
+          args.length === 1 &&
+          typeof args[0] === 'object' &&
+          args[0].operation &&
+          args[0].count !== undefined
         ) {
           // Handle onBulkOperation which expects two separate parameters
-          (observer[method] as any)(data.operation, data.count);
+          (observer[method] as any)(args[0].operation, args[0].count);
         } else {
-          (observer[method] as any)(data);
+          (observer[method] as any)(...args);
         }
       } catch (error) {
         console.error('Observer notification failed:', error);

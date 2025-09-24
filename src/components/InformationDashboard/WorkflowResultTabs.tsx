@@ -42,7 +42,6 @@ export interface WorkflowResultTabsProps {
 const WorkflowResultTabs: React.FC<WorkflowResultTabsProps> = ({
   workflowExecutions: _workflowExecutions,
   redditData: _redditData,
-  getWorkflowRedditData: _getWorkflowRedditData,
   loading = false,
   renderRedditData,
   renderWorkflowExecution,

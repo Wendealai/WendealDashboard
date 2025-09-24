@@ -59,7 +59,7 @@ export class TKViralExtractAirtableService {
       view?: string;
     } = {}
   ): Promise<ViralContentRecord[]> {
-    const { filterByFormula, sort, maxRecords, view } = options;
+    const { filterByFormula, sort, maxRecords } = options;
 
     return new Promise((resolve, reject) => {
       const records: ViralContentRecord[] = [];
@@ -77,9 +77,6 @@ export class TKViralExtractAirtableService {
       }
       if (maxRecords !== undefined) {
         selectParams.maxRecords = maxRecords;
-      }
-      if (view !== undefined && view !== '') {
-        selectParams.view = view;
       }
 
       this.base(this.config.tableName)
@@ -314,36 +311,6 @@ export class TKViralExtractAirtableService {
       createdTime: record._rawJson.createdTime || new Date().toISOString(),
     };
   }
-
-  /**
-   * 重试机制
-   * @param operation 要重试的操作
-   * @param maxRetries 最大重试次数
-   * @returns 操作结果
-   */
-  private async withRetry<T>(
-    operation: () => Promise<T>,
-    maxRetries: number = this.retryCount
-  ): Promise<T> {
-    let lastError: Error;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return await operation();
-      } catch (error) {
-        lastError = error as Error;
-        console.warn(`Attempt ${attempt} failed:`, error);
-
-        if (attempt < maxRetries) {
-          await new Promise(resolve =>
-            setTimeout(resolve, this.retryDelay * attempt)
-          );
-        }
-      }
-    }
-
-    throw lastError!;
-  }
 }
 
 /**
@@ -367,7 +334,7 @@ export const defaultTKViralExtractAirtableConfig: TKViralExtractAirtableConfig =
       'patvF8O4h3xC5tXjc.8abec7b543876df039967d9d841b65280c1602f64c079303e88cad4d00284b7e', // 复制Smart Opportunities的完整API Key
     baseId: 'app6YKTV6RUW80S44', // Base ID from new URL
     tableName: 'shrxS5YLNuAycKmQP', // 从新URL提取的标识符，尝试作为Table ID
-    viewName: undefined, // 移除view参数，与Smart Opportunities保持一致
+    // viewName: undefined, // 移除view参数，与Smart Opportunities保持一致
   };
 
 // ✅ CONFIGURATION UPDATED - 使用新URL: https://airtable.com/app6YKTV6RUW80S44/shrxS5YLNuAycKmQP

@@ -628,11 +628,11 @@ export const selectInformationStats = createSelector(
     return dashboard
       ? {
           total: dashboard.informationStats.total,
-          active: dashboard.informationStats.active,
-          archived: dashboard.informationStats.archived,
-          categories: dashboard.informationStats.categories,
+          active: dashboard.informationStats.byStatus.active || 0,
+          archived: dashboard.informationStats.byStatus.archived || 0,
+          categories: dashboard.informationStats.byCategory,
           recentCount: dashboard.informationStats.recentCount,
-          lastUpdated: dashboard.informationStats.lastUpdated,
+          lastUpdated: null,
         }
       : {
           total: 0,
@@ -665,7 +665,7 @@ export const selectWorkflowStats = createSelector(
           successfulExecutions: dashboard.workflowStats.successfulExecutions,
           failedExecutions: dashboard.workflowStats.failedExecutions,
           averageExecutionTime: dashboard.workflowStats.averageExecutionTime,
-          lastExecution: dashboard.workflowStats.lastExecution,
+          lastExecution: null,
         }
       : {
           total: 0,

@@ -69,7 +69,6 @@ class RAGApiService {
 
       // 尝试使用代理服务避免CORS问题 (备用方案)
       // Try using proxy service to avoid CORS issues (backup solution)
-      // const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(webhookUrl);
 
       // 使用POST请求发送JSON数据到n8n webhook
       // Use POST request to send JSON data to n8n webhook

@@ -42,8 +42,8 @@ export class LocalAuthService implements IAuthService {
       isActive: true,
       createdAt: '2024-01-01T00:00:00.000Z',
       updatedAt: '2024-01-01T00:00:00.000Z',
-      lastLoginAt: '2024-01-01T00:00:00.000Z',
-    },
+      lastLoginAt: '2024-01-01T00:00:00.000Z' as string,
+    } as User,
     {
       id: 'user-001',
       username: 'user',
@@ -56,8 +56,8 @@ export class LocalAuthService implements IAuthService {
       isActive: true,
       createdAt: '2024-01-01T00:00:00.000Z',
       updatedAt: '2024-01-01T00:00:00.000Z',
-      lastLoginAt: '2024-01-01T00:00:00.000Z',
-    },
+      lastLoginAt: '2024-01-01T00:00:00.000Z' as string,
+    } as User,
     {
       id: 'wendeal-001',
       username: 'wendeal',
@@ -70,8 +70,8 @@ export class LocalAuthService implements IAuthService {
       isActive: true,
       createdAt: '2024-01-01T00:00:00.000Z',
       updatedAt: '2024-01-01T00:00:00.000Z',
-      lastLoginAt: '2024-01-01T00:00:00.000Z',
-    },
+      lastLoginAt: '2024-01-01T00:00:00.000Z' as string,
+    } as User,
   ];
 
   // 预设密码映射（实际应用中应该使用哈希存储）
@@ -138,9 +138,9 @@ export class LocalAuthService implements IAuthService {
     // 更新用户最后登录时间
     const updatedUser: User = {
       ...user,
-      lastLoginAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString() as string,
       updatedAt: new Date().toISOString(),
-    };
+    } as User;
 
     // 设置认证状态
     this.currentUser = updatedUser;
@@ -212,8 +212,8 @@ export class LocalAuthService implements IAuthService {
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      lastLoginAt: new Date().toISOString(),
-    };
+      lastLoginAt: new Date().toISOString() as string,
+    } as User;
 
     // 添加到测试用户列表
     console.log('💾 Adding user to test users list...');
@@ -288,8 +288,9 @@ export class LocalAuthService implements IAuthService {
       ...this.currentUser,
       ...data,
       updatedAt: new Date().toISOString(),
-      lastLoginAt: this.currentUser.lastLoginAt || new Date().toISOString(),
-    };
+      lastLoginAt: (this.currentUser.lastLoginAt ??
+        new Date().toISOString()) as string,
+    } as User;
 
     this.currentUser = updatedUser;
 
@@ -459,9 +460,9 @@ export class LocalAuthService implements IAuthService {
   addTestUser(user: User, password: string): void {
     const userWithDefaults: User = {
       ...user,
-      lastLoginAt: user.lastLoginAt || new Date().toISOString(),
+      lastLoginAt: (user.lastLoginAt ?? new Date().toISOString()) as string,
       updatedAt: user.updatedAt || new Date().toISOString(),
-    };
+    } as User;
     this.testUsers.push(userWithDefaults);
     this.testPasswords[user.username] = password;
   }

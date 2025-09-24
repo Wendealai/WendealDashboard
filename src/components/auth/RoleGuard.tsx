@@ -11,7 +11,7 @@ export interface RoleGuardProps {
   /** 允许访问的角色列表 */
   allowedRoles?: UserRole[];
   /** 需要的权限列表 */
-  requiredPermissions?: Permission[];
+  requiredPermissions?: string[];
   /** 权限检查模式：'any' 表示满足任一条件即可，'all' 表示需要满足所有条件 */
   mode?: 'any' | 'all';
   /** 权限不足时的回退组件 */
@@ -81,12 +81,12 @@ const RoleGuard: React.FC<RoleGuardProps> = ({
     if (mode === 'all') {
       // 需要满足所有权限
       return requiredPermissions.every(permission =>
-        PermissionService.getInstance().hasPermission(user, permission.name)
+        PermissionService.getInstance().hasPermission(user, permission)
       );
     } else {
       // 满足任一权限即可
       return requiredPermissions.some(permission =>
-        PermissionService.getInstance().hasPermission(user, permission.name)
+        PermissionService.getInstance().hasPermission(user, permission)
       );
     }
   };
@@ -186,7 +186,7 @@ export const RequirePermission: React.FC<RequirePermissionProps> = ({
   fallback,
 }) => {
   return (
-    <RoleGuard requiredPermissions={[permission]} fallback={fallback}>
+    <RoleGuard requiredPermissions={[permission.name]} fallback={fallback}>
       {children}
     </RoleGuard>
   );
@@ -241,7 +241,11 @@ export const RequireAllPermissions: React.FC<RequireAllPermissionsProps> = ({
   fallback,
 }) => {
   return (
-    <RoleGuard requiredPermissions={permissions} mode='all' fallback={fallback}>
+    <RoleGuard
+      requiredPermissions={permissions.map(p => p.name)}
+      mode='all'
+      fallback={fallback}
+    >
       {children}
     </RoleGuard>
   );

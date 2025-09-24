@@ -10,7 +10,6 @@ import type {
   WorkflowExecution,
   WorkflowLog,
   TriggerWorkflowRequest,
-  TriggerWorkflowResponse,
   WorkflowListResponse,
   WorkflowExecutionResponse,
   TriggerWorkflowApiResponse,
@@ -31,7 +30,6 @@ import type {
   WorkflowStatus,
   RedditApiResponse,
   WorkflowAction,
-  WorkflowEvent,
   RedditWorkflowStats,
 } from '@/types';
 
@@ -609,13 +607,24 @@ export class WorkflowService {
 
       const lastExecution = executions.length > 0 ? executions[0] : undefined;
 
-      return {
+      const result: {
+        totalExecutions: number;
+        successfulExecutions: number;
+        failedExecutions: number;
+        averageExecutionTime: number;
+        lastExecution?: WorkflowExecution;
+      } = {
         totalExecutions,
         successfulExecutions,
         failedExecutions,
         averageExecutionTime,
-        lastExecution,
       };
+
+      if (lastExecution) {
+        result.lastExecution = lastExecution;
+      }
+
+      return result;
     } catch (error) {
       console.error('获取工作流统计失败:', error);
       return {
@@ -712,23 +721,46 @@ export class WorkflowService {
       const processedData =
         redditWebhookService.processWebhookResponse(webhookResponse);
 
+      // Check if processedData has the expected structure
+      const hasNestedStructure = !!(processedData as any)?.data;
+      const hasFlatStructure = !!(processedData as any)?.posts;
+
       console.log('WorkflowService: 数据处理完成:', {
-        postsCount: processedData.data?.posts?.length || processedData.posts?.length || 0,
-        hasStats: !!(processedData.data?.stats || processedData.stats),
-        hasMetadata: !!(processedData.data?.metadata || processedData.metadata),
-        dataStructure: processedData.data ? 'nested' : 'flat',
+        postsCount: hasNestedStructure
+          ? (processedData as any).data?.posts?.length || 0
+          : (processedData as any)?.posts?.length || 0,
+        hasStats: hasNestedStructure
+          ? !!(processedData as any).data?.stats
+          : !!(processedData as any)?.stats,
+        hasMetadata: hasNestedStructure
+          ? !!(processedData as any).data?.metadata
+          : !!(processedData as any)?.metadata,
+        dataStructure: hasNestedStructure ? 'nested' : 'flat',
       });
 
       // Handle both old and new data formats
-      const redditData = processedData.data || processedData;
+      const redditData = hasNestedStructure
+        ? (processedData as any).data
+        : processedData;
+
+      // Ensure all required properties exist with fallbacks
+      const posts = (redditData as any)?.posts || [];
+      const subreddits = (redditData as any)?.subreddits || [];
+      const stats = (redditData as any)?.stats || {};
+      const metadata = (redditData as any)?.metadata || {};
+
+      // Type guard to ensure we have the expected structure
+      if (!redditData || typeof redditData !== 'object') {
+        throw new Error('Invalid data structure received from webhook');
+      }
 
       return {
         success: true,
         data: {
-          posts: redditData.posts,
-          subreddits: redditData.subreddits,
-          stats: redditData.stats,
-          metadata: redditData.metadata,
+          posts,
+          subreddits,
+          stats,
+          metadata,
         },
         timestamp: Date.now(),
       };
@@ -804,10 +836,9 @@ export class WorkflowService {
                   : 50,
             processedCount: 0, // 需要从执行数据中解析
             totalCount: 0, // 需要从执行数据中解析
-            error: execution.data.errorMessage,
             lastUpdated: Date.now(),
             logs:
-              execution.data.logs?.map(log => ({
+              execution.data.logs?.map((log: WorkflowLog) => ({
                 id: log.id,
                 timestamp: new Date(log.timestamp).getTime(),
                 level: log.level as 'info' | 'warning' | 'error' | 'debug',
@@ -815,6 +846,11 @@ export class WorkflowService {
                 details: log.data,
               })) || [],
           };
+
+          // Add error property only if it exists
+          if (execution.data.errorMessage) {
+            (status as any).error = execution.data.errorMessage;
+          }
 
           return {
             success: true,
@@ -831,41 +867,53 @@ export class WorkflowService {
 
       if (executions.length > 0) {
         const latestExecution = executions[0];
-        const status: WorkflowStatus = {
-          workflowId: 'reddit-hot-content',
-          status: this.mapExecutionStatusToWorkflowStatus(
-            latestExecution.status
-          ),
-          startTime: latestExecution.startedAt
-            ? new Date(latestExecution.startedAt).getTime()
-            : undefined,
-          endTime: latestExecution.finishedAt
-            ? new Date(latestExecution.finishedAt).getTime()
-            : undefined,
-          progress:
-            latestExecution.status === 'success'
-              ? 100
-              : latestExecution.status === 'failed'
-                ? 0
-                : 50,
-          processedCount: 0,
-          totalCount: 0,
-          error: latestExecution.errorMessage,
-          lastUpdated: Date.now(),
-          logs: [],
-        };
+        if (
+          latestExecution &&
+          latestExecution.startedAt &&
+          latestExecution.finishedAt
+        ) {
+          const status: WorkflowStatus = {
+            workflowId: 'reddit-hot-content',
+            status: this.mapExecutionStatusToWorkflowStatus(
+              latestExecution.status
+            ),
+            startTime: latestExecution.startedAt
+              ? new Date(latestExecution.startedAt).getTime()
+              : undefined,
+            endTime: latestExecution.finishedAt
+              ? new Date(latestExecution.finishedAt).getTime()
+              : undefined,
+            progress:
+              latestExecution.status === 'success'
+                ? 100
+                : latestExecution.status === 'failed'
+                  ? 0
+                  : 50,
+            processedCount: 0,
+            totalCount: 0,
+            lastUpdated: Date.now(),
+            logs: [],
+          };
 
-        return {
-          success: true,
-          data: status,
-          timestamp: Date.now(),
-        };
+          // Add error property only if it exists
+          if (latestExecution.errorMessage) {
+            status.error = latestExecution.errorMessage;
+          }
+
+          return {
+            success: true,
+            data: status,
+            timestamp: Date.now(),
+          };
+        }
       }
 
       // 没有执行记录，返回空闲状态
       const status: WorkflowStatus = {
         workflowId: 'reddit-hot-content',
         status: 'idle',
+        startTime: undefined,
+        endTime: undefined,
         progress: 0,
         processedCount: 0,
         totalCount: 0,
@@ -878,12 +926,14 @@ export class WorkflowService {
         data: status,
         timestamp: Date.now(),
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('获取Reddit工作流状态失败:', error);
       // 返回模拟数据作为降级方案
       const mockStatus: WorkflowStatus = {
         workflowId: 'reddit-hot-content',
         status: 'idle',
+        startTime: undefined,
+        endTime: undefined,
         progress: 0,
         processedCount: 0,
         totalCount: 0,
@@ -1005,7 +1055,8 @@ export class WorkflowService {
   async executeRedditWorkflowAction(
     action: WorkflowAction,
     executionId?: string,
-    config?: RedditWorkflowConfig
+    config?: RedditWorkflowConfig,
+    log?: (status: string) => void
   ): Promise<RedditApiResponse<{ executionId?: string; status: string }>> {
     try {
       switch (action) {
@@ -1206,7 +1257,7 @@ export class WorkflowService {
       const formData = new FormData();
 
       // 添加文件
-      request.files.forEach((file) => {
+      request.files.forEach(file => {
         formData.append(`files`, file);
       });
 

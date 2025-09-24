@@ -819,7 +819,7 @@ export class InvoiceOCRService {
       }
 
       // 取第一个结果作为主要数据源
-      const primaryResult = webhookResponse.results[0];
+      const primaryResult = webhookResponse.results?.[0];
 
       if (
         !primaryResult ||
@@ -833,12 +833,15 @@ export class InvoiceOCRService {
         return null;
       }
 
+      // At this point, primaryResult is guaranteed to be non-null
+      const result = primaryResult!;
+
       return {
-        summary: primaryResult!.summary,
-        financialSummary: primaryResult!.financialSummary,
-        processingDetails: primaryResult!.processingDetails,
-        qualityMetrics: primaryResult!.qualityMetrics,
-        recommendations: primaryResult!.recommendations,
+        summary: result.summary,
+        financialSummary: result.financialSummary,
+        processingDetails: result.processingDetails,
+        qualityMetrics: result.qualityMetrics,
+        recommendations: result.recommendations,
       };
     } catch (error) {
       console.error('Failed to process enhanced webhook response:', error);

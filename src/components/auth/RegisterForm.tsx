@@ -154,7 +154,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               registerError ||
               (typeof error === 'string'
                 ? error
-                : error?.message || t('auth.errors.unknownError'))
+                : t('auth.errors.unknownError'))
             }
             type='error'
             showIcon

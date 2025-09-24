@@ -28,9 +28,7 @@ export {
 export * from './api';
 export type { ApiResponse, PaginatedResponse } from './api';
 export * from './auth';
-export * from './dashboard';
 export * from './notification';
-export type { DashboardStats as DashboardServiceStats } from './dashboardService';
 export {
   fetchDashboardStats,
   fetchRecentActivities,

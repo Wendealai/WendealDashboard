@@ -17,6 +17,7 @@ import type {
   CreateInvoiceOCRWorkflowRequest,
   UpdateInvoiceOCRWorkflowRequest,
   InvoiceOCRUploadRequest,
+  InvoiceOCRExecution,
 } from '../../pages/InformationDashboard/types/invoiceOCR';
 import { DEFAULT_INVOICE_OCR_SETTINGS } from '../../pages/InformationDashboard/types/invoiceOCR';
 
@@ -152,6 +153,13 @@ export const fetchInvoiceOCRWorkflows = createAsyncThunk(
           status: 'active',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          executionCount: 1250,
+          successRate: 0.92,
+          author: {
+            id: 'user-1',
+            name: 'System Admin',
+            avatar: '',
+          },
           settings: DEFAULT_INVOICE_OCR_SETTINGS,
           statistics: {
             totalProcessed: 1250,
@@ -192,6 +200,13 @@ export const createInvoiceOCRWorkflow = createAsyncThunk(
         status: 'active',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        executionCount: 0,
+        successRate: 0,
+        author: {
+          id: 'user-1',
+          name: 'System Admin',
+          avatar: '',
+        },
         settings: { ...DEFAULT_INVOICE_OCR_SETTINGS, ...request.settings },
         statistics: {
           totalProcessed: 0,
@@ -421,7 +436,7 @@ export const fetchInvoiceOCRExecutions = createAsyncThunk(
           startedAt: new Date(
             Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000
           ).toISOString(),
-          completedAt: new Date().toISOString(),
+          finishedAt: new Date().toISOString(),
           duration: Math.floor(Math.random() * 300) + 30,
           fileInfo: {
             originalName: `invoice_${i + 1}.pdf`,
@@ -579,13 +594,19 @@ const invoiceOCRSlice = createSlice({
         const { id, updates } = action.payload;
         const index = state.workflows.findIndex(w => w.id === id);
         if (index > -1) {
-          state.workflows[index] = {
-            ...state.workflows[index],
-            ...updates,
-            updatedAt: new Date().toISOString(),
-          };
-          if (state.currentWorkflow?.id === id) {
-            state.currentWorkflow = state.workflows[index];
+          const existingWorkflow = state.workflows[index];
+          if (existingWorkflow) {
+            state.workflows[index] = {
+              ...existingWorkflow,
+              ...updates,
+              settings: updates.settings
+                ? { ...existingWorkflow.settings, ...updates.settings }
+                : existingWorkflow.settings,
+              updatedAt: new Date().toISOString(),
+            };
+            if (state.currentWorkflow?.id === id) {
+              state.currentWorkflow = state.workflows[index] || null;
+            }
           }
         }
         state.workflowError = null;

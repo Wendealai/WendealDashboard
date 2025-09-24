@@ -8,7 +8,6 @@ import type {
   User,
   AuthConfig,
   ClerkUserData,
-  Permission,
 } from '../../types/auth';
 import { UserRole } from '../../types/auth';
 import type { IAuthService } from './IAuthService';
@@ -127,7 +126,7 @@ export class ClerkAuthService implements IAuthService {
 
   async validateToken(token: string): Promise<boolean> {
     if (this.isClerkAvailable) {
-      return await this.clerkValidateToken(token);
+      return await this.clerkValidateToken();
     } else {
       return await this.localAuthService.validateToken(token);
     }
@@ -262,7 +261,7 @@ export class ClerkAuthService implements IAuthService {
   }
 
   private async clerkRefreshToken(
-    refreshToken: string
+    _refreshToken: string
   ): Promise<LoginResponse> {
     try {
       // 实际实现中会调用Clerk的令牌刷新方法
@@ -270,7 +269,7 @@ export class ClerkAuthService implements IAuthService {
     } catch (error) {
       console.error('Clerk令牌刷新失败，降级到本地认证:', error);
       this.isClerkAvailable = false;
-      return await this.localAuthService.refreshToken(refreshToken);
+      return await this.localAuthService.refreshToken(_refreshToken);
     }
   }
 
@@ -312,7 +311,7 @@ export class ClerkAuthService implements IAuthService {
     }
   }
 
-  private async clerkValidateToken(_token: string): Promise<boolean> {
+  private async clerkValidateToken(): Promise<boolean> {
     try {
       // 实际实现中会验证Clerk令牌
       // const session = await clerk.client.sessions.getToken();
@@ -327,6 +326,24 @@ export class ClerkAuthService implements IAuthService {
   private clearClerkState(): void {
     // 清除Clerk相关的本地状态
     // 在实际实现中可能需要清除Clerk的会话信息
+  }
+
+  // Helper function to map Clerk user to User type
+  private mapClerkUserToUser(clerkUser: any): User {
+    return {
+      id: clerkUser.id,
+      username: clerkUser.username || clerkUser.email,
+      email: clerkUser.email,
+      firstName: clerkUser.firstName || '',
+      lastName: clerkUser.lastName || '',
+      avatar: clerkUser.avatar || '',
+      role: UserRole.EMPLOYEE, // Default role
+      permissions: [],
+      isActive: true,
+      createdAt: clerkUser.createdAt || new Date().toISOString(),
+      updatedAt: clerkUser.updatedAt || new Date().toISOString(),
+      lastLoginAt: clerkUser.lastLoginAt || new Date().toISOString(),
+    };
   }
 
   private notifyAuthStateChange(

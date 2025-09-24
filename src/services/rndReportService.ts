@@ -486,7 +486,6 @@ export class RNDReportService implements IRNDReportService {
         const hashKey = `rnd-report-hash-${report.id}`;
         const hasContent = localStorageKeys.includes(contentKey);
         const hasCache = cacheKeys.includes(cacheKey);
-        const hasHash = localStorage.getItem(hashKey) !== null;
 
         if (!hasContent) {
           issuesFound.push(

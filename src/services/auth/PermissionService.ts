@@ -263,9 +263,7 @@ export class PermissionService {
     }
 
     // 检查用户直接权限
-    const hasDirectPermission = user.permissions.some(
-      p => p === permission
-    );
+    const hasDirectPermission = user.permissions.some(p => p === permission);
     if (hasDirectPermission) {
       return true;
     }
@@ -350,7 +348,7 @@ export class PermissionService {
   /**
    * 获取用户的所有权限
    */
-  public getUserPermissions(user: User | null): Permission[] {
+  public getUserPermissions(user: User | null): string[] {
     if (!user) {
       return [];
     }

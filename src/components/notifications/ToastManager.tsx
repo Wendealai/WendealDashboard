@@ -74,7 +74,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, onAction }) => {
     handleClose();
   };
 
-  const getToastStyles = () => {
+  const getToastStyles = (): string => {
     const baseStyles =
       'relative overflow-hidden rounded-lg shadow-lg border p-4 mb-3 max-w-sm w-full transform transition-all duration-300';
 
@@ -98,7 +98,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, onAction }) => {
     }
   };
 
-  const getPriorityIcon = (priority: NotificationPriority) => {
+  const getPriorityIcon = (priority: NotificationPriority): string => {
     switch (priority) {
       case NotificationPriority.URGENT:
         return '🚨';

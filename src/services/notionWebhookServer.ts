@@ -3,12 +3,8 @@
  * 独立的Express服务器处理Notion数据请求
  */
 
-import * as express from 'express';
-import * as cors from 'cors';
-
-// Type assertion to bypass module import issues
-const expressModule = (express as any)();
-const corsModule = cors as any;
+import express from 'express';
+import cors from 'cors';
 import type { NotionWebhookRequest } from './notionWebhookService';
 import {
   handleNotionWebhook,
@@ -21,7 +17,7 @@ export class NotionWebhookServer {
 
   constructor(port = 3001) {
     this.port = port;
-    this.app = expressModule;
+    this.app = express();
 
     this.setupMiddleware();
     this.setupRoutes();
@@ -33,7 +29,7 @@ export class NotionWebhookServer {
   private setupMiddleware() {
     // CORS配置
     this.app.use(
-      corsModule({
+      cors({
         origin: [
           'http://localhost:5173',
           'http://localhost:5182',
@@ -51,7 +47,7 @@ export class NotionWebhookServer {
     this.app.use(express.urlencoded({ extended: true }));
 
     // 请求日志
-    this.app.use((req, _res, next) => {
+    this.app.use((req, res, next) => {
       console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
       next();
     });
@@ -155,7 +151,7 @@ export class NotionWebhookServer {
     });
 
     // 错误处理中间件
-    this.app.use((error: any, _req: any, res: any, _next: any) => {
+    this.app.use((error: any, req: any, res: any, next: any) => {
       console.error('❌ 服务器错误:', error);
       res.status(500).json({
         success: false,

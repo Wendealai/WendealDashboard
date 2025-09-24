@@ -82,7 +82,7 @@ const AppContent: React.FC = () => {
   }
 
   // 根据当前语言获取Ant Design语言包
-  const getAntdLocale = () => {
+  const getAntdLocale = (): typeof zhCN => {
     switch (i18nInstance.language) {
       case 'en-US':
         return enUS;

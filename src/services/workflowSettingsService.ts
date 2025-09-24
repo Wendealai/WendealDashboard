@@ -235,7 +235,7 @@ export class WorkflowSettingsService {
             ...(basicValidation.warnings || []),
             ...(connectivityValidation.warnings || []),
           ].filter(w => w), // Filter out undefined
-        };
+        } as ValidationResult;
       }
 
       return basicValidation;
@@ -250,6 +250,7 @@ export class WorkflowSettingsService {
             code: 'VALIDATION_ERROR',
           },
         ],
+        warnings: [],
       };
     }
   }
@@ -305,7 +306,7 @@ export class WorkflowSettingsService {
     const exportData = {
       version: CURRENT_VERSION,
       exportedAt: new Date().toISOString(),
-      settings: this.settings,
+      settings: Object.fromEntries(this.settingsMap),
     };
 
     return JSON.stringify(exportData, null, 2);
@@ -328,7 +329,12 @@ export class WorkflowSettingsService {
         };
       }
 
-      return await this.saveSettings(importData.settings);
+      // Import settings for a default workflow ID
+      return await this.saveSettings(
+        'default-workflow',
+        importData.settings as Partial<WorkflowSettings>,
+        'Default Workflow'
+      );
     } catch (error) {
       console.error('Failed to import workflow settings:', error);
       return {

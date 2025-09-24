@@ -5,7 +5,7 @@ import { LockOutlined, HomeOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts';
 import { PermissionService } from '../../services/auth/PermissionService';
-import type { UserRole, Permission } from '../../types/auth';
+import type { UserRole } from '../../types/auth';
 
 /**
  * 受保护路由组件的属性接口
@@ -18,7 +18,7 @@ export interface ProtectedRouteProps {
   /** 允许访问的角色列表 */
   allowedRoles?: UserRole[];
   /** 需要的权限列表 */
-  requiredPermissions?: Permission[];
+  requiredPermissions?: string[];
   /** 权限检查模式：'any' 表示满足任一条件即可，'all' 表示需要满足所有条件 */
   mode?: 'any' | 'all';
   /** 重定向路径，默认为登录页 */
@@ -107,12 +107,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (mode === 'all') {
       // 需要满足所有权限
       return requiredPermissions.every(permission =>
-        PermissionService.getInstance().hasPermission(user!, permission.name)
+        PermissionService.getInstance().hasPermission(user!, permission)
       );
     } else {
       // 满足任一权限即可
       return requiredPermissions.some(permission =>
-        PermissionService.getInstance().hasPermission(user!, permission.name)
+        PermissionService.getInstance().hasPermission(user!, permission)
       );
     }
   };

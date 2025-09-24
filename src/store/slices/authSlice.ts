@@ -4,7 +4,6 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import type {
   User,
   LoginRequest,
-  LoginResponse,
   RegisterRequest,
   UpdateProfileRequest,
   ChangePasswordRequest,
@@ -68,9 +67,11 @@ export const initializeAuth = createAsyncThunk(
       const service = initializeAuthService(strategy);
       await service.initialize({
         strategy,
-        // apiUrl: process.env.VITE_API_URL || 'http://localhost:3000',
-        tokenKey: 'auth_token',
-        refreshTokenKey: 'refresh_token',
+        enableRememberMe: true,
+        tokenExpirationTime: 24 * 60 * 60 * 1000, // 24 hours
+        refreshTokenExpirationTime: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxLoginAttempts: 5,
+        lockoutDuration: 15 * 60 * 1000, // 15 minutes
       });
 
       // 检查是否有已存储的用户信息
@@ -267,18 +268,11 @@ const serializeUser = (user: User | null): any => {
   if (!user) return null;
   return {
     ...user,
-    createdAt:
-      typeof user.createdAt === 'string'
-        ? user.createdAt
-        : user.createdAt?.toISOString(),
-    updatedAt:
-      typeof user.updatedAt === 'string'
-        ? user.updatedAt
-        : user.updatedAt?.toISOString(),
-    lastLoginAt:
-      typeof user.lastLoginAt === 'string'
-        ? user.lastLoginAt
-        : user.lastLoginAt?.toISOString(),
+    createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : null,
+    updatedAt: user.updatedAt ? new Date(user.updatedAt).toISOString() : null,
+    lastLoginAt: user.lastLoginAt
+      ? new Date(user.lastLoginAt).toISOString()
+      : null,
   };
 };
 

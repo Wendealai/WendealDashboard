@@ -56,14 +56,15 @@ export class NotificationStorageService {
 
         // Create settings store
         if (!db.objectStoreNames.contains('settings')) {
-          const settingsStore = db.createObjectStore('settings', {
+          db.createObjectStore('settings', {
             keyPath: 'userId',
           });
+          console.log('Settings store created');
         }
 
         // Create storage metadata store
         if (!db.objectStoreNames.contains('metadata')) {
-          const metadataStore = db.createObjectStore('metadata', {
+          db.createObjectStore('metadata', {
             keyPath: 'key',
           });
         }

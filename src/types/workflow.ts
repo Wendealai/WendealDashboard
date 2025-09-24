@@ -300,20 +300,6 @@ export interface EnhancedWebhookResponse {
 }
 
 /**
- * 工作流类型枚举
- */
-export enum WorkflowType {
-  /** 发票OCR处理 */
-  INVOICE_OCR = 'invoice-ocr',
-  /** Reddit热门内容 */
-  REDDIT_HOT_CONTENT = 'reddit-hot-content',
-  /** 智能商业机会 */
-  SMART_OPPORTUNITIES = 'smart-opportunities',
-  /** 信息仪表板 */
-  INFORMATION_DASHBOARD = 'information-dashboard',
-}
-
-/**
  * Smart Opportunities 工作流配置
  */
 export interface SmartOpportunitiesConfig {

@@ -177,8 +177,11 @@ export class DashboardService {
       ...filters,
     };
 
-    const response = await ApiService.get('/dashboard/export', params);
-    return new Blob([response as BlobPart], {
+    const response = await ApiService.get<ArrayBuffer>(
+      '/dashboard/export',
+      params
+    );
+    return new Blob([response], {
       type:
         format === 'excel'
           ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

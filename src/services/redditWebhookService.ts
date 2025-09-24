@@ -879,11 +879,9 @@ class RedditWebhookService {
       console.error('🔥 Webhook连接测试异常:', error);
 
       let errorMessage = 'Unknown error';
-      let errorType = 'UNKNOWN_ERROR';
 
       if (error instanceof Error) {
         errorMessage = error.message;
-        errorType = error.name;
 
         // 提供更具体的网络错误信息
         if (
@@ -893,19 +891,15 @@ class RedditWebhookService {
         ) {
           errorMessage =
             'NetworkError: 无法连接到服务器，可能是网络连接、CORS或服务器问题';
-          errorType = 'NETWORK_ERROR';
         } else if (
           errorMessage.includes('timeout') ||
           errorMessage.includes('AbortError')
         ) {
           errorMessage = 'TimeoutError: 连接超时，服务器响应时间过长';
-          errorType = 'TIMEOUT_ERROR';
         } else if (errorMessage.includes('TypeError')) {
           errorMessage = 'TypeError: URL格式错误或网络配置问题';
-          errorType = 'CONFIG_ERROR';
         } else if (errorMessage.includes('CORS')) {
           errorMessage = 'CORS错误: 跨域请求被阻止，请检查服务器CORS配置';
-          errorType = 'CORS_ERROR';
         }
       }
 

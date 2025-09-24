@@ -32,7 +32,8 @@ class NotionWebhookService {
   private readonly NOTION_API_KEY =
     process.env.NOTION_API_KEY ?? 'YOUR_NOTION_API_TOKEN';
   private readonly NOTION_API_BASE = 'https://api.notion.com/v1';
-  private readonly DEFAULT_DATABASE_ID = '266efdb673e08067908be152e0be1cdb';
+  private readonly DEFAULT_DATABASE_ID: string =
+    '266efdb673e08067908be152e0be1cdb';
 
   /**
    * 从Notion URL中提取数据库ID
@@ -41,7 +42,9 @@ class NotionWebhookService {
     try {
       // 从Notion分享链接中提取数据库ID
       const match = url.match(/\/([a-f0-9]{32})\?/);
-      return match && match[1] ? match[1] : this.DEFAULT_DATABASE_ID;
+      return match && match[1]
+        ? match[1]
+        : (this.DEFAULT_DATABASE_ID as string);
     } catch (error) {
       console.warn('无法从URL提取数据库ID，使用默认ID:', error);
       return this.DEFAULT_DATABASE_ID;

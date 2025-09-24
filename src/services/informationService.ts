@@ -967,24 +967,48 @@ class InformationService {
     isNsfw: boolean;
     isStickied: boolean;
   }> {
-    return posts.map(post => ({
-      id: post.id,
-      title: post.title,
-      subreddit: post.subreddit,
-      author: post.author,
-      score: post.score,
-      comments: post.numComments || 0,
-      created: new Date(post.createdUtc * 1000).toLocaleString('zh-CN'),
-      url: post.url,
-      ...(post.thumbnail &&
+    return posts.map(post => {
+      const result: {
+        id: string;
+        title: string;
+        subreddit: string;
+        author: string;
+        score: number;
+        comments: number;
+        created: string;
+        url: string;
+        thumbnail?: string;
+        flair?: string;
+        isNsfw: boolean;
+        isStickied: boolean;
+      } = {
+        id: post.id,
+        title: post.title,
+        subreddit: post.subreddit,
+        author: post.author,
+        score: post.score,
+        comments: post.numComments || 0,
+        created: new Date(post.createdUtc * 1000).toLocaleString('zh-CN'),
+        url: post.url,
+        isNsfw: post.over18 || false,
+        isStickied: post.stickied || false,
+      };
+
+      if (
+        post.thumbnail &&
         post.thumbnail !== 'self' &&
-        post.thumbnail !== 'default' && {
-          thumbnail: post.thumbnail,
-        }),
-      ...(post.linkFlairText && { flair: post.linkFlairText }),
-      isNsfw: post.over18 || false,
-      isStickied: post.stickied || false,
-    }));
+        post.thumbnail !== 'default' &&
+        typeof post.thumbnail === 'string'
+      ) {
+        result.thumbnail = post.thumbnail;
+      }
+
+      if (post.linkFlairText && typeof post.linkFlairText === 'string') {
+        result.flair = post.linkFlairText;
+      }
+
+      return result;
+    });
   }
 }
 
