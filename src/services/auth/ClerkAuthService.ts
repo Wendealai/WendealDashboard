@@ -8,10 +8,8 @@ import type {
   User,
   AuthConfig,
   ClerkUserData,
-  AuthError,
-  AuthErrorTypeValue,
+  Permission,
 } from '../../types/auth';
-import { AuthErrorType } from '../../types/auth';
 import { UserRole } from '../../types/auth';
 import type { IAuthService } from './IAuthService';
 import { LocalAuthService } from './LocalAuthService';
@@ -113,7 +111,7 @@ export class ClerkAuthService implements IAuthService {
 
   checkPermission(permission: string): boolean {
     if (this.isClerkAvailable && this.currentUser) {
-      return this.currentUser.permissions.some(p => p === permission);
+      return this.currentUser.permissions.some((p: string) => p === permission);
     } else {
       return this.localAuthService.checkPermission(permission);
     }
@@ -314,7 +312,7 @@ export class ClerkAuthService implements IAuthService {
     }
   }
 
-  private async clerkValidateToken(token: string): Promise<boolean> {
+  private async clerkValidateToken(_token: string): Promise<boolean> {
     try {
       // 实际实现中会验证Clerk令牌
       // const session = await clerk.client.sessions.getToken();
@@ -331,79 +329,6 @@ export class ClerkAuthService implements IAuthService {
     // 在实际实现中可能需要清除Clerk的会话信息
   }
 
-  private mapClerkUserToUser(clerkUser: ClerkUserData): User {
-    // 将Clerk用户数据映射为应用用户格式
-    const email = clerkUser.emailAddresses[0]?.emailAddress || '';
-
-    return {
-      id: clerkUser.id,
-      username: clerkUser.username || (email ? email.split('@')[0] : '') as string,
-      email,
-      firstName: clerkUser.firstName || '',
-      lastName: clerkUser.lastName || '',
-      avatar: clerkUser.imageUrl || '',
-      role: this.determineUserRole(clerkUser), // 根据业务逻辑确定角色
-      permissions: this.getRolePermissions(
-        this.determineUserRole(clerkUser)
-      ).map(p => p.name),
-      isActive: true,
-      createdAt: new Date(clerkUser.createdAt).toISOString(),
-      updatedAt: new Date(clerkUser.updatedAt).toISOString(),
-      lastLoginAt: clerkUser.lastSignInAt
-        ? new Date(clerkUser.lastSignInAt).toISOString()
-        : undefined,
-    };
-  }
-
-  private determineUserRole(_clerkUser: ClerkUserData): UserRole {
-    // 根据Clerk用户信息确定应用角色
-    // 这里可以根据Clerk的元数据、组织成员身份等来确定
-    // 目前默认为普通员工
-    return UserRole.EMPLOYEE;
-  }
-
-  private getUserPermissionsByRole(role: UserRole) {
-    // 根据角色返回权限列表
-    const basePermissions = [
-      {
-        id: 'perm-001',
-        name: 'dashboard.read',
-        description: '查看仪表板',
-        resource: 'dashboard',
-        action: 'read',
-      },
-    ];
-
-    if (role === UserRole.ADMIN) {
-      return [
-        ...basePermissions,
-        {
-          id: 'perm-002',
-          name: 'dashboard.write',
-          description: '编辑仪表板',
-          resource: 'dashboard',
-          action: 'write',
-        },
-        {
-          id: 'perm-003',
-          name: 'users.manage',
-          description: '管理用户',
-          resource: 'users',
-          action: 'manage',
-        },
-        {
-          id: 'perm-004',
-          name: 'system.admin',
-          description: '系统管理',
-          resource: 'system',
-          action: 'admin',
-        },
-      ];
-    }
-
-    return basePermissions;
-  }
-
   private notifyAuthStateChange(
     isAuthenticated: boolean,
     user: User | null
@@ -415,20 +340,6 @@ export class ClerkAuthService implements IAuthService {
         console.error('Error in auth state listener:', error);
       }
     });
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private createAuthError(
-    type: AuthErrorTypeValue,
-    message: string,
-    details?: any
-  ): AuthError {
-    return {
-      type,
-      message,
-      details,
-      timestamp: new Date().toISOString(),
-    };
   }
 
   // 公共方法：获取当前使用的认证策略

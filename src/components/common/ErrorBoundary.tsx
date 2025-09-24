@@ -1,12 +1,10 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
-import { Result, Button, /* Alert, */ Card, Space, Typography, Divider } from 'antd';
-import { ReloadOutlined, HomeOutlined, BugOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Result, Button } from 'antd';
+import { ReloadOutlined, HomeOutlined } from '@ant-design/icons';
 import { withTranslation } from 'react-i18next';
 import type { WithTranslation } from 'react-i18next';
 import i18n from '../../locales';
-
-const { Text, Paragraph } = Typography;
 
 export interface ErrorBoundaryProps extends WithTranslation {
   children: ReactNode;
@@ -31,7 +29,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
     super(props);
     this.state = {
       hasError: false,
-      retryCount: 0
+      retryCount: 0,
     };
   }
 
@@ -58,7 +56,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
     return {
       hasError: true,
       error,
-      retryCount: 0
+      retryCount: 0,
     };
   }
 
@@ -78,7 +76,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
     this.reportError(error, errorInfo);
   }
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     if (this.retryTimeout) {
       clearTimeout(this.retryTimeout);
     }

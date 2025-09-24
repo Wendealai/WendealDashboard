@@ -258,10 +258,16 @@ export class NotificationService {
 
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
-      const subscription = await registration.pushManager.subscribe({
+
+      const subscriptionOptions: PushSubscriptionOptionsInit = {
         userVisibleOnly: true,
-        applicationServerKey: process.env.VITE_VAPID_PUBLIC_KEY,
-      });
+        ...(process.env.VITE_VAPID_PUBLIC_KEY && {
+          applicationServerKey: process.env.VITE_VAPID_PUBLIC_KEY,
+        }),
+      };
+
+      const subscription =
+        await registration.pushManager.subscribe(subscriptionOptions);
 
       // 发送订阅信息到服务器
       await ApiService.post('/notifications/push-subscription', {

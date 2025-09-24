@@ -3,9 +3,17 @@
  * 独立的Express服务器处理Notion数据请求
  */
 
-import express from 'express';
-import cors from 'cors';
-import { handleNotionWebhook, testNotionConnection, NotionWebhookRequest } from './notionWebhookService';
+import * as express from 'express';
+import * as cors from 'cors';
+
+// Type assertion to bypass module import issues
+const expressModule = (express as any)();
+const corsModule = cors as any;
+import type { NotionWebhookRequest } from './notionWebhookService';
+import {
+  handleNotionWebhook,
+  testNotionConnection,
+} from './notionWebhookService';
 
 export class NotionWebhookServer {
   private app: express.Application;
@@ -13,7 +21,7 @@ export class NotionWebhookServer {
 
   constructor(port = 3001) {
     this.port = port;
-    this.app = express();
+    this.app = expressModule;
 
     this.setupMiddleware();
     this.setupRoutes();
@@ -24,19 +32,26 @@ export class NotionWebhookServer {
    */
   private setupMiddleware() {
     // CORS配置
-    this.app.use(cors({
-      origin: ['http://localhost:5173', 'http://localhost:5182', 'http://127.0.0.1:5173', 'http://127.0.0.1:5182'],
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-      credentials: true
-    }));
+    this.app.use(
+      corsModule({
+        origin: [
+          'http://localhost:5173',
+          'http://localhost:5182',
+          'http://127.0.0.1:5173',
+          'http://127.0.0.1:5182',
+        ],
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        credentials: true,
+      })
+    );
 
     // JSON解析
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));
 
     // 请求日志
-    this.app.use((req, res, next) => {
+    this.app.use((req, _res, next) => {
       console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
       next();
     });
@@ -51,7 +66,7 @@ export class NotionWebhookServer {
       res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        service: 'notion-webhook-server'
+        service: 'notion-webhook-server',
       });
     });
 
@@ -67,19 +82,18 @@ export class NotionWebhookServer {
           sortDirection: req.body.sortDirection,
           filter: req.body.filter,
           pageSize: req.body.pageSize,
-          startCursor: req.body.startCursor
+          startCursor: req.body.startCursor,
         };
 
         const response = await handleNotionWebhook(request);
 
         res.json(response);
-
       } catch (error) {
         console.error('❌ Webhook处理错误:', error);
         res.status(500).json({
           success: false,
           error: error instanceof Error ? error.message : '未知错误',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
     });
@@ -94,16 +108,15 @@ export class NotionWebhookServer {
           success: true,
           connected: isConnected,
           databaseId: databaseId || 'default',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
-
       } catch (error) {
         console.error('❌ 连接测试错误:', error);
         res.status(500).json({
           success: false,
           connected: false,
           error: error instanceof Error ? error.message : '未知错误',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
     });
@@ -111,22 +124,21 @@ export class NotionWebhookServer {
     // 获取默认数据库数据
     this.app.get('/webhook/notion/data', async (req, res) => {
       try {
-        const sortBy = req.query.sortBy as string || '创建时间';
+        const sortBy = (req.query.sortBy as string) || '创建时间';
         const limit = parseInt(req.query.limit as string) || 50;
 
         const response = await handleNotionWebhook({
           sortBy,
-          pageSize: limit
+          pageSize: limit,
         });
 
         res.json(response);
-
       } catch (error) {
         console.error('❌ 数据获取错误:', error);
         res.status(500).json({
           success: false,
           error: error instanceof Error ? error.message : '未知错误',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
     });
@@ -138,18 +150,18 @@ export class NotionWebhookServer {
         error: 'Endpoint not found',
         path: req.originalUrl,
         method: req.method,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     });
 
     // 错误处理中间件
-    this.app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    this.app.use((error: any, _req: any, res: any, _next: any) => {
       console.error('❌ 服务器错误:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error',
         message: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     });
   }
@@ -160,17 +172,29 @@ export class NotionWebhookServer {
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        this.app.listen(this.port, '0.0.0.0', () => {
-          console.log(`🚀 Notion Webhook Server started on http://localhost:${this.port}`);
-          console.log(`📡 Webhook endpoint: http://localhost:${this.port}/webhook/notion`);
-          console.log(`🔍 Test endpoint: http://localhost:${this.port}/webhook/notion/test`);
-          console.log(`📊 Data endpoint: http://localhost:${this.port}/webhook/notion/data`);
-          console.log(`💚 Health check: http://localhost:${this.port}/health`);
-          resolve();
-        }).on('error', (error) => {
-          console.error('❌ 服务器启动失败:', error);
-          reject(error);
-        });
+        this.app
+          .listen(this.port, '0.0.0.0', () => {
+            console.log(
+              `🚀 Notion Webhook Server started on http://localhost:${this.port}`
+            );
+            console.log(
+              `📡 Webhook endpoint: http://localhost:${this.port}/webhook/notion`
+            );
+            console.log(
+              `🔍 Test endpoint: http://localhost:${this.port}/webhook/notion/test`
+            );
+            console.log(
+              `📊 Data endpoint: http://localhost:${this.port}/webhook/notion/data`
+            );
+            console.log(
+              `💚 Health check: http://localhost:${this.port}/health`
+            );
+            resolve();
+          })
+          .on('error', error => {
+            console.error('❌ 服务器启动失败:', error);
+            reject(error);
+          });
       } catch (error) {
         console.error('❌ 服务器启动异常:', error);
         reject(error);
@@ -182,7 +206,7 @@ export class NotionWebhookServer {
    * 停止服务器
    */
   async stop(): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       console.log('🛑 正在停止Notion Webhook Server...');
       // Express没有直接的close方法，这里简化处理
       resolve();
@@ -192,7 +216,7 @@ export class NotionWebhookServer {
   /**
    * 获取服务器实例（用于测试）
    */
-  getApp(): express.Application {
+  getApp(): any {
     return this.app;
   }
 }
@@ -202,7 +226,7 @@ export const notionWebhookServer = new NotionWebhookServer();
 
 // 如果直接运行此文件，则启动服务器
 if (require.main === module) {
-  notionWebhookServer.start().catch((error) => {
+  notionWebhookServer.start().catch(error => {
     console.error('❌ 服务器启动失败:', error);
     process.exit(1);
   });

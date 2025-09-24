@@ -81,12 +81,12 @@ const RoleGuard: React.FC<RoleGuardProps> = ({
     if (mode === 'all') {
       // 需要满足所有权限
       return requiredPermissions.every(permission =>
-        PermissionService.getInstance().hasPermission(user, permission)
+        PermissionService.getInstance().hasPermission(user, permission.name)
       );
     } else {
       // 满足任一权限即可
       return requiredPermissions.some(permission =>
-        PermissionService.getInstance().hasPermission(user, permission)
+        PermissionService.getInstance().hasPermission(user, permission.name)
       );
     }
   };

@@ -9,7 +9,6 @@ import type {
   NotificationObserver,
   NotificationSettings,
   NotificationCreateInput,
-  NotificationUpdateInput,
   NotificationFilter,
   NotificationListResponse,
   WebSocketMessage,
@@ -18,7 +17,6 @@ import type {
 import {
   NotificationError,
   NotificationType,
-  NotificationPriority,
   NotificationStatus,
   NotificationCategory,
 } from '@/types/notification';
@@ -340,16 +338,18 @@ export class NotificationService {
         n => n.status === NotificationStatus.UNREAD
       ).length;
 
-      return {
+      const result: NotificationListResponse = {
         notifications,
         total: localNotifications.length,
         unreadCount,
         hasMore: endIndex < localNotifications.length,
-        nextCursor:
-          endIndex < localNotifications.length
-            ? endIndex.toString()
-            : (undefined as any),
       };
+
+      if (endIndex < localNotifications.length) {
+        result.nextCursor = endIndex.toString();
+      }
+
+      return result;
     } catch (error) {
       console.error('Failed to get notifications:', error);
       throw new NotificationError(
@@ -462,11 +462,10 @@ export class NotificationService {
       );
 
       // Notify observers about bulk deletion
-      this.notifyObservers(
-        'onBulkOperation',
-        'clear_all',
-        notifications.length
-      );
+      this.notifyObservers('onBulkOperation', {
+        operation: 'clear_all',
+        count: notifications.length,
+      });
 
       // Send to server if online
       if (navigator.onLine) {
@@ -644,7 +643,17 @@ export class NotificationService {
   private notifyObservers(method: keyof NotificationObserver, data: any): void {
     this.observers.forEach(observer => {
       try {
-        (observer[method] as any)(data);
+        if (
+          method === 'onBulkOperation' &&
+          typeof data === 'object' &&
+          data.operation &&
+          data.count !== undefined
+        ) {
+          // Handle onBulkOperation which expects two separate parameters
+          (observer[method] as any)(data.operation, data.count);
+        } else {
+          (observer[method] as any)(data);
+        }
       } catch (error) {
         console.error('Observer notification failed:', error);
       }

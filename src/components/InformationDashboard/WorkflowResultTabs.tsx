@@ -1,17 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMessage } from '@/hooks/useMessage';
-import { Card, Empty, Spin } from 'antd';
-import {
-  PlayCircleOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
-} from '@ant-design/icons';
+import { Empty, Spin } from 'antd';
 import { TabsDataDisplay, type TabDataItem } from './TabsDataDisplay';
-import type {
-  Workflow,
-  WorkflowExecution,
-} from '../../pages/InformationDashboard/types';
+import type { WorkflowExecution } from '../../pages/InformationDashboard/types';
 import type { ParsedSubredditData } from '@/services/redditWebhookService';
 
 /**
@@ -23,7 +14,7 @@ export interface WorkflowResultTabsProps {
   /** Current Reddit data (backward compatibility) */
   redditData?: ParsedSubredditData[];
   /** Multi-workflow Reddit data */
-  workflowRedditData?: Record<
+  _workflowRedditData?: Record<
     string,
     {
       data: ParsedSubredditData[];
@@ -49,16 +40,15 @@ export interface WorkflowResultTabsProps {
  * Allows users to view multiple workflow execution results simultaneously
  */
 const WorkflowResultTabs: React.FC<WorkflowResultTabsProps> = ({
-  workflowExecutions,
-  redditData,
-  workflowRedditData = {},
-  getWorkflowRedditData,
+  workflowExecutions: _workflowExecutions,
+  redditData: _redditData,
+  getWorkflowRedditData: _getWorkflowRedditData,
   loading = false,
   renderRedditData,
   renderWorkflowExecution,
+  className,
 }) => {
   const { t } = useTranslation();
-  const message = useMessage();
   const [activeTab, setActiveTab] = useState<string>('reddit-data');
 
   /**
@@ -122,7 +112,7 @@ const WorkflowResultTabs: React.FC<WorkflowResultTabsProps> = ({
 
   return (
     <TabsDataDisplay
-      className={className}
+      className={className || ''}
       tabs={tabItems}
       activeKey={activeTab}
       onChange={handleTabChange}

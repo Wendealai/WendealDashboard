@@ -2,8 +2,8 @@
 import type {
   FileValidationResult,
   ReportMetadata,
-  FileProcessingOptions,
   RNDReportConfig,
+  FileProcessingOptions,
   Report,
   Category,
 } from '../types/rndReport';
@@ -28,12 +28,18 @@ export class FileProcessingUtils {
       // 检查文件类型
       const allowedExtensions = ['.html', '.htm'];
       const fileName = file.name.toLowerCase();
-      const hasValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+      const hasValidExtension = allowedExtensions.some(ext =>
+        fileName.endsWith(ext)
+      );
 
-      if (!hasValidExtension && !config.allowedFileTypes.some(type => file.type === type)) {
+      if (
+        !hasValidExtension &&
+        !config.allowedFileTypes.some(type => file.type === type)
+      ) {
         return {
           isValid: false,
-          error: 'Invalid file type. Only HTML files (.html, .htm) are allowed.',
+          error:
+            'Invalid file type. Only HTML files (.html, .htm) are allowed.',
         };
       }
 
@@ -128,12 +134,12 @@ export class FileProcessingUtils {
       const version = this.extractVersion(doc);
 
       return {
-        title,
-        description,
-        author,
-        keywords,
-        createdDate,
-        version,
+        title: title || '',
+        description: description || '',
+        author: author || '',
+        keywords: keywords || [],
+        createdDate: createdDate || new Date(),
+        version: version || '1.0',
       };
     } catch (error) {
       console.warn('Failed to extract metadata:', error);
@@ -221,7 +227,8 @@ export class FileProcessingUtils {
   private static extractKeywords(doc: Document): string[] | undefined {
     const keywordsMeta = doc.querySelector('meta[name="keywords"]');
     if (keywordsMeta?.getAttribute('content')) {
-      const keywords = keywordsMeta.getAttribute('content')!
+      const keywords = keywordsMeta
+        .getAttribute('content')!
         .split(',')
         .map(k => k.trim())
         .filter(k => k.length > 0);
@@ -247,10 +254,11 @@ export class FileProcessingUtils {
     for (const selector of dateSelectors) {
       const element = doc.querySelector(selector);
       if (element) {
-        const dateValue = element.getAttribute('content') ||
-                         element.getAttribute('datetime') ||
-                         element.getAttribute('value') ||
-                         element.textContent;
+        const dateValue =
+          element.getAttribute('content') ||
+          element.getAttribute('datetime') ||
+          element.getAttribute('value') ||
+          element.textContent;
 
         if (dateValue) {
           const date = new Date(dateValue.trim());
@@ -309,12 +317,33 @@ export class FileProcessingUtils {
     }
 
     // 检查是否是保留名称
-    const reservedNames = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4',
-                          'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2',
-                          'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'];
+    const reservedNames = [
+      'CON',
+      'PRN',
+      'AUX',
+      'NUL',
+      'COM1',
+      'COM2',
+      'COM3',
+      'COM4',
+      'COM5',
+      'COM6',
+      'COM7',
+      'COM8',
+      'COM9',
+      'LPT1',
+      'LPT2',
+      'LPT3',
+      'LPT4',
+      'LPT5',
+      'LPT6',
+      'LPT7',
+      'LPT8',
+      'LPT9',
+    ];
 
     const nameWithoutExt = fileName.split('.')[0]?.toUpperCase();
-    if (reservedNames.includes(nameWithoutExt)) {
+    if (nameWithoutExt && reservedNames.includes(nameWithoutExt as string)) {
       return false;
     }
 
@@ -365,7 +394,11 @@ export class FileProcessingUtils {
    * @param clientHeight 可见区域高度
    * @returns 阅读进度百分比 (0-100)
    */
-  static calculateReadingProgress(scrollTop: number, scrollHeight: number, clientHeight: number): number {
+  static calculateReadingProgress(
+    scrollTop: number,
+    scrollHeight: number,
+    clientHeight: number
+  ): number {
     if (scrollHeight <= clientHeight) {
       return 100; // 内容完全可见
     }
@@ -455,7 +488,8 @@ export class FileProcessingUtils {
       indexedDB: typeof indexedDB !== 'undefined',
       fileReader: typeof FileReader !== 'undefined',
       localStorage: typeof localStorage !== 'undefined',
-      fileSystemAPI: typeof window !== 'undefined' && 'showDirectoryPicker' in window,
+      fileSystemAPI:
+        typeof window !== 'undefined' && 'showDirectoryPicker' in window,
     };
   }
 
@@ -466,7 +500,10 @@ export class FileProcessingUtils {
    */
   static sanitizeHtmlContent(htmlContent: string): string {
     // 移除script标签
-    let sanitized = htmlContent.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    let sanitized = htmlContent.replace(
+      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+      ''
+    );
 
     // 移除javascript: URLs
     sanitized = sanitized.replace(/javascript:[^"']*/gi, '#');
@@ -476,7 +513,10 @@ export class FileProcessingUtils {
     sanitized = sanitized.replace(/on\w+='[^']*'/gi, '');
 
     // 移除form标签（防止意外提交）
-    sanitized = sanitized.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '');
+    sanitized = sanitized.replace(
+      /<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi,
+      ''
+    );
 
     return sanitized;
   }
@@ -488,8 +528,8 @@ export class FileProcessingUtils {
    */
   static compressHtmlContent(htmlContent: string): string {
     return htmlContent
-      .replace(/\s+/g, ' ')  // 将多个空白字符替换为单个空格
-      .replace(/>\s+</g, '><')  // 移除标签间的空白
+      .replace(/\s+/g, ' ') // 将多个空白字符替换为单个空格
+      .replace(/>\s+</g, '><') // 移除标签间的空白
       .trim();
   }
 
@@ -499,7 +539,10 @@ export class FileProcessingUtils {
    * @param wordsPerMinute 阅读速度（词/分钟）
    * @returns 估算的阅读时间（分钟）
    */
-  static estimateReadingTime(htmlContent: string, wordsPerMinute = 200): number {
+  static estimateReadingTime(
+    htmlContent: string,
+    wordsPerMinute = 200
+  ): number {
     try {
       const parser = new DOMParser();
       const doc = parser.parseFromString(htmlContent, 'text/html');
@@ -552,14 +595,17 @@ export class CollectionUtils {
     array: T[],
     keySelector: (item: T) => K
   ): Record<K, T[]> {
-    return array.reduce((groups, item) => {
-      const key = keySelector(item);
-      if (!groups[key]) {
-        groups[key] = [];
-      }
-      groups[key].push(item);
-      return groups;
-    }, {} as Record<K, T[]>);
+    return array.reduce(
+      (groups, item) => {
+        const key = keySelector(item);
+        if (!groups[key]) {
+          groups[key] = [];
+        }
+        groups[key].push(item);
+        return groups;
+      },
+      {} as Record<K, T[]>
+    );
   }
 
   /**
@@ -654,7 +700,9 @@ export class StorageUtils {
       if ('storage' in navigator && 'estimate' in navigator.storage) {
         const estimate = await navigator.storage.estimate();
         return {
-          available: estimate.quota ? estimate.quota - (estimate.usage || 0) : 0,
+          available: estimate.quota
+            ? estimate.quota - (estimate.usage || 0)
+            : 0,
           used: estimate.usage || 0,
           quota: estimate.quota || 0,
         };
@@ -684,7 +732,7 @@ export class StorageUtils {
         if (key.startsWith(keyPrefix)) {
           try {
             const item = JSON.parse(localStorage.getItem(key) || '{}');
-            if (item.timestamp && (now - item.timestamp) > maxAge) {
+            if (item.timestamp && now - item.timestamp > maxAge) {
               localStorage.removeItem(key);
             }
           } catch {

@@ -29,7 +29,8 @@ export interface NotionWebhookResponse {
 }
 
 class NotionWebhookService {
-  private readonly NOTION_API_KEY = process.env.NOTION_API_KEY || 'YOUR_NOTION_API_TOKEN';
+  private readonly NOTION_API_KEY =
+    process.env.NOTION_API_KEY ?? 'YOUR_NOTION_API_TOKEN';
   private readonly NOTION_API_BASE = 'https://api.notion.com/v1';
   private readonly DEFAULT_DATABASE_ID = '266efdb673e08067908be152e0be1cdb';
 
@@ -40,7 +41,7 @@ class NotionWebhookService {
     try {
       // 从Notion分享链接中提取数据库ID
       const match = url.match(/\/([a-f0-9]{32})\?/);
-      return match ? match[1] : this.DEFAULT_DATABASE_ID;
+      return match && match[1] ? match[1] : this.DEFAULT_DATABASE_ID;
     } catch (error) {
       console.warn('无法从URL提取数据库ID，使用默认ID:', error);
       return this.DEFAULT_DATABASE_ID;
@@ -55,16 +56,20 @@ class NotionWebhookService {
 
     // 排序配置
     if (request.sortBy) {
-      body.sorts = [{
-        property: request.sortBy,
-        direction: request.sortDirection || 'descending'
-      }];
+      body.sorts = [
+        {
+          property: request.sortBy,
+          direction: request.sortDirection || 'descending',
+        },
+      ];
     } else {
       // 默认按创建时间降序排序
-      body.sorts = [{
-        property: '创建时间',
-        direction: 'descending'
-      }];
+      body.sorts = [
+        {
+          property: '创建时间',
+          direction: 'descending',
+        },
+      ];
     }
 
     // 过滤器
@@ -87,23 +92,26 @@ class NotionWebhookService {
   /**
    * 调用Notion API获取数据库数据
    */
-  private async callNotionAPI(databaseId: string, requestBody: any): Promise<any> {
+  private async callNotionAPI(
+    databaseId: string,
+    requestBody: any
+  ): Promise<any> {
     const url = `${this.NOTION_API_BASE}/databases/${databaseId}/query`;
 
     console.log('🔗 调用Notion API:', {
       url,
       method: 'POST',
-      body: requestBody
+      body: requestBody,
     });
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.NOTION_API_KEY}`,
+        Authorization: `Bearer ${this.NOTION_API_KEY}`,
         'Notion-Version': '2022-06-28',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
     });
 
     console.log('📡 Notion API响应状态:', response.status, response.statusText);
@@ -111,7 +119,9 @@ class NotionWebhookService {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ Notion API错误:', errorText);
-      throw new Error(`Notion API请求失败: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Notion API请求失败: ${response.status} ${response.statusText}`
+      );
     }
 
     const data = await response.json();
@@ -119,7 +129,7 @@ class NotionWebhookService {
       hasResults: !!data.results,
       resultCount: data.results?.length || 0,
       hasMore: data.has_more,
-      nextCursor: data.next_cursor
+      nextCursor: data.next_cursor,
     });
 
     return data;
@@ -145,7 +155,7 @@ class NotionWebhookService {
           createdTime: item.created_time,
           lastEditedTime: item.last_edited_time,
           url: item.url,
-          fields: {}
+          fields: {},
         };
 
         // 处理各个属性
@@ -166,7 +176,8 @@ class NotionWebhookService {
               processedItem.fields[key] = prop.select?.name || '';
               break;
             case 'multi_select':
-              processedItem.fields[key] = prop.multi_select?.map((item: any) => item.name) || [];
+              processedItem.fields[key] =
+                prop.multi_select?.map((item: any) => item.name) || [];
               break;
             case 'date':
               processedItem.fields[key] = prop.date?.start || '';
@@ -188,7 +199,7 @@ class NotionWebhookService {
         return {
           id: item.id || `error-${index}`,
           error: `数据处理失败: ${error instanceof Error ? error.message : '未知错误'}`,
-          rawData: item
+          rawData: item,
         };
       }
     });
@@ -197,16 +208,21 @@ class NotionWebhookService {
   /**
    * 主webhook处理方法
    */
-  async handleWebhook(request: NotionWebhookRequest): Promise<NotionWebhookResponse> {
+  async handleWebhook(
+    request: NotionWebhookRequest
+  ): Promise<NotionWebhookResponse> {
     const startTime = Date.now();
 
     try {
       console.log('🚀 开始处理Notion webhook请求:', request);
 
       // 确定数据库ID
-      const databaseId = request.databaseId ||
-                        (request.databaseUrl ? this.extractDatabaseId(request.databaseUrl) : null) ||
-                        this.DEFAULT_DATABASE_ID;
+      const databaseId =
+        request.databaseId ||
+        (request.databaseUrl
+          ? this.extractDatabaseId(request.databaseUrl)
+          : null) ||
+        this.DEFAULT_DATABASE_ID;
 
       console.log('📊 使用数据库ID:', databaseId);
 
@@ -225,20 +241,21 @@ class NotionWebhookService {
         data: processedData,
         pagination: {
           hasMore: rawData.has_more || false,
-          nextCursor: rawData.next_cursor
+          nextCursor: rawData.next_cursor,
         },
         metadata: {
           totalRecords: processedData.length,
           databaseId,
-          requestTime: new Date().toISOString()
-        }
+          requestTime: new Date().toISOString(),
+        },
       };
 
       const processingTime = Date.now() - startTime;
-      console.log(`✅ Webhook处理完成，耗时: ${processingTime}ms，返回 ${processedData.length} 条记录`);
+      console.log(
+        `✅ Webhook处理完成，耗时: ${processingTime}ms，返回 ${processedData.length} 条记录`
+      );
 
       return response;
-
     } catch (error) {
       console.error('❌ Webhook处理失败:', error);
 
@@ -247,8 +264,8 @@ class NotionWebhookService {
         error: error instanceof Error ? error.message : '未知错误',
         metadata: {
           databaseId: request.databaseId || this.DEFAULT_DATABASE_ID,
-          requestTime: new Date().toISOString()
-        }
+          requestTime: new Date().toISOString(),
+        },
       };
     }
   }
@@ -256,29 +273,37 @@ class NotionWebhookService {
   /**
    * 便捷方法：获取默认数据库数据
    */
-  async getDefaultDatabaseData(sortBy = '创建时间', limit = 50): Promise<NotionWebhookResponse> {
+  async getDefaultDatabaseData(
+    sortBy = '创建时间',
+    limit = 50
+  ): Promise<NotionWebhookResponse> {
     return this.handleWebhook({
       databaseId: this.DEFAULT_DATABASE_ID,
       sortBy,
       sortDirection: 'descending',
-      pageSize: limit
+      pageSize: limit,
     });
   }
 
   /**
    * 测试连接
    */
-  async testConnection(databaseId = this.DEFAULT_DATABASE_ID): Promise<boolean> {
+  async testConnection(
+    databaseId = this.DEFAULT_DATABASE_ID
+  ): Promise<boolean> {
     try {
       console.log('🧪 测试Notion API连接...');
 
-      const response = await fetch(`${this.NOTION_API_BASE}/databases/${databaseId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.NOTION_API_KEY}`,
-          'Notion-Version': '2022-06-28',
+      const response = await fetch(
+        `${this.NOTION_API_BASE}/databases/${databaseId}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${this.NOTION_API_KEY}`,
+            'Notion-Version': '2022-06-28',
+          },
         }
-      });
+      );
 
       console.log('🔍 连接测试结果:', response.status, response.statusText);
 
@@ -286,7 +311,7 @@ class NotionWebhookService {
         const data = await response.json();
         console.log('✅ 连接成功，数据库信息:', {
           title: data.title?.[0]?.plain_text || '未知',
-          id: data.id
+          id: data.id,
         });
         return true;
       } else {

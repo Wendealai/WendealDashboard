@@ -15,7 +15,7 @@ import type {
  * 提供与Airtable API的交互功能
  */
 export class AirtableService {
-  private base: Airtable.Base;
+  private base: any;
   private config: AirtableConfig;
   private retryCount = 3;
   private retryDelay = 1000; // 1 second
@@ -29,13 +29,13 @@ export class AirtableService {
 
     // 初始化Airtable连接 (开发环境使用代理路径解决CORS问题)
     const isDev = process.env.NODE_ENV === 'development';
-    Airtable.configure({
+    (Airtable as any).configure({
       apiKey: config.apiKey,
       endpointUrl: isDev ? '/airtable' : 'https://api.airtable.com',
       requestTimeout: 30000, // 30 seconds
     });
 
-    this.base = new Airtable().base(config.baseId);
+    this.base = new (Airtable as any)().base(config.baseId);
   }
 
   /**
@@ -98,7 +98,7 @@ export class AirtableService {
           .all();
 
         // 转换记录格式
-        const convertedRecords = result.map(record => ({
+        const convertedRecords = result.map((record: any) => ({
           id: record.id,
           fields: record.fields as OpportunityRecord['fields'],
           createdTime: record._rawJson.createdTime,
@@ -168,13 +168,16 @@ export class AirtableService {
       };
     } catch (error) {
       console.error('Airtable create record error details:');
-      console.error('- Error message:', error.message);
-      console.error('- Error status:', error.status);
-      console.error('- Error statusText:', error.statusText);
+      if (error instanceof Error) {
+        console.error('- Error message:', error.message);
+      }
+      const errorObj = error as any;
+      console.error('- Error status:', errorObj?.status);
+      console.error('- Error statusText:', errorObj?.statusText);
       console.error('- Fields being sent:', JSON.stringify(fields, null, 2));
 
       // 如果是422错误，提供更具体的错误信息
-      if (error.status === 422) {
+      if (errorObj?.status === 422) {
         console.error('422 Unprocessable Entity - Possible causes:');
         console.error('1. Field names do not match Airtable schema');
         console.error('2. Required fields are missing');
@@ -239,7 +242,7 @@ export class AirtableService {
         records
       );
 
-      return createdRecords.map(record => ({
+      return createdRecords.map((record: any) => ({
         id: record.id,
         fields: record.fields as OpportunityRecord['fields'],
         createdTime: record._rawJson.createdTime,
@@ -279,10 +282,15 @@ export class AirtableService {
       const filterByFormula =
         conditions.length > 0 ? `AND(${conditions.join(', ')})` : undefined;
 
-      return await this.getAllRecords({
-        filterByFormula,
-        maxRecords: searchCriteria.limit,
-      });
+      const options: Parameters<typeof this.getAllRecords>[0] = {};
+      if (filterByFormula) {
+        options.filterByFormula = filterByFormula;
+      }
+      if (searchCriteria.limit) {
+        options.maxRecords = searchCriteria.limit;
+      }
+
+      return await this.getAllRecords(options);
     } catch (error) {
       throw this.handleError(error, 'Failed to search records');
     }
@@ -365,39 +373,6 @@ export class AirtableService {
     (enhancedError as any).originalError = error;
 
     return enhancedError;
-  }
-
-  /**
-   * 重试机制
-   * @param operation 要重试的操作
-   * @param maxRetries 最大重试次数
-   * @returns 操作结果
-   */
-  private async withRetry<T>(
-    operation: () => Promise<T>,
-    maxRetries: number = this.retryCount
-  ): Promise<T> {
-    let lastError: any;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return await operation();
-      } catch (error) {
-        lastError = error;
-
-        // 如果是最后一次尝试，抛出错误
-        if (attempt === maxRetries) {
-          break;
-        }
-
-        // 等待重试延迟
-        await new Promise(resolve =>
-          setTimeout(resolve, this.retryDelay * attempt)
-        );
-      }
-    }
-
-    throw lastError;
   }
 }
 

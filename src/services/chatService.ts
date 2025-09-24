@@ -343,7 +343,7 @@ class ChatService {
   }
 
   // 模拟聊天功能（当n8n服务不可用时使用）
-  async sendMessageMock(message: string): Promise<string> {
+  async sendMessageMock(_message: string): Promise<string> {
     // 模拟网络延迟
     await new Promise(resolve =>
       setTimeout(resolve, 1000 + Math.random() * 2000)
@@ -367,7 +367,7 @@ class ChatService {
   }
 
   // 获取聊天历史（如果需要的话）
-  async getChatHistory(sessionId: string): Promise<ChatMessage[]> {
+  async getChatHistory(_sessionId: string): Promise<ChatMessage[]> {
     // 这里可以实现从数据库或缓存中获取聊天历史
     // 目前返回空数组
     return [];

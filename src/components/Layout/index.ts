@@ -1,9 +1,9 @@
 // Export all layout components
 export { default as MainLayout } from './MainLayout';
 export { default as WhatsNewPanel } from './WhatsNewPanel';
+export { default } from './Layout';
 
 // Export component Props interfaces and types
-export type { MainLayoutProps } from './MainLayout';
 export type { WhatsNewItem, WhatsNewPanelProps } from './WhatsNewPanel';
 
 // Re-export components from other directories that are commonly used in layout

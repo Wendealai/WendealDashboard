@@ -5,9 +5,7 @@
  */
 
 import Airtable from 'airtable';
-import type {
-  ViralContentRecord,
-} from '@/pages/SocialMedia/types';
+import type { ViralContentRecord } from '@/pages/SocialMedia/types';
 
 /**
  * TK Viral Extract Airtable配置
@@ -16,7 +14,7 @@ export interface TKViralExtractAirtableConfig {
   apiKey: string;
   baseId: string;
   tableName: string;
-  viewName?: string;
+  viewName?: string | undefined;
 }
 
 /**
@@ -80,25 +78,30 @@ export class TKViralExtractAirtableService {
       if (maxRecords !== undefined) {
         selectParams.maxRecords = maxRecords;
       }
+      if (view !== undefined && view !== '') {
+        selectParams.view = view;
+      }
 
       this.base(this.config.tableName)
         .select(selectParams)
         .eachPage(
           (pageRecords, fetchNextPage) => {
             // 处理当前页的记录
-            pageRecords.forEach((record) => {
+            pageRecords.forEach(record => {
               records.push(this.convertAirtableRecord(record));
             });
 
             // 获取下一页
             fetchNextPage();
           },
-          (err) => {
+          err => {
             if (err) {
               console.error('Airtable API error:', err);
               reject(err);
             } else {
-              console.log(`Successfully fetched ${records.length} records from Airtable`);
+              console.log(
+                `Successfully fetched ${records.length} records from Airtable`
+              );
               resolve(records);
             }
           }
@@ -148,7 +151,10 @@ export class TKViralExtractAirtableService {
     fields: Record<string, any>
   ): Promise<ViralContentRecord> {
     try {
-      const record = await this.base(this.config.tableName).update(recordId, fields);
+      const record = await this.base(this.config.tableName).update(
+        recordId,
+        fields
+      );
       console.log('Record updated successfully:', recordId);
       return this.convertAirtableRecord(record);
     } catch (error) {
@@ -208,8 +214,8 @@ export class TKViralExtractAirtableService {
     }
 
     // 构建搜索公式
-    const searchConditions = fields.map(field =>
-      `FIND("${keyword.toLowerCase()}", LOWER({${field}}))`
+    const searchConditions = fields.map(
+      field => `FIND("${keyword.toLowerCase()}", LOWER({${field}}))`
     );
 
     const filterByFormula = `OR(${searchConditions.join(', ')})`;
@@ -251,14 +257,14 @@ export class TKViralExtractAirtableService {
       return {
         totalRecords: allRecords.length,
         platformStats,
-        recentRecords
+        recentRecords,
       };
     } catch (error) {
       console.error('Failed to get statistics:', error);
       return {
         totalRecords: 0,
         platformStats: {},
-        recentRecords: 0
+        recentRecords: 0,
       };
     }
   }
@@ -272,19 +278,38 @@ export class TKViralExtractAirtableService {
     return {
       id: record.id,
       fields: {
-        title: record.fields['标题'] || record.fields['Title'] || record.fields['Name'] || '',
-        content: record.fields['内容'] || record.fields['Content'] || record.fields['Description'] || '',
+        title:
+          record.fields['标题'] ||
+          record.fields['Title'] ||
+          record.fields['Name'] ||
+          '',
+        content:
+          record.fields['内容'] ||
+          record.fields['Content'] ||
+          record.fields['Description'] ||
+          '',
         platform: record.fields['平台'] || record.fields['Platform'] || '未知',
-        views: record.fields['播放量'] || record.fields['观看量'] || record.fields['Views'] || 0,
+        views:
+          record.fields['播放量'] ||
+          record.fields['观看量'] ||
+          record.fields['Views'] ||
+          0,
         likes: record.fields['点赞'] || record.fields['Likes'] || 0,
         shares: record.fields['分享'] || record.fields['Shares'] || 0,
-        creator: record.fields['创作者'] || record.fields['Creator'] || record.fields['Author'] || '',
-        viralScore: record.fields['病毒得分'] || record.fields['Viral Score'] || 0,
-        url: record.fields['链接'] || record.fields['URL'] || record.fields['Link'] || '',
-        contactInfo: record.fields['联系方式'] || record.fields['Contact'] || '',
-        tags: record.fields['标签'] || record.fields['Tags'] || [],
-        createdTime: record.fields['创建时间'] || record.fields['Created Time'] || new Date().toISOString(),
-        updatedTime: record.fields['更新时间'] || record.fields['Updated Time'] || new Date().toISOString(),
+        creator:
+          record.fields['创作者'] ||
+          record.fields['Creator'] ||
+          record.fields['Author'] ||
+          '',
+        viralScore:
+          record.fields['病毒得分'] || record.fields['Viral Score'] || 0,
+        url:
+          record.fields['链接'] ||
+          record.fields['URL'] ||
+          record.fields['Link'] ||
+          '',
+        contactInfo:
+          record.fields['联系方式'] || record.fields['Contact'] || '',
       },
       createdTime: record._rawJson.createdTime || new Date().toISOString(),
     };
@@ -310,7 +335,9 @@ export class TKViralExtractAirtableService {
         console.warn(`Attempt ${attempt} failed:`, error);
 
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));
+          await new Promise(resolve =>
+            setTimeout(resolve, this.retryDelay * attempt)
+          );
         }
       }
     }
@@ -334,12 +361,14 @@ export const createTKViralExtractAirtableService = (
  * 默认TK Viral Extract Airtable配置
  */
 // TK Viral Extract Airtable配置 - 复制Smart Opportunities的API Key
-export const defaultTKViralExtractAirtableConfig: TKViralExtractAirtableConfig = {
-  apiKey: 'patvF8O4h3xC5tXjc.8abec7b543876df039967d9d841b65280c1602f64c079303e88cad4d00284b7e', // 复制Smart Opportunities的完整API Key
-  baseId: 'app6YKTV6RUW80S44', // Base ID from new URL
-  tableName: 'shrxS5YLNuAycKmQP', // 从新URL提取的标识符，尝试作为Table ID
-  viewName: undefined, // 移除view参数，与Smart Opportunities保持一致
-};
+export const defaultTKViralExtractAirtableConfig: TKViralExtractAirtableConfig =
+  {
+    apiKey:
+      'patvF8O4h3xC5tXjc.8abec7b543876df039967d9d841b65280c1602f64c079303e88cad4d00284b7e', // 复制Smart Opportunities的完整API Key
+    baseId: 'app6YKTV6RUW80S44', // Base ID from new URL
+    tableName: 'shrxS5YLNuAycKmQP', // 从新URL提取的标识符，尝试作为Table ID
+    viewName: undefined, // 移除view参数，与Smart Opportunities保持一致
+  };
 
 // ✅ CONFIGURATION UPDATED - 使用新URL: https://airtable.com/app6YKTV6RUW80S44/shrxS5YLNuAycKmQP
 //
@@ -376,12 +405,17 @@ export const defaultTKViralExtractAirtableConfig: TKViralExtractAirtableConfig =
  */
 export const debugAirtableConnection = async () => {
   console.log('🔍 Airtable Connection Debug Info:');
-  console.log('API Key (first 10 chars):', defaultTKViralExtractAirtableConfig.apiKey.substring(0, 10) + '...');
+  console.log(
+    'API Key (first 10 chars):',
+    defaultTKViralExtractAirtableConfig.apiKey.substring(0, 10) + '...'
+  );
   console.log('Base ID:', defaultTKViralExtractAirtableConfig.baseId);
   console.log('Table Name:', defaultTKViralExtractAirtableConfig.tableName);
   console.log('View Name:', defaultTKViralExtractAirtableConfig.viewName);
 
-  const service = createTKViralExtractAirtableService(defaultTKViralExtractAirtableConfig);
+  const service = createTKViralExtractAirtableService(
+    defaultTKViralExtractAirtableConfig
+  );
 
   try {
     console.log('🧪 Testing connection...');

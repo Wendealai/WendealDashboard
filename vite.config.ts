@@ -113,19 +113,19 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
         rewrite: (path) => '/v1/databases/' + path.replace('/webhook/notion-fetch/', '') + '/query',
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
             console.log('notion proxy error', err);
           });
-          proxy.on('proxyReq', (proxyReq, req, res) => {
+          proxy.on('proxyReq', (proxyReq, _req, _res) => {
             // 添加Notion API所需的headers
             proxyReq.setHeader('Authorization', `Bearer ${process.env.NOTION_API_KEY || 'YOUR_NOTION_API_TOKEN'}`);
             proxyReq.setHeader('Notion-Version', '2022-06-28');
             proxyReq.setHeader('Content-Type', 'application/json');
-            console.log('Notion API Request:', req.method, req.url);
+            console.log('Notion API Request:', _req.method, _req.url);
           });
-          proxy.on('proxyRes', (proxyRes, req, res) => {
-            console.log('Notion API Response:', proxyRes.statusCode, req.url);
+          proxy.on('proxyRes', (proxyRes, _req, _res) => {
+            console.log('Notion API Response:', proxyRes.statusCode, _req.url);
           });
         },
       },

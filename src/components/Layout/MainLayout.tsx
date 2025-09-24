@@ -36,7 +36,6 @@ import './index.css';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  BellOutlined,
   UserOutlined,
   SettingOutlined,
   LogoutOutlined,

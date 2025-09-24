@@ -30,7 +30,13 @@ export type { ApiResponse, PaginatedResponse } from './api';
 export * from './auth';
 export * from './dashboard';
 export * from './notification';
-export * from './dashboardService';
+export type { DashboardStats as DashboardServiceStats } from './dashboardService';
+export {
+  fetchDashboardStats,
+  fetchRecentActivities,
+  fetchSystemStatus,
+  refreshDashboardData,
+} from './dashboardService';
 
 // 导出认证服务接口
 export type {

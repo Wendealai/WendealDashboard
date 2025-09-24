@@ -21,8 +21,29 @@ export type {
 
 // 通知相关类型
 export {
-  type NotificationItem,
-  type NotificationCenterProps,
+  type Notification,
+  type NotificationError,
+  type NotificationType,
+  type NotificationPriority,
+  type NotificationStatus,
+  type NotificationCategory,
+  type NotificationMetadata,
+  type NotificationAction,
+  type NotificationSource,
+  type NotificationSettings,
+  type NotificationAnalytics,
+  type NotificationFilter,
+  type NotificationListResponse,
+  type NotificationObserver,
+  type WebSocketMessage,
+  type NotificationTemplate,
+  type ApiResponse,
+  type PaginatedResponse,
+  type NotificationEvent,
+  type NotificationStorage,
+  type NotificationCreateInput,
+  type NotificationUpdateInput,
+  type NotificationSettingsUpdateInput,
 } from './notification';
 
 // Reddit工作流相关类型
@@ -140,7 +161,4 @@ export type {
 } from './rndReport';
 
 // 导出默认分类和配置
-export {
-  DEFAULT_CATEGORIES,
-  DEFAULT_RND_REPORT_CONFIG,
-} from './rndReport';
+export { DEFAULT_CATEGORIES, DEFAULT_RND_REPORT_CONFIG } from './rndReport';

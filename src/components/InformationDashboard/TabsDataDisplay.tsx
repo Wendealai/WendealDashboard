@@ -57,7 +57,7 @@ const TabsDataDisplay: React.FC<TabsDataDisplayProps> = ({
 }) => {
   // Internal state management for currently active tab
   const [internalActiveKey, setInternalActiveKey] = useState<string>(
-    activeKey || (tabs.length > 0 ? tabs[0].key : '')
+    activeKey || (tabs.length > 0 ? tabs[0]?.key || '' : '')
   );
 
   // Get currently active tab key

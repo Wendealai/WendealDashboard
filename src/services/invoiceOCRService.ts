@@ -821,12 +821,24 @@ export class InvoiceOCRService {
       // 取第一个结果作为主要数据源
       const primaryResult = webhookResponse.results[0];
 
+      if (
+        !primaryResult ||
+        !primaryResult.summary ||
+        !primaryResult.financialSummary ||
+        !primaryResult.processingDetails ||
+        !primaryResult.qualityMetrics ||
+        !Array.isArray(primaryResult.recommendations)
+      ) {
+        console.warn('No primary result found in webhook response');
+        return null;
+      }
+
       return {
-        summary: primaryResult.summary,
-        financialSummary: primaryResult.financialSummary,
-        processingDetails: primaryResult.processingDetails,
-        qualityMetrics: primaryResult.qualityMetrics,
-        recommendations: primaryResult.recommendations,
+        summary: primaryResult!.summary,
+        financialSummary: primaryResult!.financialSummary,
+        processingDetails: primaryResult!.processingDetails,
+        qualityMetrics: primaryResult!.qualityMetrics,
+        recommendations: primaryResult!.recommendations,
       };
     } catch (error) {
       console.error('Failed to process enhanced webhook response:', error);

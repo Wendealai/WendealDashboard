@@ -41,8 +41,8 @@ export class LocalAuthService implements IAuthService {
       permissions: ['perm-001', 'perm-002', 'perm-003', 'perm-004'],
       isActive: true,
       createdAt: '2024-01-01T00:00:00.000Z',
-      updatedAt: new Date().toISOString(),
-      lastLoginAt: undefined as string | undefined,
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      lastLoginAt: '2024-01-01T00:00:00.000Z',
     },
     {
       id: 'user-001',
@@ -55,8 +55,8 @@ export class LocalAuthService implements IAuthService {
       permissions: ['dashboard.read'],
       isActive: true,
       createdAt: '2024-01-01T00:00:00.000Z',
-      updatedAt: new Date().toISOString(),
-      lastLoginAt: undefined as string | undefined,
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      lastLoginAt: '2024-01-01T00:00:00.000Z',
     },
     {
       id: 'wendeal-001',
@@ -69,8 +69,8 @@ export class LocalAuthService implements IAuthService {
       permissions: ['perm-001', 'perm-002', 'perm-003', 'perm-004'],
       isActive: true,
       createdAt: '2024-01-01T00:00:00.000Z',
-      updatedAt: new Date().toISOString(),
-      lastLoginAt: undefined as string | undefined,
+      updatedAt: '2024-01-01T00:00:00.000Z',
+      lastLoginAt: '2024-01-01T00:00:00.000Z',
     },
   ];
 
@@ -136,9 +136,10 @@ export class LocalAuthService implements IAuthService {
     const refreshToken = this.generateRefreshToken(user.id);
 
     // 更新用户最后登录时间
-    const updatedUser = {
+    const updatedUser: User = {
       ...user,
-      lastLoginAt: new Date(),
+      lastLoginAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // 设置认证状态
@@ -211,7 +212,7 @@ export class LocalAuthService implements IAuthService {
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      lastLoginAt: undefined as string | undefined,
+      lastLoginAt: new Date().toISOString(),
     };
 
     // 添加到测试用户列表
@@ -283,10 +284,11 @@ export class LocalAuthService implements IAuthService {
       throw this.createAuthError(AuthErrorType.TOKEN_INVALID, '用户未登录');
     }
 
-    const updatedUser = {
+    const updatedUser: User = {
       ...this.currentUser,
       ...data,
-      updatedAt: new Date(),
+      updatedAt: new Date().toISOString(),
+      lastLoginAt: this.currentUser.lastLoginAt || new Date().toISOString(),
     };
 
     this.currentUser = updatedUser;
@@ -455,7 +457,12 @@ export class LocalAuthService implements IAuthService {
   }
 
   addTestUser(user: User, password: string): void {
-    this.testUsers.push(user);
+    const userWithDefaults: User = {
+      ...user,
+      lastLoginAt: user.lastLoginAt || new Date().toISOString(),
+      updatedAt: user.updatedAt || new Date().toISOString(),
+    };
+    this.testUsers.push(userWithDefaults);
     this.testPasswords[user.username] = password;
   }
 }

@@ -1,5 +1,6 @@
 // Export all components here
 export { default as Layout } from './Layout';
+export { MainLayout } from './Layout';
 
 // Export common components
 export * from './common';

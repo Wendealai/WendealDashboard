@@ -21,9 +21,11 @@ export class FileSystemManager {
    * Check if File System Access API is supported
    */
   static isFileSystemAPISupported(): boolean {
-    return typeof window !== 'undefined' &&
-           'showDirectoryPicker' in window &&
-           'getAsFileSystemHandle' in DataTransferItem.prototype;
+    return (
+      typeof window !== 'undefined' &&
+      'showDirectoryPicker' in window &&
+      'getAsFileSystemHandle' in DataTransferItem.prototype
+    );
   }
 
   /**
@@ -31,12 +33,14 @@ export class FileSystemManager {
    */
   async requestDirectoryAccess(): Promise<boolean> {
     if (!FileSystemManager.isFileSystemAPISupported()) {
-      console.warn('File System Access API not supported, using localStorage fallback');
+      console.warn(
+        'File System Access API not supported, using localStorage fallback'
+      );
       return false;
     }
 
     try {
-      this.directoryHandle = await window.showDirectoryPicker({
+      this.directoryHandle = await (window as any).showDirectoryPicker({
         mode: 'readwrite',
         startIn: 'documents',
       });
@@ -59,7 +63,9 @@ export class FileSystemManager {
     if (!this.directoryHandle) return;
 
     try {
-      await this.directoryHandle.getDirectoryHandle(this.basePath, { create: true });
+      await this.directoryHandle.getDirectoryHandle(this.basePath, {
+        create: true,
+      });
     } catch (error) {
       console.error('Failed to create base directory:', error);
     }
@@ -72,7 +78,9 @@ export class FileSystemManager {
     if (!this.directoryHandle) return null;
 
     try {
-      return await this.directoryHandle.getDirectoryHandle(this.basePath, { create: true });
+      return await this.directoryHandle.getDirectoryHandle(this.basePath, {
+        create: true,
+      });
     } catch (error) {
       console.error('Failed to get base directory:', error);
       return null;
@@ -90,14 +98,19 @@ export class FileSystemManager {
       try {
         const baseDir = await this.getBaseDirectory();
         if (baseDir) {
-          const fileHandle = await baseDir.getFileHandle(fileId, { create: true });
+          const fileHandle = await baseDir.getFileHandle(fileId, {
+            create: true,
+          });
           const writable = await fileHandle.createWritable();
           await writable.write(content);
           await writable.close();
           return fileId;
         }
       } catch (error) {
-        console.warn('File System API save failed, falling back to localStorage:', error);
+        console.warn(
+          'File System API save failed, falling back to localStorage:',
+          error
+        );
       }
     }
 
@@ -106,7 +119,9 @@ export class FileSystemManager {
       localStorage.setItem(`rnd-report-file-${fileId}`, content);
       return fileId;
     } catch (error) {
-      throw new Error(`Failed to save file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to save file: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -124,7 +139,10 @@ export class FileSystemManager {
           return await file.text();
         }
       } catch (error) {
-        console.warn('File System API load failed, falling back to localStorage:', error);
+        console.warn(
+          'File System API load failed, falling back to localStorage:',
+          error
+        );
       }
     }
 
@@ -136,7 +154,9 @@ export class FileSystemManager {
       }
       return content;
     } catch (error) {
-      throw new Error(`Failed to load file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to load file: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -153,7 +173,10 @@ export class FileSystemManager {
           return;
         }
       } catch (error) {
-        console.warn('File System API delete failed, falling back to localStorage:', error);
+        console.warn(
+          'File System API delete failed, falling back to localStorage:',
+          error
+        );
       }
     }
 
@@ -161,7 +184,9 @@ export class FileSystemManager {
     try {
       localStorage.removeItem(`rnd-report-file-${fileId}`);
     } catch (error) {
-      throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -199,7 +224,10 @@ export class FileSystemManager {
           };
         }
       } catch (error) {
-        console.warn('File System API metadata failed, falling back to localStorage:', error);
+        console.warn(
+          'File System API metadata failed, falling back to localStorage:',
+          error
+        );
       }
     }
 
@@ -231,7 +259,7 @@ export class FileSystemManager {
       try {
         const baseDir = await this.getBaseDirectory();
         if (baseDir) {
-          for await (const [name, handle] of baseDir.entries()) {
+          for await (const [name, handle] of (baseDir as any).entries()) {
             if (handle.kind === 'file') {
               const file = await handle.getFile();
               files.push({
@@ -247,7 +275,10 @@ export class FileSystemManager {
           return files;
         }
       } catch (error) {
-        console.warn('File System API list failed, falling back to localStorage:', error);
+        console.warn(
+          'File System API list failed, falling back to localStorage:',
+          error
+        );
       }
     }
 
@@ -259,14 +290,14 @@ export class FileSystemManager {
           const fileId = key.replace('rnd-report-file-', '');
           const content = localStorage.getItem(key);
           if (content) {
-              files.push({
-                name: fileId,
-                path: `${this.basePath}/${fileId}`,
-                type: 'file',
-                size: new Blob([content]).size,
-                modifiedAt: new Date(), // localStorage doesn't track modification time
-                isDirectory: false,
-              });
+            files.push({
+              name: fileId,
+              path: `${this.basePath}/${fileId}`,
+              type: 'file',
+              size: new Blob([content]).size,
+              modifiedAt: new Date(), // localStorage doesn't track modification time
+              isDirectory: false,
+            });
           }
         }
       }
@@ -290,7 +321,9 @@ export class FileSystemManager {
       const totalSize = files.reduce((sum, file) => sum + (file.size || 0), 0);
 
       // Estimate available space (rough approximation)
-      const available = this.directoryHandle ? 500 * 1024 * 1024 : 5 * 1024 * 1024; // 500MB or 5MB
+      const available = this.directoryHandle
+        ? 500 * 1024 * 1024
+        : 5 * 1024 * 1024; // 500MB or 5MB
 
       return {
         used: totalSize,
@@ -316,7 +349,7 @@ export class FileSystemManager {
       try {
         const baseDir = await this.getBaseDirectory();
         if (baseDir) {
-          for await (const [name, handle] of baseDir.entries()) {
+          for await (const [name, handle] of (baseDir as any).entries()) {
             if (handle.kind === 'file') {
               await baseDir.removeEntry(name);
             }
@@ -324,7 +357,10 @@ export class FileSystemManager {
           return;
         }
       } catch (error) {
-        console.warn('File System API clear failed, falling back to localStorage:', error);
+        console.warn(
+          'File System API clear failed, falling back to localStorage:',
+          error
+        );
       }
     }
 
@@ -337,7 +373,9 @@ export class FileSystemManager {
         }
       }
     } catch (error) {
-      throw new Error(`Failed to clear files: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to clear files: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -371,7 +409,8 @@ export class FileSystemManager {
  * Provides efficient file operations with memory caching
  */
 export class CachedFileStorage extends FileSystemManager {
-  private cache: Map<string, { content: string; timestamp: number }> = new Map();
+  private cache: Map<string, { content: string; timestamp: number }> =
+    new Map();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   constructor(basePath: string = 'rnd-reports') {
@@ -381,10 +420,10 @@ export class CachedFileStorage extends FileSystemManager {
   /**
    * Load file with caching
    */
-  async loadFile(fileId: string): Promise<string> {
+  override async loadFile(fileId: string): Promise<string> {
     // Check cache first
     const cached = this.cache.get(fileId);
-    if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
       return cached.content;
     }
 
@@ -400,7 +439,7 @@ export class CachedFileStorage extends FileSystemManager {
   /**
    * Save file and update cache
    */
-  async saveFile(fileName: string, content: string): Promise<string> {
+  override async saveFile(fileName: string, content: string): Promise<string> {
     const fileId = await super.saveFile(fileName, content);
 
     // Update cache
@@ -412,7 +451,7 @@ export class CachedFileStorage extends FileSystemManager {
   /**
    * Delete file and remove from cache
    */
-  async deleteFile(fileId: string): Promise<void> {
+  override async deleteFile(fileId: string): Promise<void> {
     await super.deleteFile(fileId);
 
     // Remove from cache
@@ -454,7 +493,9 @@ export class FileSystemUtils {
    */
   static getFileExtension(fileName: string): string {
     const lastDotIndex = fileName.lastIndexOf('.');
-    return lastDotIndex !== -1 ? fileName.substring(lastDotIndex + 1).toLowerCase() : '';
+    return lastDotIndex !== -1
+      ? fileName.substring(lastDotIndex + 1).toLowerCase()
+      : '';
   }
 
   /**
@@ -464,8 +505,10 @@ export class FileSystemUtils {
     const htmlTypes = ['text/html', 'application/xhtml+xml'];
     const htmlExtensions = ['html', 'htm', 'xhtml'];
 
-    return htmlTypes.includes(file.type) ||
-           htmlExtensions.includes(this.getFileExtension(file.name));
+    return (
+      htmlTypes.includes(file.type) ||
+      htmlExtensions.includes(this.getFileExtension(file.name))
+    );
   }
 
   /**
@@ -497,15 +540,18 @@ export class FileSystemUtils {
    */
   static compressHtml(html: string): string {
     return html
-      .replace(/\s+/g, ' ')  // Replace multiple whitespace with single space
-      .replace(/>\s+</g, '><')  // Remove whitespace between tags
+      .replace(/\s+/g, ' ') // Replace multiple whitespace with single space
+      .replace(/>\s+</g, '><') // Remove whitespace between tags
       .trim();
   }
 
   /**
    * Estimate file read time
    */
-  static estimateReadTime(content: string, wordsPerMinute: number = 200): number {
+  static estimateReadTime(
+    content: string,
+    wordsPerMinute: number = 200
+  ): number {
     const words = content.trim().split(/\s+/).length;
     return Math.ceil(words / wordsPerMinute);
   }
@@ -540,7 +586,9 @@ export class FileSystemUtils {
 
       URL.revokeObjectURL(objectUrl);
     } catch (error) {
-      throw new Error(`Failed to download file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to download file: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 }
@@ -561,7 +609,9 @@ export class StorageQuotaUtils {
       if ('storage' in navigator && 'estimate' in navigator.storage) {
         const estimate = await navigator.storage.estimate();
         return {
-          available: estimate.quota ? estimate.quota - (estimate.usage || 0) : 0,
+          available: estimate.quota
+            ? estimate.quota - (estimate.usage || 0)
+            : 0,
           used: estimate.usage || 0,
           quota: estimate.quota || 0,
         };

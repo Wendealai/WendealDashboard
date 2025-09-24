@@ -31,12 +31,16 @@ const LanguageSwitch: React.FC<LanguageSwitchProps> = ({
   placement = 'bottomRight',
 }) => {
   const { t, i18n } = useTranslation();
-  const [currentLang, setCurrentLang] = useState(getCurrentLanguageInfo());
+  const [currentLang, setCurrentLang] = useState(
+    getCurrentLanguageInfo() || { key: 'en', label: 'English', flag: '🇺🇸' }
+  );
 
   // 监听语言变化
   useEffect(() => {
     const handleLanguageChange = () => {
-      setCurrentLang(getCurrentLanguageInfo());
+      setCurrentLang(
+        getCurrentLanguageInfo() || { key: 'en', label: 'English', flag: '🇺🇸' }
+      );
     };
 
     // 监听i18n语言变化事件

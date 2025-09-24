@@ -976,13 +976,12 @@ class InformationService {
       comments: post.numComments || 0,
       created: new Date(post.createdUtc * 1000).toLocaleString('zh-CN'),
       url: post.url,
-      thumbnail:
-        post.thumbnail &&
+      ...(post.thumbnail &&
         post.thumbnail !== 'self' &&
-        post.thumbnail !== 'default'
-          ? post.thumbnail
-          : undefined,
-      flair: post.linkFlairText,
+        post.thumbnail !== 'default' && {
+          thumbnail: post.thumbnail,
+        }),
+      ...(post.linkFlairText && { flair: post.linkFlairText }),
       isNsfw: post.over18 || false,
       isStickied: post.stickied || false,
     }));

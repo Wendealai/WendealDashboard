@@ -101,7 +101,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({
 
       const options: ExportOptions = {
         filename,
-        title,
+        title: title || '',
         columns,
         data,
         format,
@@ -112,10 +112,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({
       onExportComplete?.(format);
     } catch (error) {
       console.error('Export error:', error);
-      showError(
-        '导出失败，请重试',
-        error instanceof Error ? error.message : String(error)
-      );
+      showError('导出失败，请重试');
       onExportError?.(error as Error);
     } finally {
       setLoading(false);
@@ -149,10 +146,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({
       form.resetFields();
     } catch (error) {
       console.error('Export error:', error);
-      showError(
-        '导出失败，请重试',
-        error instanceof Error ? error.message : String(error)
-      );
+      showError('导出失败，请重试');
       onExportError?.(error as Error);
     } finally {
       setLoading(false);
@@ -260,8 +254,10 @@ const ExportButton: React.FC<ExportButtonProps> = ({
         </Form>
       </Modal>
       <ErrorModal
-        isVisible={isVisible}
-        errorInfo={errorInfo}
+        visible={isVisible}
+        title='导出错误'
+        message={errorInfo?.message || '导出过程中发生错误'}
+        {...(errorInfo?.details && { details: errorInfo.details })}
         onClose={hideError}
       />
     </>

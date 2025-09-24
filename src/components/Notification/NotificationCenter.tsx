@@ -2,16 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   Drawer,
   List,
-  Avatar,
   Badge,
   Button,
   Space,
   Typography,
-  Divider,
   Empty,
   Tabs,
   Tag,
-  Tooltip,
   Dropdown,
   Menu,
   message,
@@ -22,7 +19,6 @@ import {
   EyeOutlined,
   MoreOutlined,
   CheckOutlined,
-  ExclamationCircleOutlined,
   InfoCircleOutlined,
   WarningOutlined,
   CloseCircleOutlined,
@@ -35,14 +31,10 @@ import './NotificationCenter.scss';
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 import { notificationService } from '@/services/notificationService';
-import type {
-  Notification,
-  NotificationStatus,
-  NotificationCategory,
-} from '@/types/notification';
+import type { Notification } from '@/types/notification';
 import { useTranslation } from 'react-i18next';
 
 // Legacy NotificationItem interface for backward compatibility
@@ -103,10 +95,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('all');
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [notifications, setNotifications] =
     useState<NotificationItem[]>(propNotifications);
-  const [loading, setLoading] = useState(false);
 
   // 从notificationService加载通知
   useEffect(() => {
@@ -116,7 +106,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   }, [visible]);
 
   const loadNotifications = async () => {
-    setLoading(true);
     try {
       // 如果有传入的notifications，使用它们
       if (propNotifications.length > 0) {
@@ -133,8 +122,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     } catch (error) {
       console.error('Failed to load notifications:', error);
       message.error(t('notification.messages.loadFailed'));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -192,55 +179,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
       message.error(t('notification.messages.markAsReadFailed'));
-    }
-  };
-
-  // 全部标记为已读
-  const handleMarkAllAsRead = async () => {
-    try {
-      // 获取所有未读通知并逐个标记为已读
-      const unreadNotifications = notifications.filter(n => !n.read);
-      for (const notification of unreadNotifications) {
-        await notificationService.markAsRead(notification.id);
-      }
-      // 更新本地状态
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      // 调用外部回调
-      onMarkAllAsRead?.();
-    } catch (error) {
-      console.error('Failed to mark all notifications as read:', error);
-      message.error(t('notification.messages.markAllAsReadFailed'));
-    }
-  };
-
-  // 删除通知
-  const handleDelete = async (notificationId: string) => {
-    try {
-      await notificationService.deleteNotification(notificationId);
-      // 更新本地状态
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      // 调用外部回调
-      onDelete?.(notificationId);
-    } catch (error) {
-      console.error('Failed to delete notification:', error);
-      message.error(t('notification.messages.deleteFailed'));
-    }
-  };
-
-  // 清空所有通知
-  const handleClearAll = async () => {
-    try {
-      // 获取所有通知并逐个删除
-      for (const notification of notifications) {
-        await notificationService.deleteNotification(notification.id);
-      }
-      // 更新本地状态
-      setNotifications([]);
-      // 调用外部回调
-      onClearAll?.();
-    } catch (error) {
-      console.error('Failed to clear all notifications:', error);
-      message.error(t('notification.messages.clearAllFailed'));
     }
   };
 

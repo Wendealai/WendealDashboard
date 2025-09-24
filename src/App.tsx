@@ -87,6 +87,7 @@ const AppContent: React.FC = () => {
       case 'en-US':
         return enUS;
       case 'zh-CN':
+        return zhCN;
       default:
         return zhCN;
     }
