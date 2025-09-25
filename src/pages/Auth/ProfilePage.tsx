@@ -2,7 +2,7 @@ import React from 'react';
 import { Typography, Space, Card, Breadcrumb, Alert } from 'antd';
 import { HomeOutlined, UserOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { UserProfile, RequireRole } from '@/components/auth';
+import { UserProfile, RoleGuard } from '@/components/auth';
 import { useAuth } from '@/contexts/AuthContext';
 
 const { Title, Text } = Typography;
@@ -11,7 +11,7 @@ const ProfilePage: React.FC = () => {
   const { user } = useAuth();
 
   return (
-    <RequireRole
+    <RoleGuard
       allowedRoles={['admin', 'user']}
       fallback={
         <div style={{ padding: '24px' }}>
@@ -114,7 +114,7 @@ const ProfilePage: React.FC = () => {
           </Card>
         </div>
       </div>
-    </RequireRole>
+    </RoleGuard>
   );
 };
 

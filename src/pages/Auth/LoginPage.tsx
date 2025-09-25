@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Typography, Space, Divider, Alert } from 'antd';
+import { Typography, Space, Alert } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { LoginForm } from '@/components/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthLayout from './AuthLayout';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const LoginPage: React.FC = () => {
   const { t } = useTranslation();
@@ -39,7 +39,7 @@ const LoginPage: React.FC = () => {
   // 如果已经登录且不在加载状态，显示跳转状态
   if (isAuthenticated && user && !isLoading) {
     return (
-      <AuthLayout title={t('common.loading')} subtitle={t('auth.loginSuccess')}>
+      <AuthLayout>
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
           <Text>{t('common.loading')}</Text>
         </div>
@@ -48,10 +48,7 @@ const LoginPage: React.FC = () => {
   }
 
   return (
-    <AuthLayout
-      title={t('auth.login.title')}
-      subtitle={t('auth.login.subtitle')}
-    >
+    <AuthLayout>
       <div style={{ width: '100%' }}>
         {/* 显示来源页面信息 */}
         {location.state?.from && (

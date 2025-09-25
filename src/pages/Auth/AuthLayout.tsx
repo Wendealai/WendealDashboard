@@ -2,7 +2,6 @@ import React from 'react';
 import { Layout, Typography } from 'antd';
 import {
   CalendarOutlined,
-  UserOutlined,
   BarChartOutlined,
   FileTextOutlined,
   SafetyOutlined,
@@ -27,11 +26,7 @@ interface AuthLayoutProps {
  * Authentication Layout Component
  * Full-screen white background design with login form on left and info panel on right
  */
-const AuthLayout: React.FC<AuthLayoutProps> = ({
-  children,
-  title,
-  subtitle,
-}) => {
+const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
   const { t } = useTranslation();
 
   return (
