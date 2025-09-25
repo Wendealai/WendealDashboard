@@ -101,8 +101,8 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
      * Initialize data loading
      */
     useEffect(() => {
-      dispatch(fetchWorkflows());
-      dispatch(fetchWorkflowExecutions({ limit: 10 }));
+      dispatch(fetchWorkflows({}));
+      dispatch(fetchWorkflowExecutions(''));
     }, [dispatch]);
 
     /**
@@ -125,7 +125,7 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
 
       try {
         const values = await triggerForm.validateFields();
-        const triggerData: WorkflowTriggerRequest = {
+        const triggerData = {
           workflowId: selectedWorkflow.id,
           data: values.data ? JSON.parse(values.data) : undefined,
           waitTill: values.waitTill || false,
@@ -137,17 +137,14 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
         setTriggerModalVisible(false);
 
         // Refresh execution list
-        dispatch(fetchWorkflowExecutions({ limit: 10 }));
+        dispatch(fetchWorkflowExecutions(''));
 
         // Notify parent component
         if (onWorkflowTriggered) {
           onWorkflowTriggered(selectedWorkflow.id, result.executionId);
         }
       } catch (error) {
-        showError(
-          t('informationDashboard.messages.operationFailed'),
-          error instanceof Error ? error.message : String(error)
-        );
+        showError(t('informationDashboard.messages.operationFailed'));
       }
     }, [selectedWorkflow, triggerForm, dispatch, t, onWorkflowTriggered]);
 
@@ -155,8 +152,8 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
      * Refresh data
      */
     const handleRefresh = useCallback(() => {
-      dispatch(fetchWorkflows());
-      dispatch(fetchWorkflowExecutions({ limit: 10 }));
+      dispatch(fetchWorkflows({}));
+      dispatch(fetchWorkflowExecutions(''));
     }, [dispatch]);
 
     /**
@@ -259,7 +256,7 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
           error instanceof Error ? error.message : 'Reddit数据获取失败';
         setRedditError(errorMessage);
         setRedditProgressStatus('');
-        showError('Reddit数据获取失败', errorMessage);
+        showError('Reddit数据获取失败');
       } finally {
         setRedditLoading(false);
         // Clear progress status (delay 3 seconds)
@@ -376,7 +373,7 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
           )}
         </Modal>
         <ErrorModal
-          isVisible={isVisible}
+          visible={isVisible}
           errorInfo={errorInfo}
           onClose={hideError}
         />
