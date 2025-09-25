@@ -14,12 +14,11 @@ import {
   Alert,
   Tabs,
   DatePicker,
-  Divider,
 } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { ExportButton } from '@/components/Layout';
 import type { ExportColumn } from '@/utils/export';
-import { Line, Column, Pie, Area, DualAxes } from '@ant-design/charts';
+import { Line, Pie, Area, DualAxes } from '@ant-design/charts';
 import ReactECharts from 'echarts-for-react';
 import {
   ArrowUpOutlined,
@@ -37,7 +36,6 @@ import {
   HddOutlined,
   WifiOutlined,
   ThunderboltOutlined,
-  MessageOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useAppDispatch, useAppSelector, useMessage } from '@/hooks';
@@ -135,7 +133,7 @@ const generateHeatmapData = (t: any) => {
   ];
   const data = [];
 
-  days.forEach((day, dayIndex) => {
+  days.forEach((_, dayIndex) => {
     hours.forEach(hour => {
       data.push([hour, dayIndex, Math.floor(Math.random() * 100)]);
     });
@@ -863,7 +861,7 @@ const DashboardPage: React.FC = () => {
                 onExportStart={() =>
                   message.loading(t('dashboard.messages.exporting'), 0)
                 }
-                onExportComplete={format => {
+                onExportComplete={() => {
                   message.destroy();
                   message.success(t('dashboard.messages.exportSuccess'));
                 }}
