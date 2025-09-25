@@ -8,7 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { BackupResult, RollbackResult } from './types';
+import type { BackupResult, RollbackResult } from './types';
 
 /**
  * Backup Manager Class
@@ -35,7 +35,10 @@ export class BackupManager {
    * @param description - Optional description of the backup
    * @returns Backup result
    */
-  async createBackup(files: string[], description?: string): Promise<BackupResult> {
+  async createBackup(
+    files: string[],
+    description?: string
+  ): Promise<BackupResult> {
     const backupId = this.generateBackupId();
     const backupDir = path.join(this.backupRoot, backupId);
     const timestamp = new Date().toISOString();
@@ -80,7 +83,7 @@ export class BackupManager {
         description: description || 'Code cleanup backup',
         files: backedUpFiles,
         totalSize,
-        fileCount: backedUpFiles.length
+        fileCount: backedUpFiles.length,
       };
 
       fs.writeFileSync(
@@ -94,7 +97,7 @@ export class BackupManager {
         files: backedUpFiles,
         size: totalSize,
         location: backupDir,
-        success: true
+        success: true,
       };
 
       // Store backup reference
@@ -108,10 +111,11 @@ export class BackupManager {
       console.log(`💾 Total size: ${this.formatBytes(totalSize)}`);
 
       return backupResult;
-
     } catch (error) {
       console.error(`❌ Failed to create backup ${backupId}:`, error);
-      throw new Error(`Backup creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Backup creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -165,23 +169,23 @@ export class BackupManager {
         success: true,
         filesRestored: restoredFiles,
         timestamp: new Date().toISOString(),
-        errors: []
+        errors: [],
       };
 
       console.log(`✅ Backup ${backupId} restored successfully`);
       console.log(`📁 ${restoredFiles.length} files restored`);
 
       return rollbackResult;
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       console.error(`❌ Failed to restore backup ${backupId}:`, error);
 
       return {
         success: false,
         filesRestored: [],
         timestamp: new Date().toISOString(),
-        errors: [errorMessage]
+        errors: [errorMessage],
       };
     }
   }
@@ -192,15 +196,22 @@ export class BackupManager {
    */
   listBackups(): BackupResult[] {
     try {
-      const backupDirs = fs.readdirSync(this.backupRoot)
-        .filter(dir => fs.statSync(path.join(this.backupRoot, dir)).isDirectory())
+      const backupDirs = fs
+        .readdirSync(this.backupRoot)
+        .filter(dir =>
+          fs.statSync(path.join(this.backupRoot, dir)).isDirectory()
+        )
         .sort()
         .reverse(); // Most recent first
 
       const backups: BackupResult[] = [];
 
       for (const dir of backupDirs) {
-        const metadataPath = path.join(this.backupRoot, dir, 'backup-metadata.json');
+        const metadataPath = path.join(
+          this.backupRoot,
+          dir,
+          'backup-metadata.json'
+        );
         if (fs.existsSync(metadataPath)) {
           try {
             const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
@@ -210,10 +221,13 @@ export class BackupManager {
               files: metadata.files,
               size: metadata.totalSize,
               location: path.join(this.backupRoot, dir),
-              success: true
+              success: true,
             });
           } catch (error) {
-            console.warn(`Warning: Could not read backup metadata for ${dir}:`, error);
+            console.warn(
+              `Warning: Could not read backup metadata for ${dir}:`,
+              error
+            );
           }
         }
       }
@@ -270,14 +284,17 @@ export class BackupManager {
           files: metadata.files,
           size: metadata.totalSize,
           location: backupDir,
-          success: true
+          success: true,
         };
 
         // Cache in memory
         this.backups.set(backupId, backupResult);
         return backupResult;
       } catch (error) {
-        console.warn(`Warning: Could not read backup metadata for ${backupId}:`, error);
+        console.warn(
+          `Warning: Could not read backup metadata for ${backupId}:`,
+          error
+        );
       }
     }
 
@@ -349,7 +366,7 @@ export class BackupManager {
         totalBackups: 0,
         totalSize: 0,
         oldestBackup: null,
-        newestBackup: null
+        newestBackup: null,
       };
     }
 
@@ -360,8 +377,7 @@ export class BackupManager {
       totalBackups: backups.length,
       totalSize,
       oldestBackup: timestamps[0],
-      newestBackup: timestamps[timestamps.length - 1]
+      newestBackup: timestamps[timestamps.length - 1],
     };
   }
 }
-

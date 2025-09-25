@@ -9,14 +9,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import {
+import type {
   CleanupAnalysis,
   CleanupRecommendation,
   SyntaxError,
   UnusedImport,
   DeadCodeResult,
   FileAnalysis,
-  RiskLevel
+  RiskLevel,
 } from './types';
 
 /**
@@ -41,9 +41,9 @@ export class CodeAnalyzer {
         '**/build/**',
         '**/*.test.{ts,tsx,js,jsx}',
         '**/*.spec.{ts,tsx,js,jsx}',
-        '**/*.d.ts'
+        '**/*.d.ts',
       ],
-      maxFileSize: 10 * 1024 * 1024 // 10MB
+      maxFileSize: 10 * 1024 * 1024, // 10MB
     };
   }
 
@@ -91,16 +91,18 @@ export class CodeAnalyzer {
         unusedImports: unusedImports.length,
         deadCode: deadCodeResult.totalDeadLines,
         unusedFiles: deadCodeResult.files.filter(f => f.deadLines === 0).length,
-        circularDeps: 0 // TODO: Implement circular dependency detection
+        circularDeps: 0, // TODO: Implement circular dependency detection
       },
       recommendations,
-      riskAssessment
+      riskAssessment,
     };
 
     console.log('✅ Codebase analysis completed');
     console.log(`⏱️ Analysis took ${analysis.duration}ms`);
     console.log(`🔍 Found ${analysis.issuesFound.syntaxErrors} syntax errors`);
-    console.log(`📦 Found ${analysis.issuesFound.unusedImports} unused imports`);
+    console.log(
+      `📦 Found ${analysis.issuesFound.unusedImports} unused imports`
+    );
     console.log(`💀 Found ${analysis.issuesFound.deadCode} lines of dead code`);
 
     return analysis;
@@ -129,7 +131,10 @@ export class CodeAnalyzer {
             }
           } else if (stat.isFile()) {
             // Check if file matches include patterns and size limit
-            if (this.shouldInclude(fullPath) && stat.size <= this.config.maxFileSize) {
+            if (
+              this.shouldInclude(fullPath) &&
+              stat.size <= this.config.maxFileSize
+            ) {
               files.push(fullPath);
             }
           }
@@ -220,15 +225,18 @@ export class CodeAnalyzer {
         try {
           execSync('npx tsc --noEmit --skipLibCheck', {
             cwd: this.projectRoot,
-            stdio: 'pipe'
+            stdio: 'pipe',
           });
         } catch (error: any) {
           // Parse TypeScript errors
-          const output = error.stdout?.toString() || error.stderr?.toString() || '';
+          const output =
+            error.stdout?.toString() || error.stderr?.toString() || '';
           const lines = output.split('\n').filter(line => line.trim());
 
           for (const line of lines) {
-            const match = line.match(/(.+?)\((\d+),(\d+)\):\s*(error|warning)\s*TS(\d+):\s*(.+)/);
+            const match = line.match(
+              /(.+?)\((\d+),(\d+)\):\s*(error|warning)\s*TS(\d+):\s*(.+)/
+            );
             if (match) {
               const [, file, lineNum, colNum, , code, message] = match;
               errors.push({
@@ -237,7 +245,7 @@ export class CodeAnalyzer {
                 column: parseInt(colNum),
                 message: message.trim(),
                 code: `TS${code}`,
-                fixable: this.isFixableError(`TS${code}`)
+                fixable: this.isFixableError(`TS${code}`),
               });
             }
           }
@@ -289,7 +297,8 @@ export class CodeAnalyzer {
         // Simple regex-based import detection
         // This is a basic implementation - a more sophisticated AST-based
         // analysis would be better for production use
-        const importMatches = content.match(/import\s+.*?\s+from\s+['"][^'"]+['"]/g) || [];
+        const importMatches =
+          content.match(/import\s+.*?\s+from\s+['"][^'"]+['"]/g) || [];
 
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i].trim();
@@ -298,10 +307,14 @@ export class CodeAnalyzer {
             // Basic check for unused imports
             // This is a simplified version - production implementation would
             // use TypeScript compiler API for more accurate analysis
-            const importMatch = line.match(/import\s+{([^}]+)}\s+from\s+['"]([^'"]+)['"]/);
+            const importMatch = line.match(
+              /import\s+{([^}]+)}\s+from\s+['"]([^'"]+)['"]/
+            );
             if (importMatch) {
               const [, imports, modulePath] = importMatch;
-              const importedItems = imports.split(',').map(item => item.trim().split(' as ')[0]);
+              const importedItems = imports
+                .split(',')
+                .map(item => item.trim().split(' as ')[0]);
 
               // Check if imported items are used in the file
               const unusedItems: string[] = [];
@@ -317,7 +330,7 @@ export class CodeAnalyzer {
                   importStatement: line,
                   unusedIdentifiers: unusedItems,
                   line: i + 1,
-                  safeToRemove: unusedItems.length === importedItems.length
+                  safeToRemove: unusedItems.length === importedItems.length,
                 });
               }
             }
@@ -354,7 +367,12 @@ export class CodeAnalyzer {
           const line = lines[i].trim();
 
           // Skip empty lines and comments
-          if (!line || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) {
+          if (
+            !line ||
+            line.startsWith('//') ||
+            line.startsWith('/*') ||
+            line.startsWith('*')
+          ) {
             continue;
           }
 
@@ -364,13 +382,16 @@ export class CodeAnalyzer {
               startLine: i + 1,
               endLine: i + 1,
               content: line,
-              reason: 'Debug console.log statement'
+              reason: 'Debug console.log statement',
             });
             deadLines++;
           }
 
           // Check for unused variables (very basic)
-          if (line.match(/^(const|let|var)\s+\w+\s*=\s*.*$/) && !line.includes('export')) {
+          if (
+            line.match(/^(const|let|var)\s+\w+\s*=\s*.*$/) &&
+            !line.includes('export')
+          ) {
             const varMatch = line.match(/^(const|let|var)\s+(\w+)/);
             if (varMatch) {
               const varName = varMatch[2];
@@ -380,7 +401,7 @@ export class CodeAnalyzer {
                   startLine: i + 1,
                   endLine: i + 1,
                   content: line,
-                  reason: 'Unused variable declaration'
+                  reason: 'Unused variable declaration',
                 });
                 deadLines++;
               }
@@ -392,25 +413,33 @@ export class CodeAnalyzer {
           deadCodeFiles.push({
             file,
             deadRegions,
-            deadLines
+            deadLines,
           });
           totalDeadLines += deadLines;
         }
       } catch (error) {
-        console.warn(`Warning: Could not analyze file ${file} for dead code:`, error);
+        console.warn(
+          `Warning: Could not analyze file ${file} for dead code:`,
+          error
+        );
       }
     }
 
     return {
       files: deadCodeFiles,
       totalDeadLines,
-      deadCodePercentage: files.length > 0 ? (totalDeadLines / files.reduce((sum, f) => {
-        try {
-          return sum + fs.readFileSync(f, 'utf-8').split('\n').length;
-        } catch {
-          return sum;
-        }
-      }, 0)) * 100 : 0
+      deadCodePercentage:
+        files.length > 0
+          ? (totalDeadLines /
+              files.reduce((sum, f) => {
+                try {
+                  return sum + fs.readFileSync(f, 'utf-8').split('\n').length;
+                } catch {
+                  return sum;
+                }
+              }, 0)) *
+            100
+          : 0,
     };
   }
 
@@ -439,7 +468,7 @@ export class CodeAnalyzer {
         description: `Fix ${syntaxErrors.length} syntax and type errors`,
         severity: syntaxErrors.length > 10 ? 'high' : 'medium',
         automated: syntaxErrors.every(e => e.fixable),
-        impact: 'Improve code reliability and build stability'
+        impact: 'Improve code reliability and build stability',
       });
     }
 
@@ -452,7 +481,7 @@ export class CodeAnalyzer {
         description: `Remove ${unusedImports.length} unused import statements`,
         severity: unusedImports.length > 20 ? 'medium' : 'low',
         automated: true,
-        impact: 'Reduce bundle size and improve code clarity'
+        impact: 'Reduce bundle size and improve code clarity',
       });
     }
 
@@ -465,7 +494,7 @@ export class CodeAnalyzer {
         description: `Remove ${deadCode.totalDeadLines} lines of dead code`,
         severity: deadCode.deadCodePercentage > 10 ? 'medium' : 'low',
         automated: false, // Requires manual review
-        impact: 'Improve maintainability and reduce complexity'
+        impact: 'Improve maintainability and reduce complexity',
       });
     }
 
@@ -479,7 +508,11 @@ export class CodeAnalyzer {
    * @param deadLines - Number of dead code lines
    * @returns Risk level
    */
-  private assessRiskLevel(syntaxErrors: number, unusedImports: number, deadLines: number): RiskLevel {
+  private assessRiskLevel(
+    syntaxErrors: number,
+    unusedImports: number,
+    deadLines: number
+  ): RiskLevel {
     if (syntaxErrors > 50 || deadLines > 1000) {
       return 'critical';
     } else if (syntaxErrors > 20 || deadLines > 500) {
@@ -491,4 +524,3 @@ export class CodeAnalyzer {
     }
   }
 }
-
