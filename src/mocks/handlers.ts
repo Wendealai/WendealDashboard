@@ -572,7 +572,7 @@ export const handlers = [
     }
   }),
 
-  http.post('/api/invoice-ocr/test-webhook', async ({ request }) => {
+  http.post('/api/invoice-ocr/test-webhook', async () => {
     // 模拟webhook连接测试
     await new Promise(resolve => setTimeout(resolve, 1000));
 
