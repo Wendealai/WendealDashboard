@@ -59,13 +59,13 @@ const { RangePicker } = DatePicker;
 
 // 模拟图表数据
 const generateLineData = (t: any) => {
-  const data = [];
+  const data: Array<{ date: string; value: number; category: string }> = [];
   const today = new Date();
   for (let i = 29; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
     data.push({
-      date: date.toISOString().split('T')[0],
+      date: date.toISOString().split('T')[0] || '',
       value: Math.floor(Math.random() * 1000) + 500,
       category: t('dashboard.chartData.userVisits'),
     });
@@ -98,7 +98,7 @@ const generatePieData = (t: any) => {
 };
 
 const generateAreaData = (t: any) => {
-  const data = [];
+  const data: Array<{ date: string; value: number; category: string }> = [];
   const categories = [
     t('dashboard.chartData.newUsers'),
     t('dashboard.chartData.activeUsers'),
@@ -111,7 +111,7 @@ const generateAreaData = (t: any) => {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       data.push({
-        date: date.toISOString().split('T')[0],
+        date: date.toISOString().split('T')[0] || '',
         value: Math.floor(Math.random() * 500) + 100,
         category,
       });
@@ -131,7 +131,7 @@ const generateHeatmapData = (t: any) => {
     t('dashboard.chartData.weekdays.saturday'),
     t('dashboard.chartData.weekdays.sunday'),
   ];
-  const data = [];
+  const data: Array<[number, number, number]> = [];
 
   days.forEach((_, dayIndex) => {
     hours.forEach(hour => {
@@ -412,27 +412,22 @@ const DashboardPage: React.FC = () => {
     {
       key: 'user',
       title: t('dashboard.export.columns.user'),
-      dataIndex: 'user',
     },
     {
       key: 'action',
       title: t('dashboard.export.columns.action'),
-      dataIndex: 'action',
     },
     {
       key: 'target',
       title: t('dashboard.export.columns.target'),
-      dataIndex: 'target',
     },
     {
       key: 'time',
       title: t('dashboard.export.columns.time'),
-      dataIndex: 'time',
     },
     {
       key: 'status',
       title: t('dashboard.export.columns.status'),
-      dataIndex: 'status',
       render: (value: string) => {
         const textMap = {
           success: t('dashboard.status.success'),
@@ -568,7 +563,7 @@ const DashboardPage: React.FC = () => {
                         shape: 'circle',
                       }}
                       tooltip={{
-                        formatter: datum => {
+                        formatter: (datum: any) => {
                           return {
                             name: datum.category,
                             value: `${datum.value} ${t('dashboard.charts.visits')}`,
@@ -651,8 +646,6 @@ const DashboardPage: React.FC = () => {
                       yField='value'
                       seriesField='category'
                       height={300}
-                      smooth
-                      color={['#1979C9', '#D62A0D', '#FAA219']}
                     />
                   ),
                 },
