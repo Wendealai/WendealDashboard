@@ -52,7 +52,6 @@ import {
   SettingOutlined,
   ClockCircleOutlined,
   LoadingOutlined,
-  PlayCircleOutlined,
 } from '@ant-design/icons';
 
 const { Text, Title } = Typography;
