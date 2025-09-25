@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect } from 'react';
 import { Form, Input, Button, Space, Card, Typography } from 'antd';
-import { SendOutlined, LoadingOutlined } from '@ant-design/icons';
+import { SendOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useMessage } from '@/hooks/useMessage';
 import type {
@@ -22,7 +22,7 @@ interface ExtendedInputFormProps extends InputFormProps {
   iframeTitle?: string;
 }
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { Item } = Form;
 
 /**
@@ -39,7 +39,6 @@ const InputForm: React.FC<ExtendedInputFormProps> = ({
   iframeSrc = 'https://nocodb.wendealai.com/dashboard/#/nc/view/24b9c8b5-ab0a-4e84-9789-24996ce17822',
   iframeTitle = 'Business Opportunity Dashboard',
 }) => {
-  const { t } = useTranslation();
   const [form] = Form.useForm();
   const message = useMessage();
 
@@ -85,22 +84,6 @@ const InputForm: React.FC<ExtendedInputFormProps> = ({
     },
     [onSubmit]
   );
-
-  /**
-   * 行业领域选项
-   */
-  const industryOptions = [
-    { label: '理发店 (Barber Shop)', value: 'barber' },
-    { label: '房地产经纪 (Real Estate Agency)', value: 'real estate agency' },
-    { label: '咖啡店 (Coffee Shop)', value: 'coffee shop' },
-    { label: '健身房 (Gym)', value: 'gym' },
-    { label: '餐厅 (Restaurant)', value: 'restaurant' },
-    { label: '零售店 (Retail Store)', value: 'retail store' },
-    { label: '美容院 (Beauty Salon)', value: 'beauty salon' },
-    { label: '咨询公司 (Consulting Firm)', value: 'consulting firm' },
-    { label: '教育培训 (Education)', value: 'education' },
-    { label: '医疗诊所 (Medical Clinic)', value: 'medical clinic' },
-  ];
 
   /**
    * Country options - English only
