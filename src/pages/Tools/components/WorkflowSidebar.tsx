@@ -25,7 +25,7 @@ import {
   selectWorkflowsList,
   selectLoading,
 } from '@/store/slices/informationDashboardSlice';
-import type { Workflow, WorkflowStatus } from '../types';
+import type { Workflow } from '../types';
 import { WorkflowSettingsModal } from '@/components/workflow';
 import WorkflowCard from '@/components/workflow/WorkflowCard';
 
@@ -287,7 +287,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     id: 'invoice-ocr-workflow',
                     name: t('invoiceOCR.title'),
                     description: t('invoiceOCR.subtitle'),
-                    status: 'active' as WorkflowStatus,
+                    status: 'active' as const,
                     type: 'data-processing' as any,
                     executionCount: 0,
                     successRate: 0,
@@ -303,7 +303,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       id: 'invoice-ocr-workflow',
                       name: t('invoiceOCR.title'),
                       description: t('invoiceOCR.subtitle'),
-                      status: 'active' as WorkflowStatus,
+                      status: 'active' as const,
                       type: 'data-processing' as any,
                       executionCount: 0,
                       successRate: 0,
@@ -318,7 +318,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       id: 'invoice-ocr-workflow',
                       name: t('invoiceOCR.title'),
                       description: t('invoiceOCR.subtitle'),
-                      status: 'active' as WorkflowStatus,
+                      status: 'active' as const,
                       type: 'data-processing' as any,
                       executionCount: 0,
                       successRate: 0,
@@ -347,7 +347,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     name: 'Universal OCR',
                     description:
                       'OCR processing for all document formats including PDF, images, and scanned documents',
-                    status: 'active' as WorkflowStatus,
+                    status: 'active' as const,
                     type: 'data-processing' as any,
                     executionCount: 0,
                     successRate: 0,
@@ -364,7 +364,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       name: 'Universal OCR',
                       description:
                         'OCR processing for all document formats including PDF, images, and scanned documents',
-                      status: 'active' as WorkflowStatus,
+                      status: 'active' as const,
                       type: 'data-processing' as any,
                       executionCount: 0,
                       successRate: 0,
@@ -380,7 +380,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       name: 'Universal OCR',
                       description:
                         'OCR processing for all document formats including PDF, images, and scanned documents',
-                      status: 'active' as WorkflowStatus,
+                      status: 'active' as const,
                       type: 'data-processing' as any,
                       executionCount: 0,
                       successRate: 0,
@@ -409,7 +409,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     name: 'Tax Invoice/Receipt',
                     description:
                       'Generate and manage tax invoices and receipts',
-                    status: 'active' as WorkflowStatus,
+                    status: 'active' as const,
                     type: 'data-processing' as any,
                     executionCount: 0,
                     successRate: 0,
@@ -428,7 +428,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       name: 'Tax Invoice/Receipt',
                       description:
                         'Generate and manage tax invoices and receipts',
-                      status: 'active' as WorkflowStatus,
+                      status: 'active' as const,
                       type: 'data-processing' as any,
                       executionCount: 0,
                       successRate: 0,
@@ -444,7 +444,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       name: 'Tax Invoice/Receipt',
                       description:
                         'Generate and manage tax invoices and receipts',
-                      status: 'active' as WorkflowStatus,
+                      status: 'active' as const,
                       type: 'data-processing' as any,
                       executionCount: 0,
                       successRate: 0,
