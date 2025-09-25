@@ -5,23 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Card,
-  Button,
-  Tag,
-  Space,
-  Modal,
-  Form,
-  Input,
-  Tooltip,
-  Row,
-  Col,
-  List,
-  Typography,
-  Alert,
-  Progress,
-  Empty,
-} from 'antd';
+import { Tag, Space, Modal, Form, Input, Typography } from 'antd';
 import { useMessage } from '@/hooks';
 import { useErrorModal } from '@/hooks/useErrorModal';
 import ErrorModal from '@/components/common/ErrorModal';
@@ -31,9 +15,6 @@ import {
   EyeOutlined,
   ThunderboltOutlined,
   RedditOutlined,
-  ExportOutlined,
-  CommentOutlined,
-  LikeOutlined,
   LoadingOutlined,
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -43,18 +24,11 @@ import {
   fetchWorkflowExecutions,
 } from '@/store/slices/informationDashboardSlice';
 import { workflowService } from '@/services/workflowService';
-import type {
-  Workflow,
-  WorkflowTriggerRequest,
-  WorkflowStatus,
-} from '../types';
+import type { Workflow, WorkflowStatus } from '../types';
 import type {
   ParsedSubredditData,
   RedditWorkflowResponse,
 } from '@/services/redditWebhookService';
-import WorkflowGrid from '@/components/workflow/WorkflowGrid';
-
-const { Text } = Typography;
 
 /**
  * Tools 工作流面板组件属性
@@ -88,7 +62,6 @@ const getWorkflowStatusColor = (status: WorkflowStatus): string => {
 const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
   ({
     className,
-    onWorkflowSelect,
     onWorkflowTriggered,
     onRedditDataReceived,
     onRedditWorkflowDataReceived,
@@ -97,11 +70,9 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
     const dispatch = useAppDispatch();
     const message = useMessage();
     const { isVisible, errorInfo, showError, hideError } = useErrorModal();
-    const {
-      workflows: workflowsState,
-      loading,
-      workflowStats,
-    } = useAppSelector(state => state.informationDashboard);
+    const { workflows: workflowsState } = useAppSelector(
+      state => state.informationDashboard
+    );
     const workflows = workflowsState.list;
 
     // Component state
@@ -117,15 +88,6 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
         console.log('WorkflowPanel: Trigger form instance connected');
       }
     }, [triggerForm]);
-
-    // Reddit workflow state
-    const [redditLoading, setRedditLoading] = useState(false);
-    const [redditError, setRedditError] = useState<string | null>(null);
-    const [redditProgressStatus, setRedditProgressStatus] =
-      useState<string>('');
-    const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
-    const [redditWorkflowData, setRedditWorkflowData] =
-      useState<RedditWorkflowResponse | null>(null);
 
     /**
      * Initialize data loading
