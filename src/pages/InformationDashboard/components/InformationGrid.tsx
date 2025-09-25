@@ -29,7 +29,6 @@ import { useErrorModal } from '@/hooks/useErrorModal';
 import ErrorModal from '@/components/common/ErrorModal';
 import { useTranslation } from 'react-i18next';
 import {
-  SearchOutlined,
   ReloadOutlined,
   PlusOutlined,
   EditOutlined,
@@ -46,17 +45,10 @@ import {
   selectInformationLoading,
   selectInformationStats,
 } from '@/store/slices/informationDashboardSlice';
-import type {
-  InformationItem,
-  InformationQueryParams,
-  InformationType,
-  InformationPriority,
-  InformationStatus,
-} from '../types';
+import type { InformationItem, InformationQueryParams } from '../types';
 
 const { Search } = Input;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
 const { Text, Paragraph } = Typography;
 
 /**
@@ -77,7 +69,6 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
     const dispatch = useAppDispatch();
     const informationData = useAppSelector(selectInformationData);
     const loading = useAppSelector(selectInformationLoading);
-    const stats = useAppSelector(selectInformationStats);
     const message = useMessage();
     const { isVisible, errorInfo, showError, hideError } = useErrorModal();
 
