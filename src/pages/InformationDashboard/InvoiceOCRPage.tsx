@@ -32,11 +32,9 @@ import {
   Card,
   Button,
   Space,
-  Statistic,
   Alert,
   Typography,
   Divider,
-  Badge,
   Spin,
   Steps,
   Modal,
@@ -50,7 +48,6 @@ import {
   SettingOutlined,
   EyeOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { invoiceOCRService } from '../../services/invoiceOCRService';
@@ -61,12 +58,10 @@ import type {
   InvoiceOCRFile,
   InvoiceOCRResult,
   InvoiceOCRStats,
-  InvoiceOCRBatchTask,
 } from './types/invoiceOCR';
 import type { EnhancedWebhookResponse } from '../../types/workflow';
 const { Content } = Layout;
 const { Title, Text } = Typography;
-const { Step } = Steps;
 
 /**
  * Invoice OCR processing status
@@ -96,14 +91,6 @@ const InvoiceOCRPage: React.FC = () => {
   // Data state
   const [uploadedFiles, setUploadedFiles] = useState<InvoiceOCRFile[]>([]);
   const [ocrResults, setOcrResults] = useState<InvoiceOCRResult[]>([]);
-  const [stats, setStats] = useState<InvoiceOCRStats>({
-    totalFiles: 0,
-    processedFiles: 0,
-    successfulFiles: 0,
-    failedFiles: 0,
-    totalAmount: 0,
-    averageProcessingTime: 0,
-  });
   const [error, setError] = useState<string | null>(null);
   const [completedData, setCompletedData] = useState<{
     executionId?: string;
@@ -119,7 +106,7 @@ const InvoiceOCRPage: React.FC = () => {
    * This function is called from InvoiceFileUpload component after files are uploaded
    */
   const handleProcessOCR = useCallback(
-    async (files: File[]) => {
+    async (_files: File[]) => {
       setProcessingStatus('processing');
       setLoading(true);
       setError(null);
@@ -183,13 +170,9 @@ const InvoiceOCRPage: React.FC = () => {
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [resultsData, statsData] = await Promise.all([
-        invoiceOCRService.getResultsList(),
-        invoiceOCRService.getStats(),
-      ]);
+      const resultsData = await invoiceOCRService.getResultsList();
 
       setOcrResults(resultsData);
-      setStats(statsData);
     } catch (error) {
       console.error('Failed to load initial data:', error);
       showError(
@@ -201,15 +184,6 @@ const InvoiceOCRPage: React.FC = () => {
       setLoading(false);
     }
   };
-
-  /**
-   * Handle file upload success
-   */
-  const handleFilesUploaded = useCallback((files: InvoiceOCRFile[]) => {
-    setUploadedFiles(files);
-    setCurrentStep(1);
-    setProcessingStatus('uploading');
-  }, []);
 
   /**
    * Restart processing
