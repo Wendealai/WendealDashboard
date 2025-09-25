@@ -58,7 +58,7 @@ export class NotionWebhookServer {
    */
   private setupRoutes() {
     // 健康检查
-    this.app.get('/health', (req, res) => {
+    this.app.get('/health', (_req, res) => {
       res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),

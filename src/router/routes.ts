@@ -7,10 +7,7 @@ const MainLayout = lazy(() => import('@/components/Layout/MainLayout'));
 // Lazy load components for better performance
 const DashboardPage = lazy(() => import('@/pages/Dashboard'));
 
-// Lazy load authentication components
-const LoginForm = lazy(() => import('@/components/auth/LoginForm'));
-const RegisterForm = lazy(() => import('@/components/auth/RegisterForm'));
-const UserProfile = lazy(() => import('@/components/auth/UserProfile'));
+// Lazy load authentication components (currently not used in routes)
 
 // Authentication pages using components
 const LoginPage = lazy(() => import('@/pages/Auth/LoginPage'));

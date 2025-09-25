@@ -3,16 +3,11 @@
  * Data display platform integrated with n8n workflow system
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { Card, Row, Col, Typography, Space, Divider, Tag, Tooltip, Popover } from 'antd';
+import React, { useState, useCallback } from 'react';
+import { Card, Row, Col, Typography, Space, Divider, Popover } from 'antd';
 import {
   ToolOutlined,
-  ApiOutlined,
   FilterOutlined,
-  BarChartOutlined,
-  ThunderboltOutlined,
-  RobotOutlined,
-  FileTextOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -34,12 +29,10 @@ const { Title, Paragraph, Text } = Typography;
 const Tools: React.FC = () => {
   const { t } = useTranslation();
 
-
   // Currently selected workflow state
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(
     null
   );
-
 
   /**
    * Handle workflow selection
@@ -61,39 +54,63 @@ const Tools: React.FC = () => {
               content={
                 <div style={{ maxWidth: '550px' }}>
                   <div style={{ marginBottom: '12px' }}>
-                    <Text strong style={{ fontSize: '16px' }}>Essential Business Tools</Text>
+                    <Text strong style={{ fontSize: '16px' }}>
+                      Essential Business Tools
+                    </Text>
                   </div>
                   <div style={{ marginBottom: '12px' }}>
-                    <Text type="secondary" style={{ lineHeight: '1.6', fontSize: '14px' }}>
-                      A comprehensive collection of essential business tools and workflows frequently used in daily operations, streamlining business processes and improving operational efficiency.
+                    <Text
+                      type='secondary'
+                      style={{ lineHeight: '1.6', fontSize: '14px' }}
+                    >
+                      A comprehensive collection of essential business tools and
+                      workflows frequently used in daily operations,
+                      streamlining business processes and improving operational
+                      efficiency.
                     </Text>
                   </div>
                   <div style={{ marginBottom: '8px' }}>
-                    <Text strong style={{ fontSize: '14px' }}>Key Features:</Text>
+                    <Text strong style={{ fontSize: '14px' }}>
+                      Key Features:
+                    </Text>
                   </div>
-                  <Space direction="vertical" size="small" style={{ fontSize: '13px' }}>
+                  <Space
+                    direction='vertical'
+                    size='small'
+                    style={{ fontSize: '13px' }}
+                  >
                     <div>• Invoice OCR Processing</div>
                     <div>• Smart Business Opportunities</div>
                     <div>• Workflow Management</div>
                   </Space>
                   <div style={{ marginTop: '12px' }}>
-                    <Text type="secondary" style={{ fontSize: '13px', lineHeight: '1.6' }}>
-                      Designed for daily business operations, providing quick access to commonly used tools and workflows to enhance productivity and streamline business processes.
+                    <Text
+                      type='secondary'
+                      style={{ fontSize: '13px', lineHeight: '1.6' }}
+                    >
+                      Designed for daily business operations, providing quick
+                      access to commonly used tools and workflows to enhance
+                      productivity and streamline business processes.
                     </Text>
                   </div>
                 </div>
               }
-              trigger="hover"
-              placement="bottomRight"
+              trigger='hover'
+              placement='bottomRight'
               mouseEnterDelay={0.5}
               overlayStyle={{ maxWidth: '600px' }}
             >
-              <InfoCircleOutlined style={{ color: '#888888', cursor: 'pointer', marginLeft: '8px', fontSize: '18px' }} />
+              <InfoCircleOutlined
+                style={{
+                  color: '#888888',
+                  cursor: 'pointer',
+                  marginLeft: '8px',
+                  fontSize: '18px',
+                }}
+              />
             </Popover>
           </span>
         </Title>
-
-
       </div>
 
       <Divider />
@@ -103,9 +120,7 @@ const Tools: React.FC = () => {
         {/* Workflow management panel - 作为底层，无包装框 */}
         <Col xs={24}>
           <div style={{ marginBottom: '16px' }}>
-            <WorkflowSidebar
-              onWorkflowSelect={handleWorkflowSelect}
-            />
+            <WorkflowSidebar onWorkflowSelect={handleWorkflowSelect} />
           </div>
         </Col>
 
