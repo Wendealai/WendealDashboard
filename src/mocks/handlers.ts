@@ -1,5 +1,20 @@
 import { http, HttpResponse } from 'msw';
-import type { NotificationItem } from '../types/notification';
+
+// Notification item interface for mocks
+interface NotificationItem {
+  id: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  title: string;
+  content?: string;
+  message?: string;
+  timestamp: string;
+  read: boolean;
+  category: string;
+  priority: 'low' | 'medium' | 'high';
+  actionText?: string;
+  actionUrl?: string;
+  duration?: number;
+}
 
 // 模拟用户数据
 const mockUsers = [

@@ -1,5 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { NotificationItem } from '../types/notification';
+
+/**
+ * Notification item interface for the hook
+ */
+export interface NotificationItem {
+  id: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  title: string;
+  content?: string;
+  message?: string;
+  timestamp: string;
+  read: boolean;
+  category: string;
+  priority: 'low' | 'medium' | 'high';
+  actionText?: string;
+  actionUrl?: string;
+  duration?: number;
+}
 
 /**
  * useNotifications hook 的选项接口
@@ -146,19 +163,28 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
 
   // 添加新通知
   const addNotification = useCallback(
-    (notification: Omit<NotificationItem, 'id' | 'timestamp'>) => {
+    (
+      notification: Partial<Omit<NotificationItem, 'id' | 'timestamp'>> & {
+        type: NotificationItem['type'];
+        title: string;
+      }
+    ) => {
       const newNotification: NotificationItem = {
         ...notification,
         id: Date.now().toString(),
         timestamp: new Date().toISOString(),
+        read: notification.read ?? false,
+        category: notification.category ?? 'system',
+        priority: notification.priority ?? 'medium',
+        content: notification.content ?? notification.message ?? '',
       };
       setNotifications(prev => [newNotification, ...prev]);
 
       // 显示系统通知
       const notificationConfig = {
         message: notification.title,
-        description: notification.content,
-        duration: 4.5,
+        description: notification.content ?? notification.message ?? '',
+        duration: notification.duration ?? 4.5,
       };
 
       switch (notification.type) {
@@ -205,23 +231,18 @@ export const useNotifications = (options: UseNotificationsOptions = {}) => {
       'warning',
       'error',
     ];
-    const categories: NotificationItem['category'][] = [
-      'system',
-      'security',
-      'update',
-      'message',
-    ];
+    const categories: string[] = ['system', 'security', 'update', 'message'];
     const priorities: NotificationItem['priority'][] = [
       'low',
       'medium',
       'high',
     ];
 
-    const randomType = types[Math.floor(Math.random() * types.length)];
+    const randomType = types[Math.floor(Math.random() * types.length)]!;
     const randomCategory =
-      categories[Math.floor(Math.random() * categories.length)];
+      categories[Math.floor(Math.random() * categories.length)]!;
     const randomPriority =
-      priorities[Math.floor(Math.random() * priorities.length)];
+      priorities[Math.floor(Math.random() * priorities.length)]!;
 
     const sampleNotifications = {
       info: { title: '系统信息', content: '这是一条测试信息通知' },

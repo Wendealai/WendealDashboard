@@ -3,9 +3,9 @@ import {
   workflowSettingsService,
   getWorkflowSettings,
   saveWorkflowSettings,
-  validateWorkflowSettings,
   resetWorkflowSettings,
 } from '../services/workflowSettingsService';
+import { validateWorkflowSettings } from '../services/workflowValidationService';
 import type { WorkflowSettings } from '../types/workflow';
 
 export interface UseWorkflowSettingsOptions {
@@ -57,9 +57,9 @@ export interface UseWorkflowSettingsReturn {
   /** Clear error and success messages */
   clearMessages: () => void;
   /** Validate current settings */
-  validateSettings: () => boolean;
+  validateSettings: () => Promise<boolean>;
   /** Export settings */
-  exportSettings: () => string;
+  exportSettings: () => Promise<string>;
   /** Import settings */
   importSettings: (data: string) => Promise<boolean>;
 }
@@ -132,9 +132,13 @@ export const useWorkflowSettings = ({
       setLoading(true);
       clearMessages();
 
-      const loadedSettings = await getWorkflowSettings();
-      setSettings(loadedSettings);
-      setOriginalSettings({ ...loadedSettings });
+      const response = await getWorkflowSettings('default-workflow');
+      if (response.success && response.data) {
+        setSettings(response.data);
+        setOriginalSettings({ ...response.data });
+      } else {
+        throw new Error(response.error || 'Failed to load settings');
+      }
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : 'Failed to load settings';
@@ -154,18 +158,25 @@ export const useWorkflowSettings = ({
         clearMessages();
 
         // Validate settings before saving
-        const validation = validateWorkflowSettings(newSettings);
+        const validation = await validateWorkflowSettings(newSettings);
         if (!validation.isValid) {
-          const errorMsg = validation.errors.join(', ');
+          const errorMsg = validation.errors.map(e => e.message).join(', ');
           showError(`Validation failed: ${errorMsg}`);
           return false;
         }
 
-        await saveWorkflowSettings(newSettings);
-        setSettings(newSettings);
-        setOriginalSettings({ ...newSettings });
-        showSuccess('Settings saved successfully');
-        return true;
+        const response = await saveWorkflowSettings(
+          'default-workflow',
+          newSettings
+        );
+        if (response.success && response.data) {
+          setSettings(response.data);
+          setOriginalSettings({ ...response.data });
+          showSuccess('Settings saved successfully');
+          return true;
+        } else {
+          throw new Error(response.error || 'Failed to save settings');
+        }
       } catch (err) {
         const errorMsg =
           err instanceof Error ? err.message : 'Failed to save settings';
@@ -216,11 +227,14 @@ export const useWorkflowSettings = ({
       setSaving(true);
       clearMessages();
 
-      await resetWorkflowSettings();
-      const defaultSettings = await getWorkflowSettings();
-      setSettings(defaultSettings);
-      setOriginalSettings({ ...defaultSettings });
-      showSuccess('Settings reset to defaults');
+      const resetResponse = await resetWorkflowSettings('default-workflow');
+      if (resetResponse.success && resetResponse.data) {
+        setSettings(resetResponse.data);
+        setOriginalSettings({ ...resetResponse.data });
+        showSuccess('Settings reset to defaults');
+      } else {
+        throw new Error(resetResponse.error || 'Failed to reset settings');
+      }
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : 'Failed to reset settings';
@@ -233,26 +247,31 @@ export const useWorkflowSettings = ({
   /**
    * Validate current settings
    */
-  const validateSettings = useCallback((): boolean => {
+  const validateSettings = useCallback(async (): Promise<boolean> => {
     if (!settings) return false;
 
-    const validation = validateWorkflowSettings(settings);
-    if (!validation.isValid && showErrorMessages) {
-      const errorMsg = validation.errors.join(', ');
-      showError(`Validation failed: ${errorMsg}`);
+    try {
+      const validation = await validateWorkflowSettings(settings);
+      if (!validation.isValid && showErrorMessages) {
+        const errorMsg = validation.errors.map(e => e.message).join(', ');
+        showError(`Validation failed: ${errorMsg}`);
+      }
+      return validation.isValid;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Validation error';
+      showError(errorMsg);
+      return false;
     }
-
-    return validation.isValid;
   }, [settings, showErrorMessages, showError]);
 
   /**
    * Export settings as JSON string
    */
-  const exportSettings = useCallback((): string => {
+  const exportSettings = useCallback(async (): Promise<string> => {
     if (!settings) return '{}';
 
     try {
-      return workflowSettingsService.exportSettings();
+      return await workflowSettingsService.exportSettings();
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : 'Failed to export settings';
@@ -270,12 +289,15 @@ export const useWorkflowSettings = ({
         setSaving(true);
         clearMessages();
 
-        const importedSettings =
-          await workflowSettingsService.importSettings(data);
-        setSettings(importedSettings);
-        setOriginalSettings({ ...importedSettings });
-        showSuccess('Settings imported successfully');
-        return true;
+        const response = await workflowSettingsService.importSettings(data);
+        if (response.success && response.data) {
+          setSettings(response.data);
+          setOriginalSettings({ ...response.data });
+          showSuccess('Settings imported successfully');
+          return true;
+        } else {
+          throw new Error(response.error || 'Failed to import settings');
+        }
       } catch (err) {
         const errorMsg =
           err instanceof Error ? err.message : 'Failed to import settings';
@@ -304,12 +326,15 @@ export const useWorkflowSettings = ({
 
     // Convert validation errors to object format
     validation.errors.forEach((error, index) => {
-      if (error.includes('webhook')) {
-        errors.webhookUrl = error;
-      } else if (error.includes('workflow') || error.includes('name')) {
-        errors.workflowName = error;
+      if (error.message.includes('webhook')) {
+        errors.webhookUrl = error.message;
+      } else if (
+        error.message.includes('workflow') ||
+        error.message.includes('name')
+      ) {
+        errors.workflowName = error.message;
       } else {
-        errors[`error_${index}`] = error;
+        errors[`error_${index}`] = error.message;
       }
     });
 
