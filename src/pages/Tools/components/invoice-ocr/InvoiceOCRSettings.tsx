@@ -26,7 +26,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { invoiceOCRService } from '../../../../services/invoiceOCRService';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { TextArea } = Input;
 
 /**
