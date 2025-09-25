@@ -47,8 +47,8 @@ export class NotionWebhookServer {
     this.app.use(express.urlencoded({ extended: true }));
 
     // 请求日志
-    this.app.use((req, res, next) => {
-      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    this.app.use((_req, _res, next) => {
+      console.log(`[${new Date().toISOString()}] ${_req.method} ${_req.url}`);
       next();
     });
   }
@@ -151,7 +151,7 @@ export class NotionWebhookServer {
     });
 
     // 错误处理中间件
-    this.app.use((error: any, req: any, res: any, next: any) => {
+    this.app.use((error: any, _req: any, res: any, _next: any) => {
       console.error('❌ 服务器错误:', error);
       res.status(500).json({
         success: false,

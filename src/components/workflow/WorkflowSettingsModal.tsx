@@ -230,7 +230,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
    * Implement real-time validation
    */
   const handleFormChange = async (
-    changedValues: Partial<WorkflowSettingsFormData>,
+    _: Partial<WorkflowSettingsFormData>,
     allValues: WorkflowSettingsFormData
   ) => {
     // Clear previous validation errors

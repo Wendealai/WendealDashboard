@@ -18,15 +18,12 @@ import {
   Dropdown,
   Menu,
   Modal,
-  message,
   Alert,
   Result,
-  Spin,
 } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType, TableProps } from 'antd/es/table';
 import {
-  SearchOutlined,
   FilterOutlined,
   ExportOutlined,
   ReloadOutlined,
@@ -37,7 +34,6 @@ import {
   ShareAltOutlined,
   MoreOutlined,
   ExclamationCircleOutlined,
-  CloseCircleOutlined,
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
@@ -93,7 +89,6 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
   const filter = filters;
 
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-  const [searchText, setSearchText] = useState('');
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState<RedditPost | null>(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -179,7 +174,6 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
    * @param value 搜索关键词
    */
   const handleSearch = async (value: string) => {
-    setSearchText(value);
     try {
       let result;
       if (value.trim()) {

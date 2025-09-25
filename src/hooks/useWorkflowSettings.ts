@@ -3,7 +3,6 @@ import {
   workflowSettingsService,
   getWorkflowSettings,
   saveWorkflowSettings,
-  updateWorkflowSettings,
   validateWorkflowSettings,
   resetWorkflowSettings,
 } from '../services/workflowSettingsService';

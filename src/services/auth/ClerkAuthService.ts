@@ -7,7 +7,6 @@ import type {
   ChangePasswordRequest,
   User,
   AuthConfig,
-  ClerkUserData,
 } from '../../types/auth';
 import { UserRole } from '../../types/auth';
 import type { IAuthService } from './IAuthService';
@@ -326,24 +325,6 @@ export class ClerkAuthService implements IAuthService {
   private clearClerkState(): void {
     // 清除Clerk相关的本地状态
     // 在实际实现中可能需要清除Clerk的会话信息
-  }
-
-  // Helper function to map Clerk user to User type
-  private mapClerkUserToUser(clerkUser: any): User {
-    return {
-      id: clerkUser.id,
-      username: clerkUser.username || clerkUser.email,
-      email: clerkUser.email,
-      firstName: clerkUser.firstName || '',
-      lastName: clerkUser.lastName || '',
-      avatar: clerkUser.avatar || '',
-      role: UserRole.EMPLOYEE, // Default role
-      permissions: [],
-      isActive: true,
-      createdAt: clerkUser.createdAt || new Date().toISOString(),
-      updatedAt: clerkUser.updatedAt || new Date().toISOString(),
-      lastLoginAt: clerkUser.lastLoginAt || new Date().toISOString(),
-    };
   }
 
   private notifyAuthStateChange(

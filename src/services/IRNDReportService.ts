@@ -11,7 +11,6 @@ import type {
   CategoryListResponse,
   StorageInfo,
   RNDReportConfig,
-  RNDReportError,
 } from '../types/rndReport';
 
 /**
@@ -93,7 +92,10 @@ export interface IRNDReportService {
    * @param filters 额外的过滤器
    * @returns 搜索结果
    */
-  searchReports(query: string, filters?: ReportSearchFilters): Promise<ReportListResponse>;
+  searchReports(
+    query: string,
+    filters?: ReportSearchFilters
+  ): Promise<ReportListResponse>;
 
   // ==================== 分类管理方法 ====================
 
@@ -115,7 +117,9 @@ export interface IRNDReportService {
    * @param category 分类数据
    * @returns 创建的分类
    */
-  createCategory(category: Omit<Category, 'id' | 'createdDate' | 'reportCount'>): Promise<Category>;
+  createCategory(
+    category: Omit<Category, 'id' | 'createdDate' | 'reportCount'>
+  ): Promise<Category>;
 
   /**
    * 更新分类
@@ -123,7 +127,10 @@ export interface IRNDReportService {
    * @param updates 更新数据
    * @returns 更新后的分类
    */
-  updateCategory(categoryId: string, updates: Partial<Category>): Promise<Category>;
+  updateCategory(
+    categoryId: string,
+    updates: Partial<Category>
+  ): Promise<Category>;
 
   /**
    * 删除分类
@@ -146,7 +153,10 @@ export interface IRNDReportService {
    * @param progress 阅读进度数据
    * @returns 更新后的阅读进度
    */
-  updateReadingProgress(reportId: string, progress: Partial<ReadingProgress>): Promise<ReadingProgress>;
+  updateReadingProgress(
+    reportId: string,
+    progress: Partial<ReadingProgress>
+  ): Promise<ReadingProgress>;
 
   /**
    * 添加书签
@@ -154,7 +164,10 @@ export interface IRNDReportService {
    * @param bookmark 书签数据
    * @returns 添加的书签
    */
-  addBookmark(reportId: string, bookmark: Omit<ReadingProgress['bookmarks'][0], 'id' | 'createdAt'>): Promise<ReadingProgress['bookmarks'][0]>;
+  addBookmark(
+    reportId: string,
+    bookmark: Omit<ReadingProgress['bookmarks'][0], 'id' | 'createdAt'>
+  ): Promise<ReadingProgress['bookmarks'][0]>;
 
   /**
    * 删除书签
@@ -176,7 +189,9 @@ export interface IRNDReportService {
    * @param olderThanDays 删除超过指定天数的文件
    * @returns 清理结果
    */
-  cleanupStorage(olderThanDays?: number): Promise<{ deletedCount: number; freedSpace: number }>;
+  cleanupStorage(
+    olderThanDays?: number
+  ): Promise<{ deletedCount: number; freedSpace: number }>;
 
   /**
    * 导出报告数据

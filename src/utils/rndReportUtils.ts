@@ -3,9 +3,6 @@ import type {
   FileValidationResult,
   ReportMetadata,
   RNDReportConfig,
-  FileProcessingOptions,
-  Report,
-  Category,
 } from '../types/rndReport';
 import { DEFAULT_RND_REPORT_CONFIG } from '../types/rndReport';
 

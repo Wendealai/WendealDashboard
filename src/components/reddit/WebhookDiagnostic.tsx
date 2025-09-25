@@ -4,16 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Button,
-  Card,
-  Alert,
-  Spin,
-  Progress,
-  Typography,
-  Space,
-  Tag,
-} from 'antd';
+import { Button, Card, Alert, Progress, Typography, Space, Tag } from 'antd';
 import { redditWebhookService } from '@/services/redditWebhookService';
 import {
   CheckCircleOutlined,
@@ -22,7 +13,7 @@ import {
   BugOutlined,
 } from '@ant-design/icons';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 interface DiagnosticResult {
   step: string;

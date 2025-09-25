@@ -7,44 +7,6 @@
 const isNode =
   typeof process !== 'undefined' && process.versions && process.versions.node;
 
-/**
- * Get path resolve function (Node.js only)
- */
-const getPathResolve = async (): Promise<
-  ((path: string) => string) | undefined
-> => {
-  if (!isNode) return undefined;
-  try {
-    const path = await import('path');
-    return path.resolve;
-  } catch (error) {
-    console.warn('Path module not available');
-    return undefined;
-  }
-};
-
-/**
- * Get file exists check function (Node.js only)
- */
-const getExistsSync = async (): Promise<
-  ((path: string) => boolean) | undefined
-> => {
-  if (!isNode) return undefined;
-  try {
-    const fs = await import('fs');
-    return fs.existsSync;
-  } catch (error) {
-    console.warn('FS module not available');
-    return undefined;
-  }
-};
-
-/**
- * Browser-compatible path join
- */
-const joinPath = (...parts: string[]): string => {
-  return parts.join('/').replace(/\/+/g, '/').replace(/\/$/, '') || '/';
-};
 import type {
   ExportConfig,
   ExportRule,

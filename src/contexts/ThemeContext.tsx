@@ -203,7 +203,7 @@ const themeReducer = (state: ThemeState, action: ThemeAction): ThemeState => {
         ),
         currentTheme:
           state.currentTheme.id === action.payload
-            ? PRESET_THEMES[0]
+            ? PRESET_THEMES[0] || state.currentTheme
             : state.currentTheme,
       };
     case 'SET_CUSTOMIZING':

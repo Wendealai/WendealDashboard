@@ -159,6 +159,7 @@ export const useModal = ({
         document.removeEventListener('keydown', handleEscape);
       };
     }
+    return undefined;
   }, [isOpen, close, preventEscapeClose]);
 
   // Cleanup timer on unmount
@@ -261,7 +262,7 @@ export const useMultiModal = ({
 
   // Computed values
   const openModalIds = Object.keys(modals).filter(
-    modalId => modals[modalId].isOpen
+    modalId => modals[modalId]?.isOpen
   );
   const hasOpenModal = openModalIds.length > 0;
 

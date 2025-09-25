@@ -62,6 +62,7 @@ const AppContent: React.FC = () => {
       i18n.on('initialized', handleI18nInit);
       return () => i18n.off('initialized', handleI18nInit);
     }
+    return undefined;
   }, []);
 
   // 如果i18n还未初始化，显示加载状态

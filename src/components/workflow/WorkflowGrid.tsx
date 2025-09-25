@@ -95,7 +95,6 @@ const WorkflowGrid: React.FC<WorkflowGridProps> = ({
   loading = false,
   workflowLoadingStates = {},
   workflowErrors = {},
-  workflowProgressStates = {},
   lastUpdatedTimes = {},
   onWorkflowSelect,
   onWorkflowTrigger,

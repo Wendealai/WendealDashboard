@@ -7,7 +7,6 @@ import Airtable from 'airtable';
 import type {
   AirtableConfig,
   OpportunityRecord,
-  AirtableApiResponse,
 } from '@/types/smartOpportunities';
 
 /**
@@ -17,8 +16,6 @@ import type {
 export class AirtableService {
   private base: any;
   private config: AirtableConfig;
-  private retryCount = 3;
-  private retryDelay = 1000; // 1 second
 
   /**
    * 构造函数

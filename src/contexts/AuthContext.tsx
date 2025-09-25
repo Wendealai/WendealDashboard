@@ -10,7 +10,6 @@ import {
   updateProfile,
   changePassword,
   validateToken,
-  selectAuth,
   selectUser,
   selectIsAuthenticated,
   selectIsLoading,

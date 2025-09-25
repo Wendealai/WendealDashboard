@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { ParsedSubredditData } from '@/services/redditWebhookService';
 
 /**
@@ -76,28 +76,46 @@ export const useRedditDataPersistence = ({
   const getInitialData = (): ParsedSubredditData[] => {
     if (!autoRestore) return [];
 
-    console.log('RedditDataPersistence: Attempting to load initial data from localStorage');
+    console.log(
+      'RedditDataPersistence: Attempting to load initial data from localStorage'
+    );
 
     const dataStr = localStorage.getItem(REDDIT_DATA_STORAGE_KEY);
     const timestampStr = localStorage.getItem(REDDIT_DATA_TIMESTAMP_KEY);
 
-    console.log('RedditDataPersistence: localStorage dataStr exists:', !!dataStr);
-    console.log('RedditDataPersistence: localStorage timestampStr exists:', !!timestampStr);
+    console.log(
+      'RedditDataPersistence: localStorage dataStr exists:',
+      !!dataStr
+    );
+    console.log(
+      'RedditDataPersistence: localStorage timestampStr exists:',
+      !!timestampStr
+    );
 
     if (dataStr) {
       try {
         const data: ParsedSubredditData[] = JSON.parse(dataStr);
-        console.log('RedditDataPersistence: Parsed data length:', data?.length || 0);
+        console.log(
+          'RedditDataPersistence: Parsed data length:',
+          data?.length || 0
+        );
 
         if (data && Array.isArray(data) && data.length > 0) {
-          console.log('RedditDataPersistence: Successfully loaded persisted data:', data.length, 'items');
+          console.log(
+            'RedditDataPersistence: Successfully loaded persisted data:',
+            data.length,
+            'items'
+          );
           console.log('RedditDataPersistence: Sample data:', data[0]);
           return data;
         } else {
           console.log('RedditDataPersistence: Data is empty or invalid');
         }
       } catch (error) {
-        console.error('RedditDataPersistence: Failed to parse persisted data:', error);
+        console.error(
+          'RedditDataPersistence: Failed to parse persisted data:',
+          error
+        );
         // 清理损坏的数据
         localStorage.removeItem(REDDIT_DATA_STORAGE_KEY);
         localStorage.removeItem(REDDIT_DATA_TIMESTAMP_KEY);
@@ -111,12 +129,21 @@ export const useRedditDataPersistence = ({
 
   // 获取初始状态
   const initialData = getInitialData();
-  console.log('RedditDataPersistence: Initial data loaded:', initialData.length, 'items');
+  console.log(
+    'RedditDataPersistence: Initial data loaded:',
+    initialData.length,
+    'items'
+  );
 
-  const [redditData, setRedditData] = useState<ParsedSubredditData[]>(initialData);
-  const [hasPersistedData, setHasPersistedData] = useState(initialData.length > 0);
+  const [redditData, setRedditData] =
+    useState<ParsedSubredditData[]>(initialData);
+  const [hasPersistedData, setHasPersistedData] = useState(
+    initialData.length > 0
+  );
   const [isExpired, setIsExpired] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(initialData.length > 0 ? new Date() : null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(
+    initialData.length > 0 ? new Date() : null
+  );
 
   /**
    * 从localStorage加载Reddit数据
@@ -156,29 +183,24 @@ export const useRedditDataPersistence = ({
   /**
    * 保存Reddit数据到localStorage
    */
-  const saveToStorage = useCallback((data: ParsedSubredditData[]) => {
-    try {
-      const timestamp = Date.now();
-      const storageData: RedditDataStorage = {
-        data,
-        metadata: {
-          timestamp,
-          version,
-          source: 'workflow',
-        },
-      };
+  const saveToStorage = useCallback(
+    (data: ParsedSubredditData[]) => {
+      try {
+        const timestamp = Date.now();
 
-      localStorage.setItem(REDDIT_DATA_STORAGE_KEY, JSON.stringify(data));
-      localStorage.setItem(REDDIT_DATA_TIMESTAMP_KEY, timestamp.toString());
+        localStorage.setItem(REDDIT_DATA_STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(REDDIT_DATA_TIMESTAMP_KEY, timestamp.toString());
 
-      console.log('Reddit data persisted to storage:', {
-        itemCount: data.length,
-        timestamp: new Date(timestamp).toISOString(),
-      });
-    } catch (error) {
-      console.error('Failed to save Reddit data to storage:', error);
-    }
-  }, [version]);
+        console.log('Reddit data persisted to storage:', {
+          itemCount: data.length,
+          timestamp: new Date(timestamp).toISOString(),
+        });
+      } catch (error) {
+        console.error('Failed to save Reddit data to storage:', error);
+      }
+    },
+    [version]
+  );
 
   /**
    * 检查数据是否过期
@@ -277,7 +299,6 @@ export const useRedditDataPersistence = ({
     const expired = checkExpiration(storageData.metadata.timestamp);
     return !expired && storageData.data.length > 0;
   }, [loadFromStorage, checkExpiration]);
-
 
   return {
     redditData,

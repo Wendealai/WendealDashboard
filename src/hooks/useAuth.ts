@@ -1,6 +1,6 @@
 import { useContext, useMemo } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
-import type { User, UserRole } from '../types/auth';
+import type { UserRole } from '../types/auth';
 
 /**
  * 认证相关的自定义Hook

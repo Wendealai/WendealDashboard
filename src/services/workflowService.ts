@@ -723,7 +723,6 @@ export class WorkflowService {
 
       // Check if processedData has the expected structure
       const hasNestedStructure = !!(processedData as any)?.data;
-      const hasFlatStructure = !!(processedData as any)?.posts;
 
       console.log('WorkflowService: 数据处理完成:', {
         postsCount: hasNestedStructure
@@ -1055,8 +1054,7 @@ export class WorkflowService {
   async executeRedditWorkflowAction(
     action: WorkflowAction,
     executionId?: string,
-    config?: RedditWorkflowConfig,
-    log?: (status: string) => void
+    config?: RedditWorkflowConfig
   ): Promise<RedditApiResponse<{ executionId?: string; status: string }>> {
     try {
       switch (action) {

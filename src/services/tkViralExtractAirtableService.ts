@@ -24,8 +24,6 @@ export interface TKViralExtractAirtableConfig {
 export class TKViralExtractAirtableService {
   private base: Airtable.Base;
   private config: TKViralExtractAirtableConfig;
-  private retryCount = 3;
-  private retryDelay = 1000; // 1 second
 
   /**
    * 构造函数

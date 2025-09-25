@@ -63,7 +63,6 @@ import {
   setCurrentBatchTask,
   clearError as clearInvoiceOCRError,
   resetInvoiceOCRState,
-  selectInvoiceOCR,
   selectInvoiceOCRWorkflows,
   selectInvoiceOCRResults,
   selectInvoiceOCRStatistics,
@@ -77,7 +76,6 @@ import {
 } from '../store';
 import type {
   InvoiceOCRWorkflow,
-  InvoiceOCRSettings,
   InvoiceOCRResult,
   InvoiceOCRBatchTask,
   InvoiceOCRStatistics,
@@ -140,14 +138,14 @@ export interface UseInvoiceOCRReturn {
   updateWorkflow: (
     id: string,
     data: UpdateInvoiceOCRWorkflowRequest
-  ) => Promise<any>;
+  ) => Promise<InvoiceOCRWorkflow | null>;
   deleteWorkflow: (id: string) => Promise<boolean>;
   uploadFiles: (
     data: UploadAndProcessFilesRequest
   ) => Promise<InvoiceOCRBatchTask | null>;
-  loadResults: (workflowId?: string) => Promise<void>;
+  loadResults: () => Promise<void>;
   loadStatistics: (workflowId?: string) => Promise<void>;
-  loadExecutions: (workflowId?: string) => Promise<void>;
+  loadExecutions: () => Promise<void>;
 
   // Workflow management
   selectWorkflow: (workflow: InvoiceOCRWorkflow | null) => void;
@@ -267,7 +265,8 @@ export const useInvoiceOCR = ({
           updateInvoiceOCRWorkflow({ id, request: data })
         ).unwrap();
         showSuccess('Workflow updated successfully');
-        return result;
+        // The result should be the updated workflow, but if it's not, return null
+        return result as unknown as InvoiceOCRWorkflow;
       } catch (err) {
         const errorMsg =
           err instanceof Error ? err.message : 'Failed to update workflow';
@@ -321,18 +320,15 @@ export const useInvoiceOCR = ({
   /**
    * Load results
    */
-  const loadResults = useCallback(
-    async (workflowId?: string) => {
-      try {
-        await dispatch(fetchInvoiceOCRResults({})).unwrap();
-      } catch (err) {
-        const errorMsg =
-          err instanceof Error ? err.message : 'Failed to load results';
-        showError(errorMsg);
-      }
-    },
-    [dispatch, showError]
-  );
+  const loadResults = useCallback(async () => {
+    try {
+      await dispatch(fetchInvoiceOCRResults({})).unwrap();
+    } catch (err) {
+      const errorMsg =
+        err instanceof Error ? err.message : 'Failed to load results';
+      showError(errorMsg);
+    }
+  }, [dispatch, showError]);
 
   /**
    * Load statistics
@@ -353,18 +349,15 @@ export const useInvoiceOCR = ({
   /**
    * Load executions
    */
-  const loadExecutions = useCallback(
-    async (workflowId?: string) => {
-      try {
-        await dispatch(fetchInvoiceOCRExecutions({})).unwrap();
-      } catch (err) {
-        const errorMsg =
-          err instanceof Error ? err.message : 'Failed to load executions';
-        showError(errorMsg);
-      }
-    },
-    [dispatch, showError]
-  );
+  const loadExecutions = useCallback(async () => {
+    try {
+      await dispatch(fetchInvoiceOCRExecutions({})).unwrap();
+    } catch (err) {
+      const errorMsg =
+        err instanceof Error ? err.message : 'Failed to load executions';
+      showError(errorMsg);
+    }
+  }, [dispatch, showError]);
 
   /**
    * Select active workflow
@@ -416,9 +409,9 @@ export const useInvoiceOCR = ({
   const refreshData = useCallback(async () => {
     await Promise.all([
       loadWorkflows(),
-      loadResults(activeWorkflow?.id),
+      loadResults(),
       loadStatistics(activeWorkflow?.id),
-      loadExecutions(activeWorkflow?.id),
+      loadExecutions(),
     ]);
   }, [
     loadWorkflows,
@@ -473,6 +466,7 @@ export const useInvoiceOCR = ({
         setAutoRefreshTimer(null);
       };
     }
+    return undefined;
   }, [autoRefreshInterval, hasActiveWorkflow, refreshData]);
 
   // Cleanup timer on unmount

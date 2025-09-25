@@ -4,16 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Card,
-  Button,
-  Alert,
-  Typography,
-  Space,
-  Spin,
-  Progress,
-  Divider,
-} from 'antd';
+import { Card, Button, Alert, Typography, Space, Progress } from 'antd';
 import { redditWebhookService } from '@/services/redditWebhookService';
 import {
   BugOutlined,
@@ -22,7 +13,7 @@ import {
   LoadingOutlined,
 } from '@ant-design/icons';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 interface TestResult {
   name: string;

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Card, Button, Input, Space, Alert, Typography, Divider } from 'antd';
-import { useTranslation } from 'react-i18next';
 import { chatService, SessionManager } from '@/services/chatService';
 import { notificationService } from '@/services/notificationService';
 

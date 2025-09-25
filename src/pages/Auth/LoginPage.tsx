@@ -27,6 +27,7 @@ const LoginPage: React.FC = () => {
       }, 100);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [isAuthenticated, user, isLoading, navigate, from]);
 
   // 登录成功回调
