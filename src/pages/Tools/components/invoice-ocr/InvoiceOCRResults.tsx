@@ -43,7 +43,6 @@ import {
   Statistic,
   Row,
   Col,
-  Alert,
   Empty,
   Spin,
   Modal,
@@ -76,35 +75,14 @@ import {
   ReloadOutlined,
   DeleteOutlined,
   MoreOutlined,
-  TableOutlined,
-  BarChartOutlined,
-  FileExcelOutlined,
   CloudDownloadOutlined,
   BulbOutlined,
   CloseCircleOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { invoiceOCRService } from '../../../../services/invoiceOCRService';
-import type {
-  InvoiceOCRResult,
-  InvoiceOCRStatus,
-  InvoiceOCRBatchTask,
-  InvoiceOCRQueryParams,
-  InvoiceOCRPaginatedResponse,
-  InvoiceOCRWorkflowStats,
-  InvoiceOCRExecutionHistory,
-  InvoiceData,
-  InvoiceLineItem,
-} from '../../../pages/InformationDashboard/types/invoiceOCR';
-import type {
-  EnhancedWebhookResponse,
-  InvoiceProcessingSummary,
-  FinancialSummary,
-  ProcessingDetails,
-  QualityMetrics,
-} from '../../../types/workflow';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 const { confirm } = Modal;
 
 /**
