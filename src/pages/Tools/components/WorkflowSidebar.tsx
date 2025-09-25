@@ -90,7 +90,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
      * Initialize and load workflow list
      */
     useEffect(() => {
-      dispatch(fetchWorkflows());
+      dispatch(fetchWorkflows({}));
     }, [dispatch]);
 
     /**
@@ -127,8 +127,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           const result = await dispatch(
             triggerWorkflow({
               workflowId: workflow.id,
-              data: {},
-              waitTill: 'EXECUTED',
             })
           ).unwrap();
 
@@ -153,7 +151,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
      * Refresh workflow list
      */
     const handleRefresh = useCallback(() => {
-      dispatch(fetchWorkflows());
+      dispatch(fetchWorkflows({}));
     }, [dispatch]);
 
     /**
@@ -290,23 +288,26 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     name: t('invoiceOCR.title'),
                     description: t('invoiceOCR.subtitle'),
                     status: 'active' as WorkflowStatus,
-                    nodeCount: 4,
-                    lastExecution: new Date().toISOString(),
+                    type: 'data-processing' as any,
+                    executionCount: 0,
+                    successRate: 0,
+                    author: { id: 'system', name: 'System' },
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   }}
                   selected={selectedWorkflow?.id === 'invoice-ocr-workflow'}
                   loading={false}
                   error={null}
-                  progressStatus=''
                   onClick={() =>
                     handleWorkflowSelect({
                       id: 'invoice-ocr-workflow',
                       name: t('invoiceOCR.title'),
                       description: t('invoiceOCR.subtitle'),
                       status: 'active' as WorkflowStatus,
-                      nodeCount: 4,
-                      lastExecution: new Date().toISOString(),
+                      type: 'data-processing' as any,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
                     })
@@ -318,8 +319,10 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       name: t('invoiceOCR.title'),
                       description: t('invoiceOCR.subtitle'),
                       status: 'active' as WorkflowStatus,
-                      nodeCount: 4,
-                      lastExecution: new Date().toISOString(),
+                      type: 'data-processing' as any,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
                     });
@@ -462,7 +465,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       selected={selectedWorkflow?.id === workflow.id}
                       loading={false}
                       error={null}
-                      progressStatus={''}
                       lastUpdated={lastUpdatedTimes[workflow.id]}
                       onClick={() => handleWorkflowSelect(workflow)}
                       onTrigger={() => handleWorkflowSelect(workflow)}
