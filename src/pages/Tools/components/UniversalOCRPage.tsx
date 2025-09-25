@@ -168,11 +168,7 @@ const UniversalOCRPage: React.FC = () => {
         const errorMessage = err.message || 'Universal OCR processing failed';
         setError(errorMessage);
         setProcessingStatus('error');
-        showError(
-          'Universal OCR Processing Failed',
-          err.message || 'Unknown error occurred',
-          err.stack
-        );
+        showError('Universal OCR Processing Failed');
       } finally {
         setLoading(false);
       }
@@ -226,11 +222,7 @@ const UniversalOCRPage: React.FC = () => {
       });
     } catch (error) {
       console.error('Failed to load initial data:', error);
-      showError(
-        'Failed to Load Data',
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
-      );
+      showError('Failed to Load Data');
     } finally {
       setLoading(false);
     }
@@ -288,7 +280,7 @@ const UniversalOCRPage: React.FC = () => {
   const getStatusColor = (status: ProcessingStatus) => {
     switch (status) {
       case 'completed':
-        return 'success';
+        return 'finish';
       case 'error':
         return 'error';
       case 'processing':
@@ -469,7 +461,7 @@ const UniversalOCRPage: React.FC = () => {
         {/* Error Modal */}
         <ErrorModal
           visible={isVisible}
-          errorInfo={errorInfo}
+          message='An error occurred'
           onClose={hideError}
         />
 
