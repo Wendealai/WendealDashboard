@@ -54,6 +54,11 @@ program
       // 构建扫描选项
       const scanOptions: ScanOptions = {
         rootDir: path.resolve(directory),
+        outputFormat: 'json',
+        showProgress: options.verbose || false,
+        verbose: options.verbose || false,
+        fixIssues: options.fix || false,
+        fixConfirmation: options.dryRun ? 'none' : 'manual',
         recursive: true,
         includeHidden: false,
         includeNodeModules: options.includeNodeModules || false,
@@ -89,9 +94,9 @@ program
       // 显示结果摘要
       console.log('📊 诊断结果摘要:');
       console.log(`   扫描文件: ${report.filesScanned}`);
-      console.log(`   发现导出: ${report.summary.totalExports}`);
-      console.log(`   已使用导出: ${report.summary.usedExports}`);
-      console.log(`   未使用导出: ${report.summary.unusedExports}`);
+      console.log(`   发现导出: ${report.summary?.totalExports || 0}`);
+      console.log(`   已使用导出: ${report.summary?.usedExports || 0}`);
+      console.log(`   未使用导出: ${report.summary?.unusedExports || 0}`);
       console.log(`   发现问题: ${report.issues.length}`);
       console.log(`   扫描时间: ${duration}ms`);
       console.log('');
@@ -121,7 +126,7 @@ program
         console.log('🔧 执行自动修复...');
         // 这里可以实现自动修复逻辑
         const totalSuggestions = report.issues.reduce(
-          (sum, issue) => sum + issue.suggestions.length,
+          (sum, issue) => sum + (issue.suggestions?.length || 0),
           0
         );
         console.log(`   发现 ${totalSuggestions} 个修复建议`);
@@ -353,9 +358,9 @@ function formatAsText(report: any): string {
 
   text += `扫描时间: ${new Date().toLocaleString()}\n`;
   text += `扫描文件: ${report.filesScanned || 0}\n`;
-  text += `发现导出: ${report.summary?.totalExports || 0}\n`;
-  text += `已使用导出: ${report.summary?.usedExports || 0}\n`;
-  text += `未使用导出: ${report.summary?.unusedExports || 0}\n`;
+  text += `发现导出: ${report.totalExports || 0}\n`;
+  text += `已使用导出: ${report.usedExports || 0}\n`;
+  text += `未使用导出: ${report.unusedExports || 0}\n`;
   text += `发现问题: ${report.issues?.length || 0}\n\n`;
 
   if (report.issues && report.issues.length > 0) {
@@ -400,9 +405,9 @@ function formatAsHtml(report: any): string {
     <h2>摘要</h2>
     <p>扫描时间: ${new Date().toLocaleString()}</p>
     <p>扫描文件: ${report.filesScanned || 0}</p>
-    <p>发现导出: ${report.summary?.totalExports || 0}</p>
-    <p>已使用导出: ${report.summary?.usedExports || 0}</p>
-    <p>未使用导出: ${report.summary?.unusedExports || 0}</p>
+    <p>发现导出: ${report.totalExports || 0}</p>
+    <p>已使用导出: ${report.usedExports || 0}</p>
+    <p>未使用导出: ${report.unusedExports || 0}</p>
     <p>发现问题: ${report.issues?.length || 0}</p>
   </div>
 

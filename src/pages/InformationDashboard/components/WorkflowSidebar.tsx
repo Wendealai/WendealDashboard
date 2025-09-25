@@ -5,17 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Card,
-  Button,
-  Space,
-  Tooltip,
-  Typography,
-  Empty,
-  Spin,
-  Row,
-  Col,
-} from 'antd';
+import { Card, Button, Space, Tooltip, Empty, Spin, Row, Col } from 'antd';
 import { useMessage } from '@/hooks';
 import { ReloadOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -26,13 +16,16 @@ import {
   selectWorkflowStats,
   selectLoading,
 } from '@/store/slices/informationDashboardSlice';
-import type { Workflow, WorkflowStatus } from '../types';
+import type {
+  Workflow,
+  WorkflowStatus,
+  RedditWorkflowResponse,
+} from '../types';
+import type { WorkflowSettings } from '@/types/workflow';
 import type { ParsedSubredditData } from '@/services/redditWebhookService';
 import { redditWebhookService } from '@/services/redditWebhookService';
 import { WorkflowSettingsModal } from '@/components/workflow';
 import WorkflowCard from '@/components/workflow/WorkflowCard';
-
-const { Text, Title } = Typography;
 
 /**
  * Workflow Sidebar Component Props Interface
@@ -100,14 +93,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
       null
     );
     const [currentWorkflowSettings, setCurrentWorkflowSettings] =
-      useState<any>(null);
-
-    /**
-     * Initialize and load workflow list
-     */
-    useEffect(() => {
-      dispatch(fetchWorkflows());
-    }, [dispatch]);
+      useState<WorkflowSettings | null>(null);
 
     /**
      * Persist Last Updated times to localStorage
@@ -143,8 +129,8 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           const result = await dispatch(
             triggerWorkflow({
               workflowId: workflow.id,
-              data: {},
-              waitTill: 'EXECUTED',
+              inputData: {},
+              waitForCompletion: true,
             })
           ).unwrap();
 
@@ -166,11 +152,14 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
     );
 
     // Reddit workflow settings state - 提前声明
-    const [redditWorkflowSettings, setRedditWorkflowSettings] = useState({
-      name: t('informationDashboard.reddit.dataCollection'),
-      webhookUrl: 'https://n8n.wendealai.com/webhook/reddithot', // 使用正确的默认webhook URL
-      enabled: true,
-    });
+    const [redditWorkflowSettings, setRedditWorkflowSettings] =
+      useState<WorkflowSettings>({
+        name: t('informationDashboard.reddit.dataCollection'),
+        webhookUrl: 'https://n8n.wendealai.com/webhook/reddithot', // 使用正确的默认webhook URL
+        enabled: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
 
     /**
      * Handle Reddit workflow startup - use redditWebhookService to parse data
@@ -227,41 +216,54 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
         const processedData =
           redditWebhookService.processWebhookResponse(webhookResponse);
 
-        console.log('Processed data:', {
-          postsCount: processedData.posts?.length || 0,
-          subredditsCount: processedData.subreddits?.length || 0,
-        });
+        console.log('Processed data:', processedData);
 
         // Handle different response formats
         let subredditsData: ParsedSubredditData[] = [];
 
-        if (processedData.data && processedData.data.subreddits) {
-          // New workflow response format
-          subredditsData = processedData.data.subreddits;
-        } else if (processedData.subreddits) {
-          // Legacy format
-          subredditsData = processedData.subreddits;
+        if (processedData && typeof processedData === 'object') {
+          if (
+            'data' in processedData &&
+            processedData.data &&
+            'subreddits' in processedData.data
+          ) {
+            // New workflow response format
+            subredditsData = processedData.data
+              .subreddits as ParsedSubredditData[];
+          } else if ('subreddits' in processedData) {
+            // Legacy format
+            subredditsData = processedData.subreddits as ParsedSubredditData[];
+          } else if (
+            'posts' in processedData &&
+            'subreddits' in processedData
+          ) {
+            // Alternative format
+            subredditsData = processedData.subreddits as ParsedSubredditData[];
+          } else {
+            console.error(
+              'No subreddits data found in processedData:',
+              processedData
+            );
+            throw new Error('无法获取subreddits数据');
+          }
         } else {
-          console.error(
-            'No subreddits data found in processedData:',
-            processedData
-          );
-          throw new Error('无法获取subreddits数据');
+          console.error('Invalid processedData format:', processedData);
+          throw new Error('处理后的数据格式无效');
         }
 
         // Convert to format expected by WorkflowSidebar
         const parsedData: ParsedSubredditData[] = subredditsData.map(
           subreddit => ({
-            subreddit: subreddit.name,
-            category: t('informationDashboard.reddit.category'),
+            name: subreddit.name,
             posts: subreddit.posts.map(post => ({
               title: post.title,
-              score: post.upvotes || post.score, // 修复字段映射问题
+              upvotes: post.upvotes,
               comments: post.comments,
               url: post.url,
-              author: post.author || 'u/reddit_user', // 使用真实作者名
-              created: new Date().toLocaleString('en-US'),
+              subreddit: post.subreddit,
+              rank: post.rank,
             })),
+            totalPosts: subreddit.totalPosts,
           })
         );
 
@@ -320,7 +322,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
      * Refresh workflow list
      */
     const handleRefresh = useCallback(() => {
-      dispatch(fetchWorkflows());
+      dispatch(fetchWorkflows({}));
     }, [dispatch]);
 
     /**
@@ -358,11 +360,16 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                   t('informationDashboard.reddit.dataCollection'),
                 webhookUrl: 'https://n8n.wendealai.com/webhook/reddithot', // 使用正确的默认webhook URL
                 enabled: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
               };
             } else {
               settings = {
                 name: workflowName || 'Workflow',
+                webhookUrl: '',
                 enabled: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
               };
             }
           }
@@ -386,7 +393,8 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
         'reddit-workflow',
         t('informationDashboard.reddit.dataCollection')
       );
-    }, [loadWorkflowSettings, t]);
+      dispatch(fetchWorkflows({}));
+    }, [loadWorkflowSettings, t, dispatch]);
 
     // Use useMemo to optimize computed values
     const filteredWorkflows = useMemo(() => {
@@ -485,25 +493,38 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     name: 'Smart Opportunities',
                     description:
                       'Discover business opportunities based on industry, city, and country parameters',
+                    type: 'manual' as const,
                     status: 'active' as WorkflowStatus,
-                    lastExecution: new Date().toISOString(),
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
+                    lastExecution: new Date().toISOString(),
+                    executionCount: 0,
+                    successRate: 0,
+                    author: {
+                      id: 'system',
+                      name: 'System',
+                    },
                   }}
                   selected={selectedWorkflow?.id === 'smart-opportunities'}
                   loading={false}
                   error={null}
-                  progressStatus=''
                   onClick={() =>
                     handleWorkflowSelect({
                       id: 'smart-opportunities',
                       name: 'Smart Opportunities',
                       description: '基于行业、城市、国家参数智能发现商业机会',
+                      type: 'manual' as const,
                       status: 'active' as WorkflowStatus,
-                      nodeCount: 3,
-                      lastExecution: new Date().toISOString(),
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
+                      lastExecution: new Date().toISOString(),
+                      executionCount: 0,
+                      successRate: 0,
+                      nodeCount: 3,
+                      author: {
+                        id: 'system',
+                        name: 'System',
+                      },
                     })
                   }
                   onTrigger={() => {
@@ -512,11 +533,18 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       id: 'smart-opportunities',
                       name: 'Smart Opportunities',
                       description: '基于行业、城市、国家参数智能发现商业机会',
+                      type: 'manual' as const,
                       status: 'active' as WorkflowStatus,
-                      nodeCount: 3,
-                      lastExecution: new Date().toISOString(),
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
+                      lastExecution: new Date().toISOString(),
+                      executionCount: 0,
+                      successRate: 0,
+                      nodeCount: 3,
+                      author: {
+                        id: 'system',
+                        name: 'System',
+                      },
                     });
                   }}
                   onSettings={() => {
@@ -538,25 +566,38 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     id: 'reddit-workflow',
                     name: redditWorkflowSettings.name,
                     description: t('informationDashboard.reddit.getHotPosts'),
+                    type: 'webhook' as const,
                     status: 'active' as WorkflowStatus,
-                    lastExecution: new Date().toISOString(),
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
+                    lastExecution: new Date().toISOString(),
+                    executionCount: 0,
+                    successRate: 0,
+                    author: {
+                      id: 'system',
+                      name: 'System',
+                    },
                   }}
                   selected={selectedWorkflow?.id === 'reddit-workflow'}
                   loading={redditLoading}
                   error={redditError}
-                  progressStatus={redditProgressStatus}
                   onClick={() =>
                     handleWorkflowSelect({
                       id: 'reddit-workflow',
                       name: redditWorkflowSettings.name,
                       description: t('informationDashboard.reddit.getHotPosts'),
+                      type: 'webhook' as const,
                       status: 'active' as WorkflowStatus,
-                      nodeCount: 3,
-                      lastExecution: new Date().toISOString(),
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
+                      lastExecution: new Date().toISOString(),
+                      executionCount: 0,
+                      successRate: 0,
+                      nodeCount: 3,
+                      author: {
+                        id: 'system',
+                        name: 'System',
+                      },
                     })
                   }
                   onTrigger={workflow => {
@@ -574,35 +615,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                   }
                   size='small'
                   showActions={false} // Hide start button since it's now in the header
-                  extra={
-                    <Button
-                      type='text'
-                      size='small'
-                      onClick={async e => {
-                        e.stopPropagation();
-                        try {
-                          message.info('正在测试webhook连接...');
-                          const result =
-                            await redditWebhookService.testWebhookConnection();
-                          if (result.success) {
-                            message.success('✅ Webhook连接测试成功！');
-                            console.log('Webhook测试详情:', result);
-                          } else {
-                            message.error(
-                              `❌ Webhook连接测试失败: ${result.error}`
-                            );
-                            console.error('Webhook测试失败详情:', result);
-                          }
-                        } catch (error) {
-                          message.error('Webhook测试异常，请查看控制台日志');
-                          console.error('Webhook测试异常:', error);
-                        }
-                      }}
-                      style={{ fontSize: '11px', padding: '2px 6px' }}
-                    >
-                      测试连接
-                    </Button>
-                  }
                 />
               </Col>
 
@@ -616,7 +628,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       selected={selectedWorkflow?.id === workflow.id}
                       loading={false}
                       error={null}
-                      progressStatus={''}
                       lastUpdated={lastUpdatedTimes[workflow.id]}
                       onClick={() => handleWorkflowSelect(workflow)}
                       onTrigger={() => handleWorkflowSelect(workflow)}

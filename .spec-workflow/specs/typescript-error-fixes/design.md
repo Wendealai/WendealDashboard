@@ -1,142 +1,134 @@
-# Design Document
+# TypeScript Error Fixes - Design
 
 ## Overview
+This design addresses the systematic resolution of TypeScript compilation errors across the codebase. The approach focuses on maintaining type safety while ensuring compatibility with strict TypeScript configuration.
 
-This design addresses the systematic fixing of TypeScript compilation errors across the WendealDashboard codebase. The feature will implement a comprehensive error resolution strategy that categorizes errors by type and applies targeted fixes while maintaining code quality and type safety. The implementation will follow a modular approach, addressing errors in logical groups to ensure maintainability and prevent regression.
+## Architecture Decisions
 
-## Steering Document Alignment
+### Type Safety Strategy
+- Maintain strict TypeScript configuration (`exactOptionalPropertyTypes: true`, `erasableSyntaxOnly: true`)
+- Use proper union types for optional properties (`T | undefined` instead of `T?`)
+- Replace runtime enums with const assertions for erasable syntax compliance
 
-### Technical Standards (tech.md)
-The design follows TypeScript best practices and React development patterns established in the project. It maintains strict type checking, proper interface definitions, and clean code principles. Error fixes will preserve existing architectural patterns and coding standards.
+### Error Categorization
+1. **Interface Property Issues**: Missing or incorrect properties in interfaces
+2. **Configuration Type Errors**: Invalid enum values and missing required properties
+3. **Import/Export Issues**: Missing exports and unused imports
+4. **Type Compatibility**: Union type mismatches and generic constraints
 
-### Project Structure (structure.md)
-The implementation will follow the existing project structure with components in `src/components/`, services in `src/services/`, and utilities in `src/utils/`. Type definitions will be maintained in their respective domain folders, and fixes will not introduce new structural changes unless absolutely necessary for type safety.
+## Technical Design
 
-## Code Reuse Analysis
-
-### Existing Components to Leverage
-- **TypeScript Configuration**: Utilize existing `tsconfig.json` settings and ESLint rules
-- **Component Architecture**: Maintain existing React component patterns and prop interfaces
-- **Service Layer**: Preserve existing service architecture and API contracts
-- **Utility Functions**: Leverage existing utility functions for type checking and validation
-
-### Integration Points
-- **Build System**: Integrate with existing TypeScript compilation and linting processes
-- **Component Library**: Work within existing Ant Design and custom component interfaces
-- **State Management**: Maintain compatibility with Redux store and slice patterns
-- **API Services**: Preserve existing service interfaces and response types
-
-## Architecture
-
-The design follows a systematic, error-category-driven approach to TypeScript error resolution. Each error type is addressed through targeted fixes that maintain code modularity and type safety.
-
-### Modular Design Principles
-- **Single File Responsibility**: Each file fix addresses specific error types within that file
-- **Component Isolation**: Fixes are isolated to affected components without cascading changes
-- **Service Layer Separation**: Type fixes maintain separation between data, business logic, and presentation
-- **Utility Modularity**: Type utilities and interfaces remain focused and reusable
-
-```mermaid
-graph TD
-    A[Error Analysis] --> B[Type Mismatches]
-    A --> C[Missing Properties]
-    A --> D[Unused Code]
-    A --> E[Null Safety]
-    A --> F[Component Props]
-
-    B --> G[Fix Type Definitions]
-    C --> H[Add Optional Properties]
-    D --> I[Remove Unused Imports]
-    E --> J[Add Null Checks]
-    F --> K[Update Prop Interfaces]
-
-    G --> L[Validation]
-    H --> L
-    I --> L
-    J --> L
-    K --> L
-
-    L --> M[Type Check Pass]
-```
-
-## Components and Interfaces
-
-### Error Categorization Module
-- **Purpose:** Analyzes and categorizes TypeScript errors by type and severity
-- **Interfaces:** `ErrorCategory`, `ErrorLocation`, `FixStrategy`
-- **Dependencies:** TypeScript compiler API, file system utilities
-- **Reuses:** Existing logging and error handling utilities
-
-### Type Fixer Module
-- **Purpose:** Applies targeted fixes based on error categorization
-- **Interfaces:** `TypeFix`, `FixResult`, `ValidationResult`
-- **Dependencies:** AST parsing, code transformation utilities
-- **Reuses:** Existing code formatting and linting tools
-
-### Validation Module
-- **Purpose:** Validates fixes and ensures no new errors are introduced
-- **Interfaces:** `ValidationReport`, `ErrorRegression`
-- **Dependencies:** TypeScript compiler, test runners
-- **Reuses:** Existing test utilities and CI/CD validation scripts
-
-## Data Models
-
-### ErrorReport Model
-```
-interface ErrorReport {
-  file: string;
-  line: number;
-  column: number;
-  errorCode: string;
-  message: string;
-  category: 'type-mismatch' | 'missing-property' | 'unused-variable' | 'null-safety' | 'component-props';
-  severity: 'critical' | 'warning' | 'info';
-  fixStrategy: string;
-  applied: boolean;
-  validated: boolean;
+### DiagnosticReport Interface Updates
+```typescript
+interface DiagnosticReport {
+  // Existing properties...
+  summary?: {
+    totalIssues: number;
+    issuesBySeverity: Record<IssueSeverity, number>;
+    issuesByType: Record<ExportIssueType, number>;
+  };
+  scanTime?: number;
+  issuesFound?: number;
+  // ... other properties
 }
 ```
 
-### FixResult Model
+### Configuration Object Fixes
+- Replace invalid severity strings with proper enum values
+- Add missing required properties to configuration objects
+- Use proper typing for optional properties
+
+### Import Cleanup Strategy
+- Remove unused imports systematically
+- Ensure all imported types are actually used
+- Maintain proper module boundaries
+
+## Implementation Approach
+
+### Phase 1: Interface Updates
+- Update `DiagnosticReport` interface to include missing properties
+- Fix property type mismatches
+- Ensure backward compatibility
+
+### Phase 2: Configuration Fixes
+- Correct enum value usage in configuration files
+- Add missing required properties
+- Fix object literal type issues
+
+### Phase 3: Import Cleanup
+- Remove unused imports across all files
+- Ensure proper type imports
+- Maintain code readability
+
+### Phase 4: Type Compatibility
+- Fix union type issues with `exactOptionalPropertyTypes`
+- Resolve generic type parameter constraints
+- Update component prop types
+
+## Code Patterns
+
+### Enum Replacement Pattern
+```typescript
+// Before (not erasable)
+export enum DataLoadingState {
+  IDLE = 'idle',
+  LOADING = 'loading',
+  SUCCESS = 'success',
+  ERROR = 'error',
+}
+
+// After (erasable)
+export const DataLoadingState = {
+  IDLE: 'idle',
+  LOADING: 'loading',
+  SUCCESS: 'success',
+  ERROR: 'error',
+} as const;
+
+export type DataLoadingState = typeof DataLoadingState[keyof typeof DataLoadingState];
 ```
-interface FixResult {
-  errorId: string;
-  success: boolean;
-  changes: CodeChange[];
-  validationPassed: boolean;
-  newErrors: ErrorReport[];
-  timestamp: Date;
+
+### Optional Property Pattern
+```typescript
+// Before (incompatible with exactOptionalPropertyTypes)
+interface Config {
+  timeout?: number;
+}
+
+// After (compatible)
+interface Config {
+  timeout?: number | undefined;
 }
 ```
-
-## Error Handling
-
-### Error Scenarios
-1. **Fix Application Failure:** When a fix cannot be applied due to complex code dependencies
-   - **Handling:** Log detailed error information and mark for manual review
-   - **User Impact:** Clear indication in reports that manual intervention is needed
-
-2. **New Errors Introduced:** When fixes create additional TypeScript errors
-   - **Handling:** Rollback changes and flag for alternative approaches
-   - **User Impact:** Validation reports highlight regression issues
-
-3. **Type Definition Conflicts:** When fixes conflict with existing type definitions
-   - **Handling:** Analyze dependencies and apply minimal viable fixes
-   - **User Impact:** Detailed conflict reports for architectural decisions
 
 ## Testing Strategy
 
-### Unit Testing
-- Test individual error fix functions with mock TypeScript errors
-- Validate fix application logic for each error category
-- Test type validation and regression detection
+### Build Verification
+- `npm run build` must complete successfully
+- `npx tsc --noEmit` must report zero errors
+- All linting rules must pass
 
-### Integration Testing
-- Test complete error resolution workflows on sample files
-- Validate integration with existing build and lint processes
-- Test error categorization accuracy across different code patterns
+### Type Safety Verification
+- No `any` types introduced
+- All interfaces properly typed
+- Generic constraints satisfied
 
-### End-to-End Testing
-- Run full TypeScript compilation after all fixes
-- Validate that application builds successfully
-- Test critical user flows to ensure functionality is preserved
+## Risk Mitigation
+
+### Backward Compatibility
+- All changes maintain existing API contracts
+- Optional properties remain optional
+- No breaking changes to public interfaces
+
+### Performance Impact
+- Minimal impact on build times
+- Type checking remains efficient
+- No runtime performance degradation
+
+## Success Criteria
+
+- Zero TypeScript compilation errors
+- All strict mode rules satisfied
+- Code remains maintainable and readable
+- Type safety improved or maintained
+- Build process completes successfully

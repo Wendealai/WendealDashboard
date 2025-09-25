@@ -120,6 +120,7 @@ export class ExportAnalyzer {
       id: `unused-export-${exportInfo.location.filePath}-${exportInfo.name}`,
       type: ExportIssueType.UNUSED_EXPORT,
       severity: IssueSeverity.WARNING,
+      title: `未使用的导出: ${exportInfo.name}`,
       description: `导出 '${exportInfo.name}' 未被使用`,
       location: exportInfo.location,
       relatedExport: exportInfo,
@@ -128,8 +129,11 @@ export class ExportAnalyzer {
           id: `remove-unused-export-${exportInfo.name}`,
           title: '移除未使用的导出',
           description: `删除未使用的导出声明以减少代码体积`,
+          type: 'remove',
           fixType: 'manual_fix' as any,
           confidence: 0.9,
+          impact: 'file',
+          isSafe: true,
           affectedFiles: [exportInfo.location.filePath],
         },
       ],
@@ -145,11 +149,17 @@ export class ExportAnalyzer {
   ): ExportIssue | null {
     const defaultExports = fileExports.filter(exp => exp.type === 'default');
 
-    if (defaultExports.length > 1 && fileExports.length > 0) {
+    if (
+      defaultExports.length > 1 &&
+      fileExports.length > 0 &&
+      fileExports[0] &&
+      defaultExports[0]
+    ) {
       return {
         id: `default-export-conflict-${fileExports[0].location.filePath}`,
         type: ExportIssueType.DEFAULT_EXPORT_CONFLICT,
         severity: IssueSeverity.ERROR,
+        title: `默认导出冲突`,
         description: `文件包含多个默认导出 (${defaultExports.length}个)`,
         location: defaultExports[0].location,
         suggestions: [
@@ -158,8 +168,11 @@ export class ExportAnalyzer {
             title: '解决默认导出冲突',
             description:
               '每个文件只能有一个默认导出，请选择保留一个或转换为命名导出',
+            type: 'modify',
             fixType: 'manual_fix' as any,
             confidence: 0.95,
+            impact: 'file',
+            isSafe: false,
             affectedFiles: [fileExports[0].location.filePath],
           },
         ],
@@ -184,6 +197,7 @@ export class ExportAnalyzer {
           id: `naming-convention-${exportInfo.location.filePath}-${exportInfo.name}`,
           type: ExportIssueType.EXPORT_INCONSISTENCY,
           severity: IssueSeverity.INFO,
+          title: `命名约定问题: ${exportInfo.name}`,
           description: `导出名称 '${exportInfo.name}' 不符合驼峰命名约定`,
           location: exportInfo.location,
           relatedExport: exportInfo,
@@ -192,8 +206,11 @@ export class ExportAnalyzer {
               id: `fix-naming-${exportInfo.name}`,
               title: '修复命名约定',
               description: `将 '${exportInfo.name}' 改为驼峰命名`,
+              type: 'modify',
               fixType: 'manual_fix' as any,
               confidence: 0.7,
+              impact: 'file',
+              isSafe: true,
               affectedFiles: [exportInfo.location.filePath],
             },
           ],
@@ -218,6 +235,7 @@ export class ExportAnalyzer {
           id: `type-export-issue-${exportInfo.location.filePath}-${exportInfo.name}`,
           type: ExportIssueType.TYPE_EXPORT_ISSUE,
           severity: IssueSeverity.WARNING,
+          title: `类型导出问题: ${exportInfo.name}`,
           description: `类型导出 '${exportInfo.name}' 应该使用命名导出`,
           location: exportInfo.location,
           relatedExport: exportInfo,
@@ -226,8 +244,11 @@ export class ExportAnalyzer {
               id: `fix-type-export-${exportInfo.name}`,
               title: '修复类型导出',
               description: '将类型导出改为命名导出以提高类型安全性',
+              type: 'modify',
               fixType: 'manual_fix' as any,
               confidence: 0.8,
+              impact: 'file',
+              isSafe: true,
               affectedFiles: [exportInfo.location.filePath],
             },
           ],
@@ -283,6 +304,7 @@ export class ExportAnalyzer {
             id: `duplicate-named-export-${name}`,
             type: ExportIssueType.EXPORT_INCONSISTENCY,
             severity: IssueSeverity.WARNING,
+            title: `重复的命名导出: ${name}`,
             description: `命名导出 '${name}' 在多个文件中定义`,
             location: namedExports[0].location,
             suggestions: [
@@ -290,8 +312,11 @@ export class ExportAnalyzer {
                 id: `resolve-duplicate-export-${name}`,
                 title: '解决重复导出',
                 description: `重命名或合并重复的导出 '${name}'`,
+                type: 'modify',
                 fixType: 'manual_fix' as any,
                 confidence: 0.6,
+                impact: 'project',
+                isSafe: false,
                 affectedFiles: namedExports.map(exp => exp.location.filePath),
               },
             ],
@@ -304,6 +329,7 @@ export class ExportAnalyzer {
             id: `duplicate-default-export-${name}`,
             type: ExportIssueType.DEFAULT_EXPORT_CONFLICT,
             severity: IssueSeverity.ERROR,
+            title: `重复的默认导出: ${name}`,
             description: `默认导出 '${name}' 在多个文件中定义`,
             location: defaultExports[0].location,
             suggestions: [
@@ -311,8 +337,11 @@ export class ExportAnalyzer {
                 id: `resolve-duplicate-default-${name}`,
                 title: '解决默认导出冲突',
                 description: `重命名或合并重复的默认导出`,
+                type: 'modify',
                 fixType: 'manual_fix' as any,
                 confidence: 0.8,
+                impact: 'project',
+                isSafe: false,
                 affectedFiles: defaultExports.map(exp => exp.location.filePath),
               },
             ],
@@ -380,6 +409,9 @@ export const exportAnalyzer = new ExportAnalyzer({
   enableCache: true,
   cacheExpiry: 5 * 60 * 1000,
   severityThreshold: 'info' as any,
+  includeTypes: true,
+  includeTests: false,
+  concurrency: 5,
   typescriptConfig: {
     strict: false,
     checkTypeExports: true,

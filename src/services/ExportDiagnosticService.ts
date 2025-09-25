@@ -143,6 +143,11 @@ export class ExportDiagnosticService implements IDiagnosticService {
     // 合并选项
     const scanOptions: ScanOptions = {
       rootDir: options.rootDir,
+      outputFormat: 'json',
+      showProgress: false,
+      verbose: false,
+      fixIssues: false,
+      fixConfirmation: 'none',
       recursive: options.recursive ?? true,
       includeHidden: options.includeHidden ?? false,
       includeNodeModules: options.includeNodeModules ?? false,
@@ -191,7 +196,7 @@ export class ExportDiagnosticService implements IDiagnosticService {
   private updateStats(report: DiagnosticReport): void {
     this.stats.totalScans++;
     this.stats.totalFilesProcessed += report.filesScanned;
-    this.stats.totalIssuesFound += report.issuesFound;
+    this.stats.totalIssuesFound += report.issuesFound || 0;
     this.stats.lastScanTime = new Date();
 
     // 计算平均扫描时间
@@ -250,20 +255,9 @@ export class ExportDiagnosticService implements IDiagnosticService {
   private getStatusSync(): ServiceStatus {
     return {
       isRunning: this.isRunning,
-      currentScan: this.currentScanId
-        ? {
-            id: this.currentScanId,
-            startTime: new Date(Date.now() - 1000), // 估算开始时间
-            processedFiles: 0, // 需要从引擎获取实际进度
-            totalFiles: 0,
-            issuesFound: 0,
-          }
-        : undefined,
-      stats: { ...this.stats },
-      cache: {
-        size: 0, // 需要实现缓存大小计算
-        entries: 0,
-      },
+      activeScans: this.isRunning ? 1 : 0,
+      cacheSize: 0, // 需要实现缓存大小计算
+      lastScanTime: this.stats.lastScanTime,
     };
   }
 
@@ -379,20 +373,24 @@ export class ExportDiagnosticService implements IDiagnosticService {
   private formatAsText(report: DiagnosticReport): string {
     let output = `Export Diagnostic Report\n`;
     output += `========================\n\n`;
-    output += `Scan Time: ${report.scanTime.toISOString()}\n`;
+    output += `Scan Time: ${report.timestamp.toISOString()}\n`;
     output += `Duration: ${report.duration}ms\n`;
     output += `Files Scanned: ${report.filesScanned}\n`;
-    output += `Issues Found: ${report.issuesFound}\n\n`;
+    output += `Issues Found: ${report.issuesFound || 0}\n\n`;
 
     output += `Issues by Severity:\n`;
-    Object.entries(report.issuesBySeverity).forEach(([severity, count]) => {
-      output += `  ${severity}: ${count}\n`;
-    });
+    if (report.issuesBySeverity) {
+      Object.entries(report.issuesBySeverity).forEach(([severity, count]) => {
+        output += `  ${severity}: ${count}\n`;
+      });
+    }
 
     output += `\nIssues by Type:\n`;
-    Object.entries(report.issuesByType).forEach(([type, count]) => {
-      output += `  ${type}: ${count}\n`;
-    });
+    if (report.issuesByType) {
+      Object.entries(report.issuesByType).forEach(([type, count]) => {
+        output += `  ${type}: ${count}\n`;
+      });
+    }
 
     output += `\nDetailed Issues:\n`;
     report.issues.forEach((issue, index) => {
@@ -432,7 +430,7 @@ export class ExportDiagnosticService implements IDiagnosticService {
 <body>
     <div class="header">
         <h1>Export Diagnostic Report</h1>
-        <p>Generated on ${report.scanTime.toISOString()}</p>
+        <p>Generated on ${report.timestamp.toISOString()}</p>
     </div>
 
     <div class="stats">

@@ -53,15 +53,11 @@ export interface IDiagnosticService {
   validateFixes?(fixes: any[]): Promise<ValidationResult[]>;
 
   /**
+  /**
    * 获取服务状态
    * @returns 服务状态信息
    */
-  getStatus?(): Promise<{
-    isRunning: boolean;
-    activeScans: number;
-    cacheSize: number;
-    lastScanTime?: Date;
-  }>;
+  getStatus?(): Promise<ServiceStatus>;
 
   /**
    * 停止正在进行的诊断
@@ -101,28 +97,36 @@ export interface IDiagnosticServiceEvents {
   /**
    * 诊断开始事件
    */
-  onScanStarted?: (options: ScanOptions) => void;
+  onScanStart?: (scanId: string, options: ScanOptions) => void;
 
   /**
    * 诊断进度事件
    */
-  onScanProgress?: (progress: {
-    processedFiles: number;
-    totalFiles: number;
-    currentFile?: string;
-    issuesFound: number;
-    elapsedTime: number;
-  }) => void;
+  onScanProgress?: (
+    scanId: string,
+    progress: {
+      processedFiles: number;
+      totalFiles: number;
+      currentFile?: string;
+      issuesFound: number;
+      elapsedTime: number;
+    }
+  ) => void;
 
   /**
    * 诊断完成事件
    */
-  onScanCompleted?: (report: DiagnosticReport) => void;
+  onScanComplete?: (scanId: string, report: DiagnosticReport) => void;
 
   /**
    * 诊断错误事件
    */
-  onScanError?: (error: Error, options: ScanOptions) => void;
+  onScanError?: (scanId: string, error: Error) => void;
+
+  /**
+   * 状态变更事件
+   */
+  onStatusChange?: (status: ServiceStatus) => void;
 
   /**
    * 配置更新事件
@@ -152,6 +156,16 @@ export interface DiagnosticServiceOptions {
   retryAttempts?: number;
   /** 重试延迟 */
   retryDelay?: number;
+  /** 并发数 */
+  concurrency?: number;
+  /** 启用进度监听 */
+  enableProgress?: boolean;
+  /** 进度监听间隔 */
+  progressInterval?: number;
+  /** 启用缓存 */
+  enableCache?: boolean;
+  /** 缓存过期时间 */
+  cacheExpiry?: number;
 }
 
 /**
@@ -223,4 +237,82 @@ export interface DiagnosticServiceStats {
   lastScanTime?: Date;
   /** 服务运行时间 */
   uptime: number;
+}
+
+/**
+ * 服务状态接口
+ */
+export interface ServiceStatus {
+  /** 是否正在运行 */
+  isRunning: boolean;
+  /** 活跃扫描数量 */
+  activeScans: number;
+  /** 缓存大小 */
+  cacheSize: number;
+  /** 最后扫描时间 */
+  lastScanTime?: Date | undefined;
+}
+
+/**
+ * 诊断服务事件接口（别名）
+ */
+export type DiagnosticServiceEvents = IDiagnosticServiceEvents;
+
+/**
+ * 诊断过滤器接口
+ */
+export interface DiagnosticFilter {
+  /** 严重程度过滤 */
+  severity?: string[];
+  /** 问题类型过滤 */
+  types?: string[];
+  /** 文件路径过滤 */
+  filePatterns?: string[];
+  /** 排除文件路径 */
+  excludePatterns?: string[];
+  /** 最大问题数量 */
+  maxIssues?: number;
+}
+
+/**
+ * 诊断服务错误类
+ */
+export class DiagnosticServiceError extends Error {
+  public code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = 'DiagnosticServiceError';
+    this.code = code;
+  }
+}
+
+/**
+ * 扫描超时错误类
+ */
+export class ScanTimeoutError extends DiagnosticServiceError {
+  constructor(scanId: string, timeoutMs: number) {
+    super(`Scan ${scanId} timed out after ${timeoutMs}ms`, 'SCAN_TIMEOUT');
+    this.name = 'ScanTimeoutError';
+  }
+}
+
+/**
+ * 扫描取消错误类
+ */
+export class ScanCancelledError extends DiagnosticServiceError {
+  constructor(scanId: string) {
+    super(`Scan ${scanId} was cancelled`, 'SCAN_CANCELLED');
+    this.name = 'ScanCancelledError';
+  }
+}
+
+/**
+ * 配置无效错误类
+ */
+export class InvalidConfigError extends DiagnosticServiceError {
+  constructor(message: string) {
+    super(message, 'INVALID_CONFIG');
+    this.name = 'InvalidConfigError';
+  }
 }

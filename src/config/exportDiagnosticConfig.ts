@@ -4,6 +4,7 @@
  */
 
 import type { DiagnosticConfig } from '@/types/exportDiagnostic';
+import { IssueSeverity } from '@/types/exportDiagnostic';
 
 /**
  * 默认诊断配置
@@ -33,13 +34,15 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
   maxDepth: 10,
   timeout: 30000,
   concurrency: 4,
+  includeTypes: true,
+  includeTests: false,
 
   // 缓存配置
   enableCache: true,
   cacheExpiry: 5 * 60 * 1000, // 5分钟
 
   // 诊断规则配置
-  severityThreshold: 'info',
+  severityThreshold: IssueSeverity.INFO,
 
   // TypeScript配置
   typescriptConfig: {
@@ -313,4 +316,20 @@ export function getConfigSummary(config: DiagnosticConfig): {
     eslintEnabled: config.eslintConfig?.enabled || false,
     outputFormat: config.output?.format || 'json',
   };
+}
+
+/**
+ * 获取当前配置
+ */
+export function getCurrentConfig(): DiagnosticConfig {
+  return DEFAULT_DIAGNOSTIC_CONFIG;
+}
+
+/**
+ * 更新当前配置
+ */
+export function updateCurrentConfig(updates: Partial<DiagnosticConfig>): void {
+  // In a real implementation, this would persist the config
+  // For now, just update the default config
+  Object.assign(DEFAULT_DIAGNOSTIC_CONFIG, updates);
 }

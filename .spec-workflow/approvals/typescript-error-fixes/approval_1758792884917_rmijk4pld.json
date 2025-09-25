@@ -1,0 +1,10 @@
+{
+  "id": "approval_1758792884917_rmijk4pld",
+  "title": "Fix TypeScript Compilation Errors",
+  "filePath": ".spec-workflow/specs/typescript-error-fixes/requirements.md",
+  "type": "spec",
+  "status": "pending",
+  "createdAt": "2025-09-25T09:34:44.917Z",
+  "category": "typescript-fixes",
+  "categoryName": "typescript-error-fixes"
+}

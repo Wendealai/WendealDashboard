@@ -3,8 +3,11 @@
  * Defines interfaces and types related to information display
  */
 
+// Import API types for consistency
+import type { ApiResponse, PaginatedResponse } from '../../services';
+
 // Re-export API types for consistency
-export type { ApiResponse, PaginatedResponse } from '../../services';
+export type { ApiResponse, PaginatedResponse };
 
 /**
  * Page route parameter types
@@ -60,9 +63,11 @@ export interface WorkflowInfo {
   createdAt: string;
   updatedAt: string;
   lastExecutedAt?: string;
+  lastExecution?: string;
   nextExecutionAt?: string;
   executionCount: number;
   successRate: number;
+  nodeCount?: number;
   tags?: string[];
   author: {
     id: string;
@@ -70,6 +75,16 @@ export interface WorkflowInfo {
     avatar?: string;
   };
 }
+
+/**
+ * Workflow alias for compatibility
+ */
+export type Workflow = WorkflowInfo;
+
+/**
+ * Workflow trigger request alias for compatibility
+ */
+export type WorkflowTriggerRequest = TriggerWorkflowRequest;
 
 /**
  * Workflow execution record
@@ -106,6 +121,8 @@ export interface WorkflowLog {
 export interface TriggerWorkflowRequest {
   workflowId: string;
   inputData?: Record<string, any>;
+  data?: string;
+  waitTill?: boolean;
   waitForCompletion?: boolean;
 }
 
@@ -116,6 +133,25 @@ export interface TriggerWorkflowResponse {
   executionId: string;
   status: WorkflowExecutionStatus;
   message?: string;
+}
+
+/**
+ * Reddit workflow response
+ */
+export interface RedditWorkflowResponse {
+  success: boolean;
+  posts?: any[];
+  subreddits?: any[];
+  stats?: any;
+  metadata?: any;
+  headerInfo?: any;
+  summary?: any;
+  message?: string;
+  timestamp?: string;
+  validSubreddits?: any;
+  totalSubreddits?: number;
+  messageLength?: number;
+  apiSource?: any;
 }
 
 /**

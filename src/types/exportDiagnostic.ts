@@ -122,6 +122,8 @@ export interface FixSuggestion {
   description: string;
   /** 建议类型 */
   type: 'add' | 'remove' | 'modify' | 'move' | 'rename';
+  /** 修复类型 */
+  fixType?: FixType;
   /** 置信度 (0-1) */
   confidence: number;
   /** 修复代码 */
@@ -134,6 +136,10 @@ export interface FixSuggestion {
   isSafe: boolean;
   /** 潜在风险 */
   risks?: string[];
+  /** 相关问题 */
+  relatedIssue?: ExportIssue;
+  /** 受影响的文件 */
+  affectedFiles?: string[];
 }
 
 /**
@@ -207,66 +213,57 @@ export interface DiagnosticStatistics {
 }
 
 /**
- * 导出问题类型枚举
+ * 导出问题类型枚举（已转换为const断言以支持erasableSyntaxOnly）
  */
-export enum ExportIssueType {
+export const ExportIssueType = {
   /** 未使用的导出 */
-  UNUSED_EXPORT = 'unused_export',
+  UNUSED_EXPORT: 'unused_export',
   /** 缺失的导出 */
-  MISSING_EXPORT = 'missing_export',
+  MISSING_EXPORT: 'missing_export',
   /** 导出名称冲突 */
-  EXPORT_NAME_CONFLICT = 'export_name_conflict',
+  EXPORT_NAME_CONFLICT: 'export_name_conflict',
   /** 循环依赖 */
-  CIRCULAR_DEPENDENCY = 'circular_dependency',
+  CIRCULAR_DEPENDENCY: 'circular_dependency',
   /** 错误的导出类型 */
-  INCORRECT_EXPORT_TYPE = 'incorrect_export_type',
+  INCORRECT_EXPORT_TYPE: 'incorrect_export_type',
   /** 导出位置不当 */
-  EXPORT_LOCATION_ISSUE = 'export_location_issue',
+  EXPORT_LOCATION_ISSUE: 'export_location_issue',
   /** 导入导出不匹配 */
-  IMPORT_EXPORT_MISMATCH = 'import_export_mismatch',
+  IMPORT_EXPORT_MISMATCH: 'import_export_mismatch',
   /** 类型导出问题 */
-  TYPE_EXPORT_ISSUE = 'type_export_issue',
+  TYPE_EXPORT_ISSUE: 'type_export_issue',
   /** 动态导入问题 */
-  DYNAMIC_IMPORT_ISSUE = 'dynamic_import_issue',
+  DYNAMIC_IMPORT_ISSUE: 'dynamic_import_issue',
   /** 重新导出问题 */
-  REEXPORT_ISSUE = 'reexport_issue',
-}
+  REEXPORT_ISSUE: 'reexport_issue',
+  /** 导出不一致 */
+  EXPORT_INCONSISTENCY: 'export_inconsistency',
+  /** 默认导出冲突 */
+  DEFAULT_EXPORT_CONFLICT: 'default_export_conflict',
+  /** 命名空间导出问题 */
+  NAMESPACE_EXPORT_ISSUE: 'namespace_export_issue',
+  /** 重命名导出问题 */
+  RENAMED_EXPORT_ISSUE: 'renamed_export_issue',
+} as const;
+
+export type ExportIssueType =
+  (typeof ExportIssueType)[keyof typeof ExportIssueType];
 
 /**
- * 问题严重程度枚举
+ * 问题严重程度枚举（已转换为const断言以支持erasableSyntaxOnly）
  */
-export enum IssueSeverity {
+export const IssueSeverity = {
   /** 错误 - 必须修复 */
-  ERROR = 'error',
+  ERROR: 'error',
   /** 警告 - 建议修复 */
-  WARNING = 'warning',
+  WARNING: 'warning',
   /** 信息 - 可选修复 */
-  INFO = 'info',
+  INFO: 'info',
   /** 提示 - 代码优化建议 */
-  HINT = 'hint',
-}
+  HINT: 'hint',
+} as const;
 
-/**
- * 扫描选项接口
- */
-export interface ScanOptions {
-  /** 根目录 */
-  rootDir: string;
-  /** 配置文件路径 */
-  configPath?: string;
-  /** 输出格式 */
-  outputFormat: 'json' | 'text' | 'html';
-  /** 输出文件路径 */
-  outputPath?: string;
-  /** 是否显示进度 */
-  showProgress: boolean;
-  /** 是否启用详细输出 */
-  verbose: boolean;
-  /** 是否修复问题 */
-  fixIssues: boolean;
-  /** 修复确认模式 */
-  fixConfirmation: 'auto' | 'manual' | 'none';
-}
+export type IssueSeverity = (typeof IssueSeverity)[keyof typeof IssueSeverity];
 
 /**
  * 扫描结果接口
@@ -284,22 +281,6 @@ export interface ScanResult {
   processedFiles?: number;
   /** 处理时间（毫秒） */
   processingTime?: number;
-}
-
-/**
- * 缓存条目接口
- */
-export interface CacheEntry {
-  /** 文件路径 */
-  filePath: string;
-  /** 文件修改时间 */
-  mtime: number;
-  /** 导出信息列表 */
-  exports: ExportInfo[];
-  /** 缓存时间 */
-  cachedAt: number;
-  /** 缓存版本 */
-  version: string;
 }
 
 /**
@@ -406,6 +387,10 @@ export const EXPORT_ISSUE_TYPE_LABELS: Record<ExportIssueType, string> = {
   [ExportIssueType.TYPE_EXPORT_ISSUE]: '类型导出问题',
   [ExportIssueType.DYNAMIC_IMPORT_ISSUE]: '动态导入问题',
   [ExportIssueType.REEXPORT_ISSUE]: '重新导出问题',
+  [ExportIssueType.EXPORT_INCONSISTENCY]: '导出不一致',
+  [ExportIssueType.DEFAULT_EXPORT_CONFLICT]: '默认导出冲突',
+  [ExportIssueType.NAMESPACE_EXPORT_ISSUE]: '命名空间导出问题',
+  [ExportIssueType.RENAMED_EXPORT_ISSUE]: '重命名导出问题',
 };
 
 /**
@@ -483,6 +468,20 @@ export interface CacheEntry {
 export interface ScanOptions {
   /** 根目录 */
   rootDir: string;
+  /** 配置文件路径 */
+  configPath?: string;
+  /** 输出格式 */
+  outputFormat: 'json' | 'text' | 'html';
+  /** 输出文件路径 */
+  outputPath?: string;
+  /** 是否显示进度 */
+  showProgress: boolean;
+  /** 是否启用详细输出 */
+  verbose: boolean;
+  /** 是否修复问题 */
+  fixIssues: boolean;
+  /** 修复确认模式 */
+  fixConfirmation: 'auto' | 'manual' | 'none';
   /** 递归扫描 */
   recursive?: boolean;
   /** 包含隐藏文件 */
@@ -495,8 +494,6 @@ export interface ScanOptions {
   concurrency?: number;
   /** 进度回调 */
   onProgress?: (progress: ScanProgress) => void;
-  /** 显示进度 */
-  showProgress?: boolean;
 }
 
 /**
@@ -517,18 +514,41 @@ export interface DiagnosticConfig {
   enableCache: boolean;
   /** 缓存过期时间 */
   cacheExpiry: number;
+  /** 并发扫描数量 */
+  concurrency: number;
+  /** 超时时间（毫秒） */
+  timeout: number;
   /** 严重程度阈值 */
   severityThreshold?: IssueSeverity;
   /** ESLint配置 */
   eslintConfig?: {
     enabled: boolean;
     configFile?: string;
+    extensions?: string[];
   };
   /** TypeScript配置 */
   typescriptConfig?: {
-    enabled: boolean;
+    enabled?: boolean;
     checkTypeExports?: boolean;
     configFile?: string;
+    strict?: boolean;
+    target?: string;
+    moduleResolution?: string;
+    jsx?: string;
+  };
+  /** 输出配置 */
+  output?: {
+    format: string;
+    file?: string;
+    verbose?: boolean;
+    includeSuggestions?: boolean;
+    includeCodeSnippets?: boolean;
+  };
+  /** 性能配置 */
+  performance?: {
+    enableProfiling?: boolean;
+    maxMemoryUsage?: number;
+    timeoutPerFile?: number;
   };
 }
 
@@ -558,42 +578,23 @@ export interface DiagnosticReport {
   unusedExports: number;
   /** 处理时间 */
   processingTime: number;
+  /** 扫描时间（毫秒） */
+  scanTime?: number;
+  /** 发现的问题数 */
+  issuesFound?: number;
+  /** 按严重程度统计的问题 */
+  issuesBySeverity?: Record<IssueSeverity, number>;
+  /** 按类型统计的问题 */
+  issuesByType?: Record<ExportIssueType, number>;
+  /** 摘要信息 */
+  summary?: {
+    totalExports: number;
+    usedExports: number;
+    unusedExports: number;
+    exportUsageRate: number;
+  };
   /** 状态 */
   status: 'completed' | 'failed' | 'cancelled';
   /** 错误信息 */
   error?: string;
 }
-
-/**
- * 导出问题类型枚举（扩展）
- */
-export const ExportIssueType = {
-  UNUSED_EXPORT: 'unused_export',
-  MISSING_EXPORT: 'missing_export',
-  EXPORT_NAME_CONFLICT: 'export_name_conflict',
-  CIRCULAR_DEPENDENCY: 'circular_dependency',
-  INCORRECT_EXPORT_TYPE: 'incorrect_export_type',
-  EXPORT_LOCATION_ISSUE: 'export_location_issue',
-  IMPORT_EXPORT_MISMATCH: 'import_export_mismatch',
-  TYPE_EXPORT_ISSUE: 'type_export_issue',
-  DYNAMIC_IMPORT_ISSUE: 'dynamic_import_issue',
-  REEXPORT_ISSUE: 'reexport_issue',
-  EXPORT_INCONSISTENCY: 'export_inconsistency',
-  DEFAULT_EXPORT_CONFLICT: 'default_export_conflict',
-  RENAMED_EXPORT_ISSUE: 'renamed_export_issue',
-} as const;
-
-export type ExportIssueType =
-  (typeof ExportIssueType)[keyof typeof ExportIssueType];
-
-/**
- * 严重程度枚举（扩展）
- */
-export const IssueSeverity = {
-  ERROR: 'error',
-  WARNING: 'warning',
-  INFO: 'info',
-  HINT: 'hint',
-} as const;
-
-export type IssueSeverity = (typeof IssueSeverity)[keyof typeof IssueSeverity];

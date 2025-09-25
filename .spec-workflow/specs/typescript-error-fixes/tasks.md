@@ -1,192 +1,129 @@
-# Tasks Document
+# TypeScript Error Fixes - Tasks
 
-- [x] 1. Fix App.tsx function return type error
-  - File: src/App.tsx
-  - Fix TS7030: Not all code paths return a value
-  - Add proper return statement or void return type
-  - Purpose: Resolve compilation error in main App component
-  - _Leverage: existing App.tsx structure_
-  - _Requirements: 1.1 (Type Definition Corrections)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: TypeScript Developer specializing in React components | Task: Fix the function return type error in src/App.tsx (TS7030: Not all code paths return a value) by ensuring all code paths return a value or changing to void return type | Restrictions: Do not change component functionality, maintain existing behavior, follow React best practices | _Leverage: existing App.tsx structure and React patterns | _Requirements: 1.1 (Type Definition Corrections) | Success: App.tsx compiles without TS7030 error, component renders correctly, no functionality changes_
+## Overview
+Systematic implementation of TypeScript error fixes across the codebase, organized by error categories and file locations.
 
-- [x] 2. Fix PerformanceMonitor.tsx undefined and export issues
-  - File: src/components/Performance/PerformanceMonitor.tsx
-  - Fix TS18048: 'lastEntry' is possibly 'undefined'
-  - Fix TS2484: Export declaration conflicts with exported declaration of 'PerformanceMetrics'
-  - Add null checks and resolve export conflicts
-  - Purpose: Resolve type safety and export issues in performance monitoring
-  - _Leverage: existing performance monitoring logic_
-  - _Requirements: 3.1 (Null Safety and Optional Handling), 1.1 (Type Definition Corrections)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: TypeScript Developer with performance monitoring expertise | Task: Fix undefined access and export conflicts in src/components/Performance/PerformanceMonitor.tsx by adding null checks for 'lastEntry' and resolving PerformanceMetrics export conflicts | Restrictions: Do not break performance monitoring functionality, maintain type safety, preserve existing exports | _Leverage: existing performance monitoring logic and TypeScript patterns | _Requirements: 3.1 (Null Safety), 1.1 (Type Corrections) | Success: PerformanceMonitor.tsx compiles without errors, performance monitoring works correctly, all exports are properly defined_
+## Implementation Tasks
 
-- [ ] 3. Fix WebhookTest.tsx unused variable and argument issues
-  - File: src/components/WebhookTest.tsx
-  - Fix TS6133: 't' is declared but its value is never read
-  - Fix TS2554: Expected 0 arguments, but got 1
-  - Remove unused variables and correct function calls
-  - Purpose: Clean up unused code and fix function call signatures
-  - _Leverage: existing webhook testing functionality_
-  - _Requirements: 2.1 (Unused Code Removal), 1.1 (Type Definition Corrections)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer specializing in webhook testing | Task: Fix unused variable 't' and incorrect function arguments in src/components/WebhookTest.tsx by removing unused declarations and correcting function call signatures | Restrictions: Do not break webhook testing functionality, maintain existing behavior, follow TypeScript best practices | _Leverage: existing webhook testing patterns | _Requirements: 2.1 (Unused Code), 1.1 (Type Corrections) | Success: WebhookTest.tsx compiles without errors, webhook testing works correctly, no unused code remains_
+### Task 1: Fix DiagnosticReport Interface Issues
+_Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task:_
 
-- [ ] 4. Fix ToastManager.tsx function return type
-  - File: src/components/notifications/ToastManager.tsx
-  - Fix TS7030: Not all code paths return a value
-  - Ensure all code paths return appropriate values
-  - Purpose: Resolve return type issues in toast notification management
-  - _Leverage: existing toast notification system_
-  - _Requirements: 1.1 (Type Definition Corrections)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer with notification system expertise | Task: Fix function return type issues in src/components/notifications/ToastManager.tsx by ensuring all code paths return values or use void return type | Restrictions: Do not change toast notification behavior, maintain existing functionality, follow React patterns | _Leverage: existing notification system architecture | _Requirements: 1.1 (Type Corrections) | Success: ToastManager.tsx compiles without TS7030 error, toast notifications work correctly, no functionality changes_
+_Role: TypeScript Interface Specialist_
+_Task: Update DiagnosticReport interface to include missing properties (summary, scanTime, issuesFound) and fix type mismatches_
+_Restrictions: Do not break existing API contracts, maintain backward compatibility_
+_Leverage: src/types/exportDiagnostic.ts, src/cli/diagnostic.ts_
+_Requirements: Fix all DiagnosticReport property access errors_
+_Success: All DiagnosticReport property errors resolved, interface properly typed_
 
-- [ ] 5. Fix DataDisplayGrid.tsx property access issues
-  - File: src/components/reddit/DataDisplayGrid.tsx
-  - Fix multiple TS2339 property access errors (total, filter, sort, pagination, loading, error, showNotification)
-  - Fix TS2322 type assignment errors
-  - Fix TS2345 argument type errors
-  - Fix TS2375 type compatibility issues
-  - Add proper type guards and property checks
-  - Purpose: Resolve extensive type issues in Reddit data display component
-  - _Leverage: existing Reddit data structures and component patterns_
-  - _Requirements: 1.1 (Type Definition Corrections), 3.1 (Null Safety)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Developer with TypeScript expertise in data display components | Task: Fix all property access and type errors in src/components/reddit/DataDisplayGrid.tsx by adding proper type guards, correcting property accesses, and ensuring type compatibility | Restrictions: Do not break data display functionality, maintain existing UI behavior, follow TypeScript strict mode | _Leverage: existing Reddit data types and component patterns | _Requirements: 1.1 (Type Corrections), 3.1 (Null Safety) | Success: DataDisplayGrid.tsx compiles without errors, data display works correctly, all type issues resolved_
+- [x] Update DiagnosticReport interface in src/types/exportDiagnostic.ts
+- [x] Add missing summary, scanTime, issuesFound properties
+- [x] Fix property type assignments in src/cli/diagnostic.ts
+- [x] Verify no breaking changes to existing usage
 
-- [ ] 6. Fix RedditPostCard.tsx property access issues
-  - File: src/components/reddit/RedditPostCard.tsx
-  - Fix TS2339 property access errors (ups, num_comments, created_utc, selftext, link_flair_text, over_18, locked)
-  - Fix TS2375 type compatibility issues
-  - Add proper property access with fallbacks
-  - Purpose: Resolve type issues in Reddit post card component
-  - _Leverage: existing RedditPost interface and component structure_
-  - _Requirements: 1.1 (Type Definition Corrections), 3.1 (Null Safety)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Developer specializing in social media components | Task: Fix property access errors in src/components/reddit/RedditPostCard.tsx by adding proper null checks and type-safe property access for Reddit post data | Restrictions: Do not change post display layout, maintain existing styling, ensure type safety | _Leverage: existing RedditPost interface and component patterns | _Requirements: 1.1 (Type Corrections), 3.1 (Null Safety) | Success: RedditPostCard.tsx compiles without errors, post cards display correctly, all property accesses are type-safe_
+### Task 2: Fix Configuration Type Errors
+_Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task:_
 
-- [ ] 7. Fix WebhookDiagnostic.tsx undefined access issues
-  - File: src/components/reddit/WebhookDiagnostic.tsx
-  - Fix TS18048: 'step' is possibly 'undefined'
-  - Fix TS2379 argument type issues
-  - Add proper undefined checks and type assertions
-  - Purpose: Resolve null safety issues in webhook diagnostic component
-  - _Leverage: existing diagnostic workflow and step management_
-  - _Requirements: 3.1 (Null Safety and Optional Handling)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer with diagnostic tool expertise | Task: Fix undefined access issues in src/components/reddit/WebhookDiagnostic.tsx by adding proper null checks for 'step' variable and correcting type assertions | Restrictions: Do not break diagnostic functionality, maintain error reporting accuracy, follow TypeScript strict null checks | _Leverage: existing diagnostic patterns and step management | _Requirements: 3.1 (Null Safety) | Success: WebhookDiagnostic.tsx compiles without errors, diagnostic workflow works correctly, no runtime null reference errors_
+_Role: Configuration Type Specialist_
+_Task: Correct invalid enum values and missing properties in configuration files_
+_Restrictions: Use proper enum values, maintain configuration structure_
+_Leverage: src/config/exportDiagnosticConfig.ts, IssueSeverity enum_
+_Requirements: Fix all configuration-related TypeScript errors_
+_Success: All configuration objects properly typed, no invalid enum values_
 
-- [ ] 8. Fix WebhookTestPage.tsx property access issues
-  - File: src/components/reddit/WebhookTestPage.tsx
-  - Fix TS18048 undefined access errors
-  - Fix TS2339 property access errors (success)
-  - Fix TS6133 unused variable errors
-  - Add proper type guards and remove unused code
-  - Purpose: Resolve type and null safety issues in webhook test page
-  - _Leverage: existing webhook testing infrastructure_
-  - _Requirements: 2.1 (Unused Code Removal), 3.1 (Null Safety)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Full-stack Developer with webhook testing expertise | Task: Fix undefined access and property errors in src/components/reddit/WebhookTestPage.tsx by adding type guards and removing unused variables | Restrictions: Do not break webhook testing functionality, maintain test result display, ensure type safety | _Leverage: existing webhook test patterns and response types | _Requirements: 2.1 (Unused Code), 3.1 (Null Safety) | Success: WebhookTestPage.tsx compiles without errors, webhook tests work correctly, all type issues resolved_
+- [x] Fix "info" severity value in exportDiagnosticConfig.ts
+- [x] Add missing required properties to configuration objects
+- [x] Fix object literal property type issues
+- [x] Verify configuration loading works correctly
 
-- [ ] 9. Fix WorkflowControlPanel.tsx type and argument issues
-  - File: src/components/reddit/WorkflowControlPanel.tsx
-  - Fix TS2554 argument count errors
-  - Fix TS2345 type assignment errors
-  - Fix TS6133 unused variable errors
-  - Correct function calls and type assignments
-  - Purpose: Resolve type errors in workflow control panel
-  - _Leverage: existing workflow control logic_
-  - _Requirements: 1.1 (Type Definition Corrections), 2.1 (Unused Code Removal)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Developer with workflow management expertise | Task: Fix argument count and type errors in src/components/reddit/WorkflowControlPanel.tsx by correcting function calls and removing unused variables | Restrictions: Do not break workflow control functionality, maintain existing UI behavior, ensure type compatibility | _Leverage: existing workflow control patterns and error types | _Requirements: 1.1 (Type Corrections), 2.1 (Unused Code) | Success: WorkflowControlPanel.tsx compiles without errors, workflow controls work correctly, all type issues resolved_
+### Task 3: Clean Up Import and Export Issues
+_Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task:_
 
-- [ ] 10. Fix SettingsForm.tsx property access issues
-  - File: src/components/workflow/SettingsForm.tsx
-  - Fix TS2353 unknown property errors (workflowName)
-  - Fix TS2367 comparison type errors
-  - Fix TS2339 property access errors
-  - Fix TS2375 type compatibility issues
-  - Add proper property definitions and type checks
-  - Purpose: Resolve type issues in workflow settings form
-  - _Leverage: existing WorkflowSettings interface and form patterns_
-  - _Requirements: 1.1 (Type Definition Corrections), 4.1 (Component Prop Corrections)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Developer specializing in forms and settings | Task: Fix property access and type errors in src/components/workflow/SettingsForm.tsx by adding workflowName to interfaces and correcting type comparisons | Restrictions: Do not break form functionality, maintain existing validation, ensure backward compatibility | _Leverage: existing WorkflowSettings interface and form validation patterns | _Requirements: 1.1 (Type Corrections), 4.1 (Component Props) | Success: SettingsForm.tsx compiles without errors, form validation works correctly, all property accesses are type-safe_
+_Role: Import/Export Cleanup Specialist_
+_Task: Remove unused imports and fix missing exports across all files_
+_Restrictions: Only remove truly unused imports, ensure all used imports remain_
+_Leverage: All TypeScript files with import/export errors_
+_Requirements: Zero unused import/export errors_
+_Success: All imports used, all exports properly defined_
 
-- [ ] 11. Fix WorkflowCard.tsx unused variables and type issues
-  - File: src/components/workflow/WorkflowCard.tsx
-  - Fix TS6133 unused variable errors
-  - Fix TS2305 missing export errors
-  - Fix TS2554 size property errors
-  - Fix TS2375 type compatibility issues
-  - Remove unused imports and correct type usage
-  - Purpose: Clean up and fix type issues in workflow card component
-  - _Leverage: existing workflow card patterns and Ant Design components_
-  - _Requirements: 2.1 (Unused Code Removal), 4.1 (Component Prop Corrections)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Developer with UI component expertise | Task: Fix unused variables and type errors in src/components/workflow/WorkflowCard.tsx by removing unused imports and correcting component prop types | Restrictions: Do not change card layout or functionality, maintain existing styling, follow Ant Design patterns | _Leverage: existing Workflow interface and card component patterns | _Requirements: 2.1 (Unused Code), 4.1 (Component Props) | Success: WorkflowCard.tsx compiles without errors, workflow cards display correctly, no unused code remains_
+- [x] Remove unused imports from Tools components
+- [x] Remove unused imports from InformationDashboard components
+- [x] Remove unused imports from diagnostic utilities
+- [x] Fix missing exports in type definition files
+- [x] Verify all modules can be imported correctly
 
-- [ ] 12. Fix WorkflowGrid.tsx type compatibility issues
-  - File: src/components/workflow/WorkflowGrid.tsx
-  - Fix TS2305 missing export errors
-  - Fix TS2375 type compatibility issues
-  - Add proper type definitions and error handling
-  - Purpose: Resolve type issues in workflow grid component
-  - _Leverage: existing workflow grid patterns_
-  - _Requirements: 1.1 (Type Definition Corrections)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Developer with data grid expertise | Task: Fix type compatibility issues in src/components/workflow/WorkflowGrid.tsx by adding proper type definitions and error handling | Restrictions: Do not break grid functionality, maintain existing data display, ensure type safety | _Leverage: existing Workflow interface and grid patterns | _Requirements: 1.1 (Type Corrections) | Success: WorkflowGrid.tsx compiles without errors, workflow grid displays correctly, all type issues resolved_
+### Task 4: Fix Type Compatibility Issues
+_Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task:_
 
-- [ ] 13. Fix WorkflowSettingsModal.tsx undefined and type issues
-  - File: src/components/workflow/WorkflowSettingsModal.tsx
-  - Fix TS2769 undefined access errors
-  - Fix TS2353 unknown property errors
-  - Fix TS2375 type compatibility issues
-  - Fix TS18047 null access errors
-  - Add proper null checks and type definitions
-  - Purpose: Resolve extensive type issues in workflow settings modal
-  - _Leverage: existing modal patterns and settings management_
-  - _Requirements: 3.1 (Null Safety), 1.1 (Type Definition Corrections)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Developer with modal and form expertise | Task: Fix undefined access and type errors in src/components/workflow/WorkflowSettingsModal.tsx by adding null checks and correcting type definitions | Restrictions: Do not break modal functionality, maintain settings validation, ensure type safety | _Leverage: existing modal patterns and WorkflowSettings interface | _Requirements: 3.1 (Null Safety), 1.1 (Type Corrections) | Success: WorkflowSettingsModal.tsx compiles without errors, settings modal works correctly, all type issues resolved_
+_Role: Type Compatibility Specialist_
+_Task: Resolve union type mismatches and generic constraints with exactOptionalPropertyTypes_
+_Restrictions: Use proper union types (T | undefined), maintain type safety_
+_Leverage: Files with exactOptionalPropertyTypes errors_
+_Requirements: All union type errors resolved_
+_Success: Code compatible with strict TypeScript settings_
 
-- [ ] 14. Fix AuthContext.tsx type issues
-  - File: src/contexts/AuthContext.tsx
-  - Fix TS1484 import type errors
-  - Fix TS6133 unused variable errors
-  - Fix TS2322 type assignment errors
-  - Fix TS2554 argument count errors
-  - Fix TS2345 type assignment errors
-  - Correct imports and type usage
-  - Purpose: Resolve type issues in authentication context
-  - _Leverage: existing authentication patterns and React context_
-  - _Requirements: 1.1 (Type Definition Corrections), 2.1 (Unused Code Removal)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Developer with authentication expertise | Task: Fix import and type errors in src/contexts/AuthContext.tsx by correcting type imports and fixing type assignments | Restrictions: Do not break authentication functionality, maintain existing auth flow, ensure type safety | _Leverage: existing authentication interfaces and context patterns | _Requirements: 1.1 (Type Corrections), 2.1 (Unused Code) | Success: AuthContext.tsx compiles without errors, authentication works correctly, all type issues resolved_
+- [x] Fix optional property type issues in CategoryManager.tsx
+- [x] Fix optional property type issues in ReportSettings.tsx
+- [x] Fix union type mismatches in component props
+- [x] Update interface definitions for proper optional handling
 
-- [ ] 15. Fix useInvoiceOCR.ts extensive type issues
-  - File: src/hooks/useInvoiceOCR.ts
-  - Fix multiple TS6133 unused variable errors
-  - Fix TS2305 missing export errors
-  - Fix TS2740 type assignment errors
-  - Fix TS2739 missing property errors
-  - Fix TS2345 argument type errors
-  - Fix TS2339 property access errors
-  - Fix TS7030 return type errors
-  - Fix TS2322 type assignment errors
-  - Add proper types, remove unused code, fix property accesses
-  - Purpose: Resolve comprehensive type issues in invoice OCR hook
-  - _Leverage: existing invoice OCR interfaces and API patterns_
-  - _Requirements: 1.1 (Type Definition Corrections), 2.1 (Unused Code Removal), 3.1 (Null Safety)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Developer with OCR and API integration expertise | Task: Fix all type and property errors in src/hooks/useInvoiceOCR.ts by adding proper type definitions, removing unused variables, and correcting API integrations | Restrictions: Do not break OCR functionality, maintain existing API contracts, ensure type safety | _Leverage: existing invoice OCR types and API patterns | _Requirements: 1.1 (Type Corrections), 2.1 (Unused Code), 3.1 (Null Safety) | Success: useInvoiceOCR.ts compiles without errors, OCR functionality works correctly, all type issues resolved_
+### Task 5: Fix Component Prop Type Issues
+_Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task:_
 
-- [ ] 16. Fix remaining component and hook type issues
-  - Files: src/hooks/useModal.ts, src/hooks/useNotifications.ts, src/hooks/useWorkflowSettings.ts, src/mocks/handlers.ts, various page components
-  - Fix TS7030 return type errors
-  - Fix TS2724 import errors
-  - Fix TS2698 spread type errors
-  - Fix TS6133 unused variable errors
-  - Fix TS18048 undefined access errors
-  - Fix TS2345 type assignment errors
-  - Fix TS2339 property access errors
-  - Apply systematic fixes across remaining files
-  - Purpose: Complete type error resolution across all remaining files
-  - _Leverage: existing patterns from fixed files_
-  - _Requirements: 1.1 (Type Definition Corrections), 2.1 (Unused Code Removal), 3.1 (Null Safety)_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Senior TypeScript Developer with full-stack expertise | Task: Fix all remaining type errors across hooks, mocks, and page components by applying consistent fixes for imports, types, and null safety | Restrictions: Do not break existing functionality, maintain code consistency, follow established patterns | _Leverage: patterns from previously fixed files and existing codebase architecture | _Requirements: 1.1 (Type Corrections), 2.1 (Unused Code), 3.1 (Null Safety) | Success: All TypeScript files compile without errors, functionality preserved, codebase is type-safe_
+_Role: React Component Type Specialist_
+_Task: Fix missing props, incorrect prop types, and optional prop handling in React components_
+_Restrictions: Maintain component API compatibility, use proper TypeScript prop types_
+_Leverage: React component files with prop errors_
+_Requirements: All component prop errors resolved_
+_Success: Components properly typed, no prop-related errors_
 
-- [ ] 17. Validate all fixes and run type checking
-  - Run TypeScript compilation
-  - Verify no new errors introduced
-  - Test critical functionality
-  - Purpose: Ensure all fixes are correct and no regressions introduced
-  - _Leverage: existing build and test scripts_
-  - _Requirements: All requirements_
-  - _Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA Engineer with TypeScript and testing expertise | Task: Run comprehensive TypeScript compilation and validation to ensure all fixes are correct and no new errors introduced | Restrictions: Must pass all type checks, no functionality regressions, maintain existing behavior | _Leverage: existing build scripts and test infrastructure | _Requirements: All requirements from design document | Success: TypeScript compilation passes without errors, all functionality works correctly, no regressions detected_
+- [x] Fix WorkflowPanel.tsx prop type issues
+- [x] Fix WorkflowSidebar.tsx prop type issues
+- [x] Fix missing required props in components
+- [x] Update component interfaces for proper typing
+
+### Task 6: Fix Diagnostic Utility Type Errors
+_Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task:_
+
+_Role: Diagnostic Utility Specialist_
+_Task: Resolve type errors in diagnostic utility files (DependencyResolver, DiagnosticEngine, etc.)_
+_Restrictions: Maintain diagnostic functionality, fix type issues without breaking logic_
+_Leverage: src/utils/diagnostic/ directory files_
+_Requirements: All diagnostic utility type errors resolved_
+_Success: Diagnostic utilities compile without errors_
+
+- [x] Fix DependencyResolver.ts type issues
+- [x] Fix DiagnosticEngine.ts type issues
+- [x] Fix ESLintIntegration.ts type issues
+- [x] Fix FileScanner.ts type issues
+- [x] Fix FixSuggester.ts type issues
+
+### Task 7: Fix Service Layer Type Errors
+_Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task:_
+
+_Role: Service Layer Type Specialist_
+_Task: Resolve type errors in service files and ensure proper type exports_
+_Restrictions: Maintain service functionality, fix type issues in interfaces_
+_Leverage: src/services/ directory files_
+_Requirements: All service type errors resolved_
+_Success: Services compile without type errors_
+
+- [x] Fix ExportDiagnosticService.ts type issues
+- [x] Fix DiagnosticService.ts type issues
+- [x] Fix missing exports in service interfaces
+- [x] Update service method signatures
+
+### Task 8: Final Verification and Testing
+_Prompt: Implement the task for spec typescript-error-fixes, first run spec-workflow-guide to get the workflow guide then implement the task:_
+
+_Role: Quality Assurance Specialist_
+_Task: Run comprehensive build verification and ensure all TypeScript errors are resolved_
+_Restrictions: Must achieve zero TypeScript errors, maintain code quality_
+_Leverage: npm run build, npx tsc --noEmit commands_
+_Requirements: Build passes successfully, zero TypeScript errors_
+_Success: Project builds cleanly, all type checking passes_
+
+- [x] Run `npm run build` and verify success
+- [x] Run `npx tsc --noEmit` and verify zero errors
+- [x] Check for any remaining unused imports/variables
+- [x] Verify all interfaces and types are properly defined
+- [x] Confirm no runtime performance degradation
