@@ -348,15 +348,16 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     description:
                       'OCR processing for all document formats including PDF, images, and scanned documents',
                     status: 'active' as WorkflowStatus,
-                    nodeCount: 6,
-                    lastExecution: new Date().toISOString(),
+                    type: 'data-processing' as any,
+                    executionCount: 0,
+                    successRate: 0,
+                    author: { id: 'system', name: 'System' },
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   }}
                   selected={selectedWorkflow?.id === 'universal-ocr-workflow'}
                   loading={false}
                   error={null}
-                  progressStatus=''
                   onClick={() =>
                     handleWorkflowSelect({
                       id: 'universal-ocr-workflow',
@@ -364,8 +365,10 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       description:
                         'OCR processing for all document formats including PDF, images, and scanned documents',
                       status: 'active' as WorkflowStatus,
-                      nodeCount: 6,
-                      lastExecution: new Date().toISOString(),
+                      type: 'data-processing' as any,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
                     })
@@ -378,8 +381,10 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       description:
                         'OCR processing for all document formats including PDF, images, and scanned documents',
                       status: 'active' as WorkflowStatus,
-                      nodeCount: 6,
-                      lastExecution: new Date().toISOString(),
+                      type: 'data-processing' as any,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
                     });
@@ -405,8 +410,10 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     description:
                       'Generate and manage tax invoices and receipts',
                     status: 'active' as WorkflowStatus,
-                    nodeCount: 1,
-                    lastExecution: new Date().toISOString(),
+                    type: 'data-processing' as any,
+                    executionCount: 0,
+                    successRate: 0,
+                    author: { id: 'system', name: 'System' },
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   }}
@@ -415,7 +422,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                   }
                   loading={false}
                   error={null}
-                  progressStatus=''
                   onClick={() =>
                     handleWorkflowSelect({
                       id: 'tax-invoice-receipt-workflow',
@@ -423,8 +429,10 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       description:
                         'Generate and manage tax invoices and receipts',
                       status: 'active' as WorkflowStatus,
-                      nodeCount: 1,
-                      lastExecution: new Date().toISOString(),
+                      type: 'data-processing' as any,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
                     })
@@ -437,8 +445,10 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       description:
                         'Generate and manage tax invoices and receipts',
                       status: 'active' as WorkflowStatus,
-                      nodeCount: 1,
-                      lastExecution: new Date().toISOString(),
+                      type: 'data-processing' as any,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
                     });
