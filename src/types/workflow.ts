@@ -81,6 +81,8 @@ export interface WorkflowSettingsFormData {
   name: string;
   /** Webhook地址 */
   webhookUrl: string;
+  /** 是否启用 */
+  enabled?: boolean;
 }
 
 /**

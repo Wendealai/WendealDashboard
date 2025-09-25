@@ -53,7 +53,6 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
   title = 'Workflow Settings',
   width = Math.min(600, window.innerWidth * 0.9), // 确保不超出页面范围
   workflowId,
-  ...modalProps
 }) => {
   const [form] = Form.useForm<WorkflowSettingsFormData>();
   const message = useMessage();
@@ -81,7 +80,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
         form.setFieldsValue({
           name: response.data.name,
           webhookUrl: response.data.webhookUrl,
-          enabled: response.data.enabled,
+          enabled: response.data.enabled ?? true,
         });
       } else {
         message.error(response.error || 'Failed to load settings');
@@ -202,7 +201,7 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
         form.setFieldsValue({
           name: response.data.name,
           webhookUrl: response.data.webhookUrl,
-          enabled: response.data.enabled,
+          enabled: response.data.enabled ?? true,
         });
       } else {
         message.error(response.error || 'Failed to reset settings');
@@ -446,8 +445,18 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
               color: '#666',
             }}
           >
-            <div>Created: {new Date(settings.createdAt).toLocaleString()}</div>
-            <div>Updated: {new Date(settings.updatedAt).toLocaleString()}</div>
+            <div>
+              Created:{' '}
+              {settings.createdAt
+                ? new Date(settings.createdAt).toLocaleString()
+                : 'N/A'}
+            </div>
+            <div>
+              Updated:{' '}
+              {settings.updatedAt
+                ? new Date(settings.updatedAt).toLocaleString()
+                : 'N/A'}
+            </div>
           </div>
         )}
 

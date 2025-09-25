@@ -7,16 +7,16 @@ import React from 'react';
 import { Row, Col, Empty, Spin } from 'antd';
 import { useTranslation } from 'react-i18next';
 import WorkflowCard from './WorkflowCard';
-import type { Workflow } from '@/pages/InformationDashboard/types';
+import type { WorkflowInfo } from '@/pages/InformationDashboard/types';
 
 /**
  * Workflow Grid Component Props
  */
 interface WorkflowGridProps {
   /** Workflow list */
-  workflows: Workflow[];
+  workflows: WorkflowInfo[];
   /** Selected workflow */
-  selectedWorkflow?: Workflow | null;
+  selectedWorkflow?: WorkflowInfo | null;
   /** Whether loading */
   loading?: boolean;
   /** Workflow loading states mapping */
@@ -28,11 +28,11 @@ interface WorkflowGridProps {
   /** Workflow last updated times mapping */
   lastUpdatedTimes?: Record<string, Date>;
   /** Workflow click callback */
-  onWorkflowSelect?: (workflow: Workflow) => void;
+  onWorkflowSelect?: (workflow: WorkflowInfo) => void;
   /** Trigger workflow callback */
-  onWorkflowTrigger?: (workflow: Workflow) => void;
+  onWorkflowTrigger?: (workflow: WorkflowInfo) => void;
   /** Workflow settings callback */
-  onWorkflowSettings?: (workflow: Workflow) => void;
+  onWorkflowSettings?: (workflow: WorkflowInfo) => void;
   /** Grid gutter */
   gutter?: [number, number];
   /** Card size */
@@ -150,9 +150,8 @@ const WorkflowGrid: React.FC<WorkflowGridProps> = ({
               workflow={workflow}
               selected={selectedWorkflow?.id === workflow.id}
               loading={workflowLoadingStates[workflow.id] || false}
-              error={workflowErrors[workflow.id]}
-              progressStatus={workflowProgressStates[workflow.id]}
-              lastUpdated={lastUpdatedTimes[workflow.id]}
+              error={workflowErrors[workflow.id] ?? null}
+              lastUpdated={lastUpdatedTimes[workflow.id] || undefined}
               onClick={onWorkflowSelect}
               onTrigger={onWorkflowTrigger}
               onSettings={onWorkflowSettings}

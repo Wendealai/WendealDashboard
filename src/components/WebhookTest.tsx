@@ -13,7 +13,6 @@ interface TestResult {
 }
 
 const WebhookTest: React.FC = () => {
-  const { t } = useTranslation();
   const [testMessage, setTestMessage] = useState('你好，这是一个测试消息');
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [isTesting, setIsTesting] = useState(false);
@@ -59,7 +58,7 @@ const WebhookTest: React.FC = () => {
     try {
       console.log('🧪 开始模拟测试...');
 
-      const response = await chatService.sendMessageMock(testMessage);
+      const response = await chatService.sendMessageMock();
 
       console.log('✅ 模拟测试成功:', response);
 

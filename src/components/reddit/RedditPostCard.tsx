@@ -143,7 +143,7 @@ const RedditPostCard: React.FC<RedditPostCardProps> = ({
 
   return (
     <Card
-      className={className}
+      className={className || ''}
       hoverable
       onClick={handleCardClick}
       style={{ marginBottom: 16, cursor: onClick ? 'pointer' : 'default' }}
@@ -151,13 +151,13 @@ const RedditPostCard: React.FC<RedditPostCardProps> = ({
         <Tooltip title={t('redditWorkflow.posts.upvotes')} key='upvotes'>
           <Space>
             <LikeOutlined />
-            <Text>{formatNumber(post.ups)}</Text>
+            <Text>{formatNumber(post.score)}</Text>
           </Space>
         </Tooltip>,
         <Tooltip title={t('redditWorkflow.posts.comments')} key='comments'>
           <Space>
             <CommentOutlined />
-            <Text>{formatNumber(post.num_comments)}</Text>
+            <Text>{formatNumber(post.numComments)}</Text>
           </Space>
         </Tooltip>,
         <Tooltip title={t('redditWorkflow.actions.share')} key='share'>
@@ -190,7 +190,7 @@ const RedditPostCard: React.FC<RedditPostCardProps> = ({
           </Space>
           <Space>
             <ClockCircleOutlined />
-            <Text type='secondary'>{formatTime(post.created_utc)}</Text>
+            <Text type='secondary'>{formatTime(post.createdUtc)}</Text>
           </Space>
           <Tag color={getHotColor(post.score)}>
             <FireOutlined /> {formatNumber(post.score)}
@@ -205,12 +205,12 @@ const RedditPostCard: React.FC<RedditPostCardProps> = ({
       </Title>
 
       {/* 帖子内容 */}
-      {post.selftext && (
+      {post.content && (
         <Paragraph
           ellipsis={showFullContent ? false : { rows: 3, expandable: true }}
           style={{ marginBottom: 12 }}
         >
-          {post.selftext}
+          {post.content}
         </Paragraph>
       )}
 
@@ -235,15 +235,10 @@ const RedditPostCard: React.FC<RedditPostCardProps> = ({
       {/* 帖子标签 */}
       <div style={{ marginTop: 12 }}>
         <Space wrap>
-          {post.link_flair_text && (
-            <Tag color='purple'>{post.link_flair_text}</Tag>
-          )}
-          {post.over_18 && <Tag color='red'>NSFW</Tag>}
+          {post.linkFlairText && <Tag color='purple'>{post.linkFlairText}</Tag>}
+          {post.over18 && <Tag color='red'>NSFW</Tag>}
           {post.stickied && (
             <Tag color='green'>{t('redditWorkflow.posts.pinned')}</Tag>
-          )}
-          {post.locked && (
-            <Tag color='default'>{t('redditWorkflow.posts.locked')}</Tag>
           )}
         </Space>
       </div>

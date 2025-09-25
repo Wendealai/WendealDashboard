@@ -84,7 +84,9 @@ const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
     const lcpObserver = new PerformanceObserver(list => {
       const entries = list.getEntries();
       const lastEntry = entries[entries.length - 1];
-      setMetrics(prev => ({ ...prev, lcp: lastEntry.startTime }));
+      if (lastEntry) {
+        setMetrics(prev => ({ ...prev, lcp: lastEntry.startTime }));
+      }
     });
     lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
 
@@ -321,4 +323,3 @@ const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
 
 export { PerformanceMonitor as default };
 export { PerformanceMonitor };
-export type { PerformanceMetrics };

@@ -4,9 +4,23 @@
  */
 
 import React, { useState } from 'react';
-import { Button, Card, Alert, Spin, Progress, Typography, Space, Tag } from 'antd';
+import {
+  Button,
+  Card,
+  Alert,
+  Spin,
+  Progress,
+  Typography,
+  Space,
+  Tag,
+} from 'antd';
 import { redditWebhookService } from '@/services/redditWebhookService';
-import { CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined, BugOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  LoadingOutlined,
+  BugOutlined,
+} from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -27,9 +41,11 @@ export const WebhookDiagnostic: React.FC = () => {
   };
 
   const updateResult = (index: number, updates: Partial<DiagnosticResult>) => {
-    setResults(prev => prev.map((result, i) =>
-      i === index ? { ...result, ...updates } : result
-    ));
+    setResults(prev =>
+      prev.map((result, i) =>
+        i === index ? { ...result, ...updates } : result
+      )
+    );
   };
 
   const runDiagnostics = async () => {
@@ -91,18 +107,18 @@ export const WebhookDiagnostic: React.FC = () => {
 
       // 添加步骤并标记为运行中
       addResult({
-        step: step.step,
+        step: step!.step,
         status: 'running',
         message: '正在测试...',
       });
 
       try {
-        const success = await step.test();
+        const success = await step!.test();
 
         updateResult(i, {
           status: success ? 'success' : 'error',
           message: success ? '测试通过' : '测试失败',
-          details: success ? undefined : '请检查网络配置或服务器状态',
+          ...(success ? {} : { details: '请检查网络配置或服务器状态' }),
         });
       } catch (error) {
         updateResult(i, {
@@ -157,15 +173,16 @@ export const WebhookDiagnostic: React.FC = () => {
       }
       style={{ maxWidth: 800, margin: '0 auto' }}
     >
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Space direction='vertical' size='large' style={{ width: '100%' }}>
         {/* 当前配置信息 */}
-        <Card size="small" title="当前配置">
-          <Space direction="vertical">
+        <Card size='small' title='当前配置'>
+          <Space direction='vertical'>
             <Text strong>Webhook URL:</Text>
             <Text code>{getWebhookUrl()}</Text>
             <Text strong>环境:</Text>
             <Text>
-              {typeof window !== 'undefined' && window.location.hostname === 'localhost'
+              {typeof window !== 'undefined' &&
+              window.location.hostname === 'localhost'
                 ? '开发环境 (使用代理)'
                 : '生产环境 (直接连接)'}
             </Text>
@@ -174,10 +191,10 @@ export const WebhookDiagnostic: React.FC = () => {
 
         {/* 诊断按钮 */}
         <Button
-          type="primary"
+          type='primary'
           onClick={runDiagnostics}
           loading={isRunning}
-          size="large"
+          size='large'
           block
         >
           {isRunning ? '正在诊断...' : '开始诊断'}
@@ -187,7 +204,7 @@ export const WebhookDiagnostic: React.FC = () => {
         {isRunning && (
           <Progress
             percent={progress}
-            status="active"
+            status='active'
             strokeColor={{
               '0%': '#108ee9',
               '100%': '#87d068',
@@ -197,28 +214,31 @@ export const WebhookDiagnostic: React.FC = () => {
 
         {/* 诊断结果 */}
         {results.length > 0 && (
-          <Card size="small" title="诊断结果">
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Card size='small' title='诊断结果'>
+            <Space direction='vertical' size='small' style={{ width: '100%' }}>
               {results.map((result, index) => (
                 <Card
                   key={index}
-                  size="small"
+                  size='small'
                   style={{
                     borderLeft: `4px solid ${
-                      result.status === 'success' ? '#52c41a' :
-                      result.status === 'error' ? '#ff4d4f' : '#1890ff'
-                    }`
+                      result.status === 'success'
+                        ? '#52c41a'
+                        : result.status === 'error'
+                          ? '#ff4d4f'
+                          : '#1890ff'
+                    }`,
                   }}
                 >
-                  <Space align="start">
+                  <Space align='start'>
                     {getStatusIcon(result.status)}
-                    <Space direction="vertical" size={0}>
+                    <Space direction='vertical' size={0}>
                       <Text strong>{result.step}</Text>
                       <Tag color={getStatusColor(result.status)}>
                         {result.message}
                       </Tag>
                       {result.details && (
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                        <Text type='secondary' style={{ fontSize: '12px' }}>
                           {result.details}
                         </Text>
                       )}
@@ -233,29 +253,32 @@ export const WebhookDiagnostic: React.FC = () => {
         {/* 解决建议 */}
         {results.some(r => r.status === 'error') && (
           <Alert
-            message="发现问题"
+            message='发现问题'
             description={
-              <Space direction="vertical">
+              <Space direction='vertical'>
                 <Paragraph>
                   诊断发现了一些问题。根据测试结果，这里是一些解决建议：
                 </Paragraph>
                 <ul>
-                  {results.find(r => r.step === '检查网络连接' && r.status === 'error') && (
-                    <li>网络连接问题：请检查您的互联网连接</li>
-                  )}
-                  {results.find(r => r.step === '验证webhook URL格式' && r.status === 'error') && (
-                    <li>URL格式问题：请检查webhook URL的格式是否正确</li>
-                  )}
-                  {results.find(r => r.step === '测试n8n服务器连通性' && r.status === 'error') && (
-                    <li>n8n服务器问题：服务器可能不可用，请联系管理员</li>
-                  )}
-                  {results.find(r => r.step === '测试webhook端点响应' && r.status === 'error') && (
-                    <li>Webhook端点问题：请检查n8n工作流配置或CORS设置</li>
-                  )}
+                  {results.find(
+                    r => r.step === '检查网络连接' && r.status === 'error'
+                  ) && <li>网络连接问题：请检查您的互联网连接</li>}
+                  {results.find(
+                    r =>
+                      r.step === '验证webhook URL格式' && r.status === 'error'
+                  ) && <li>URL格式问题：请检查webhook URL的格式是否正确</li>}
+                  {results.find(
+                    r =>
+                      r.step === '测试n8n服务器连通性' && r.status === 'error'
+                  ) && <li>n8n服务器问题：服务器可能不可用，请联系管理员</li>}
+                  {results.find(
+                    r =>
+                      r.step === '测试webhook端点响应' && r.status === 'error'
+                  ) && <li>Webhook端点问题：请检查n8n工作流配置或CORS设置</li>}
                 </ul>
               </Space>
             }
-            type="warning"
+            type='warning'
             showIcon
           />
         )}
@@ -263,9 +286,9 @@ export const WebhookDiagnostic: React.FC = () => {
         {/* 成功信息 */}
         {results.length > 0 && results.every(r => r.status === 'success') && (
           <Alert
-            message="诊断完成"
-            description="所有测试都通过了！您的Reddit工作流应该可以正常运行。"
-            type="success"
+            message='诊断完成'
+            description='所有测试都通过了！您的Reddit工作流应该可以正常运行。'
+            type='success'
             showIcon
           />
         )}
@@ -273,4 +296,3 @@ export const WebhookDiagnostic: React.FC = () => {
     </Card>
   );
 };
-

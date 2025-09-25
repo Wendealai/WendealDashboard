@@ -87,12 +87,10 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const {
-    data: { posts, total },
-    filter,
-    sort,
-    pagination: { current, pageSize },
-    ui: { loading, error },
+    data: { posts, filters, sort, pagination, loading, error },
   } = useAppSelector(selectRedditWorkflow);
+  const { current, pageSize, total } = pagination;
+  const filter = filters;
 
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -102,7 +100,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
   const [lastError, setLastError] = useState<string | null>(null);
 
   // 使用通知系统
-  const { showNotification } = useNotifications();
+  const { addNotification } = useNotifications();
 
   // 组件挂载时获取数据
   useEffect(() => {
@@ -113,14 +111,16 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
   useEffect(() => {
     if (error && error !== lastError) {
       setLastError(error);
-      showNotification({
+      addNotification({
         type: 'error',
         title: t('reddit.errors.fetchFailed'),
-        message: error,
-        duration: 5000,
+        content: error,
+        read: false,
+        category: 'error',
+        priority: 'high',
       });
     }
-  }, [error, lastError, showNotification, t]);
+  }, [error, lastError, addNotification, t]);
 
   /**
    * 获取数据的统一方法
@@ -137,7 +137,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
         setRetryCount(0);
         if (lastError) {
           setLastError(null);
-          showNotification({
+          addNotification({
             type: 'success',
             title: t('reddit.messages.dataRefreshed'),
             message: t('reddit.messages.dataFetchSuccess'),
@@ -160,7 +160,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
             2000 * (retryCount + 1)
           ); // 递增延迟
 
-          showNotification({
+          addNotification({
             type: 'warning',
             title: t('reddit.errors.retrying'),
             message: t('reddit.messages.autoRetry', { count: retryCount + 1 }),
@@ -188,7 +188,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
         );
 
         if (searchRedditPosts.fulfilled.match(result)) {
-          showNotification({
+          addNotification({
             type: 'info',
             title: t('reddit.messages.searchCompleted'),
             message: t('reddit.messages.searchResults', {
@@ -207,7 +207,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
       if (result.type.endsWith('/rejected')) {
         const errorMessage =
           (result.payload as string) || t('reddit.errors.searchFailed');
-        showNotification({
+        addNotification({
           type: 'error',
           title: t('reddit.errors.searchFailed'),
           message: errorMessage,
@@ -216,7 +216,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
       }
     } catch (err) {
       console.error('Search error:', err);
-      showNotification({
+      addNotification({
         type: 'error',
         title: t('reddit.errors.searchFailed'),
         message: t('reddit.errors.unexpectedError'),
@@ -271,7 +271,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
     }
     setRetryCount(0);
 
-    showNotification({
+    addNotification({
       type: 'info',
       title: t('reddit.messages.refreshing'),
       message: t('reddit.messages.refreshingData'),
@@ -309,14 +309,14 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
   const handleOpenRedditLink = (url: string) => {
     try {
       window.open(url, '_blank');
-      showNotification({
+      addNotification({
         type: 'success',
         title: t('reddit.messages.linkOpened'),
         message: t('reddit.messages.redirectingToReddit'),
         duration: 2000,
       });
     } catch (err) {
-      showNotification({
+      addNotification({
         type: 'error',
         title: t('reddit.errors.linkOpenFailed'),
         message: t('reddit.errors.browserBlocked'),
@@ -330,7 +330,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
    */
   const handleExport = async () => {
     try {
-      showNotification({
+      addNotification({
         type: 'info',
         title: t('reddit.messages.exportStarted'),
         message: t('reddit.messages.exportInProgress'),
@@ -341,14 +341,14 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
       // 模拟导出过程
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      showNotification({
+      addNotification({
         type: 'warning',
         title: t('reddit.messages.exportInDevelopment'),
         message: t('reddit.messages.featureComingSoon'),
         duration: 4000,
       });
     } catch (err) {
-      showNotification({
+      addNotification({
         type: 'error',
         title: t('reddit.errors.exportFailed'),
         message: t('reddit.errors.unexpectedError'),
@@ -380,7 +380,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
   const getSubredditColor = (subreddit: string): string => {
     const colors = ['blue', 'green', 'orange', 'red', 'purple', 'cyan'];
     const index = subreddit.length % colors.length;
-    return colors[index];
+    return colors[index] || 'blue';
   };
 
   // 表格列定义
@@ -402,13 +402,13 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
             >
               {title}
             </Link>
-            {record.isStickied && (
-              <Tag color='gold' size='small' style={{ marginLeft: 8 }}>
+            {record.stickied && (
+              <Tag color='gold' style={{ marginLeft: 8 }}>
                 {t('reddit.posts.pinned')}
               </Tag>
             )}
-            {record.isNsfw && (
-              <Tag color='red' size='small' style={{ marginLeft: 4 }}>
+            {record.nsfw && (
+              <Tag color='red' style={{ marginLeft: 4 }}>
                 NSFW
               </Tag>
             )}
@@ -437,11 +437,9 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
       dataIndex: 'author',
       key: 'author',
       width: 120,
-      render: (author: string, record: RedditPost) => (
+      render: (author: string) => (
         <Space>
-          <Avatar size='small' src={record.authorAvatar}>
-            {author.charAt(0).toUpperCase()}
-          </Avatar>
+          <Avatar size='small'>{author.charAt(0).toUpperCase()}</Avatar>
           <Text>{author}</Text>
         </Space>
       ),
@@ -699,7 +697,10 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
                   defaultValue='score'
                   style={{ width: 120 }}
                   onChange={value =>
-                    handleSortChange('field' as keyof RedditDataSort, value)
+                    handleSortChange(
+                      'field' as keyof RedditDataSort,
+                      value as 'asc' | 'desc'
+                    )
                   }
                 >
                   <Option value='score'>{t('reddit.posts.score')}</Option>
@@ -806,7 +807,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
                   ? t('reddit.messages.retryingData', { count: retryCount })
                   : t('reddit.messages.loadingData'),
             }}
-            scroll={{ x: 1200, y: height }}
+            scroll={{ x: 1200, y: height || 400 }}
             pagination={{
               current,
               pageSize,
@@ -822,7 +823,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
               onChange: handlePaginationChange,
               onShowSizeChange: handlePaginationChange,
             }}
-            onChange={(pagination, filters, sorter) => {
+            onChange={(_, __, sorter) => {
               // 处理表格排序
               if (sorter && !Array.isArray(sorter) && sorter.order) {
                 const field = sorter.field as keyof RedditDataSort;
@@ -876,7 +877,7 @@ const DataDisplayGrid: React.FC<DataDisplayGridProps> = ({
               <div>
                 <Text strong>{t('reddit.posts.author')}：</Text>
                 <Space>
-                  <Avatar size='small' src={selectedPost.authorAvatar}>
+                  <Avatar size='small'>
                     {selectedPost.author.charAt(0).toUpperCase()}
                   </Avatar>
                   <Text>{selectedPost.author}</Text>

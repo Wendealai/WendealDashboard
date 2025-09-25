@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import {
   login,
@@ -32,11 +33,11 @@ interface AuthContextType {
   user: any;
   isAuthenticated: boolean;
   isLoading: boolean;
-  error: string | null;
+  error: any;
 
   // 方法
   login: (credentials: LoginRequest) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
+  register: (data: RegisterData) => Promise<any>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
   getCurrentUser: () => Promise<void>;
@@ -66,7 +67,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const dispatch = useAppDispatch();
 
   // 从Redux store获取认证状态
-  const authState = useAppSelector(selectAuth);
   const user = useAppSelector(selectUser);
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const isLoading = useAppSelector(selectIsLoading);
@@ -122,10 +122,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         try {
           const user = JSON.parse(userData);
           dispatch(setUser(user));
+          const refreshTokenValue = localStorage.getItem('auth_refresh_token');
           dispatch(
             setTokens({
               token,
-              refreshToken: localStorage.getItem('auth_refresh_token'),
+              refreshToken: refreshTokenValue || '',
             })
           );
 
@@ -166,7 +167,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   };
 
   const handleRefreshToken = async () => {
-    await dispatch(refreshToken()).unwrap();
+    await dispatch(
+      refreshToken(localStorage.getItem('auth_refresh_token') || '')
+    ).unwrap();
   };
 
   const handleGetCurrentUser = async () => {

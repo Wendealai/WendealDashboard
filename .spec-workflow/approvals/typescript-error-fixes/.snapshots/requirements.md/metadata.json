@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/typescript-error-fixes/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-09-24T23:33:17.395Z",
+      "trigger": "initial",
+      "approvalId": "approval_1758756797354_093wo9s8n",
+      "approvalTitle": "TypeScript Error Fixes Requirements"
+    }
+  ]
+}

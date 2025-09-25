@@ -60,6 +60,8 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose, onAction }) => {
 
       return () => clearInterval(interval);
     }
+
+    return () => {}; // No-op cleanup function
   }, [toast.duration]);
 
   const handleClose = () => {

@@ -61,31 +61,37 @@ const WorkflowControlPanel: React.FC = () => {
   /**
    * Classify error type for better error handling
    */
-  const classifyError = useCallback((error: any): { type: string; code?: string; stack?: string } => {
-    if (!error) {
-      return { type: 'unknown' };
-    }
+  const classifyError = useCallback(
+    (error: any): { type: string; code?: string; stack?: string } => {
+      if (!error) {
+        return { type: 'unknown' };
+      }
 
-    const errorMessage = error.message || error.toString();
+      const errorMessage = error.message || error.toString();
 
-    if (errorMessage.includes('Network') || errorMessage.includes('fetch')) {
-      return { type: 'network', code: 'NETWORK_ERROR' };
-    }
+      if (errorMessage.includes('Network') || errorMessage.includes('fetch')) {
+        return { type: 'network', code: 'NETWORK_ERROR' };
+      }
 
-    if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
-      return { type: 'timeout', code: 'TIMEOUT_ERROR' };
-    }
+      if (
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('Timeout')
+      ) {
+        return { type: 'timeout', code: 'TIMEOUT_ERROR' };
+      }
 
-    if (error.status >= 500) {
-      return { type: 'server', code: `HTTP_${error.status}` };
-    }
+      if (error.status >= 500) {
+        return { type: 'server', code: `HTTP_${error.status}` };
+      }
 
-    return {
-      type: 'unknown',
-      code: 'UNKNOWN_ERROR',
-      stack: error.stack
-    };
-  }, []);
+      return {
+        type: 'unknown',
+        code: 'UNKNOWN_ERROR',
+        stack: error.stack,
+      };
+    },
+    []
+  );
 
   /**
    * Check if retry is allowed based on cooldown period
@@ -111,12 +117,11 @@ const WorkflowControlPanel: React.FC = () => {
     try {
       setProgressStatus('Preparing to start workflow...');
 
-      // Use new progress callback mechanism with abort signal
+      // Use new progress callback mechanism
       const response = await workflowService.triggerRedditWebhook(
         (status: string) => {
           setProgressStatus(status);
-        },
-        { signal: abortControllerRef.current.signal }
+        }
       );
 
       console.log('WorkflowControlPanel received response:', {
@@ -143,7 +148,9 @@ const WorkflowControlPanel: React.FC = () => {
         setRedditData(subredditsData);
         setProgressStatus('Data retrieval completed!');
         setRetryCount(0); // Reset retry count on success
-        message.success(`Data retrieved successfully! Found ${subredditsData.length} subreddits.`);
+        message.success(
+          `Data retrieved successfully! Found ${subredditsData.length} subreddits.`
+        );
 
         console.log('Reddit data has been set, current state:', {
           redditDataLength: subredditsData.length,
@@ -154,12 +161,15 @@ const WorkflowControlPanel: React.FC = () => {
         });
       } else {
         console.error('Response failed or no data:', { response });
-        throw new Error(response.error || 'Retrieval failed - no data returned');
+        throw new Error(
+          response.error || 'Retrieval failed - no data returned'
+        );
       }
     } catch (error: any) {
       console.error('WorkflowControlPanel error details:', {
         error,
-        errorMessage: error instanceof Error ? error.message : 'Retrieval failed',
+        errorMessage:
+          error instanceof Error ? error.message : 'Retrieval failed',
         errorStack: error instanceof Error ? error.stack : undefined,
         retryCount,
         isAborted: error.name === 'AbortError',
@@ -170,8 +180,13 @@ const WorkflowControlPanel: React.FC = () => {
         return;
       }
 
-      const errorDetails = classifyError(error);
-      const errorMessage = error instanceof Error ? error.message : 'Retrieval failed';
+      const errorDetails = classifyError(error) as {
+        type: 'network' | 'timeout' | 'server' | 'unknown';
+        code?: string;
+        stack?: string;
+      };
+      const errorMessage =
+        error instanceof Error ? error.message : 'Retrieval failed';
 
       setError(errorMessage);
       setErrorDetails(errorDetails);
@@ -184,7 +199,9 @@ const WorkflowControlPanel: React.FC = () => {
         }
       }
 
-      message.error(`${errorMessage}${retryCount < MAX_RETRY_ATTEMPTS ? ' (Will retry automatically)' : ''}`);
+      message.error(
+        `${errorMessage}${retryCount < MAX_RETRY_ATTEMPTS ? ' (Will retry automatically)' : ''}`
+      );
     }
   }, [retryCount, canRetry, classifyError, message]);
 
@@ -244,14 +261,23 @@ const WorkflowControlPanel: React.FC = () => {
    * Auto-retry mechanism
    */
   React.useEffect(() => {
-    if (error && errorDetails && retryCount < MAX_RETRY_ATTEMPTS && canRetry()) {
-      const shouldAutoRetry = errorDetails.type === 'network' || errorDetails.type === 'timeout';
+    if (
+      error &&
+      errorDetails &&
+      retryCount < MAX_RETRY_ATTEMPTS &&
+      canRetry()
+    ) {
+      const shouldAutoRetry =
+        errorDetails.type === 'network' || errorDetails.type === 'timeout';
 
       if (shouldAutoRetry) {
-        retryTimeoutRef.current = setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          handleStart();
-        }, RETRY_DELAY * (retryCount + 1)); // Exponential backoff
+        retryTimeoutRef.current = setTimeout(
+          () => {
+            setRetryCount(prev => prev + 1);
+            handleStart();
+          },
+          RETRY_DELAY * (retryCount + 1)
+        ); // Exponential backoff
       }
     }
 
@@ -371,7 +397,11 @@ const WorkflowControlPanel: React.FC = () => {
                   <Text type='secondary' style={{ fontSize: '12px' }}>
                     Attempted {retryCount + 1} time(s)
                     {lastAttemptTime && (
-                      <> • Last attempt: {new Date(lastAttemptTime).toLocaleTimeString()}</>
+                      <>
+                        {' '}
+                        • Last attempt:{' '}
+                        {new Date(lastAttemptTime).toLocaleTimeString()}
+                      </>
                     )}
                   </Text>
                 </div>
@@ -405,19 +435,22 @@ const WorkflowControlPanel: React.FC = () => {
             <span>Reddit Hot Content</span>
             {redditData.length > 0 && (
               <Tag color='blue'>
-                {redditData.reduce((sum, sub) => sum + (sub.posts?.length || 0), 0)} posts
+                {redditData.reduce(
+                  (sum, sub) => sum + (sub.posts?.length || 0),
+                  0
+                )}{' '}
+                posts
               </Tag>
             )}
           </Space>
         }
         style={{ minHeight: 400 }}
       >
-
         {redditData.length > 0 ? (
           <div
             style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
           >
-            {redditData.slice(0, 5).map((subreddit, index) => (
+            {redditData.slice(0, 5).map(subreddit => (
               <Card
                 size='small'
                 title={
@@ -565,7 +598,8 @@ const WorkflowControlPanel: React.FC = () => {
       >
         <div style={{ padding: '16px 0' }}>
           <Text>
-            The connection failed due to a {errorDetails?.type} error. This might be due to:
+            The connection failed due to a {errorDetails?.type} error. This
+            might be due to:
           </Text>
           <ul style={{ marginTop: 8, paddingLeft: 20 }}>
             <li>Network connectivity issues</li>
@@ -573,11 +607,14 @@ const WorkflowControlPanel: React.FC = () => {
             <li>Request timeout</li>
           </ul>
           <div style={{ marginTop: 16 }}>
-            <Text strong>Attempt {retryCount + 1} of {MAX_RETRY_ATTEMPTS}</Text>
+            <Text strong>
+              Attempt {retryCount + 1} of {MAX_RETRY_ATTEMPTS}
+            </Text>
             {retryCount >= MAX_RETRY_ATTEMPTS - 1 && (
               <div style={{ marginTop: 8 }}>
                 <Text type='warning'>
-                  This is the final retry attempt. If it fails, please check your network connection and try again later.
+                  This is the final retry attempt. If it fails, please check
+                  your network connection and try again later.
                 </Text>
               </div>
             )}

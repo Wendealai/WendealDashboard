@@ -42,20 +42,20 @@ const SettingsForm: React.FC<SettingsFormProps> = ({
   const [form] = Form.useForm();
   const [formValues, setFormValues] = useState<Partial<WorkflowSettings>>({
     webhookUrl: '',
-    workflowName: '',
+    name: '',
     enabled: true,
     ...initialValues,
   });
   const [validationErrors, setValidationErrors] = useState<{
     webhookUrl?: string;
-    workflowName?: string;
+    name?: string;
   }>({});
 
   // Update form when initial values change
   useEffect(() => {
     const newValues = {
       webhookUrl: '',
-      workflowName: '',
+      name: '',
       enabled: true,
       ...initialValues,
     };
@@ -119,12 +119,12 @@ const SettingsForm: React.FC<SettingsFormProps> = ({
         } else {
           delete errors.webhookUrl;
         }
-      } else if (field === 'workflowName') {
+      } else if (field === 'name') {
         const error = validateWorkflowName(value);
         if (error) {
-          errors.workflowName = error;
+          errors.name = error;
         } else {
-          delete errors.workflowName;
+          delete errors.name;
         }
       }
 
@@ -147,12 +147,12 @@ const SettingsForm: React.FC<SettingsFormProps> = ({
         } else {
           delete errors.webhookUrl;
         }
-      } else if (field === 'workflowName') {
+      } else if (field === 'name') {
         const error = validateWorkflowName(value);
         if (error) {
-          errors.workflowName = error;
+          errors.name = error;
         } else {
-          delete errors.workflowName;
+          delete errors.name;
         }
       }
 
@@ -171,9 +171,9 @@ const SettingsForm: React.FC<SettingsFormProps> = ({
       errors.webhookUrl = webhookError;
     }
 
-    const nameError = validateWorkflowName(formValues.workflowName || '');
+    const nameError = validateWorkflowName(formValues.name || '');
     if (nameError) {
-      errors.workflowName = nameError;
+      errors.name = nameError;
     }
 
     setValidationErrors(errors);
@@ -195,7 +195,7 @@ const SettingsForm: React.FC<SettingsFormProps> = ({
     if (onSubmit) {
       const settings: WorkflowSettings = {
         webhookUrl: formValues.webhookUrl || '',
-        workflowName: formValues.workflowName || '',
+        name: formValues.name || '',
         enabled: formValues.enabled ?? true,
       };
 
@@ -209,7 +209,7 @@ const SettingsForm: React.FC<SettingsFormProps> = ({
   const handleReset = () => {
     const resetValues = {
       webhookUrl: '',
-      workflowName: '',
+      name: '',
       enabled: true,
     };
 
@@ -231,9 +231,7 @@ const SettingsForm: React.FC<SettingsFormProps> = ({
    * Check if form values are valid for submission
    */
   const isFormValid =
-    !hasErrors &&
-    formValues.webhookUrl?.trim() &&
-    formValues.workflowName?.trim();
+    !hasErrors && formValues.webhookUrl?.trim() && formValues.name?.trim();
 
   return (
     <div style={{ width: '100%' }}>
@@ -276,7 +274,7 @@ const SettingsForm: React.FC<SettingsFormProps> = ({
             value={formValues.webhookUrl}
             onChange={value => handleInputChange('webhookUrl', value)}
             onBlur={() => handleInputBlur('webhookUrl')}
-            error={validationErrors.webhookUrl}
+            error={validationErrors.webhookUrl || ''}
             disabled={loading}
             required
           />
@@ -286,15 +284,15 @@ const SettingsForm: React.FC<SettingsFormProps> = ({
         <Form.Item
           label='Workflow Name'
           required
-          validateStatus={validationErrors.workflowName ? 'error' : ''}
-          help={validationErrors.workflowName}
+          validateStatus={validationErrors.name ? 'error' : ''}
+          help={validationErrors.name}
         >
           <Input
             placeholder='Enter workflow name'
-            value={formValues.workflowName}
-            onChange={value => handleInputChange('workflowName', value)}
-            onBlur={() => handleInputBlur('workflowName')}
-            error={validationErrors.workflowName}
+            value={formValues.name}
+            onChange={value => handleInputChange('name', value)}
+            onBlur={() => handleInputBlur('name')}
+            error={validationErrors.name || ''}
             disabled={loading}
             required
             maxLength={50}

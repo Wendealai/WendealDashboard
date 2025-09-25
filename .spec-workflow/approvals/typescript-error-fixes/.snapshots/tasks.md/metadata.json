@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/typescript-error-fixes/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-09-24T23:39:24.649Z",
+      "trigger": "initial",
+      "approvalId": "approval_1758757164630_wnlfhahgb",
+      "approvalTitle": "TypeScript Error Fixes Tasks"
+    }
+  ]
+}

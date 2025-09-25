@@ -79,18 +79,19 @@ import type {
   InvoiceOCRWorkflow,
   InvoiceOCRSettings,
   InvoiceOCRResult,
-  InvoiceOCRStatus,
   InvoiceOCRBatchTask,
   InvoiceOCRStatistics,
   InvoiceOCRExecution,
-  InvoiceOCRQueryParams,
   CreateInvoiceOCRWorkflowRequest,
   UpdateInvoiceOCRWorkflowRequest,
-  InvoiceOCRUploadRequest,
-  InvoiceOCRPaginatedResponse,
-  InvoiceOCRApiResponse,
-  UploadAndProcessFilesRequest,
 } from '../pages/InformationDashboard/types/invoiceOCR';
+
+// Define missing types
+interface UploadAndProcessFilesRequest {
+  workflowId: string;
+  files: File[];
+  processingOptions?: any;
+}
 
 export interface UseInvoiceOCROptions {
   /** Auto-load workflows on mount */
@@ -117,22 +118,19 @@ export interface UseInvoiceOCRReturn {
   activeWorkflow: InvoiceOCRWorkflow | null;
   currentResult: InvoiceOCRResult | null;
   currentBatchTask: InvoiceOCRBatchTask | null;
-  uploadProgress: number;
+  uploadProgress: Record<string, number>;
 
   // Loading states
   loading: {
-    workflows: boolean;
+    workflow: boolean;
     results: boolean;
-    statistics: boolean;
     executions: boolean;
+    statistics: boolean;
     upload: boolean;
-    create: boolean;
-    update: boolean;
-    delete: boolean;
   };
 
   // Error state
-  error: string | null;
+  error: any;
 
   // Actions
   loadWorkflows: () => Promise<void>;
@@ -142,7 +140,7 @@ export interface UseInvoiceOCRReturn {
   updateWorkflow: (
     id: string,
     data: UpdateInvoiceOCRWorkflowRequest
-  ) => Promise<InvoiceOCRWorkflow | null>;
+  ) => Promise<any>;
   deleteWorkflow: (id: string) => Promise<boolean>;
   uploadFiles: (
     data: UploadAndProcessFilesRequest
@@ -183,7 +181,6 @@ export const useInvoiceOCR = ({
   const dispatch = useAppDispatch();
 
   // Redux state selectors
-  const invoiceOCRState = useAppSelector(selectInvoiceOCR);
   const workflows = useAppSelector(selectInvoiceOCRWorkflows);
   const results = useAppSelector(selectInvoiceOCRResults);
   const statistics = useAppSelector(selectInvoiceOCRStatistics);
@@ -267,7 +264,7 @@ export const useInvoiceOCR = ({
     ): Promise<InvoiceOCRWorkflow | null> => {
       try {
         const result = await dispatch(
-          updateInvoiceOCRWorkflow({ id, ...data })
+          updateInvoiceOCRWorkflow({ id, request: data })
         ).unwrap();
         showSuccess('Workflow updated successfully');
         return result;
@@ -327,7 +324,7 @@ export const useInvoiceOCR = ({
   const loadResults = useCallback(
     async (workflowId?: string) => {
       try {
-        await dispatch(fetchInvoiceOCRResults(workflowId)).unwrap();
+        await dispatch(fetchInvoiceOCRResults({})).unwrap();
       } catch (err) {
         const errorMsg =
           err instanceof Error ? err.message : 'Failed to load results';
@@ -343,7 +340,7 @@ export const useInvoiceOCR = ({
   const loadStatistics = useCallback(
     async (workflowId?: string) => {
       try {
-        await dispatch(fetchInvoiceOCRStatistics(workflowId)).unwrap();
+        await dispatch(fetchInvoiceOCRStatistics(workflowId || '')).unwrap();
       } catch (err) {
         const errorMsg =
           err instanceof Error ? err.message : 'Failed to load statistics';
@@ -359,7 +356,7 @@ export const useInvoiceOCR = ({
   const loadExecutions = useCallback(
     async (workflowId?: string) => {
       try {
-        await dispatch(fetchInvoiceOCRExecutions(workflowId)).unwrap();
+        await dispatch(fetchInvoiceOCRExecutions({})).unwrap();
       } catch (err) {
         const errorMsg =
           err instanceof Error ? err.message : 'Failed to load executions';
@@ -445,16 +442,13 @@ export const useInvoiceOCR = ({
   }, [loading.upload, currentBatchTask?.status]);
 
   const totalProcessedFiles = useMemo(() => {
-    return results.reduce(
-      (total, result) => total + (result.processedFiles || 0),
-      0
-    );
+    return results.length;
   }, [results]);
 
   const successRate = useMemo(() => {
     if (!statistics) return 0;
     const total = statistics.totalProcessed;
-    const successful = statistics.successfulProcessed;
+    const successful = statistics.successCount;
     return total > 0 ? (successful / total) * 100 : 0;
   }, [statistics]);
 

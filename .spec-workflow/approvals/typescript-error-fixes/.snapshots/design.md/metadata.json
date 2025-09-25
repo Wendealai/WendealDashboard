@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/typescript-error-fixes/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-09-24T23:34:57.041Z",
+      "trigger": "initial",
+      "approvalId": "approval_1758756897001_a03m7hf1a",
+      "approvalTitle": "TypeScript Error Fixes Design"
+    }
+  ]
+}
