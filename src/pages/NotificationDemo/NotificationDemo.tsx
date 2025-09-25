@@ -11,7 +11,7 @@ import {
   toast,
 } from '@/components/notifications';
 import { notificationService } from '@/services/notificationService';
-import type { Notification, NotificationSettings } from '@/types/notification';
+import type { Notification } from '@/types/notification';
 import {
   NotificationType,
   NotificationPriority,

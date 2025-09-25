@@ -234,7 +234,7 @@ export class TypeScriptIntegration {
     diagnostics.push(...semanticDiagnostics);
 
     // 获取建议诊断
-    const suggestionDiagnostics = program.getSuggestionDiagnostics();
+    const suggestionDiagnostics = program.getSemanticDiagnostics();
     diagnostics.push(...suggestionDiagnostics);
 
     return diagnostics;
@@ -324,6 +324,7 @@ export class TypeScriptIntegration {
         diagnostic.category === ts.DiagnosticCategory.Error
           ? IssueSeverity.ERROR
           : IssueSeverity.WARNING,
+      title: `TypeScript ${diagnostic.category === ts.DiagnosticCategory.Error ? 'Error' : 'Warning'}: ${diagnostic.code}`,
       description: ts.flattenDiagnosticMessageText(
         diagnostic.messageText,
         '\n'
@@ -359,8 +360,10 @@ export class TypeScriptIntegration {
    */
   private hasExportModifier(node: ts.Node): boolean {
     return !!(
-      node.modifiers &&
-      node.modifiers.some(mod => mod.kind === ts.SyntaxKind.ExportKeyword)
+      (node as any).modifiers &&
+      (node as any).modifiers.some(
+        (mod: any) => mod.kind === ts.SyntaxKind.ExportKeyword
+      )
     );
   }
 

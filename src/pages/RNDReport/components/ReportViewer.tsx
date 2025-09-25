@@ -665,6 +665,13 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
         return undefined;
       }
 
+      // Additional null check for bodyElement properties
+      if (!bodyElement.children || !bodyElement.textContent) {
+        console.error('❌ Iframe body properties not accessible');
+        setError('Iframe content failed to load');
+        return undefined;
+      }
+
       console.log('✅ Iframe content loaded:', {
         title: iframeDocument.title,
         bodyChildren: bodyElement.children.length,
@@ -808,6 +815,8 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
             onSettingsToggle();
           }
           break;
+        default:
+          return;
       }
     },
     [isOpen, onClose, onFullscreenToggle, onSettingsToggle]
@@ -826,6 +835,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
+    return undefined;
   }, [isOpen, handleKeyDown]);
 
   // Cleanup on unmount

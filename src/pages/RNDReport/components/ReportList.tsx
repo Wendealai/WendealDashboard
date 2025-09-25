@@ -23,8 +23,6 @@ import {
   SearchOutlined,
   SortAscendingOutlined,
   SortDescendingOutlined,
-  FolderOutlined,
-  FolderOpenOutlined,
   EyeOutlined,
   MoreOutlined,
   ClockCircleOutlined,
@@ -44,7 +42,6 @@ import type {
 } from '../../../types/rndReport';
 
 // Import utilities
-import { FileProcessingUtils } from '../../../utils/rndReportUtils';
 
 const { Text, Paragraph } = Typography;
 

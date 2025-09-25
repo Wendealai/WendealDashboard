@@ -114,9 +114,8 @@ const InformationDashboard: React.FC = () => {
   });
 
   // Currently selected workflow state
-  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowInfo | null>(
-    null
-  );
+  const [selectedWorkflow, _setSelectedWorkflow] =
+    useState<WorkflowInfo | null>(null);
 
   // Reddit workflow states
   const [redditLoading, setRedditLoading] = useState(false);
@@ -229,7 +228,7 @@ const InformationDashboard: React.FC = () => {
         console.log(
           'InformationDashboard: Auto-selecting Reddit workflow for persisted data'
         );
-        setSelectedWorkflow({
+        _setSelectedWorkflow({
           id: 'reddit-hot-posts',
           name: 'Reddit Hot Posts',
           description: 'Fetch hot posts from Reddit',
@@ -358,7 +357,7 @@ const InformationDashboard: React.FC = () => {
 
       // 自动选择Reddit工作流来显示数据
       if (!selectedWorkflow || selectedWorkflow.id !== 'reddit-hot-posts') {
-        setSelectedWorkflow({
+        _setSelectedWorkflow({
           id: 'reddit-hot-posts',
           name: 'Reddit Hot Posts',
           description: 'Fetch hot posts from Reddit',
@@ -383,7 +382,7 @@ const InformationDashboard: React.FC = () => {
    */
   const handleWorkflowSelect = useCallback((workflow: WorkflowInfo | null) => {
     console.log('InformationDashboard: Selected workflow:', workflow);
-    setSelectedWorkflow(workflow);
+    _setSelectedWorkflow(workflow);
   }, []);
 
   /**

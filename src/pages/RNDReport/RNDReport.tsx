@@ -340,7 +340,7 @@ const RNDReport: React.FC = () => {
   /**
    * Handle category selection
    */
-  const handleCategorySelect = useCallback((categoryId: string) => {
+  const _handleCategorySelect = useCallback((categoryId: string) => {
     setListViewState(prev => ({
       ...prev,
       selectedCategoryId:
@@ -871,7 +871,7 @@ const RNDReport: React.FC = () => {
             <CategoryManager
               categories={categories}
               categoryStats={categoryStats}
-              onCategorySelect={handleCategorySelect}
+              onCategorySelect={_handleCategorySelect}
               onCategoriesChange={setCategories}
             />
           </TabPane>
