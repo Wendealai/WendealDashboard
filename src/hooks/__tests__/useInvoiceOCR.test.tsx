@@ -209,9 +209,8 @@ describe('useInvoiceOCR', () => {
 
     it('should not auto-load when autoLoad is false', () => {
       const { result } = renderHook(() => useInvoiceOCR({ autoLoad: false }), {
-        wrapper: ({ children }) => (
-          <TestWrapper store={store}>{children}</TestWrapper>
-        ),
+        wrapper: ({ children }) =>
+          React.createElement(TestWrapper, { store }, children),
       });
 
       expect(result.current.workflows).toEqual([]);
@@ -390,7 +389,9 @@ describe('useInvoiceOCR', () => {
 
     it('should handle upload error', async () => {
       const mockStore = createMockStore();
-      mockStore.dispatch = jest.fn().mockRejectedValue(new Error('Upload failed'));
+      mockStore.dispatch = jest
+        .fn()
+        .mockRejectedValue(new Error('Upload failed'));
 
       const { result } = renderHook(
         () => useInvoiceOCR({ autoLoad: false, messageApi: mockMessageApi }),

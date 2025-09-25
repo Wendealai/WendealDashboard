@@ -29,7 +29,6 @@ import {
   ClearOutlined,
   CloseOutlined,
 } from '@ant-design/icons';
-import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
 import type {
   AirtableTableProps,
@@ -41,7 +40,7 @@ import {
   defaultAirtableConfig,
 } from '@/services/airtableService';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 /**
  * AirtableTable组件
@@ -52,10 +51,8 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
   loading,
   error,
   airtableService,
-  onRefresh,
   onDataChange,
 }) => {
-  const { t } = useTranslation();
   const [clearModalVisible, setClearModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [clearing, setClearing] = useState(false);

@@ -6,7 +6,6 @@
 import React, { useCallback, useEffect } from 'react';
 import { Form, Input, Button, Space, Card, Typography } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
-import { useTranslation } from 'react-i18next';
 import { useMessage } from '@/hooks/useMessage';
 import type {
   InputFormProps,

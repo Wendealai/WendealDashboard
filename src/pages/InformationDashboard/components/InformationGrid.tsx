@@ -42,7 +42,6 @@ import {
   fetchInformationList,
   selectInformationData,
   selectInformationLoading,
-  selectInformationStats,
 } from '@/store/slices/informationDashboardSlice';
 import type { InformationItem, InformationQueryParams } from '../types';
 
@@ -199,7 +198,7 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
      * 删除信息
      */
     const handleDelete = useCallback(
-      async (id: string) => {
+      async (_id: string) => {
         try {
           // 这里应该调用删除API
           message.success(t('informationGrid.messages.deleteSuccess'), 3);

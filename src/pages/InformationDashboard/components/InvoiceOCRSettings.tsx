@@ -95,11 +95,14 @@ const InvoiceOCRSettings: React.FC<InvoiceOCRSettingsProps> = ({
       }
     } catch (error) {
       console.error('Failed to load config:', error);
-      showError(
-        t('invoiceOCR.errors.loadConfigFailed', 'Failed to load configuration'),
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
-      );
+      showError({
+        title: t(
+          'invoiceOCR.errors.loadConfigFailed',
+          'Failed to load configuration'
+        ),
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setLoading(false);
     }
@@ -114,10 +117,10 @@ const InvoiceOCRSettings: React.FC<InvoiceOCRSettingsProps> = ({
 
       // 验证 Webhook URL 格式
       if (values.webhookUrl && !isValidUrl(values.webhookUrl)) {
-        showError(
-          t('invoiceOCR.settings.validation.webhookUrlInvalid'),
-          'Please enter a valid webhook URL'
-        );
+        showError({
+          title: t('invoiceOCR.settings.validation.webhookUrlInvalid'),
+          message: 'Please enter a valid webhook URL',
+        });
         return;
       }
 
@@ -131,11 +134,11 @@ const InvoiceOCRSettings: React.FC<InvoiceOCRSettingsProps> = ({
       }
     } catch (error) {
       console.error('Failed to save config:', error);
-      showError(
-        t('invoiceOCR.settings.settingsFailed'),
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
-      );
+      showError({
+        title: t('invoiceOCR.settings.settingsFailed'),
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setLoading(false);
     }
@@ -160,19 +163,18 @@ const InvoiceOCRSettings: React.FC<InvoiceOCRSettingsProps> = ({
         message.success(t('invoiceOCR.settings.connectionSuccess'));
       } else {
         setConnectionStatus('error');
-        showError(
-          t('invoiceOCR.settings.connectionFailed'),
-          result.error || 'Connection test failed',
-          undefined
-        );
+        showError({
+          title: t('invoiceOCR.settings.connectionFailed'),
+          message: result.message || 'Connection test failed',
+        });
       }
     } catch (error) {
       setConnectionStatus('error');
-      showError(
-        t('invoiceOCR.settings.connectionFailed'),
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
-      );
+      showError({
+        title: t('invoiceOCR.settings.connectionFailed'),
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setTesting(false);
     }

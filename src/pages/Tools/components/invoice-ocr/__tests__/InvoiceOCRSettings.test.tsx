@@ -1,6 +1,13 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import '@testing-library/jest-dom';
 import { useTranslation } from 'react-i18next';
 import InvoiceOCRSettings from '../InvoiceOCRSettings';
 import { invoiceOCRService } from '../../../../../services/invoiceOCRService';
@@ -39,10 +46,16 @@ jest.mock('../../../../../services/invoiceOCRService', () => ({
 }));
 
 jest.mock('../../../../../components/common/ErrorModal', () => {
-  return function MockErrorModal({ visible, onClose, title, message, details }: any) {
+  return function MockErrorModal({
+    visible,
+    onClose,
+    title,
+    message,
+    details,
+  }: any) {
     if (!visible) return null;
     return (
-      <div data-testid="error-modal">
+      <div data-testid='error-modal'>
         <h3>{title}</h3>
         <p>{message}</p>
         <pre>{details}</pre>
@@ -58,55 +71,73 @@ jest.mock('antd', () => {
   return {
     ...originalModule,
     Card: ({ children, title, loading, className }: any) => (
-      <div className={className} data-testid="card">
-        {title && <div data-testid="card-title">{title}</div>}
-        {loading && <div data-testid="loading">Loading...</div>}
+      <div className={className} data-testid='card'>
+        {title && <div data-testid='card-title'>{title}</div>}
+        {loading && <div data-testid='loading'>Loading...</div>}
         {children}
       </div>
     ),
     Form: {
-      useForm: () => [{
-        getFieldValue: jest.fn(),
-        setFieldsValue: jest.fn(),
-        resetFields: jest.fn(),
-        validateFields: jest.fn(),
-      }],
+      useForm: () => [
+        {
+          getFieldValue: jest.fn(),
+          setFieldsValue: jest.fn(),
+          resetFields: jest.fn(),
+          validateFields: jest.fn(),
+        },
+      ],
       Item: ({ children, label, name, rules, extra, style }: any) => (
         <div data-testid={`form-item-${name}`} style={style}>
           {label && <label>{label}</label>}
           {children}
-          {extra && <div data-testid="form-item-extra">{extra}</div>}
+          {extra && <div data-testid='form-item-extra'>{extra}</div>}
         </div>
       ),
     },
-    Input: ({ placeholder, prefix, suffix, type, addonAfter, ...props }: any) => (
-      <input
-        data-testid="input"
-        placeholder={placeholder}
-        type={type || 'text'}
-        {...props}
-      />
-    ),
-    Input: {
-      TextArea: ({ placeholder, rows, maxLength, showCount, ...props }: any) => (
-        <textarea
-          data-testid="textarea"
-          placeholder={placeholder}
-          rows={rows}
-          maxLength={maxLength}
-          {...props}
-        />
-      ),
-      Password: ({ placeholder, visibilityToggle, ...props }: any) => (
+    Input: Object.assign(
+      ({ placeholder, prefix, suffix, type, addonAfter, ...props }: any) => (
         <input
-          data-testid="password-input"
-          type="password"
+          data-testid='input'
           placeholder={placeholder}
+          type={type || 'text'}
           {...props}
         />
       ),
-    },
-    Button: ({ children, type, htmlType, icon, loading, onClick, ...props }: any) => (
+      {
+        TextArea: ({
+          placeholder,
+          rows,
+          maxLength,
+          showCount,
+          ...props
+        }: any) => (
+          <textarea
+            data-testid='textarea'
+            placeholder={placeholder}
+            rows={rows}
+            maxLength={maxLength}
+            {...props}
+          />
+        ),
+        Password: ({ placeholder, visibilityToggle, ...props }: any) => (
+          <input
+            data-testid='password-input'
+            type='password'
+            placeholder={placeholder}
+            {...props}
+          />
+        ),
+      }
+    ),
+    Button: ({
+      children,
+      type,
+      htmlType,
+      icon,
+      loading,
+      onClick,
+      ...props
+    }: any) => (
       <button
         data-testid={`button-${type || 'default'}`}
         type={htmlType}
@@ -114,12 +145,12 @@ jest.mock('antd', () => {
         disabled={loading}
         {...props}
       >
-        {icon && <span data-testid="button-icon">{icon}</span>}
+        {icon && <span data-testid='button-icon'>{icon}</span>}
         {children}
       </button>
     ),
     Space: ({ children, ...props }: any) => (
-      <div data-testid="space" {...props}>
+      <div data-testid='space' {...props}>
         {children}
       </div>
     ),
@@ -130,52 +161,71 @@ jest.mock('antd', () => {
         </div>
       ),
       Text: ({ children, ...props }: any) => (
-        <span data-testid="text" {...props}>
+        <span data-testid='text' {...props}>
           {children}
         </span>
       ),
     },
-    Divider: () => <hr data-testid="divider" />,
+    Divider: () => <hr data-testid='divider' />,
     Row: ({ children, gutter, ...props }: any) => (
-      <div data-testid="row" data-gutter={gutter} {...props}>
+      <div data-testid='row' data-gutter={gutter} {...props}>
         {children}
       </div>
     ),
     Col: ({ children, span, ...props }: any) => (
-      <div data-testid="col" data-span={span} {...props}>
+      <div data-testid='col' data-span={span} {...props}>
         {children}
       </div>
     ),
-    Switch: ({ checked, checkedChildren, unCheckedChildren, onChange, ...props }: any) => (
+    Switch: ({
+      checked,
+      checkedChildren,
+      unCheckedChildren,
+      onChange,
+      ...props
+    }: any) => (
       <input
-        data-testid="switch"
-        type="checkbox"
+        data-testid='switch'
+        type='checkbox'
         checked={checked}
         onChange={onChange}
         {...props}
       />
     ),
-    Select: ({ children, placeholder, onChange, ...props }: any) => (
-      <select data-testid="select" placeholder={placeholder} onChange={onChange} {...props}>
-        {children}
-      </select>
-    ),
-    Select: {
-      Option: ({ value, children, ...props }: any) => (
-        <option value={value} {...props}>
+    Select: Object.assign(
+      ({ children, placeholder, onChange, ...props }: any) => (
+        <select
+          data-testid='select'
+          placeholder={placeholder}
+          onChange={onChange}
+          {...props}
+        >
           {children}
-        </option>
+        </select>
       ),
-    },
-    Alert: ({ message, description, type, icon, showIcon, style, ...props }: any) => (
-      <div
-        data-testid={`alert-${type}`}
-        style={style}
-        {...props}
-      >
-        {icon && <span data-testid="alert-icon">{icon}</span>}
-        <div data-testid="alert-message">{message}</div>
-        {description && <div data-testid="alert-description">{description}</div>}
+      {
+        Option: ({ value, children, ...props }: any) => (
+          <option value={value} {...props}>
+            {children}
+          </option>
+        ),
+      }
+    ),
+    Alert: ({
+      message,
+      description,
+      type,
+      icon,
+      showIcon,
+      style,
+      ...props
+    }: any) => (
+      <div data-testid={`alert-${type}`} style={style} {...props}>
+        {icon && <span data-testid='alert-icon'>{icon}</span>}
+        <div data-testid='alert-message'>{message}</div>
+        {description && (
+          <div data-testid='alert-description'>{description}</div>
+        )}
       </div>
     ),
   };
@@ -183,14 +233,18 @@ jest.mock('antd', () => {
 
 // Mock icons
 jest.mock('@ant-design/icons', () => ({
-  SettingOutlined: () => <span data-testid="setting-icon">Setting</span>,
-  SaveOutlined: () => <span data-testid="save-icon">Save</span>,
-  ReloadOutlined: () => <span data-testid="reload-icon">Reload</span>,
-  CheckCircleOutlined: () => <span data-testid="check-icon">Check</span>,
-  ExclamationCircleOutlined: () => <span data-testid="exclamation-icon">Exclamation</span>,
+  SettingOutlined: () => <span data-testid='setting-icon'>Setting</span>,
+  SaveOutlined: () => <span data-testid='save-icon'>Save</span>,
+  ReloadOutlined: () => <span data-testid='reload-icon'>Reload</span>,
+  CheckCircleOutlined: () => <span data-testid='check-icon'>Check</span>,
+  ExclamationCircleOutlined: () => (
+    <span data-testid='exclamation-icon'>Exclamation</span>
+  ),
 }));
 
-const mockInvoiceOCRService = invoiceOCRService as jest.Mocked<typeof invoiceOCRService>;
+const mockInvoiceOCRService = invoiceOCRService as jest.Mocked<
+  typeof invoiceOCRService
+>;
 
 describe('InvoiceOCRSettings', () => {
   const user = userEvent.setup();
@@ -254,15 +308,21 @@ describe('InvoiceOCRSettings', () => {
       // Check advanced configuration fields
       expect(screen.getByTestId('form-item-timeout')).toBeInTheDocument();
       expect(screen.getByTestId('form-item-retryAttempts')).toBeInTheDocument();
-      expect(screen.getByTestId('form-item-enableNotifications')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('form-item-enableNotifications')
+      ).toBeInTheDocument();
       expect(screen.getByTestId('form-item-apiKey')).toBeInTheDocument();
     });
 
     it('should render form action buttons', () => {
       render(<InvoiceOCRSettings />);
 
-      expect(screen.getByTestId('button-default')).toHaveTextContent('invoiceOCR.settings.reset');
-      expect(screen.getByTestId('button-primary')).toHaveTextContent('invoiceOCR.settings.saveConfig');
+      expect(screen.getByTestId('button-default')).toHaveTextContent(
+        'invoiceOCR.settings.reset'
+      );
+      expect(screen.getByTestId('button-primary')).toHaveTextContent(
+        'invoiceOCR.settings.saveConfig'
+      );
     });
 
     it('should render test connection button', () => {
@@ -305,7 +365,9 @@ describe('InvoiceOCRSettings', () => {
 
       render(<InvoiceOCRSettings />);
 
-      const webhookInput = screen.getByDisplayValue('https://n8n.wendealai.com/webhook/invoiceOCR');
+      const webhookInput = screen.getByDisplayValue(
+        'https://n8n.wendealai.com/webhook/invoiceOCR'
+      );
       await user.clear(webhookInput);
       await user.type(webhookInput, 'https://valid-webhook.com/test');
 
@@ -342,7 +404,9 @@ describe('InvoiceOCRSettings', () => {
 
       render(<InvoiceOCRSettings />);
 
-      const workflowNameInput = screen.getByDisplayValue('Invoice OCR Workflow');
+      const workflowNameInput = screen.getByDisplayValue(
+        'Invoice OCR Workflow'
+      );
       await user.clear(workflowNameInput);
       await user.type(workflowNameInput, 'Updated Workflow');
 
@@ -429,7 +493,9 @@ describe('InvoiceOCRSettings', () => {
     it('should warn when webhook URL is empty', async () => {
       render(<InvoiceOCRSettings />);
 
-      const webhookInput = screen.getByDisplayValue('https://n8n.wendealai.com/webhook/invoiceOCR');
+      const webhookInput = screen.getByDisplayValue(
+        'https://n8n.wendealai.com/webhook/invoiceOCR'
+      );
       await user.clear(webhookInput);
 
       const testButton = screen.getByText('invoiceOCR.settings.testConnection');
@@ -443,7 +509,9 @@ describe('InvoiceOCRSettings', () => {
     it('should reset form to initial values', async () => {
       render(<InvoiceOCRSettings />);
 
-      const workflowNameInput = screen.getByDisplayValue('Invoice OCR Workflow');
+      const workflowNameInput = screen.getByDisplayValue(
+        'Invoice OCR Workflow'
+      );
       await user.clear(workflowNameInput);
       await user.type(workflowNameInput, 'Modified Name');
 
@@ -480,7 +548,14 @@ describe('InvoiceOCRSettings', () => {
 
     it('should show loading state during connection test', async () => {
       mockInvoiceOCRService.testWebhook.mockImplementation(
-        () => new Promise(resolve => setTimeout(() => resolve({ success: true }), 100))
+        () =>
+          new Promise(resolve =>
+            setTimeout(
+              () =>
+                resolve({ success: true, message: 'Connection successful' }),
+              100
+            )
+          )
       );
 
       render(<InvoiceOCRSettings />);
@@ -506,7 +581,9 @@ describe('InvoiceOCRSettings', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('alert-success')).toBeInTheDocument();
-        expect(screen.getByTestId('alert-message')).toHaveTextContent('invoiceOCR.settings.connectionNormal');
+        expect(screen.getByTestId('alert-message')).toHaveTextContent(
+          'invoiceOCR.settings.connectionNormal'
+        );
       });
     });
 

@@ -272,11 +272,11 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
         setHistory(historyData.items || []);
       }
     } catch (error) {
-      showError(
-        'Failed to load data',
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
-      );
+      showError({
+        title: 'Failed to load data',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setLoading(false);
     }
@@ -309,11 +309,11 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       await invoiceOCRService.downloadResult(result.workflowId, result.id);
       message.success('File downloaded successfully');
     } catch (error) {
-      showError(
-        'Download failed',
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
-      );
+      showError({
+        title: 'Download failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : undefined,
+      });
     }
   }, []);
 
@@ -331,10 +331,10 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       await invoiceOCRService.downloadResults(workflowId, resultIds);
       message.success('Batch download successful');
     } catch (error) {
-      showError(
-        'Batch download failed',
-        error instanceof Error ? error.message : 'Unknown error'
-      );
+      showError({
+        title: 'Batch download failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }, [selectedResults, workflowId]);
 
@@ -352,10 +352,10 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             message.success('Deleted successfully');
             loadResults();
           } catch (error) {
-            showError(
-              'Delete failed',
-              error instanceof Error ? error.message : 'Unknown error'
-            );
+            showError({
+              title: 'Delete failed',
+              message: error instanceof Error ? error.message : 'Unknown error',
+            });
           }
         },
       });

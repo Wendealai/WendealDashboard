@@ -85,14 +85,12 @@ const InvoiceOCRPage: React.FC = () => {
   const [settingsVisible, setSettingsVisible] = useState(false);
 
   // Data state
-  const [uploadedFiles, setUploadedFiles] = useState<InvoiceOCRFile[]>([]);
-  const [ocrResults, setOcrResults] = useState<InvoiceOCRResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [completedData, setCompletedData] = useState<{
-    executionId?: string;
-    googleSheetsUrl?: string;
-    processedFiles?: number;
-    totalFiles?: number;
+    executionId?: string | undefined;
+    googleSheetsUrl?: string | undefined;
+    processedFiles?: number | undefined;
+    totalFiles?: number | undefined;
     /** 增强版webhook响应数据 */
     enhancedData?: EnhancedWebhookResponse;
   } | null>(null);
@@ -133,15 +131,25 @@ const InvoiceOCRPage: React.FC = () => {
    */
   const handleOCRCompleted = useCallback(
     (data: {
-      executionId?: string;
-      googleSheetsUrl?: string;
-      processedFiles?: number;
-      totalFiles?: number;
+      executionId?: string | undefined;
+      googleSheetsUrl?: string | undefined;
+      processedFiles?: number | undefined;
+      totalFiles?: number | undefined;
       /** 增强版webhook响应数据 */
       enhancedData?: EnhancedWebhookResponse;
     }) => {
       console.log('OCR处理完成，接收到数据:', data);
-      setCompletedData(data);
+      // Only set completedData if we have valid data
+      const completedData = {
+        ...(data.executionId && { executionId: data.executionId }),
+        ...(data.googleSheetsUrl && { googleSheetsUrl: data.googleSheetsUrl }),
+        ...(data.processedFiles && { processedFiles: data.processedFiles }),
+        ...(data.totalFiles && { totalFiles: data.totalFiles }),
+        ...(data.enhancedData && { enhancedData: data.enhancedData }),
+      };
+      setCompletedData(
+        Object.keys(completedData).length > 0 ? completedData : null
+      );
       setProcessingStatus('completed');
       setCurrentStep(3);
       setLoading(false);
@@ -162,9 +170,8 @@ const InvoiceOCRPage: React.FC = () => {
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const resultsData = await invoiceOCRService.getResultsList();
-
-      setOcrResults(resultsData);
+      // Load initial data if needed
+      console.log('Loading initial data...');
     } catch (error) {
       console.error('Failed to load initial data:', error);
       showError(t('globalMessages.refreshFailed'));
@@ -177,20 +184,10 @@ const InvoiceOCRPage: React.FC = () => {
    * Restart processing
    */
   const handleRestart = () => {
-    setUploadedFiles([]);
-    setOcrResults([]);
     setProcessingStatus('idle');
     setCurrentStep(0);
     setError(null);
   };
-
-  /**
-   * Handle file deletion
-   */
-  const handleFileDelete = useCallback((fileId: string) => {
-    setOcrResults(prev => prev.filter(result => result.id !== fileId));
-    message.success(t('globalMessages.deleteSuccess'));
-  }, []);
 
   /**
    * Get processing steps configuration
