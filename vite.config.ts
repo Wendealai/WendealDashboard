@@ -138,6 +138,13 @@ export default defineConfig({
     minify: 'esbuild', // 使用esbuild进行压缩，更快更稳定
     // 代码分割
     rollupOptions: {
+      // 忽略 "use client" 指令的警告
+      onwarn(warning, warn) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && warning.message.includes('use client')) {
+          return;
+        }
+        warn(warning);
+      },
       output: {
         // 更细粒度的代码分割
         manualChunks: (id) => {
