@@ -9,14 +9,12 @@ import { Modal, Form, Input, Tag } from 'antd';
 import { useMessage } from '@/hooks';
 import { useErrorModal } from '@/hooks/useErrorModal';
 import ErrorModal from '@/components/common/ErrorModal';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { useAppDispatch } from '@/store/hooks';
 import {
   fetchWorkflows,
   triggerWorkflow,
   fetchWorkflowExecutions,
-  selectWorkflowStats,
 } from '@/store/slices/informationDashboardSlice';
-import { workflowService } from '@/services/workflowService';
 import type {
   Workflow,
   WorkflowTriggerRequest,
@@ -34,8 +32,6 @@ interface WorkflowPanelProps {
   className?: string;
   onWorkflowSelect?: (workflow: Workflow) => void;
   onWorkflowTriggered?: (workflowId: string, executionId: string) => void;
-  onRedditDataReceived?: (data: ParsedSubredditData[]) => void;
-  onRedditWorkflowDataReceived?: (data: RedditWorkflowResponse) => void;
 }
 
 /**
@@ -58,12 +54,7 @@ const getWorkflowStatusColor = (status: WorkflowStatus): string => {
  * 工作流管理面板组件
  */
 const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
-  ({
-    className,
-    onWorkflowTriggered,
-    onRedditDataReceived,
-    onRedditWorkflowDataReceived,
-  }) => {
+  ({ className, onWorkflowTriggered }) => {
     const { t } = useTranslation();
     const dispatch = useAppDispatch();
     const message = useMessage();
@@ -75,15 +66,6 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
       null
     );
     const [triggerForm] = Form.useForm();
-
-    // Reddit workflow state
-    const [redditLoading, setRedditLoading] = useState(false);
-    const [redditError, setRedditError] = useState<string | null>(null);
-    const [redditProgressStatus, setRedditProgressStatus] =
-      useState<string>('');
-    const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
-    const [redditWorkflowData, setRedditWorkflowData] =
-      useState<RedditWorkflowResponse | null>(null);
 
     /**
      * Initialize data loading

@@ -73,7 +73,6 @@ const ProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
-  const [avatarFile, setAvatarFile] = useState<UploadFile[]>([]);
   const [changePasswordVisible, setChangePasswordVisible] = useState(false);
 
   // 安全的翻译函数，防止在i18n未初始化时出错
@@ -156,7 +155,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleChangePassword = async (values: any) => {
+  const handleChangePassword = async () => {
     setLoading(true);
     try {
       // 模拟密码修改API调用

@@ -6,7 +6,7 @@
 import React from 'react';
 import { Card, Typography, Space, Empty, Spin } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { ApiOutlined, LoadingOutlined } from '@ant-design/icons';
+import { ApiOutlined } from '@ant-design/icons';
 import type { Workflow } from '../types';
 
 const { Title, Text, Paragraph } = Typography;
@@ -19,8 +19,6 @@ interface WorkflowPanelProps {
   workflow?: Workflow;
   /** Loading state */
   loading?: boolean;
-  /** Callback when data is received */
-  onDataReceived?: (data: any[]) => void;
 }
 
 /**
@@ -30,15 +28,14 @@ interface WorkflowPanelProps {
 const WorkflowPanel: React.FC<WorkflowPanelProps> = ({
   workflow,
   loading = false,
-  onDataReceived,
 }) => {
   const { t } = useTranslation();
 
   if (loading) {
     return (
-      <div className="workflow-panel-loading">
-        <Spin size="large" />
-        <div className="workflow-panel-loading-text">
+      <div className='workflow-panel-loading'>
+        <Spin size='large' />
+        <div className='workflow-panel-loading-text'>
           <Text>{t('common.loading')}</Text>
         </div>
       </div>
@@ -50,9 +47,9 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = ({
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
-          <Space direction="vertical">
+          <Space direction='vertical'>
             <Text>{t('workflow.noWorkflowSelected')}</Text>
-            <Text type="secondary">
+            <Text type='secondary'>
               {t('workflow.selectWorkflowToContinue')}
             </Text>
           </Space>
@@ -62,22 +59,22 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = ({
   }
 
   return (
-    <div className="workflow-panel">
+    <div className='workflow-panel'>
       {/* Workflow header */}
-      <div className="workflow-panel-header">
-        <Space align="center" style={{ marginBottom: 16 }}>
+      <div className='workflow-panel-header'>
+        <Space align='center' style={{ marginBottom: 16 }}>
           <ApiOutlined style={{ fontSize: 24, color: '#1890ff' }} />
           <Title level={3} style={{ margin: 0 }}>
             {workflow.name}
           </Title>
         </Space>
 
-        <Paragraph type="secondary" style={{ marginBottom: 16 }}>
+        <Paragraph type='secondary' style={{ marginBottom: 16 }}>
           {workflow.description}
         </Paragraph>
 
         {/* Workflow stats */}
-        <Space size="large">
+        <Space size='large'>
           <Space>
             <Text strong>{t('workflow.status')}:</Text>
             <Text>{workflow.status}</Text>
@@ -107,16 +104,14 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = ({
       {/* Workflow content area */}
       <Card
         title={t('workflow.executionDetails')}
-        size="small"
+        size='small'
         style={{ minHeight: 200 }}
       >
         <Empty
           description={
-            <Space direction="vertical">
+            <Space direction='vertical'>
               <Text>{t('workflow.noExecutionData')}</Text>
-              <Text type="secondary">
-                {t('workflow.triggerToSeeResults')}
-              </Text>
+              <Text type='secondary'>{t('workflow.triggerToSeeResults')}</Text>
             </Space>
           }
         />

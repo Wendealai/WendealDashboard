@@ -73,8 +73,7 @@ import type {
   InvoiceFileType,
   InvoiceOCRLanguage,
   InvoiceOCROutputFormat,
-  InvoiceOCRProcessingOptions,
-} from '../../../pages/InformationDashboard/types';
+} from '../../../../pages/InformationDashboard/types/invoiceOCR';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
@@ -107,7 +106,7 @@ interface InvoiceFileUploadProps {
   /** 工作流 ID */
   workflowId: string;
   /** 处理选项 */
-  processingOptions?: Partial<InvoiceOCRProcessingOptions>;
+  processingOptions?: any;
   /** 批处理名称 */
   batchName?: string;
   /** 最大文件数量 */
@@ -219,10 +218,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
       (file: File): boolean => {
         const isSupported = invoiceOCRService.validateFileType(file);
         if (!isSupported) {
-          showError(
-            'Unsupported file type',
-            `${file.type}. Supported formats: PDF, JPEG, PNG, TIFF, BMP`
-          );
+          showError({
+            title: 'Unsupported file type',
+            message: `${file.type}. Supported formats: PDF, JPEG, PNG, TIFF, BMP`,
+          });
         }
         return isSupported;
       },
@@ -239,12 +238,12 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           maxFileSize
         );
         if (!isValidSize) {
-          showError(
-            'File size exceeds limit',
-            `${invoiceOCRService.formatFileSize(
+          showError({
+            title: 'File size exceeds limit',
+            message: `${invoiceOCRService.formatFileSize(
               file.size
-            )}. Maximum allowed: ${maxFileSize}MB`
-          );
+            )}. Maximum allowed: ${maxFileSize}MB`,
+          });
         }
         return isValidSize;
       },
@@ -268,10 +267,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
 
         // Validate file count
         if (fileList.length > maxFiles) {
-          showError(
-            'Upload limit exceeded',
-            `Maximum ${maxFiles} files can be uploaded`
-          );
+          showError({
+            title: 'Upload limit exceeded',
+            message: `Maximum ${maxFiles} files can be uploaded`,
+          });
           return false;
         }
 
@@ -297,7 +296,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
      * Handle file list changes
      */
     const handleFileListChange: UploadProps['onChange'] = useCallback(
-      info => {
+      (info: any) => {
         let newFileList = [...info.fileList];
 
         // Limit file count
@@ -464,7 +463,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
 
           // 准备完成数据
           const completedData = {
-            executionId: webhookResponse.executionId,
+            executionId: webhookResponse.executionId || '',
             googleSheetsUrl:
               webhookResponse.googleSheetsUrl ||
               'https://docs.google.com/spreadsheets/d/1K8VGSofJUBK7yCTqtaPNQvSZ1HeGDNZOvO2UQ6SRJzg/edit?usp=sharing',
@@ -692,11 +691,11 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         onFileListChange?.([]);
         onUploadSuccess?.(batchTask);
       } catch (error) {
-        showError(
-          'Upload failed',
-          error instanceof Error ? error.message : 'Unknown error',
-          error instanceof Error ? error.stack : undefined
-        );
+        showError({
+          title: 'Upload failed',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          details: error instanceof Error ? error.stack : undefined,
+        });
         onUploadError?.(
           error instanceof Error ? error : new Error('Upload failed')
         );
@@ -1001,7 +1000,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         {/* Error modal */}
         <ErrorModal
           visible={isVisible}
-          errorInfo={errorInfo}
+          title={errorInfo?.title}
+          message={errorInfo?.message || ''}
+          details={errorInfo?.details}
+          troubleshooting={errorInfo?.troubleshooting}
           onClose={hideError}
         />
       </div>

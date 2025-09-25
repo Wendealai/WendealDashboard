@@ -24,7 +24,6 @@ const NotificationDemo: React.FC = () => {
   const { t } = useTranslation();
   const [currentUser] = useState('demo-user-123');
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [settings, setSettings] = useState<NotificationSettings | null>(null);
 
   // Initialize demo data
   useEffect(() => {
@@ -190,9 +189,8 @@ const NotificationDemo: React.FC = () => {
     const response = await notificationService.getNotifications();
     setNotifications(response.notifications);
 
-    // Load settings
-    const userSettings = await notificationService.getSettings();
-    setSettings(userSettings);
+    // Load settings (not used in component)
+    await notificationService.getSettings();
   };
 
   // Handle notification actions
@@ -214,7 +212,7 @@ const NotificationDemo: React.FC = () => {
 
   // Handle settings change
   const handleSettingsChange = (newSettings: NotificationSettings) => {
-    setSettings(newSettings);
+    // Settings are handled by the service, no local state needed
     toast.success(
       'Settings Updated',
       'Your notification preferences have been saved.'

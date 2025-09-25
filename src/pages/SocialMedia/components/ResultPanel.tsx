@@ -14,9 +14,6 @@ import {
   Tag,
   Empty,
   Spin,
-  Alert,
-  Row,
-  Col,
   Button,
   Tooltip,
 } from 'antd';
@@ -52,16 +49,37 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
   loading = false,
 }) => {
   const { t } = useTranslation();
-  const [processedData, setProcessedData] = useState<ParsedSubredditData[]>([]);
+  const [processedData, setProcessedData] = useState<any[]>([]);
 
   /**
    * Process Reddit data for display
    */
   useEffect(() => {
-    console.log('ResultPanel: Received redditData:', redditData?.length || 0, 'items');
-    // 总是更新processedData，即使是空数组
-    setProcessedData(redditData || []);
-    console.log('ResultPanel: Set processedData to:', (redditData || []).length, 'items');
+    console.log(
+      'ResultPanel: Received redditData:',
+      redditData?.length || 0,
+      'items'
+    );
+    // Flatten subreddit data into individual posts
+    const flattenedPosts: any[] = [];
+    if (redditData) {
+      redditData.forEach(subreddit => {
+        if (subreddit.posts && Array.isArray(subreddit.posts)) {
+          subreddit.posts.forEach(post => {
+            flattenedPosts.push({
+              ...post,
+              subredditName: subreddit.name, // Add subreddit name for grouping
+            });
+          });
+        }
+      });
+    }
+    setProcessedData(flattenedPosts);
+    console.log(
+      'ResultPanel: Set processedData to:',
+      flattenedPosts.length,
+      'posts'
+    );
   }, [redditData]);
 
   // 确保在组件挂载时也设置一次数据
@@ -75,8 +93,8 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
    */
   const getHotLevelColor = (score: number): string => {
     if (score >= 1000) return '#666666'; // Dark gray for very hot
-    if (score >= 500) return '#888888';  // Medium gray for hot
-    if (score >= 100) return '#aaaaaa';  // Light gray for warm
+    if (score >= 500) return '#888888'; // Medium gray for hot
+    if (score >= 100) return '#aaaaaa'; // Light gray for warm
     return '#cccccc'; // Very light gray for normal
   };
 
@@ -93,27 +111,35 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
   /**
    * Render individual Reddit post
    */
-  const renderRedditPost = (post: ParsedSubredditData, index: number) => (
+  const renderRedditPost = (post: any, index: number) => (
     <List.Item
       key={`${post.subreddit}-${index}`}
       style={{ padding: '12px 0' }}
       actions={[
-        <Space key="stats">
+        <Space key='stats'>
           <Tooltip title={t('informationDashboard.reddit.upvotes')}>
             <Space size={4}>
               <LikeOutlined style={{ color: '#52c41a' }} />
-              <Text>{post.score?.toLocaleString() || 0}</Text>
+              <Text>
+                {post.upvotes?.toLocaleString() ||
+                  post.score?.toLocaleString() ||
+                  0}
+              </Text>
             </Space>
           </Tooltip>
           <Tooltip title={t('informationDashboard.reddit.comments')}>
             <Space size={4}>
               <MessageOutlined style={{ color: '#1890ff' }} />
-              <Text>{post.numComments?.toLocaleString() || 0}</Text>
+              <Text>
+                {post.comments?.toLocaleString() ||
+                  post.numComments?.toLocaleString() ||
+                  0}
+              </Text>
             </Space>
           </Tooltip>
           <Tooltip title={t('informationDashboard.reddit.hotLevel')}>
-            <Tag color={getHotLevelColor(post.score || 0)} size="small">
-              {getHotLevel(post.score || 0)}
+            <Tag color={getHotLevelColor(post.upvotes || post.score || 0)}>
+              {getHotLevel(post.upvotes || post.score || 0)}
             </Tag>
           </Tooltip>
         </Space>,
@@ -124,28 +150,24 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
           <Avatar
             style={{ backgroundColor: '#666666' }}
             icon={<RedditOutlined />}
-            size="small"
+            size='small'
           />
         }
         title={
-          <Space direction="vertical" size={2} style={{ width: '100%' }}>
-            <Space align="center" wrap>
+          <Space direction='vertical' size={2} style={{ width: '100%' }}>
+            <Space align='center' wrap>
               <Text strong style={{ fontSize: 14 }}>
                 {post.title}
               </Text>
-              <Tag size="small">
-                r/{post.subreddit}
-              </Tag>
+              <Tag>r/{post.subreddit}</Tag>
             </Space>
             <Space size={8}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+              <Text type='secondary' style={{ fontSize: 12 }}>
                 <ClockCircleOutlined style={{ marginRight: 4 }} />
-                {post.createdAt
-                  ? new Date(post.createdAt).toLocaleString('zh-CN')
-                  : t('common.unknownTime')}
+                {t('common.unknownTime')}
               </Text>
               {post.author && (
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type='secondary' style={{ fontSize: 12 }}>
                   <GlobalOutlined style={{ marginRight: 4 }} />
                   u/{post.author}
                 </Text>
@@ -154,23 +176,23 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
           </Space>
         }
         description={
-          post.selftext && post.selftext.length > 0 ? (
+          post.content || post.selftext ? (
             <Paragraph
               ellipsis={{ rows: 2, expandable: true, symbol: t('common.more') }}
               style={{ margin: 0, fontSize: 13 }}
             >
-              {post.selftext}
+              {post.content || post.selftext}
             </Paragraph>
           ) : post.url && !post.url.includes('reddit.com') ? (
             <Space>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+              <Text type='secondary' style={{ fontSize: 12 }}>
                 {t('informationDashboard.reddit.externalLink')}:
               </Text>
               <Button
-                type="link"
-                size="small"
+                type='link'
+                size='small'
                 href={post.url}
-                target="_blank"
+                target='_blank'
                 style={{ padding: 0, fontSize: 12 }}
               >
                 {post.url}
@@ -184,9 +206,9 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
 
   if (loading) {
     return (
-      <div className="result-panel-loading">
-        <Spin size="large" />
-        <div className="result-panel-loading-text">
+      <div className='result-panel-loading'>
+        <Spin size='large' />
+        <div className='result-panel-loading-text'>
           <Text>{t('informationDashboard.reddit.loadingPosts')}</Text>
         </div>
       </div>
@@ -197,14 +219,17 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
   if (!processedData || processedData.length === 0) {
     // 检查是否有持久化数据正在恢复
     const hasPersistedData = localStorage.getItem('wendeal_reddit_data');
-    console.log('ResultPanel: No data to display, hasPersistedData:', !!hasPersistedData);
+    console.log(
+      'ResultPanel: No data to display, hasPersistedData:',
+      !!hasPersistedData
+    );
 
     if (hasPersistedData) {
       // 如果有持久化数据但processedData为空，显示加载状态
       return (
-        <div className="result-panel-loading">
-          <Spin size="large" />
-          <div className="result-panel-loading-text">
+        <div className='result-panel-loading'>
+          <Spin size='large' />
+          <div className='result-panel-loading-text'>
             <Text>{t('informationDashboard.reddit.loadingPosts')}</Text>
           </div>
         </div>
@@ -214,7 +239,7 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
     // 真正没有数据时显示空状态
     return (
       <div
-        className="reddit-empty-container"
+        className='reddit-empty-container'
         style={{
           height: '120px',
           maxHeight: '120px',
@@ -225,15 +250,17 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           padding: '8px 0',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
         }}
       >
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={
-            <Space direction="vertical" size={2}>
-              <Text style={{ fontSize: '13px', margin: 0 }}>{t('informationDashboard.reddit.noPostsFound')}</Text>
-              <Text type="secondary" style={{ fontSize: '12px', margin: 0 }}>
+            <Space direction='vertical' size={2}>
+              <Text style={{ fontSize: '13px', margin: 0 }}>
+                {t('informationDashboard.reddit.noPostsFound')}
+              </Text>
+              <Text type='secondary' style={{ fontSize: '12px', margin: 0 }}>
                 {t('informationDashboard.reddit.tryDifferentSubreddits')}
               </Text>
             </Space>
@@ -244,73 +271,94 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
   }
 
   // Group posts by subreddit
-  const groupedData = processedData.reduce((acc, post) => {
-    if (!acc[post.subreddit]) {
-      acc[post.subreddit] = [];
-    }
-    acc[post.subreddit].push(post);
-    return acc;
-  }, {} as Record<string, ParsedSubredditData[]>);
+  const groupedData = processedData.reduce(
+    (acc, post) => {
+      const subredditName = post.subreddit || post.subredditName || 'unknown';
+      if (!acc[subredditName]) {
+        acc[subredditName] = [];
+      }
+      acc[subredditName].push(post);
+      return acc;
+    },
+    {} as Record<string, any[]>
+  );
 
   return (
-    <div className="result-panel">
-      <Space direction="vertical" style={{ width: '100%' }} size={16}>
+    <div className='result-panel'>
+      <Space direction='vertical' style={{ width: '100%' }} size={16}>
         {/* Reddit posts by subreddit */}
-        {Object.entries(groupedData).map(([subreddit, posts]) => (
-          <Card
-            key={subreddit}
-            size="small"
-            title={
-              <Space>
-                <Avatar
-                  style={{ backgroundColor: '#666666' }}
-                  icon={<RedditOutlined />}
-                  size="small"
-                />
-                <Text strong>r/{subreddit}</Text>
-                <Badge count={posts.length} showZero color="#666666" />
-              </Space>
-            }
-            className="compact-spacing"
-            style={{ maxHeight: '400px' }}
-            styles={{
-              body: { maxHeight: '320px', overflow: 'auto' }
-            }}
-          >
-            <List
-              size="small"
-              dataSource={posts.slice(0, 5)} // 限制最多显示5条帖子
-              renderItem={renderRedditPost}
-              locale={{
-                emptyText: t('informationDashboard.reddit.noPostsInSubreddit'),
+        {Object.entries(groupedData).map(([subreddit, posts]) => {
+          const postsArray = posts as any[];
+          return (
+            <Card
+              key={subreddit}
+              size='small'
+              title={
+                <Space>
+                  <Avatar
+                    style={{ backgroundColor: '#666666' }}
+                    icon={<RedditOutlined />}
+                    size='small'
+                  />
+                  <Text strong>r/{subreddit}</Text>
+                  <Badge count={postsArray.length} showZero color='#666666' />
+                </Space>
+              }
+              className='compact-spacing'
+              style={{ maxHeight: '400px' }}
+              styles={{
+                body: { maxHeight: '320px', overflow: 'auto' },
               }}
-            />
-            {posts.length > 5 && (
-              <div style={{ textAlign: 'center', marginTop: '8px', padding: '4px 0' }}>
-                <Text type="secondary" style={{ fontSize: '12px' }}>
-                  {t('informationDashboard.reddit.andMore', { count: posts.length - 5 })}
-                </Text>
-              </div>
-            )}
-          </Card>
-        ))}
+            >
+              <List
+                size='small'
+                dataSource={postsArray.slice(0, 5)} // 限制最多显示5条帖子
+                renderItem={renderRedditPost}
+                locale={{
+                  emptyText: t(
+                    'informationDashboard.reddit.noPostsInSubreddit'
+                  ),
+                }}
+              />
+              {postsArray.length > 5 && (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    marginTop: '8px',
+                    padding: '4px 0',
+                  }}
+                >
+                  <Text type='secondary' style={{ fontSize: '12px' }}>
+                    {t('informationDashboard.reddit.andMore', {
+                      count: postsArray.length - 5,
+                    })}
+                  </Text>
+                </div>
+              )}
+            </Card>
+          );
+        })}
 
         {/* Summary stats */}
         {processedData.length > 0 && (
-          <Card size="small">
+          <Card size='small'>
             <Space wrap>
               <Text strong>{t('informationDashboard.reddit.summary')}:</Text>
               <Text>
-                {t('informationDashboard.reddit.totalPosts')}: {processedData.length}
+                {t('informationDashboard.reddit.totalPosts')}:{' '}
+                {processedData.length}
               </Text>
               <Text>
-                {t('informationDashboard.reddit.totalSubreddits')}: {Object.keys(groupedData).length}
+                {t('informationDashboard.reddit.totalSubreddits')}:{' '}
+                {Object.keys(groupedData).length}
               </Text>
               <Text>
                 {t('informationDashboard.reddit.averageScore')}:{' '}
                 {Math.round(
-                  processedData.reduce((sum, post) => sum + (post.score || 0), 0) /
-                    processedData.length
+                  processedData.reduce(
+                    (sum, post) => sum + (post.upvotes || post.score || 0),
+                    0
+                  ) / processedData.length
                 )}
               </Text>
             </Space>

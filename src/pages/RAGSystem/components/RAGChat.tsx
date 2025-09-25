@@ -10,7 +10,6 @@ import useChatHistory from '../hooks/useChatHistory';
 import './RAGChat.css';
 
 const { TextArea } = Input;
-const { Text } = Typography;
 
 // 使用RAG API中定义的Message接口
 // Use Message interface defined in RAG API

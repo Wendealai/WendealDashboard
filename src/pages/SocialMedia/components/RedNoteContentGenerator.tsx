@@ -27,7 +27,6 @@ import {
   LinkOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { useTranslation } from 'react-i18next';
 import type { RedNoteContentRequest, RedNoteContentResponse } from '../types';
 
 const { TextArea } = Input;
@@ -49,8 +48,6 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
   onContentGenerated,
   className,
 }) => {
-  const { t } = useTranslation();
-
   // 状态管理
   const [inputContent, setInputContent] = useState<string>('');
   const [contentType, setContentType] = useState<string>(
@@ -108,8 +105,9 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
     let currentStep = 0;
     const interval = setInterval(() => {
       if (currentStep < steps.length) {
-        setProgress(steps[currentStep].progress);
-        setProgressText(steps[currentStep].text);
+        const step = steps[currentStep]!;
+        setProgress(step.progress);
+        setProgressText(step.text);
         currentStep++;
       } else {
         clearInterval(interval);
@@ -144,8 +142,8 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
         tone,
         writingTechnique,
         successFactor,
-        targetAudience: targetAudience.trim() || undefined,
-        keywords: keywords.length > 0 ? keywords : undefined,
+        ...(targetAudience.trim() && { targetAudience: targetAudience.trim() }),
+        ...(keywords.length > 0 && { keywords }),
         createdAt: new Date().toISOString(),
       };
 
@@ -214,33 +212,6 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
   ]);
 
   /**
-   * 生成模拟内容
-   */
-  const generateMockContent = (
-    input: string,
-    type: string,
-    toneType: string,
-    technique: string,
-    factor: string
-  ): string => {
-    // 解析内容类型和语调风格
-    const contentTypeDisplay = type.includes('：')
-      ? type.split('：')[1].split('（')[0]
-      : type;
-    const toneDisplay = toneType.includes('：')
-      ? toneType.split('：')[0]
-      : toneType;
-    const techniqueDisplay = technique.includes('：')
-      ? technique.split('：')[0]
-      : technique;
-    const factorDisplay = factor.includes('（')
-      ? factor.split('（')[0]
-      : factor;
-
-    return `这是一个关于"${input}"的${contentTypeDisplay}分享。\n\n采用${toneDisplay}的风格，运用${techniqueDisplay}技巧，注重${factorDisplay}，为你量身定制的小红书文案。内容经过AI优化，确保吸引力和传播性。\n\n选择的内容类型：${type}\n选择的语调风格：${toneType}\n选择的文案技巧：${technique}\n选择的成功要素：${factor}`;
-  };
-
-  /**
    * 生成模拟标题
    */
   const generateMockTitle = (input: string, type: string): string => {
@@ -266,7 +237,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
       else if (type.includes('季节性内容')) prefix = '🌸 季节性内容';
     }
 
-    return `${prefix} | ${input.slice(0, 20)}${input.length > 20 ? '...' : ''}`;
+    return `${prefix} | ${input?.slice(0, 20)}${input?.length > 20 ? '...' : ''}`;
   };
 
   /**

@@ -7,17 +7,12 @@ import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, Button, Space, Tooltip, Empty, Spin, Row, Col } from 'antd';
 import { useMessage } from '@/hooks';
-import {
-  ReloadOutlined,
-  SettingOutlined,
-  ExclamationCircleOutlined,
-} from '@ant-design/icons';
+import { ReloadOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchWorkflows,
   triggerWorkflow,
   selectWorkflowsList,
-  selectWorkflowStats,
   selectLoading,
 } from '@/store/slices/informationDashboardSlice';
 import type {
@@ -68,11 +63,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
       null
     );
     const [redditLoading, setRedditLoading] = useState(false);
-    const [redditProgressStatus, setRedditProgressStatus] = useState('');
     const [redditError, setRedditError] = useState<string | null>(null);
-    const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
-    const [redditWorkflowData, setRedditWorkflowData] =
-      useState<RedditWorkflowResponse | null>(null);
 
     const [lastUpdatedTimes, setLastUpdatedTimes] = useState<
       Record<string, Date>
@@ -127,37 +118,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
       [onWorkflowSelect]
     );
 
-    /**
-     * Handle workflow trigger
-     */
-    const handleTriggerWorkflow = useCallback(
-      async (workflow: Workflow) => {
-        try {
-          const result = await dispatch(
-            triggerWorkflow({
-              workflowId: workflow.id,
-              inputData: {},
-              waitForCompletion: true,
-            })
-          ).unwrap();
-
-          // Update Last Updated time
-          setLastUpdatedTimes(prev => ({
-            ...prev,
-            [workflow.id]: new Date(),
-          }));
-
-          onWorkflowTriggered?.(workflow.id, result.executionId);
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          const detailedError = `工作流执行失败：\n工作流：${workflow.name}\n文件：WorkflowSidebar.tsx\n错误详情：${errorMessage}`;
-          console.error('Failed to trigger workflow:', detailedError);
-        }
-      },
-      [dispatch, onWorkflowTriggered]
-    );
-
     // Reddit workflow settings state - 提前声明
     const [redditWorkflowSettings, setRedditWorkflowSettings] =
       useState<WorkflowSettings>({
@@ -181,9 +141,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
 
       setRedditLoading(true);
       setRedditError(null);
-      setRedditProgressStatus(
-        t('informationDashboard.workflow.connectingRedditWebhook')
-      );
+      // Progress status removed as it's not used
 
       // 清除之前的数据，确保只保存最新的数据
       console.log('🧹 Starting new Reddit workflow, clearing previous data...');
@@ -212,7 +170,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
         const webhookResponse = await redditWebhookService.triggerWebhook(
           (status: string) => {
             console.log('📢 Webhook进度更新:', status);
-            setRedditProgressStatus(status);
+            // Progress status removed as it's not used
           },
           webhookUrl
         );
@@ -282,9 +240,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           ),
         });
 
-        setRedditProgressStatus(
-          t('informationDashboard.workflow.dataFetchCompleted')
-        );
+        // Progress status removed as it's not used
 
         // Update Reddit workflow Last Updated time
         setLastUpdatedTimes(prev => ({
@@ -319,9 +275,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
         }
       } finally {
         setRedditLoading(false);
-        setTimeout(() => {
-          setRedditProgressStatus('');
-        }, 2000);
+        // Progress status timeout removed as it's not used
       }
     }, [onRedditDataReceived, redditWorkflowSettings, t]);
 

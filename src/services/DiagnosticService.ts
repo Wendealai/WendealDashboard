@@ -16,12 +16,12 @@ import type {
   DiagnosticReport,
   ScanOptions,
   ValidationResult,
-} from '@/types/exportDiagnostic';
-import { DiagnosticEngine } from '@/utils/diagnostic/DiagnosticEngine';
+} from '../types/exportDiagnostic';
+import { DiagnosticEngine } from '../utils/diagnostic/DiagnosticEngine';
 import {
   getConfigForEnvironment,
   validateConfig,
-} from '@/config/exportDiagnosticConfig';
+} from '../config/exportDiagnosticConfig';
 
 /**
  * 诊断服务实现类
@@ -76,18 +76,19 @@ export class DiagnosticService implements IDiagnosticService {
       throw new Error('诊断正在进行中，请等待完成后再开始新的诊断');
     }
 
+    const scanId = `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const scanStartTime = Date.now();
     this.isScanning = true;
 
     try {
       // 触发开始事件
-      this.events.onScanStarted?.(options);
+      this.events.onScanStart?.(scanId, options);
 
       // 执行诊断
       const report = await this.engine.diagnose({
         ...options,
         onProgress: progress => {
-          this.events.onScanProgress?.(progress);
+          this.events.onScanProgress?.(scanId, progress);
         },
       });
 
@@ -110,7 +111,7 @@ export class DiagnosticService implements IDiagnosticService {
       }
 
       // 触发完成事件
-      this.events.onScanCompleted?.(report);
+      this.events.onScanComplete?.(scanId, report);
 
       return report;
     } catch (error) {
@@ -119,7 +120,7 @@ export class DiagnosticService implements IDiagnosticService {
       this.stats.failedScans++;
 
       // 触发错误事件
-      this.events.onScanError?.(error as Error, options);
+      this.events.onScanError?.(scanId, error as Error);
 
       throw error;
     } finally {
@@ -208,7 +209,8 @@ export class DiagnosticService implements IDiagnosticService {
     };
 
     if (this.history.length > 0) {
-      result.lastScanTime = this.history[this.history.length - 1]!.scanTime;
+      const scanTime = this.history[this.history.length - 1]!.scanTime;
+      result.lastScanTime = scanTime ? new Date(scanTime) : undefined;
     }
 
     return result;
@@ -297,12 +299,7 @@ export class DiagnosticService implements IDiagnosticService {
       uptime: Date.now() - this.startTime.getTime(),
     };
 
-    if (this.history.length > 0) {
-      return {
-        ...baseStats,
-        lastScanTime: this.history[this.history.length - 1]!.scanTime,
-      };
-    }
+    return baseStats;
 
     return baseStats;
   }

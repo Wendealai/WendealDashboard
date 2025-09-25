@@ -6,44 +6,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Card,
-  List,
-  Button,
-  Space,
-  Tag,
-  Tooltip,
-  Typography,
-  Divider,
-  Alert,
-  Progress,
-  Empty,
-  Spin,
-  Row,
-  Col,
-} from 'antd';
+import { Row, Col } from 'antd';
 import { useMessage } from '@/hooks';
-import {
-  PlayCircleOutlined,
-  ReloadOutlined,
-  SettingOutlined,
-  CheckCircleOutlined,
-  ThunderboltOutlined,
-  RedditOutlined,
-  LoadingOutlined,
-  ClockCircleOutlined,
-  ExclamationCircleOutlined,
-  EditOutlined,
-} from '@ant-design/icons';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import {
-  fetchWorkflows,
-  triggerWorkflow,
-  selectWorkflowsList,
-  selectWorkflowStats,
-  selectLoading,
-} from '@/store/slices/informationDashboardSlice';
-import { workflowService } from '@/services/workflowService';
 import type { Workflow, WorkflowStatus } from '../types';
 import type { ParsedSubredditData } from '@/services/redditWebhookService';
 import { redditWebhookService } from '@/services/redditWebhookService';
@@ -52,8 +16,6 @@ import {
   WorkflowSettingsModal,
 } from '@/components/workflow';
 import WorkflowCard from '@/components/workflow/WorkflowCard';
-
-const { Text, Paragraph } = Typography;
 
 /**
  * Workflow sidebar interface
@@ -75,27 +37,19 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
   onWorkflowSelect,
 }) => {
   const { t } = useTranslation();
-  const dispatch = useAppDispatch();
   const message = useMessage();
 
-  // Redux state
-  const workflows = useAppSelector(selectWorkflowsList);
-  const workflowStats = useAppSelector(selectWorkflowStats);
-  const loading = useAppSelector(selectLoading);
-
   // Local state
-  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(
+    null
+  );
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [currentSettingsWorkflow, setCurrentSettingsWorkflow] = useState<{
     id: string;
     name: string;
   } | null>(null);
 
-  // Workflow execution states
-  const [workflowLoadingStates, setWorkflowLoadingStates] = useState<Record<string, boolean>>({});
-  const [workflowErrors, setWorkflowErrors] = useState<Record<string, string | null>>({});
-  const [workflowProgressStates, setWorkflowProgressStates] = useState<Record<string, string>>({});
-  const [lastUpdatedTimes, setLastUpdatedTimes] = useState<Record<string, string>>({});
+  // No workflow execution states needed for hardcoded workflows
 
   // Reddit specific states
   const [redditLoading, setRedditLoading] = useState(false);
@@ -109,65 +63,19 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
     subreddits: ['technology', 'programming', 'javascript', 'reactjs'],
   });
 
-  // Filter workflows - only show Rednote Content Generator for Social Media
-  const filteredWorkflows = useMemo(() => {
-    return workflows.filter(w => false); // No workflows from store for Social Media
-  }, [workflows]);
-
-  const hasWorkflows = filteredWorkflows.length > 0;
+  // No workflows from store for Social Media - only hardcoded ones
+  const hasWorkflows = false;
 
   /**
    * Handle workflow selection
    */
-  const handleWorkflowSelect = useCallback((workflow: Workflow) => {
-    setSelectedWorkflow(workflow);
-    onWorkflowSelect(workflow);
-  }, [onWorkflowSelect]);
-
-  /**
-   * Handle workflow trigger
-   */
-  const handleWorkflowTrigger = useCallback(async (workflow: Workflow) => {
-    try {
-      setWorkflowLoadingStates(prev => ({ ...prev, [workflow.id]: true }));
-      setWorkflowErrors(prev => ({ ...prev, [workflow.id]: null }));
-
-      // 对于TK Viral Extract工作流，直接选择工作流而不是触发workflow
-      if (workflow.id === 'tk-viral-extract') {
-        handleWorkflowSelect({
-          id: 'tk-viral-extract',
-          name: 'TK Viral Extract',
-          description: '从 TikTok 获取病毒内容并进行分析',
-          status: 'active' as WorkflowStatus,
-          nodeCount: 3,
-          lastExecution: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-        message.success('工作流已选择');
-      } else {
-        // 对于其他工作流，使用正常的workflow触发流程
-        const result = await dispatch(triggerWorkflow({
-          workflowId: workflow.id,
-          inputData: {},
-        })).unwrap();
-
-        message.success(t('workflow.triggeredSuccessfully'));
-      }
-
-      setLastUpdatedTimes(prev => ({
-        ...prev,
-        [workflow.id]: new Date().toISOString()
-      }));
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : t('workflow.triggerFailed');
-      setWorkflowErrors(prev => ({ ...prev, [workflow.id]: errorMessage }));
-      message.error(errorMessage);
-    } finally {
-      setWorkflowLoadingStates(prev => ({ ...prev, [workflow.id]: false }));
-    }
-  }, [dispatch, message, t, handleWorkflowSelect]);
+  const handleWorkflowSelect = useCallback(
+    (workflow: Workflow) => {
+      setSelectedWorkflow(workflow);
+      onWorkflowSelect(workflow);
+    },
+    [onWorkflowSelect]
+  );
 
   /**
    * Handle Reddit workflow start
@@ -176,11 +84,13 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
     try {
       setRedditLoading(true);
       setRedditError(null);
-      setRedditProgressStatus(t('informationDashboard.workflow.triggeringWorkflow'));
+      setRedditProgressStatus(
+        t('informationDashboard.workflow.triggeringWorkflow')
+      );
 
       const result = await redditWebhookService.triggerRedditWorkflow(
         redditWorkflowSettings.subreddits,
-        (progress) => {
+        progress => {
           setRedditProgressStatus(progress);
         }
       );
@@ -189,11 +99,15 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
         onRedditDataReceived(result.data);
         message.success(t('informationDashboard.reddit.workflowCompleted'));
       } else {
-        setRedditError(result.error || t('informationDashboard.reddit.workflowFailed'));
+        setRedditError(
+          result.error || t('informationDashboard.reddit.workflowFailed')
+        );
       }
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : t('informationDashboard.reddit.workflowFailed');
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : t('informationDashboard.reddit.workflowFailed');
       setRedditError(errorMessage);
       message.error(errorMessage);
     } finally {
@@ -205,35 +119,32 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
   /**
    * Handle settings modal open
    */
-  const handleOpenSettings = useCallback((workflowId: string, workflowName: string) => {
-    setCurrentSettingsWorkflow({ id: workflowId, name: workflowName });
-    setSettingsModalVisible(true);
-  }, []);
+  const handleOpenSettings = useCallback(
+    (workflowId: string, workflowName: string) => {
+      setCurrentSettingsWorkflow({ id: workflowId, name: workflowName });
+      setSettingsModalVisible(true);
+    },
+    []
+  );
 
   /**
    * Handle settings save
    */
-  const handleSettingsSave = useCallback((settings: any) => {
-    if (currentSettingsWorkflow?.id === 'reddit-workflow') {
-      setRedditWorkflowSettings(prev => ({ ...prev, ...settings }));
-    }
-    setSettingsModalVisible(false);
-    message.success(t('workflow.settingsSaved'));
-  }, [currentSettingsWorkflow, message, t]);
-
-
-  /**
-   * Initialize component
-   */
-  useEffect(() => {
-    dispatch(fetchWorkflows({}));
-  }, [dispatch]);
+  const handleSettingsSave = useCallback(
+    (settings: any) => {
+      if (currentSettingsWorkflow?.id === 'reddit-workflow') {
+        setRedditWorkflowSettings(prev => ({ ...prev, ...settings }));
+      }
+      setSettingsModalVisible(false);
+      message.success(t('workflow.settingsSaved'));
+    },
+    [currentSettingsWorkflow, message, t]
+  );
 
   return (
     <div className='workflow-sidebar'>
-
       {/* Workflow cards grid */}
-      <div className="workflow-sidebar-cards">
+      <div className='workflow-sidebar-cards'>
         <Row gutter={[12, 12]} style={{ padding: '12px' }}>
           {/* TK Viral Extract workflow card */}
           <Col xs={24} sm={12} md={8} lg={6} xl={6}>
@@ -247,11 +158,14 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                 lastExecution: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
+                type: 'manual' as const,
+                executionCount: 0,
+                successRate: 0,
+                author: { id: 'system', name: 'System' },
               }}
               selected={selectedWorkflow?.id === 'tk-viral-extract'}
               loading={false}
               error={null}
-              progressStatus=''
               onClick={() =>
                 handleWorkflowSelect({
                   id: 'tk-viral-extract',
@@ -277,10 +191,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                 });
               }}
               onSettings={() => {
-                handleOpenSettings(
-                  'tk-viral-extract',
-                  'TK Viral Extract'
-                );
+                handleOpenSettings('tk-viral-extract', 'TK Viral Extract');
               }}
               size='small'
               showActions={false} // Hide start button
@@ -299,11 +210,14 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                 lastExecution: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
+                type: 'manual' as const,
+                executionCount: 0,
+                successRate: 0,
+                author: { id: 'system', name: 'System' },
               }}
               selected={selectedWorkflow?.id === 'rednote-content-generator'}
               loading={false}
               error={null}
-              progressStatus=''
               onClick={() =>
                 handleWorkflowSelect({
                   id: 'rednote-content-generator',
@@ -344,8 +258,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
         <WorkflowSettingsModal
           visible={settingsModalVisible}
           workflowId={currentSettingsWorkflow?.id || ''}
-          workflowName={currentSettingsWorkflow?.name || ''}
-          onCancel={() => setSettingsModalVisible(false)}
+          onClose={() => setSettingsModalVisible(false)}
           onSave={handleSettingsSave}
         />
       </div>

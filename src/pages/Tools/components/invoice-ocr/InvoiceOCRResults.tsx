@@ -78,16 +78,15 @@ import {
   CloudDownloadOutlined,
   BulbOutlined,
   CloseCircleOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { invoiceOCRService } from '../../../../services/invoiceOCRService';
 import type {
   InvoiceOCRResult,
   InvoiceOCRBatchTask,
-  InvoiceOCRWorkflowStats,
-  InvoiceOCRExecutionHistory,
-  EnhancedWebhookResponse,
-} from '@/pages/InformationDashboard/types';
+} from '../../../../pages/InformationDashboard/types/invoiceOCR';
+import type { EnhancedWebhookResponse } from '@/types/workflow';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
@@ -210,8 +209,8 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const { isVisible, errorInfo, showError, hideError } = useErrorModal();
   const [results, setResults] = useState<InvoiceOCRResult[]>([]);
   const [batchTasks, setBatchTasks] = useState<InvoiceOCRBatchTask[]>([]);
-  const [stats, setStats] = useState<InvoiceOCRWorkflowStats | null>(null);
-  const [history, setHistory] = useState<InvoiceOCRExecutionHistory[]>([]);
+  const [stats, setStats] = useState<any | null>(null);
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedResults, setSelectedResults] = useState<InvoiceOCRResult[]>(
     []
@@ -289,14 +288,14 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
    */
   const handleDownloadResult = useCallback(async (result: InvoiceOCRResult) => {
     try {
-      await invoiceOCRService.downloadResultFile(result.id);
+      await invoiceOCRService.downloadResult(workflowId, result.id);
       message.success('File downloaded successfully');
     } catch (error) {
-      showError(
-        'Download failed',
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
-      );
+      showError({
+        title: 'Download failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : undefined,
+      });
     }
   }, []);
 
@@ -311,14 +310,14 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
 
     try {
       const resultIds = selectedResults.map(result => result.id);
-      await invoiceOCRService.downloadBatchResults(resultIds);
+      await invoiceOCRService.downloadResults(workflowId, resultIds);
       message.success('Batch download successful');
     } catch (error) {
-      showError(
-        'Batch download failed',
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
-      );
+      showError({
+        title: 'Batch download failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : undefined,
+      });
     }
   }, [selectedResults]);
 
@@ -329,18 +328,18 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     async (result: InvoiceOCRResult) => {
       confirm({
         title: 'Confirm Delete',
-        content: `Are you sure you want to delete the result "${result.fileName}"?`,
+        content: `Are you sure you want to delete the result "${result.originalFile?.name || result.id}"?`,
         onOk: async () => {
           try {
-            await invoiceOCRService.deleteResult(result.id);
+            await invoiceOCRService.deleteResult(workflowId, result.id);
             message.success('Deleted successfully');
             loadResults();
           } catch (error) {
-            showError(
-              'Delete failed',
-              error instanceof Error ? error.message : 'Unknown error',
-              error instanceof Error ? error.stack : undefined
-            );
+            showError({
+              title: 'Delete failed',
+              message: error instanceof Error ? error.message : 'Unknown error',
+              details: error instanceof Error ? error.stack : undefined,
+            });
           }
         },
       });
@@ -376,12 +375,12 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const resultColumns: ColumnsType<InvoiceOCRResult> = [
     {
       title: 'File Name',
-      dataIndex: 'fileName',
+      dataIndex: 'originalFile',
       key: 'fileName',
-      render: (fileName: string) => (
+      render: (originalFile: any) => (
         <Space>
-          {getFileTypeIcon(fileName)}
-          <Text strong>{fileName}</Text>
+          {getFileTypeIcon(originalFile?.name || '')}
+          <Text strong>{originalFile?.name || ''}</Text>
         </Space>
       ),
     },
@@ -437,11 +436,11 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     },
     {
       title: 'Processed Time',
-      dataIndex: 'processedAt',
-      key: 'processedAt',
-      render: (processedAt: string) => (
+      dataIndex: 'completedAt',
+      key: 'completedAt',
+      render: (completedAt: string) => (
         <Text type='secondary'>
-          {new Date(processedAt).toLocaleString('en-US')}
+          {completedAt ? new Date(completedAt).toLocaleString('en-US') : 'N/A'}
         </Text>
       ),
     },
@@ -908,10 +907,12 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                     }}
                   />
                 }
-                title={task.batchName}
+                title={task.name}
                 description={
                   <Space>
-                    <Text type='secondary'>{task.totalFiles} 个文件</Text>
+                    <Text type='secondary'>
+                      {task.files?.length || 0} 个文件
+                    </Text>
                     <Text type='secondary'>•</Text>
                     <Text type='secondary'>
                       {new Date(task.createdAt).toLocaleString('zh-CN')}
@@ -934,7 +935,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
 
     return (
       <Modal
-        title={`结果详情 - ${selectedResult.fileName}`}
+        title={`结果详情 - ${selectedResult.originalFile?.name || selectedResult.id}`}
         open={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={[
@@ -953,7 +954,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       >
         <Descriptions bordered column={2}>
           <Descriptions.Item label='文件名'>
-            {selectedResult.fileName}
+            {selectedResult.originalFile?.name || selectedResult.id}
           </Descriptions.Item>
           <Descriptions.Item label='处理状态'>
             <Badge
@@ -963,19 +964,29 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
           </Descriptions.Item>
           <Descriptions.Item label='置信度'>
             <Progress
-              percent={Math.round(selectedResult.confidence * 100)}
+              percent={
+                selectedResult.confidence
+                  ? Math.round(selectedResult.confidence * 100)
+                  : 0
+              }
               size='small'
-              status={selectedResult.confidence >= 0.8 ? 'success' : 'normal'}
+              status={
+                selectedResult.confidence && selectedResult.confidence >= 0.8
+                  ? 'success'
+                  : 'normal'
+              }
             />
           </Descriptions.Item>
           <Descriptions.Item label='处理时间'>
-            {new Date(selectedResult.processedAt).toLocaleString('zh-CN')}
+            {selectedResult.completedAt
+              ? new Date(selectedResult.completedAt).toLocaleString('zh-CN')
+              : 'N/A'}
           </Descriptions.Item>
         </Descriptions>
 
         <Divider>提取的字段</Divider>
         <Descriptions bordered column={1}>
-          {Object.entries(selectedResult.extractedFields || {}).map(
+          {Object.entries(selectedResult.extractedData || {}).map(
             ([key, value]) => (
               <Descriptions.Item key={key} label={key}>
                 {typeof value === 'object'
@@ -1461,7 +1472,10 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       {/* 错误模态框 */}
       <ErrorModal
         visible={isVisible}
-        errorInfo={errorInfo}
+        title={errorInfo?.title}
+        message={errorInfo?.message || ''}
+        details={errorInfo?.details}
+        troubleshooting={errorInfo?.troubleshooting}
         onClose={hideError}
       />
     </div>

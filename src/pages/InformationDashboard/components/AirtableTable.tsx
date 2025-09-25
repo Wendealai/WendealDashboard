@@ -34,7 +34,6 @@ import type {
   AirtableTableProps,
   OpportunityRecord,
 } from '@/types/smartOpportunities';
-import { AirtableService } from '@/services/airtableService';
 
 const { Text, Paragraph } = Typography;
 

@@ -17,11 +17,14 @@ import WorkflowPanel from './components/WorkflowPanel';
 import ResultPanel from './components/ResultPanel';
 import RedNoteContentGenerator from './components/RedNoteContentGenerator';
 import TKViralExtract from './components/TKViralExtract';
-import type { ParsedSubredditData, RedditWorkflowResponse } from '@/services/redditWebhookService';
+import type {
+  ParsedSubredditData,
+  RedditWorkflowResponse,
+} from '@/services/redditWebhookService';
 import type { Workflow, ViralContentRecord } from './types';
 import './components/styles.css';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Paragraph } = Typography;
 
 /**
  * Social Media Dashboard main page component
@@ -32,42 +35,19 @@ const SocialMedia: React.FC = () => {
   const { t } = useTranslation();
 
   const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
-  const [redditWorkflowData, setRedditWorkflowData] = useState<RedditWorkflowResponse | null>(null);
-  const [viralContentData, setViralContentData] = useState<ViralContentRecord[]>([]);
 
   // Currently selected workflow state
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(
     null
   );
 
-
-
   /**
    * Handle Reddit data reception
    */
-  const handleRedditDataReceived = useCallback((data: ParsedSubredditData[]) => {
-    console.log('SocialMedia: Received Reddit data:', data.length, 'items');
-    setRedditData(data);
-  }, []);
-
-  /**
-   * Handle Reddit workflow data reception
-   */
-  const handleRedditWorkflowDataReceived = useCallback(
-    (data: RedditWorkflowResponse) => {
-      console.log('SocialMedia: Received Reddit workflow data:', data);
-      setRedditWorkflowData(data);
-    },
-    []
-  );
-
-  /**
-   * Handle TK Viral Extract data reception
-   */
-  const handleViralContentDataReceived = useCallback(
-    (data: ViralContentRecord[]) => {
-      console.log('SocialMedia: Received viral content data:', data.length, 'items');
-      setViralContentData(data);
+  const handleRedditDataReceived = useCallback(
+    (data: ParsedSubredditData[]) => {
+      console.log('SocialMedia: Received Reddit data:', data.length, 'items');
+      setRedditData(data);
     },
     []
   );
@@ -87,7 +67,12 @@ const SocialMedia: React.FC = () => {
         <Title level={2}>
           <DashboardOutlined /> {t('navigation.socialMedia')}
         </Title>
-        <Paragraph>{t('socialMedia.subtitle', 'Social Media Content Management and Analysis Platform')}</Paragraph>
+        <Paragraph>
+          {t(
+            'socialMedia.subtitle',
+            'Social Media Content Management and Analysis Platform'
+          )}
+        </Paragraph>
       </div>
 
       <Divider />
@@ -128,11 +113,7 @@ const SocialMedia: React.FC = () => {
             style={{ height: 'calc(100vh - 200px)', minHeight: '600px' }}
           >
             {selectedWorkflow?.id === 'tk-viral-extract' ? (
-              <TKViralExtract
-                onParametersChange={(params) => console.log('TK Viral Extract parameters:', params)}
-                onDataLoaded={handleViralContentDataReceived}
-                onError={(error) => console.error('TK Viral Extract error:', error)}
-              />
+              <TKViralExtract />
             ) : selectedWorkflow?.id === 'rednote-content-generator' ? (
               <RedNoteContentGenerator />
             ) : selectedWorkflow ? (
@@ -143,16 +124,18 @@ const SocialMedia: React.FC = () => {
                   onDataReceived={handleRedditDataReceived}
                 />
                 <Divider />
-                <ResultPanel
-                  redditData={redditData}
-                  loading={false}
-                />
+                <ResultPanel redditData={redditData} loading={false} />
               </>
             ) : (
-              <div className="workflow-selection-prompt">
-                <Space direction="vertical" align="center" size={16}>
-                  <SelectOutlined style={{ fontSize: '48px', color: '#d9d9d9' }} />
-                  <Typography.Text type="secondary" style={{ fontSize: '16px', textAlign: 'center' }}>
+              <div className='workflow-selection-prompt'>
+                <Space direction='vertical' align='center' size={16}>
+                  <SelectOutlined
+                    style={{ fontSize: '48px', color: '#d9d9d9' }}
+                  />
+                  <Typography.Text
+                    type='secondary'
+                    style={{ fontSize: '16px', textAlign: 'center' }}
+                  >
                     Please select a workflow to execute
                   </Typography.Text>
                 </Space>

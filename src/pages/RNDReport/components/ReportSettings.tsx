@@ -15,9 +15,7 @@ import {
   Divider,
   Card,
   Progress,
-  Tag,
   Alert,
-  Popconfirm,
   Descriptions,
   Statistic,
   Row,
@@ -26,13 +24,9 @@ import {
 import {
   SettingOutlined,
   FileTextOutlined,
-  FolderOutlined,
   DeleteOutlined,
   SaveOutlined,
   EyeOutlined,
-  ClockCircleOutlined,
-  UserOutlined,
-  CalendarOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -45,9 +39,9 @@ import type {
 import type { RNDReportService } from '../../../services/rndReportService';
 
 // Import utilities
-import { FileProcessingUtils, DateUtils } from '../../../utils/rndReportUtils';
+import { FileProcessingUtils } from '../../../utils/rndReportUtils';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 const { Option } = Select;
 const { confirm } = Modal;
 
@@ -218,14 +212,6 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
     form.resetFields();
     setReadingProgress(null);
     onClose();
-  };
-
-  /**
-   * Get category display name
-   */
-  const getCategoryName = (categoryId: string): string => {
-    const category = categories.find(cat => cat.id === categoryId);
-    return category?.name || t('rndReport.category.uncategorized');
   };
 
   /**

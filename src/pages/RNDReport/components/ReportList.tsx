@@ -17,26 +17,21 @@ import {
   Avatar,
   Dropdown,
   App,
-  Progress,
-  Badge,
   message,
 } from 'antd';
 import {
   FileTextOutlined,
   SearchOutlined,
-  FilterOutlined,
   SortAscendingOutlined,
   SortDescendingOutlined,
   FolderOutlined,
   FolderOpenOutlined,
   EyeOutlined,
-  SettingOutlined,
   MoreOutlined,
   ClockCircleOutlined,
   UserOutlined,
   DeleteOutlined,
   EditOutlined,
-  CheckCircleOutlined,
   DownloadOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -46,15 +41,13 @@ import type {
   Report,
   Category,
   ReportListViewState,
-  ReportSearchFilters,
   ReportSortOptions,
 } from '../../../types/rndReport';
 
 // Import utilities
-import { FileProcessingUtils, DateUtils } from '../../../utils/rndReportUtils';
+import { FileProcessingUtils } from '../../../utils/rndReportUtils';
 
 const { Text, Paragraph } = Typography;
-const { Option } = Select;
 
 /**
  * ReportList Props Interface
@@ -68,8 +61,6 @@ export interface ReportListProps {
   viewState: ReportListViewState;
   /** Callback when a report is selected */
   onReportSelect: (reportId: string) => void;
-  /** Callback when a category is selected */
-  onCategorySelect: (categoryId: string) => void;
   /** Callback when view state changes */
   onViewStateChange: (viewState: ReportListViewState) => void;
   /** Callback when a report is deleted */
@@ -91,7 +82,6 @@ const ReportList: React.FC<ReportListProps> = ({
   categories,
   viewState,
   onReportSelect,
-  onCategorySelect,
   onViewStateChange,
   onReportDelete,
   onReportRename,
@@ -244,16 +234,6 @@ const ReportList: React.FC<ReportListProps> = ({
   };
 
   /**
-   * Handle view mode change
-   */
-  const handleViewModeChange = (mode: 'list' | 'grid' | 'tree') => {
-    onViewStateChange({
-      ...viewState,
-      viewMode: mode,
-    });
-  };
-
-  /**
    * Handle report deletion
    */
   const handleReportDelete = async (reportId: string) => {
@@ -312,34 +292,6 @@ const ReportList: React.FC<ReportListProps> = ({
   const cancelRenaming = () => {
     setRenamingReportId(null);
     setNewName('');
-  };
-
-  /**
-   * Render category tree
-   */
-  const renderCategoryTree = () => {
-    const categoryTree = categories.map(category => {
-      const reportCount = getCategoryStats.get(category.id) || 0;
-      const isSelected = viewState.selectedCategoryId === category.id;
-      const isExpanded = viewState.expandedCategories.includes(category.id);
-
-      return {
-        key: category.id,
-        title: (
-          <Space>
-            {isExpanded ? <FolderOpenOutlined /> : <FolderOutlined />}
-            <Text strong={isSelected}>{category.name}</Text>
-            <Badge count={reportCount} showZero size='small' />
-          </Space>
-        ),
-        children: isExpanded ? [] : undefined,
-        isLeaf: true,
-        selectable: true,
-        checkable: false,
-      };
-    });
-
-    return categoryTree;
   };
 
   /**

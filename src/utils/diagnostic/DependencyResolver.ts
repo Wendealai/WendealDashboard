@@ -123,22 +123,20 @@ export class DependencyResolver {
 
       // 解析ES6 import语句
       const importRegex = /^import\s+(.+?)\s+from\s+['"](.+?)['"];?$/gm;
-      let match;
+      let match: RegExpExecArray | null;
 
       while ((match = importRegex.exec(content)) !== null) {
-        const importClause = match[1].trim();
+        const importClause = match[1]?.trim();
         const modulePath = match[2];
 
+        if (!importClause || !modulePath) continue;
+
         // 解析相对路径
-        const resolvedPath = this.resolveModulePath(filePath, modulePath);
+        const resolvedPath = await this.resolveModulePath(filePath, modulePath);
         if (!resolvedPath) continue;
 
         // 解析导入子句
-        const imports = this.parseImportClause(
-          importClause,
-          lines[match.index],
-          match.index + 1
-        );
+        const imports = this.parseImportClause(importClause);
         dependencies.push(
           ...imports.map(imp => ({
             from: filePath,
@@ -159,10 +157,12 @@ export class DependencyResolver {
       const requireRegex =
         /(?:const|let|var)\s+(.+?)\s*=\s*require\s*\(\s*['"](.+?)['"]\s*\)/g;
       while ((match = requireRegex.exec(content)) !== null) {
-        const varDeclaration = match[1].trim();
+        const varDeclaration = match[1]?.trim();
         const modulePath = match[2];
 
-        const resolvedPath = this.resolveModulePath(filePath, modulePath);
+        if (!varDeclaration || !modulePath) continue;
+
+        const resolvedPath = await this.resolveModulePath(filePath, modulePath);
         if (!resolvedPath) continue;
 
         dependencies.push({
@@ -184,7 +184,9 @@ export class DependencyResolver {
       while ((match = dynamicImportRegex.exec(content)) !== null) {
         const modulePath = match[1];
 
-        const resolvedPath = this.resolveModulePath(filePath, modulePath);
+        if (!modulePath) continue;
+
+        const resolvedPath = await this.resolveModulePath(filePath, modulePath);
         if (!resolvedPath) continue;
 
         dependencies.push({
@@ -210,11 +212,7 @@ export class DependencyResolver {
   /**
    * 解析导入子句
    */
-  private parseImportClause(
-    importClause: string,
-    line: string,
-    lineNumber: number
-  ): Array<{
+  private parseImportClause(importClause: string): Array<{
     name: string;
     type: 'named' | 'default' | 'namespace' | 'side-effect';
   }> {
@@ -255,10 +253,10 @@ export class DependencyResolver {
   /**
    * 解析模块路径
    */
-  private resolveModulePath(
+  private async resolveModulePath(
     fromFile: string,
     modulePath: string
-  ): string | null {
+  ): Promise<string | null> {
     // 处理相对路径
     if (modulePath.startsWith('./') || modulePath.startsWith('../')) {
       const fromDir = fromFile.substring(0, fromFile.lastIndexOf('/'));
@@ -268,7 +266,7 @@ export class DependencyResolver {
       const extensions = ['.ts', '.tsx', '.js', '.jsx', '.d.ts'];
       for (const ext of extensions) {
         const candidate = resolved + ext;
-        if (FileSystemUtils.fileExists(candidate)) {
+        if (await FileSystemUtils.fileExists(candidate)) {
           return candidate;
         }
       }
@@ -276,7 +274,7 @@ export class DependencyResolver {
       // 尝试index文件
       for (const ext of extensions) {
         const candidate = resolved + '/index' + ext;
-        if (FileSystemUtils.fileExists(candidate)) {
+        if (await FileSystemUtils.fileExists(candidate)) {
           return candidate;
         }
       }
@@ -364,13 +362,15 @@ export class DependencyResolver {
 
     // 检测循环依赖问题
     for (const cycle of graph.cycles) {
+      if (cycle.length === 0) continue;
       issues.push({
         id: `circular-dependency-${cycle.join('-')}`,
         type: ExportIssueType.CIRCULAR_DEPENDENCY,
         severity: IssueSeverity.ERROR,
         description: `检测到循环依赖: ${cycle.join(' -> ')}`,
+        title: `循环依赖: ${cycle.join(' -> ')}`,
         location: {
-          filePath: cycle[0],
+          filePath: cycle[0]!,
           line: 1,
           column: 1,
           codeSnippet: `// 循环依赖链: ${cycle.join(' -> ')}`,
@@ -400,6 +400,7 @@ export class DependencyResolver {
           id: `missing-import-${edge.from}-${edge.importName}`,
           type: ExportIssueType.MISSING_EXPORT,
           severity: IssueSeverity.ERROR,
+          title: `Missing export: ${edge.importName}`,
           description: `文件 ${edge.from} 导入了不存在的导出 '${edge.importName}'`,
           location: edge.location,
           suggestions: [],
@@ -480,8 +481,11 @@ export const dependencyResolver = new DependencyResolver({
   filePatterns: ['**/*.{ts,tsx,js,jsx}'],
   ignorePatterns: ['**/node_modules/**'],
   maxDepth: 10,
-  timeout: 30000,
+  includeTypes: true,
+  includeTests: false,
   enableCache: true,
   cacheExpiry: 5 * 60 * 1000,
+  concurrency: 4,
+  timeout: 30000,
   severityThreshold: 'info' as any,
 });

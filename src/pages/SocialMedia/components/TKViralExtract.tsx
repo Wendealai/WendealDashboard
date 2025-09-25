@@ -21,13 +21,13 @@ import type { WorkflowParameters } from '../types';
  */
 const TKViralExtract: React.FC = () => {
   // 状态管理
-  const [parameters, setParameters] = useState<WorkflowParameters>({
+  const defaultParameters: WorkflowParameters = {
     keyword: '',
     offset: '0',
     count: '20',
     sortMethod: '0',
     timeRange: '7',
-  });
+  };
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,85 +49,115 @@ const TKViralExtract: React.FC = () => {
   /**
    * 处理工作流提交
    */
-  const handleWorkflowSubmit = useCallback(async (params: WorkflowParameters) => {
-    try {
-      console.log('🚀 开始执行TK Viral Extract工作流:', params);
-      setLoading(true);
-      setError(null);
+  const handleWorkflowSubmit = useCallback(
+    async (params: WorkflowParameters) => {
+      try {
+        console.log('🚀 开始执行TK Viral Extract工作流:', params);
+        setLoading(true);
+        setError(null);
 
-      // 验证必填参数
-      if (!params.keyword.trim()) {
-        throw new Error('检索关键词不能为空');
+        // 验证必填参数
+        if (!params.keyword.trim()) {
+          throw new Error('检索关键词不能为空');
+        }
+
+        // 调用webhook服务（spec-workflow规范）
+        const result = await tkWebhookService.sendParameters(params);
+
+        if (result.success) {
+          message.success(`${result.message} (执行ID: ${result.executionId})`);
+          console.log('✅ 工作流执行完成:', result);
+        } else {
+          throw new Error(result.message);
+        }
+      } catch (err) {
+        console.error('❌ 工作流执行失败:', err);
+        const errorMessage =
+          err instanceof Error ? err.message : '工作流执行失败';
+        setError(errorMessage);
+        message.error(errorMessage);
+      } finally {
+        setLoading(false);
       }
-
-      // 调用webhook服务（spec-workflow规范）
-      const result = await tkWebhookService.sendParameters(params);
-
-      if (result.success) {
-        message.success(`${result.message} (执行ID: ${result.executionId})`);
-        console.log('✅ 工作流执行完成:', result);
-      } else {
-        throw new Error(result.message);
-      }
-
-    } catch (err) {
-      console.error('❌ 工作流执行失败:', err);
-      const errorMessage = err instanceof Error ? err.message : '工作流执行失败';
-      setError(errorMessage);
-      message.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [message]);
+    },
+    [message]
+  );
 
   // 渲染组件
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       {/* 上方：输入表单 - 横向分布 */}
-      <div style={{ padding: '16px', borderBottom: '1px solid #e8e8e8', background: '#fafafa' }}>
-          <InputForm
-            value={parameters}
-            onSubmit={handleWorkflowSubmit}
-            onRefresh={handleRefresh}
-            loading={loading}
-            disabled={loading}
-          />
+      <div
+        style={{
+          padding: '16px',
+          borderBottom: '1px solid #e8e8e8',
+          background: '#fafafa',
+        }}
+      >
+        <InputForm
+          value={defaultParameters}
+          onSubmit={handleWorkflowSubmit}
+          onRefresh={handleRefresh}
+          loading={loading}
+          disabled={loading}
+        />
       </div>
 
       {/* 下方：Notion文档 - 全宽显示 */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Card
-          title="📄 TK Viral Extract - Notion 文档"
+          title='📄 TK Viral Extract - Notion 文档'
           style={{ height: '100%', margin: 16 }}
           bodyStyle={{ padding: 0, height: '100%' }}
         >
-          <div style={{ position: 'relative', height: 'calc(100vh - 120px)', minHeight: '600px' }}>
-            <div style={{
-              width: '100%',
-              height: '100%',
-              border: '1px solid #e8e8e8',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              background: '#ffffff'
-            }}>
+          <div
+            style={{
+              position: 'relative',
+              height: 'calc(100vh - 120px)',
+              minHeight: '600px',
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                border: '1px solid #e8e8e8',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                background: '#ffffff',
+              }}
+            >
               <iframe
                 key={refreshKey}
-                src="https://wendealau.notion.site/ebd/266efdb673e08067908be152e0be1cdb?v=266efdb673e08178939d000ca7c81cbb&pvs=4"
-                width="100%"
-                height="100%"
-                frameBorder="0"
+                src='https://wendealau.notion.site/ebd/266efdb673e08067908be152e0be1cdb?v=266efdb673e08178939d000ca7c81cbb&pvs=4'
+                width='100%'
+                height='100%'
+                frameBorder='0'
                 allowFullScreen
-                title="TK Viral Extract Notion 文档"
+                title='TK Viral Extract Notion 文档'
                 style={{ border: 'none' }}
-                referrerPolicy="no-referrer-when-downgrade"
+                referrerPolicy='no-referrer-when-downgrade'
               />
             </div>
-            <div style={{ marginTop: 16, textAlign: 'right', padding: '0 16px 16px 16px' }}>
+            <div
+              style={{
+                marginTop: 16,
+                textAlign: 'right',
+                padding: '0 16px 16px 16px',
+              }}
+            >
               <Button
-                type="link"
-                size="small"
-                href="https://wendealau.notion.site/ebd/266efdb673e08067908be152e0be1cdb?v=266efdb673e08178939d000ca7c81cbb"
-                target="_blank"
+                type='link'
+                size='small'
+                href='https://wendealau.notion.site/ebd/266efdb673e08067908be152e0be1cdb?v=266efdb673e08178939d000ca7c81cbb'
+                target='_blank'
                 icon={<GlobalOutlined />}
               >
                 在新标签页打开 Notion 文档
@@ -136,9 +166,9 @@ const TKViralExtract: React.FC = () => {
           </div>
           {error && (
             <Alert
-              message="数据加载错误"
+              message='数据加载错误'
               description={error}
-              type="error"
+              type='error'
               showIcon
               style={{ margin: 16 }}
             />

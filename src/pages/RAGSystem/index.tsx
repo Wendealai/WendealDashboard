@@ -1,6 +1,5 @@
 import React from 'react';
 import { Layout } from 'antd';
-import { useTranslation } from 'react-i18next';
 import RAGToolbar from './components/RAGToolbar';
 import RAGChat from './components/RAGChat';
 import ChatSidebar from './components/ChatSidebar';
@@ -14,8 +13,6 @@ const { Content } = Layout;
  * 提供企业知识库对话功能，包含文件上传和知识库管理
  */
 const RAGSystem: React.FC = () => {
-  const { t } = useTranslation();
-
   // 使用聊天历史钩子
   const {
     conversationItems,

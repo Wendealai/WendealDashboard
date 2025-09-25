@@ -3,7 +3,7 @@
  * Manage report categories with full CRUD operations
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   List,
@@ -20,7 +20,6 @@ import {
   Empty,
   message,
   Avatar,
-  Badge,
 } from 'antd';
 import {
   PlusOutlined,
@@ -36,7 +35,7 @@ import { useTranslation } from 'react-i18next';
 import type { Category } from '../../../types/rndReport';
 import type { RNDReportService } from '../../../services/rndReportService';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 const { confirm } = Modal;
 
 /**

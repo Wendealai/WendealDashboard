@@ -7,8 +7,7 @@ import React, { useCallback, useEffect } from 'react';
 import { Form, Input, Button } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
 import { useMessage } from '@/hooks/useMessage';
-import { tkWebhookService } from '@/services/tkWebhookService';
-import type { WorkflowParameters, SimplifiedInputFormProps } from '../types';
+import type { WorkflowParameters } from '../types';
 
 const { Item } = Form;
 

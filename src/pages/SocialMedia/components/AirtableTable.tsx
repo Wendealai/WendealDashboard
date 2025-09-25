@@ -28,28 +28,19 @@ import {
   Select,
   Row,
   Col,
-  Progress,
 } from 'antd';
 import {
   DatabaseOutlined,
   GlobalOutlined,
-  VideoCameraOutlined,
   ReloadOutlined,
-  ExclamationCircleOutlined,
   LinkOutlined,
-  EyeOutlined,
-  EditOutlined,
   DownloadOutlined,
-  UploadOutlined,
-  ClearOutlined,
-  CloseOutlined,
   MailOutlined,
   ShopOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
 import type { AirtableTableProps, ViralContentRecord } from '../types';
-import { TKViralExtractAirtableService } from '@/services/tkViralExtractAirtableService';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -84,78 +75,6 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
   // 分页状态管理
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-
-  // 导入导出相关状态
-  const [clearModalVisible, setClearModalVisible] = useState(false);
-  const [importModalVisible, setImportModalVisible] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [cancelImport, setCancelImport] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [clearProgress, setClearProgress] = useState({ current: 0, total: 0 });
-  const [importProgress, setImportProgress] = useState({
-    current: 0,
-    total: 0,
-  });
-  const cancelImportRef = useRef(false);
-
-  /**
-   * 格式化文件大小
-   */
-  const formatFileSize = useCallback((bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }, []);
-
-  /**
-   * 格式化日期
-   */
-  const formatDate = useCallback((date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  }, []);
-
-  /**
-   * 获取病毒得分标签颜色
-   */
-  const getViralScoreColor = useCallback((score: number) => {
-    if (score >= 90) return 'red';
-    if (score >= 80) return 'orange';
-    if (score >= 70) return 'gold';
-    if (score >= 60) return 'green';
-    return 'blue';
-  }, []);
-
-  /**
-   * 获取平台标签颜色
-   */
-  const getPlatformColor = useCallback((platform: string | undefined) => {
-    if (!platform || typeof platform !== 'string') {
-      return 'default';
-    }
-    switch (platform.toLowerCase()) {
-      case 'tiktok':
-        return 'red';
-      case 'instagram':
-        return 'purple';
-      case 'youtube':
-        return 'red';
-      case 'twitter':
-        return 'blue';
-      case 'facebook':
-        return 'blue';
-      default:
-        return 'default';
-    }
-  }, []);
 
   // Notion data detection removed - using Airtable only
 
@@ -354,27 +273,6 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
 
     message.success('CSV文件已导出！');
   }, [data]);
-
-  /**
-   * 处理编辑记录
-   */
-  const handleEdit = useCallback(
-    (record: ViralContentRecord) => {
-      setEditingRecord(record);
-      editForm.setFieldsValue({
-        Title: record.fields?.title || '',
-        Content: record.fields?.content || '',
-        Platform: record.fields?.platform || '',
-        Views: record.fields?.views || 0,
-        Likes: record.fields?.likes || 0,
-        Shares: record.fields?.shares || 0,
-        Creator: record.fields?.creator || '',
-        URL: record.fields?.url || '',
-        Contact: record.fields?.contactInfo || '',
-      });
-    },
-    [editForm]
-  );
 
   /**
    * 处理保存编辑

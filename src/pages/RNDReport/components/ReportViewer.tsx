@@ -22,7 +22,6 @@ import {
   FullscreenExitOutlined,
   SettingOutlined,
   CloseOutlined,
-  EyeOutlined,
   ClockCircleOutlined,
   FileTextOutlined,
   UserOutlined,
@@ -63,8 +62,7 @@ const generateContentHash = async (content: string): Promise<string> => {
  * Validate content integrity with multiple checks
  */
 const validateContentIntegrity = (
-  content: string,
-  report: Report
+  content: string
 ): { isValid: boolean; issues: string[] } => {
   const issues: string[] = [];
 
@@ -330,7 +328,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
     console.log('🔧 Processing content consistently for report:', report.id);
 
     // Step 1: Validate content integrity first
-    const integrityCheck = validateContentIntegrity(content, report);
+    const integrityCheck = validateContentIntegrity(content);
     if (!integrityCheck.isValid) {
       console.warn(
         '⚠️ Content integrity issues detected:',
@@ -351,8 +349,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
     // Step 4: Basic HTML structure validation and fixing
     const hasHtmlTag =
       processedContent.includes('<html') || processedContent.includes('<HTML');
-    const hasHeadTag =
-      processedContent.includes('<head') || processedContent.includes('<HEAD');
     const hasBodyTag =
       processedContent.includes('<body') || processedContent.includes('<BODY');
 
@@ -380,7 +376,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
     }
 
     // Step 7: Final validation
-    const finalIntegrityCheck = validateContentIntegrity(fullHtml, report);
+    const finalIntegrityCheck = validateContentIntegrity(fullHtml);
     if (!finalIntegrityCheck.isValid) {
       console.error(
         '❌ Final content validation failed:',
@@ -489,104 +485,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
   };
 
   /**
-   * Analyze HTML content for debugging
-   */
-  const analyzeHtmlContent = useCallback((htmlContent: string) => {
-    console.log('🔍 开始分析HTML内容...');
-
-    // More precise checks
-    const analysis = {
-      hasHead: htmlContent.includes('<head>') || htmlContent.includes('<head '),
-      hasBody: htmlContent.includes('<body>') || htmlContent.includes('<body '),
-      hasDoctype:
-        htmlContent.includes('<!DOCTYPE') || htmlContent.includes('<!doctype'),
-      hasExternalCss:
-        htmlContent.includes('<link') && htmlContent.includes('stylesheet'),
-      hasInlineCss: htmlContent.includes('<style'),
-      hasScript: htmlContent.includes('<script'),
-      hasImages: htmlContent.includes('<img'),
-      contentLength: htmlContent.length,
-      structure: 'unknown' as 'full' | 'minimal' | 'fragment',
-      potentialIssues: [] as string[],
-    };
-
-    console.log('📊 基础分析结果:', {
-      hasHead: analysis.hasHead,
-      hasBody: analysis.hasBody,
-      hasDoctype: analysis.hasDoctype,
-      contentLength: analysis.contentLength,
-    });
-
-    // Determine HTML structure
-    if (
-      htmlContent.includes('<html') &&
-      htmlContent.includes('<head') &&
-      htmlContent.includes('<body')
-    ) {
-      analysis.structure = 'full';
-    } else if (htmlContent.includes('<html') || htmlContent.includes('<body')) {
-      analysis.structure = 'minimal';
-    } else {
-      analysis.structure = 'fragment';
-    }
-
-    // Check for potential issues
-    if (analysis.hasExternalCss && analysis.structure === 'full') {
-      analysis.potentialIssues.push(
-        'Contains external CSS links that may not load in iframe'
-      );
-    }
-
-    if (analysis.hasScript) {
-      analysis.potentialIssues.push(
-        'Contains scripts that may be restricted by iframe sandbox'
-      );
-    }
-
-    // Check for problematic patterns
-    if (
-      htmlContent.includes('display: none') ||
-      htmlContent.includes('visibility: hidden')
-    ) {
-      analysis.potentialIssues.push(
-        'Contains elements that may be intentionally hidden'
-      );
-    }
-
-    if (
-      htmlContent.includes('position: fixed') ||
-      htmlContent.includes('position: absolute')
-    ) {
-      analysis.potentialIssues.push(
-        'Contains positioned elements that might cause layout issues'
-      );
-    }
-
-    // Check for source map references that may cause iframe errors
-    if (
-      htmlContent.includes('sourceMappingURL') ||
-      htmlContent.includes('sourceURL')
-    ) {
-      analysis.potentialIssues.push(
-        'Contains source map references that may cause iframe errors'
-      );
-    }
-
-    console.log('🔍 HTML Content Analysis:', {
-      structure: analysis.structure,
-      length: `${analysis.contentLength} chars`,
-      hasExternalResources: analysis.hasExternalCss || analysis.hasScript,
-      hasSourceMaps:
-        htmlContent.includes('sourceMappingURL') ||
-        htmlContent.includes('sourceURL'),
-      potentialIssues: analysis.potentialIssues.length,
-      issues: analysis.potentialIssues,
-    });
-
-    return analysis;
-  }, []);
-
-  /**
    * Debug localStorage content
    */
   const debugLocalStorage = useCallback(() => {
@@ -640,97 +538,6 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
   }, [report.id]);
 
   /**
-   * Clean up orphaned cache entries
-   */
-  const cleanupOrphanedCaches = useCallback(() => {
-    console.log('🧹 Cleaning up orphaned cache entries...');
-
-    const keys = Object.keys(localStorage);
-    let cleaned = 0;
-
-    keys.forEach(key => {
-      if (
-        key.includes('rnd-report-processed-') ||
-        key.includes('rnd-report-hash-') ||
-        key.includes('rnd-report-cache-metadata-')
-      ) {
-        const reportId = key.includes('processed-')
-          ? key.replace('rnd-report-processed-', '')
-          : key.includes('hash-')
-            ? key.replace('rnd-report-hash-', '')
-            : key.replace('rnd-report-cache-metadata-', '');
-
-        const contentKey = `rnd-report-content-${reportId}`;
-        const hasContent = localStorage.getItem(contentKey) !== null;
-
-        if (!hasContent) {
-          localStorage.removeItem(key);
-          cleaned++;
-          console.log(`🗑️ Removed orphaned cache: ${key}`);
-        }
-      }
-    });
-
-    if (cleaned > 0) {
-      console.log(`✅ Cleaned up ${cleaned} orphaned cache entries`);
-    } else {
-      console.log('✅ No orphaned cache entries found');
-    }
-
-    return cleaned;
-  }, []);
-
-  /**
-   * Optimize storage by removing old cache entries
-   */
-  const optimizeStorage = useCallback(() => {
-    console.log('🔧 Optimizing storage...');
-
-    const keys = Object.keys(localStorage);
-    const cacheMetadataKeys = keys.filter(key =>
-      key.includes('rnd-report-cache-metadata-')
-    );
-
-    let optimized = 0;
-
-    cacheMetadataKeys.forEach(key => {
-      try {
-        const metadata = JSON.parse(localStorage.getItem(key) || '{}');
-        const reportId = key.replace('rnd-report-cache-metadata-', '');
-
-        // Check if cache is older than 7 days
-        if (
-          metadata.processedAt &&
-          Date.now() - metadata.processedAt > 7 * 24 * 60 * 60 * 1000
-        ) {
-          const cacheKey = `rnd-report-processed-${reportId}`;
-          const hashKey = `rnd-report-hash-${reportId}`;
-
-          // Remove old cache entries
-          localStorage.removeItem(cacheKey);
-          localStorage.removeItem(hashKey);
-          localStorage.removeItem(key);
-
-          optimized++;
-          console.log(`🗑️ Removed old cache for report: ${reportId}`);
-        }
-      } catch (error) {
-        console.warn(`⚠️ Failed to parse cache metadata for ${key}:`, error);
-      }
-    });
-
-    if (optimized > 0) {
-      console.log(
-        `✅ Optimized storage by removing ${optimized} old cache entries`
-      );
-    } else {
-      console.log('✅ Storage is already optimized');
-    }
-
-    return optimized;
-  }, []);
-
-  /**
    * Attempt to recover corrupted or missing content
    */
   const attemptContentRecovery = useCallback(
@@ -752,10 +559,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
             const backupContent = localStorage.getItem(backupKey);
             if (backupContent && backupContent.length > 50) {
               // Validate the backup content
-              const integrityCheck = validateContentIntegrity(
-                backupContent,
-                report
-              );
+              const integrityCheck = validateContentIntegrity(backupContent);
               if (integrityCheck.isValid) {
                 // Restore from backup
                 localStorage.setItem(
@@ -805,10 +609,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
           const recoveredContent = tempDiv.innerHTML;
 
           if (recoveredContent && recoveredContent.length > 50) {
-            const integrityCheck = validateContentIntegrity(
-              recoveredContent,
-              report
-            );
+            const integrityCheck = validateContentIntegrity(recoveredContent);
             if (integrityCheck.isValid) {
               localStorage.setItem(
                 `rnd-report-content-${report.id}`,
@@ -842,7 +643,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
    * Handle iframe load
    */
   const handleIframeLoad = useCallback(() => {
-    if (!iframeRef.current) return;
+    if (!iframeRef.current) return undefined;
 
     try {
       console.log('📄 Iframe loaded successfully');
@@ -854,14 +655,14 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
       if (!iframeDocument) {
         console.error('❌ Cannot access iframe document');
         setError('Cannot access iframe content');
-        return;
+        return undefined;
       }
 
       const bodyElement = iframeDocument.body;
       if (!bodyElement) {
         console.error('❌ Iframe body not found');
         setError('Iframe content failed to load');
-        return;
+        return undefined;
       }
 
       console.log('✅ Iframe content loaded:', {
@@ -949,6 +750,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
     } catch (err) {
       console.error('Failed to initialize iframe:', err);
       setError('Failed to initialize report viewer');
+      return undefined;
     }
   }, [
     report.id,
@@ -1234,7 +1036,7 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                 <iframe
                   ref={iframeRef}
                   srcDoc={htmlContent}
-                  onLoad={e => {
+                  onLoad={() => {
                     console.log('✅ Iframe loaded successfully');
                     console.log(
                       '📄 Iframe document:',
@@ -1245,8 +1047,8 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                     );
                     handleIframeLoad();
                   }}
-                  onError={e => {
-                    console.error('❌ Iframe failed to load:', e);
+                  onError={() => {
+                    console.error('❌ Iframe failed to load');
                     console.log('🔍 HTML content length:', htmlContent.length);
                     console.log(
                       '🔍 HTML content preview:',

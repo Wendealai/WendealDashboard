@@ -53,7 +53,6 @@ import {
 import InvoiceFileUpload from './components/InvoiceFileUpload';
 import InvoiceOCRResults from './components/InvoiceOCRResults';
 import InvoiceOCRSettings from './components/InvoiceOCRSettings';
-import type { InvoiceOCRResult } from './types/invoiceOCR';
 import type { EnhancedWebhookResponse } from '../../types/workflow';
 const { Content } = Layout;
 const { Title, Text } = Typography;

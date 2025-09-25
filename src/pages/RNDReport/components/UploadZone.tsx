@@ -26,7 +26,6 @@ import {
   InboxOutlined,
   CheckCircleFilled,
   FolderOutlined,
-  FileTextOutlined as FileIcon,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -36,7 +35,7 @@ import { FileProcessingUtils } from '../../../utils/rndReportUtils';
 // Import types
 import type { Category } from '../../../types/rndReport';
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 
 /**

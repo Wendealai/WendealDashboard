@@ -8,7 +8,7 @@ import type {
   DiagnosticReport,
   ScanOptions,
   ValidationResult,
-} from '@/types/exportDiagnostic';
+} from '../types/exportDiagnostic';
 
 /**
  * 诊断服务接口

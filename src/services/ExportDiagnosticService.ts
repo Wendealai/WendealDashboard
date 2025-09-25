@@ -15,12 +15,12 @@ import type {
   ScanOptions,
   DiagnosticConfig,
   ExportIssue,
-} from '@/types/exportDiagnostic';
-import { ExportDiagnosticEngine } from '@/utils/diagnostic/ExportDiagnosticEngine';
+} from '../types/exportDiagnostic';
+import { ExportDiagnosticEngine } from '../utils/diagnostic/ExportDiagnosticEngine';
 import {
   getCurrentConfig,
   updateCurrentConfig,
-} from '@/config/exportDiagnosticConfig';
+} from '../config/exportDiagnosticConfig';
 import {
   DiagnosticServiceError,
   ScanTimeoutError,
@@ -85,6 +85,7 @@ export class ExportDiagnosticService implements IDiagnosticService {
     }
 
     const scanId = `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = Date.now();
     this.currentScanId = scanId;
     this.isRunning = true;
     this.abortController = new AbortController();
@@ -103,7 +104,8 @@ export class ExportDiagnosticService implements IDiagnosticService {
       const report = await Promise.race([diagnosePromise, timeoutPromise]);
 
       // 更新统计信息
-      this.updateStats(report);
+      const scanTime = Date.now() - startTime;
+      this.updateStats(report, scanTime);
 
       // 保存到历史记录
       this.history.push(report);
@@ -193,16 +195,16 @@ export class ExportDiagnosticService implements IDiagnosticService {
   /**
    * 更新统计信息
    */
-  private updateStats(report: DiagnosticReport): void {
+  private updateStats(report: DiagnosticReport, scanTime: number): void {
     this.stats.totalScans++;
     this.stats.totalFilesProcessed += report.filesScanned;
     this.stats.totalIssuesFound += report.issuesFound || 0;
     this.stats.lastScanTime = new Date();
 
     // 计算平均扫描时间
-    const totalTime =
-      this.history.reduce((sum, r) => sum + r.duration, 0) + report.duration;
-    this.stats.averageScanTime = totalTime / this.stats.totalScans;
+    this.stats.averageScanTime =
+      (this.stats.averageScanTime * (this.stats.totalScans - 1) + scanTime) /
+      this.stats.totalScans;
   }
 
   /**
@@ -374,7 +376,6 @@ export class ExportDiagnosticService implements IDiagnosticService {
     let output = `Export Diagnostic Report\n`;
     output += `========================\n\n`;
     output += `Scan Time: ${report.timestamp.toISOString()}\n`;
-    output += `Duration: ${report.duration}ms\n`;
     output += `Files Scanned: ${report.filesScanned}\n`;
     output += `Issues Found: ${report.issuesFound || 0}\n\n`;
 
@@ -439,9 +440,6 @@ export class ExportDiagnosticService implements IDiagnosticService {
         </div>
         <div class="stat">
             <strong>Issues Found:</strong> ${report.issuesFound}
-        </div>
-        <div class="stat">
-            <strong>Duration:</strong> ${report.duration}ms
         </div>
     </div>
 

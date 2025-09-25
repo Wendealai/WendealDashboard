@@ -22,7 +22,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleTheme, setLanguage } from '@/store/slices/uiSlice';
-import type { ThemeMode, Language } from '@/types/ui';
+import type { Language } from '@/types/ui';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;

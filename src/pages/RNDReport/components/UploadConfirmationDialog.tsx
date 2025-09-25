@@ -27,7 +27,7 @@ import { useTranslation } from 'react-i18next';
 import type { Category } from '../../../types/rndReport';
 import { FileProcessingUtils } from '../../../utils/rndReportUtils';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 
 /**

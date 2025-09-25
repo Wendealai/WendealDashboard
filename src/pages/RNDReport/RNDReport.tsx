@@ -38,7 +38,6 @@ import {
   FolderOutlined,
   SettingOutlined,
   BarChartOutlined,
-  PlusOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -49,7 +48,6 @@ import UploadZone from './components/UploadZone';
 import ReportList from './components/ReportList';
 import CategoryManager from './components/CategoryManager';
 import ReportViewer from './components/ReportViewer';
-import ReportSettings from './components/ReportSettings';
 
 // Import types and services
 import type {
@@ -63,7 +61,6 @@ import { RNDReportService } from '../../services/rndReportService';
 import { FileProcessingUtils } from '../../utils/rndReportUtils';
 
 // Import hooks and utilities
-import { useAppSelector, useAppDispatch } from '../../hooks';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -74,7 +71,6 @@ const { TabPane } = Tabs;
  */
 const RNDReport: React.FC = () => {
   const { t } = useTranslation();
-  const dispatch = useAppDispatch();
   const messageApi = useMessage();
 
   // Component state
