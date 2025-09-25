@@ -74,7 +74,7 @@ import type {
   InvoiceOCRLanguage,
   InvoiceOCROutputFormat,
   InvoiceOCRProcessingOptions,
-} from '../../../pages/InformationDashboard/types/invoiceOCR';
+} from '../../../pages/InformationDashboard/types';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;

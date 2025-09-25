@@ -486,7 +486,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     description:
                       'Discover business opportunities based on industry, city, and country parameters',
                     status: 'active' as WorkflowStatus,
-                    nodeCount: 3,
                     lastExecution: new Date().toISOString(),
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
@@ -540,7 +539,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     name: redditWorkflowSettings.name,
                     description: t('informationDashboard.reddit.getHotPosts'),
                     status: 'active' as WorkflowStatus,
-                    nodeCount: 3,
                     lastExecution: new Date().toISOString(),
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
@@ -683,7 +681,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           onClose={handleCloseSettings}
           onSave={handleSaveSettings}
           initialSettings={currentWorkflowSettings || redditWorkflowSettings}
-          workflowId={currentWorkflowId}
         />
       </div>
     );

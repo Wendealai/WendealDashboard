@@ -283,18 +283,20 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
               {/* Invoice OCR workflow card */}
               <Col xs={24} sm={24} md={12} lg={8} xl={6}>
                 <WorkflowCard
-                  workflow={{
-                    id: 'invoice-ocr-workflow',
-                    name: t('invoiceOCR.title'),
-                    description: t('invoiceOCR.subtitle'),
-                    status: 'active' as const,
-                    type: 'data-processing' as any,
-                    executionCount: 0,
-                    successRate: 0,
-                    author: { id: 'system', name: 'System' },
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  }}
+                  workflow={
+                    {
+                      id: 'invoice-ocr-workflow',
+                      name: t('invoiceOCR.title'),
+                      description: t('invoiceOCR.subtitle'),
+                      status: 'active' as const,
+                      type: 'invoice-ocr' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any
+                  }
                   selected={selectedWorkflow?.id === 'invoice-ocr-workflow'}
                   loading={false}
                   error={null}
@@ -304,13 +306,13 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       name: t('invoiceOCR.title'),
                       description: t('invoiceOCR.subtitle'),
                       status: 'active' as const,
-                      type: 'data-processing' as any,
+                      type: 'invoice-ocr' as const,
                       executionCount: 0,
                       successRate: 0,
                       author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
-                    })
+                    } as any)
                   }
                   onTrigger={() => {
                     // Select Invoice OCR workflow, display on the right side
@@ -319,13 +321,13 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       name: t('invoiceOCR.title'),
                       description: t('invoiceOCR.subtitle'),
                       status: 'active' as const,
-                      type: 'data-processing' as any,
+                      type: 'invoice-ocr' as const,
                       executionCount: 0,
                       successRate: 0,
                       author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
-                    });
+                    } as any);
                   }}
                   onSettings={() => {
                     // Open settings modal
@@ -342,19 +344,21 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
               {/* Universal OCR workflow card */}
               <Col xs={24} sm={24} md={12} lg={8} xl={6}>
                 <WorkflowCard
-                  workflow={{
-                    id: 'universal-ocr-workflow',
-                    name: 'Universal OCR',
-                    description:
-                      'OCR processing for all document formats including PDF, images, and scanned documents',
-                    status: 'active' as const,
-                    type: 'data-processing' as any,
-                    executionCount: 0,
-                    successRate: 0,
-                    author: { id: 'system', name: 'System' },
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  }}
+                  workflow={
+                    {
+                      id: 'universal-ocr-workflow',
+                      name: 'Universal OCR',
+                      description:
+                        'OCR processing for all document formats including PDF, images, and scanned documents',
+                      status: 'active' as const,
+                      type: 'invoice-ocr' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any
+                  }
                   selected={selectedWorkflow?.id === 'universal-ocr-workflow'}
                   loading={false}
                   error={null}
@@ -365,13 +369,13 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       description:
                         'OCR processing for all document formats including PDF, images, and scanned documents',
                       status: 'active' as const,
-                      type: 'data-processing' as any,
+                      type: 'invoice-ocr' as const,
                       executionCount: 0,
                       successRate: 0,
                       author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
-                    })
+                    } as any)
                   }
                   onTrigger={() => {
                     // Select Universal OCR workflow, display on the right side
@@ -381,13 +385,13 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       description:
                         'OCR processing for all document formats including PDF, images, and scanned documents',
                       status: 'active' as const,
-                      type: 'data-processing' as any,
+                      type: 'invoice-ocr' as const,
                       executionCount: 0,
                       successRate: 0,
                       author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
-                    });
+                    } as any);
                   }}
                   onSettings={() => {
                     // Open settings modal
@@ -404,19 +408,21 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
               {/* Tax Invoice/Receipt workflow card */}
               <Col xs={24} sm={24} md={12} lg={8} xl={6}>
                 <WorkflowCard
-                  workflow={{
-                    id: 'tax-invoice-receipt-workflow',
-                    name: 'Tax Invoice/Receipt',
-                    description:
-                      'Generate and manage tax invoices and receipts',
-                    status: 'active' as const,
-                    type: 'data-processing' as any,
-                    executionCount: 0,
-                    successRate: 0,
-                    author: { id: 'system', name: 'System' },
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  }}
+                  workflow={
+                    {
+                      id: 'tax-invoice-receipt-workflow',
+                      name: 'Tax Invoice/Receipt',
+                      description:
+                        'Generate and manage tax invoices and receipts',
+                      status: 'active' as const,
+                      type: 'invoice-ocr' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any
+                  }
                   selected={
                     selectedWorkflow?.id === 'tax-invoice-receipt-workflow'
                   }
@@ -429,13 +435,13 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       description:
                         'Generate and manage tax invoices and receipts',
                       status: 'active' as const,
-                      type: 'data-processing' as any,
+                      type: 'invoice-ocr' as const,
                       executionCount: 0,
                       successRate: 0,
                       author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
-                    })
+                    } as any)
                   }
                   onTrigger={() => {
                     // Select Tax Invoice/Receipt workflow, display on the right side
@@ -445,13 +451,13 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                       description:
                         'Generate and manage tax invoices and receipts',
                       status: 'active' as const,
-                      type: 'data-processing' as any,
+                      type: 'invoice-ocr' as const,
                       executionCount: 0,
                       successRate: 0,
                       author: { id: 'system', name: 'System' },
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
-                    });
+                    } as any);
                   }}
                   onSettings={() => {
                     // Open settings modal

@@ -80,7 +80,15 @@ import {
   CloseCircleOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
 import { invoiceOCRService } from '../../../../services/invoiceOCRService';
+import type {
+  InvoiceOCRResult,
+  InvoiceOCRBatchTask,
+  InvoiceOCRWorkflowStats,
+  InvoiceOCRExecutionHistory,
+  EnhancedWebhookResponse,
+} from '@/pages/InformationDashboard/types';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
@@ -224,7 +232,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     try {
       // 加载结果列表
       const resultsData = await invoiceOCRService.getResults(workflowId, {
-        batchTaskId,
+        ...(batchTaskId && { batchTaskId }),
         page: 1,
         pageSize: 100,
       });
@@ -252,11 +260,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
         setHistory(historyData.items || []);
       }
     } catch (error) {
-      showError(
-        'Failed to load data',
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
-      );
+      showError(error instanceof Error ? error.message : 'Failed to load data');
     } finally {
       setLoading(false);
     }

@@ -37,7 +37,7 @@ const Tools: React.FC = () => {
   /**
    * Handle workflow selection
    */
-  const handleWorkflowSelect = useCallback((workflow: Workflow) => {
+  const handleWorkflowSelect = useCallback((workflow: Workflow | null) => {
     console.log('Tools: Selected workflow:', workflow);
     setSelectedWorkflow(workflow);
   }, []);

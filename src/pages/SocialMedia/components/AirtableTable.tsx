@@ -3,7 +3,13 @@
  * 显示TK Viral Extract数据的完整表格组件（基于Smart Opportunities架构）
  */
 
-import React, { useMemo, useState, useCallback, useRef } from 'react';
+import React, {
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+} from 'react';
 import {
   Table,
   Card,
@@ -161,7 +167,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
     return [
       {
         title: 'Title',
-        dataIndex: ['fields', 'Title'],
+        dataIndex: ['fields', 'title'],
         key: 'title',
         width: 250,
         render: (text: string) => (
@@ -172,7 +178,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       },
       {
         title: 'Content',
-        dataIndex: ['fields', 'Content'],
+        dataIndex: ['fields', 'content'],
         key: 'content',
         width: 300,
         render: (text: string) => (
@@ -186,7 +192,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       },
       {
         title: 'Platform',
-        dataIndex: ['fields', 'Platform'],
+        dataIndex: ['fields', 'platform'],
         key: 'platform',
         width: 120,
         render: (text: string) => (
@@ -197,7 +203,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       },
       {
         title: 'Views',
-        dataIndex: ['fields', 'Views'],
+        dataIndex: ['fields', 'views'],
         key: 'views',
         width: 100,
         render: (views: number) => (
@@ -211,7 +217,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       },
       {
         title: 'Likes',
-        dataIndex: ['fields', 'Likes'],
+        dataIndex: ['fields', 'likes'],
         key: 'likes',
         width: 100,
         render: (likes: number) => (
@@ -225,7 +231,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       },
       {
         title: 'Shares',
-        dataIndex: ['fields', 'Shares'],
+        dataIndex: ['fields', 'shares'],
         key: 'shares',
         width: 100,
         render: (shares: number) => (
@@ -239,7 +245,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       },
       {
         title: 'Creator',
-        dataIndex: ['fields', 'Creator'],
+        dataIndex: ['fields', 'creator'],
         key: 'creator',
         width: 150,
         render: (text: string) => (
@@ -248,7 +254,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       },
       {
         title: 'Viral Score',
-        dataIndex: ['fields', 'Viral Score'],
+        dataIndex: ['fields', 'viralScore'],
         key: 'viralScore',
         width: 100,
         render: (score: number) => (
@@ -259,7 +265,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       },
       {
         title: 'URL',
-        dataIndex: ['fields', 'URL'],
+        dataIndex: ['fields', 'url'],
         key: 'url',
         width: 80,
         render: (text: string) =>
@@ -280,7 +286,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       },
       {
         title: 'Contact Info',
-        dataIndex: ['fields', 'Contact'],
+        dataIndex: ['fields', 'contactInfo'],
         key: 'contactInfo',
         width: 150,
         render: (text: string) => (
@@ -289,7 +295,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       },
       {
         title: 'Created Time',
-        dataIndex: ['fields', 'Created Time'],
+        dataIndex: 'createdTime',
         key: 'createdTime',
         width: 120,
         render: (text: string) => (
@@ -324,17 +330,17 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       ],
       // 数据行
       ...data.map(record => [
-        record.fields?.Title || '',
-        record.fields?.Content || '',
-        record.fields?.Platform || '',
-        record.fields?.Views || 0,
-        record.fields?.Likes || 0,
-        record.fields?.Shares || 0,
-        record.fields?.Creator || '',
-        record.fields?.['Viral Score'] || 0,
-        record.fields?.URL || '',
-        record.fields?.Contact || '',
-        record.fields?.['Created Time'] || '',
+        record.fields?.title || '',
+        record.fields?.content || '',
+        record.fields?.platform || '',
+        record.fields?.views || 0,
+        record.fields?.likes || 0,
+        record.fields?.shares || 0,
+        record.fields?.creator || '',
+        record.fields?.viralScore || 0,
+        record.fields?.url || '',
+        record.fields?.contactInfo || '',
+        record.createdTime || '',
       ]),
     ]
       .map(row => row.map(cell => `"${cell}"`).join(','))
@@ -356,15 +362,15 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
     (record: ViralContentRecord) => {
       setEditingRecord(record);
       editForm.setFieldsValue({
-        Title: record.fields?.Title || '',
-        Content: record.fields?.Content || '',
-        Platform: record.fields?.Platform || '',
-        Views: record.fields?.Views || 0,
-        Likes: record.fields?.Likes || 0,
-        Shares: record.fields?.Shares || 0,
-        Creator: record.fields?.Creator || '',
-        URL: record.fields?.URL || '',
-        Contact: record.fields?.Contact || '',
+        Title: record.fields?.title || '',
+        Content: record.fields?.content || '',
+        Platform: record.fields?.platform || '',
+        Views: record.fields?.views || 0,
+        Likes: record.fields?.likes || 0,
+        Shares: record.fields?.shares || 0,
+        Creator: record.fields?.creator || '',
+        URL: record.fields?.url || '',
+        Contact: record.fields?.contactInfo || '',
       });
     },
     [editForm]
@@ -386,16 +392,15 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
 
       // 准备更新数据 - 使用实际的Airtable字段名
       const updateData = {
-        Title: values.Title,
-        Content: values.Content,
-        Platform: values.Platform,
-        Views: values.Views,
-        Likes: values.Likes,
-        Shares: values.Shares,
-        Creator: values.Creator,
-        URL: values.URL,
-        Contact: values.Contact,
-        'Updated Time': new Date().toISOString(),
+        title: values.Title,
+        content: values.Content,
+        platform: values.Platform,
+        views: values.Views,
+        likes: values.Likes,
+        shares: values.Shares,
+        creator: values.Creator,
+        url: values.URL,
+        contactInfo: values.Contact,
       };
 
       // 更新Airtable记录
@@ -476,9 +481,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
           <Text type='secondary' style={{ fontSize: '12px' }}>
             ({data.length} 条结果)
           </Text>
-          <Tag color='blue' size='small'>
-            Airtable
-          </Tag>
+          <Tag color='blue'>Airtable</Tag>
         </Space>
       }
       extra={
@@ -496,7 +499,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
             type='default'
             icon={<ReloadOutlined />}
             onClick={handleRefresh}
-            loading={loading}
+            loading={loading || false}
             size='small'
           >
             Refresh
@@ -526,7 +529,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
           columns={columns}
           dataSource={data}
           rowKey='id'
-          loading={loading}
+          loading={loading || false}
           pagination={{
             current: currentPage,
             pageSize: pageSize,

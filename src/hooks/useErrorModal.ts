@@ -2,11 +2,13 @@ import { useState, useCallback } from 'react';
 
 export interface ErrorInfo {
   /** 错误标题 */
-  title?: string;
+  title?: string | undefined;
   /** 错误消息 */
   message: string;
   /** 错误详情 */
-  details?: string;
+  details?: string | undefined;
+  /** 故障排除步骤 */
+  troubleshooting?: string[] | undefined;
 }
 
 export interface UseErrorModalReturn {

@@ -376,8 +376,8 @@ export class BackupManager {
     return {
       totalBackups: backups.length,
       totalSize,
-      oldestBackup: timestamps[0],
-      newestBackup: timestamps[timestamps.length - 1],
+      oldestBackup: timestamps[0] || null,
+      newestBackup: timestamps[timestamps.length - 1] || null,
     };
   }
 }

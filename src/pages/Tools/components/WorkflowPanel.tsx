@@ -201,7 +201,7 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
 
                 const posts =
                   sub.posts
-                    ?.map(post => {
+                    ?.map((post: any) => {
                       // 验证post数据
                       if (!post || !post.title) {
                         console.warn('WorkflowPanel: Invalid post data:', post);
@@ -232,13 +232,16 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
             'WorkflowPanel: Processed subredditsData:',
             subredditsData
           );
-          setRedditData(subredditsData);
+          const filteredSubredditsData = subredditsData.filter(
+            (item): item is ParsedSubredditData => item !== null
+          );
+          setRedditData(filteredSubredditsData);
           if (onRedditDataReceived) {
             console.log(
               'WorkflowPanel: Calling onRedditDataReceived with data:',
-              subredditsData
+              filteredSubredditsData
             );
-            onRedditDataReceived(subredditsData);
+            onRedditDataReceived(filteredSubredditsData);
           }
 
           // Notify that workflow has been triggered
@@ -374,7 +377,8 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
         </Modal>
         <ErrorModal
           visible={isVisible}
-          errorInfo={errorInfo}
+          message={errorInfo?.message || 'Unknown error'}
+          details={errorInfo?.details}
           onClose={hideError}
         />
       </div>

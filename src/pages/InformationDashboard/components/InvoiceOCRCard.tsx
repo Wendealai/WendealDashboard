@@ -145,7 +145,7 @@ const InvoiceOCRCard: React.FC<InvoiceOCRCardProps> = ({
   return (
     <Card
       className={`invoice-ocr-card ${className} ${selected ? 'selected' : ''}`}
-      size={size}
+      size={size === 'large' ? 'default' : size}
       hoverable
       onClick={handleCardClick}
       style={{
@@ -185,8 +185,10 @@ const InvoiceOCRCard: React.FC<InvoiceOCRCardProps> = ({
               </Title>
               <Tag
                 color='success'
-                size={size === 'small' ? 'small' : 'default'}
-                style={{ marginTop: size === 'small' ? 2 : 4 }}
+                style={{
+                  marginTop: size === 'small' ? 2 : 4,
+                  fontSize: size === 'small' ? 10 : 12,
+                }}
               >
                 {t('common.ready')}
               </Tag>
@@ -262,9 +264,11 @@ const InvoiceOCRCard: React.FC<InvoiceOCRCardProps> = ({
             <Alert
               message={error}
               type='error'
-              size='small'
               showIcon
-              style={{ fontSize: 11 }}
+              style={{
+                fontSize: 11,
+                padding: size === 'small' ? '4px 8px' : '8px 12px',
+              }}
             />
           )}
 
@@ -275,7 +279,7 @@ const InvoiceOCRCard: React.FC<InvoiceOCRCardProps> = ({
                 {progressStatus}
               </Text>
               <Progress
-                percent={loading ? undefined : 100}
+                percent={100}
                 status={loading ? 'active' : 'success'}
                 size='small'
                 showInfo={false}

@@ -1,0 +1,465 @@
+src/pages/InformationDashboard/components/AirtableTable.tsx(38,1): error TS6192: All imports in import declaration are unused.
+src/pages/InformationDashboard/components/AirtableTable.tsx(44,9): error TS6133: 'Title' is declared but its value is never read.
+src/pages/InformationDashboard/components/AirtableTable.tsx(55,3): error TS6133: 'onRefresh' is declared but its value is never read.
+src/pages/InformationDashboard/components/AirtableTable.tsx(58,9): error TS6133: 't' is declared but its value is never read.
+src/pages/InformationDashboard/components/InformationGrid.tsx(45,3): error TS6133: 'selectInformationStats' is declared but its value is never read.
+src/pages/InformationDashboard/components/InformationGrid.tsx(202,14): error TS6133: 'id' is declared but its value is never read.
+src/pages/InformationDashboard/components/InputForm.tsx(9,1): error TS6133: 'useTranslation' is declared but its value is never read.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(46,3): error TS6133: 'Alert' is declared but its value is never read.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(88,3): error TS6196: 'InvoiceOCRStatus' is declared but never used.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(90,3): error TS6196: 'InvoiceOCRQueryParams' is declared but never used.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(91,3): error TS6196: 'InvoiceOCRPaginatedResponse' is declared but never used.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(95,3): error TS6196: 'InvoiceLineItem' is declared but never used.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(99,3): error TS6196: 'InvoiceProcessingSummary' is declared but never used.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(100,3): error TS6196: 'FinancialSummary' is declared but never used.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(101,3): error TS6196: 'ProcessingDetails' is declared but never used.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(102,3): error TS6196: 'QualityMetrics' is declared but never used.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(105,22): error TS6133: 'Paragraph' is declared but its value is never read.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(227,10): error TS6133: 'history' is declared but its value is never read.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(246,74): error TS2379: Argument of type '{ batchTaskId: string | undefined; page: number; pageSize: number; }' is not assignable to parameter of type 'InvoiceOCRQueryParams' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(277,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(309,31): error TS2551: Property 'downloadResultFile' does not exist on type 'InvoiceOCRService'. Did you mean 'downloadResult'?
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(314,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(331,31): error TS2551: Property 'downloadBatchResults' does not exist on type 'InvoiceOCRService'. Did you mean 'downloadResults'?
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(336,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(349,72): error TS2339: Property 'fileName' does not exist on type 'InvoiceOCRResult'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(352,37): error TS2554: Expected 2 arguments, but got 1.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(358,15): error TS2554: Expected 1 arguments, but got 3.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1035,23): error TS2339: Property 'summary' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1036,24): error TS2339: Property 'financialSummary' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1037,24): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1041,15): error TS6133: 'stats' is declared but its value is never read.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1072,27): error TS2339: Property 'recommendations' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1073,28): error TS2339: Property 'recommendations' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1076,46): error TS2339: Property 'recommendations' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1162,27): error TS2339: Property 'financialSummary' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1168,43): error TS2339: Property 'financialSummary' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1177,43): error TS2339: Property 'financialSummary' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1186,43): error TS2339: Property 'financialSummary' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1197,27): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1201,56): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1204,35): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1208,40): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1240,52): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1243,35): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1247,40): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1268,61): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1271,35): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1275,40): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1308,37): error TS2339: Property 'summary' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1309,46): error TS2339: Property 'financialSummary' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1310,47): error TS2339: Property 'processingDetails' does not exist on type 'EnhancedWebhookResponse'.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1463,24): error TS6133: 'selectedRowKeys' is declared but its value is never read.
+src/pages/InformationDashboard/components/InvoiceOCRResults.tsx(1483,9): error TS2322: Type '{ visible: boolean; errorInfo: ErrorInfo | null; onClose: () => void; }' is not assignable to type 'IntrinsicAttributes & ErrorModalProps'.
+src/pages/InformationDashboard/components/InvoiceOCRSettings.tsx(29,16): error TS6133: 'Text' is declared but its value is never read.
+src/pages/InformationDashboard/components/InvoiceOCRSettings.tsx(100,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/InformationDashboard/components/InvoiceOCRSettings.tsx(119,11): error TS2554: Expected 1 arguments, but got 2.
+src/pages/InformationDashboard/components/InvoiceOCRSettings.tsx(136,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/InformationDashboard/components/InvoiceOCRSettings.tsx(165,11): error TS2554: Expected 1 arguments, but got 3.
+src/pages/InformationDashboard/components/InvoiceOCRSettings.tsx(165,18): error TS2339: Property 'error' does not exist on type '{ success: boolean; message: string; }'.
+src/pages/InformationDashboard/components/InvoiceOCRSettings.tsx(173,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/InformationDashboard/components/InvoiceOCRSettings.tsx(235,6): error TS2375: Type '{ children: (Element | null)[]; className: string | undefined; title: Element; loading: boolean; }' is not assignable to type 'CardProps' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+src/pages/InformationDashboard/components/InvoiceOCRSettings.tsx(463,16): error TS18047: 'errorInfo' is possibly 'null'.
+src/pages/InformationDashboard/components/InvoiceOCRSettings.tsx(464,18): error TS18047: 'errorInfo' is possibly 'null'.
+src/pages/InformationDashboard/components/InvoiceOCRSettings.tsx(465,18): error TS18047: 'errorInfo' is possibly 'null'.
+src/pages/InformationDashboard/components/ResultPanel.tsx(6,17): error TS6133: 'useState' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(6,27): error TS6133: 'useEffect' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(16,3): error TS6133: 'Spin' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(20,3): error TS6133: 'Progress' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(34,3): error TS6133: 'ExclamationCircleOutlined' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(35,3): error TS6133: 'LoadingOutlined' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(42,1): error TS6133: 'InformationItem' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(90,7): error TS6133: 'formatTimestamp' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(104,7): error TS6133: 'formatScore' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(164,5): error TS6133: 'selectedWorkflow' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(167,5): error TS6133: 'loading' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(169,11): error TS6133: 't' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(170,11): error TS6133: 'storeLoading' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(438,25): error TS6133: 'hotLevel' is declared but its value is never read.
+src/pages/InformationDashboard/components/ResultPanel.tsx(659,35): error TS6133: 'hotLevel' is declared but its value is never read.
+src/pages/InformationDashboard/components/SmartOpportunities.tsx(24,3): error TS6133: 'onDataLoaded' is declared but its value is never read.
+src/pages/InformationDashboard/components/SmartOpportunities.tsx(25,3): error TS6133: 'onError' is declared but its value is never read.
+src/pages/InformationDashboard/components/SmartOpportunities.tsx(27,9): error TS6133: 't' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(6,51): error TS6133: 'useMemo' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(9,3): error TS6133: 'Card' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(10,3): error TS6133: 'Button' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(12,3): error TS6133: 'Space' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(16,3): error TS6133: 'Tooltip' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(17,3): error TS6133: 'Row' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(18,3): error TS6133: 'Col' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(19,3): error TS6133: 'List' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(21,3): error TS6133: 'Alert' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(22,3): error TS6133: 'Progress' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(23,3): error TS6133: 'Empty' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(28,1): error TS6192: All imports in import declaration are unused.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(47,3): error TS2305: Module '"../types"' has no exported member 'Workflow'.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(48,3): error TS2305: Module '"../types"' has no exported member 'WorkflowTriggerRequest'.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(52,1): error TS6133: 'WorkflowGrid' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(54,7): error TS6133: 'Text' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(88,5): error TS2339: Property 'onWorkflowSelect' does not exist on type 'WorkflowPanelProps'.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(88,5): error TS6133: 'onWorkflowSelect' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(99,7): error TS2339: Property 'loading' does not exist on type 'InformationDashboardReduxState'.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(99,7): error TS6133: 'loading' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(100,7): error TS2339: Property 'workflowStats' does not exist on type 'InformationDashboardReduxState'.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(100,7): error TS6133: 'workflowStats' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(102,11): error TS6133: 'workflows' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(112,12): error TS6133: 'redditLoading' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(113,12): error TS6133: 'redditError' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(114,12): error TS6133: 'redditProgressStatus' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(116,12): error TS6133: 'redditData' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(117,12): error TS6133: 'redditWorkflowData' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(123,16): error TS2554: Expected 1-2 arguments, but got 0.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(124,40): error TS2345: Argument of type '{ limit: number; }' is not assignable to parameter of type 'string'.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(130,11): error TS6133: 'handleTriggerWorkflow' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(159,42): error TS2345: Argument of type '{ limit: number; }' is not assignable to parameter of type 'string'.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(168,11): error TS2554: Expected 1 arguments, but got 2.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(176,11): error TS6133: 'handleRefresh' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(177,16): error TS2554: Expected 1-2 arguments, but got 0.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(178,40): error TS2345: Argument of type '{ limit: number; }' is not assignable to parameter of type 'string'.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(184,11): error TS6133: 'handleRedditWorkflowStart' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(199,33): error TS2345: Argument of type '{ posts: any[]; subreddits: any[]; stats: RedditWorkflowStats; metadata: any; }' is not assignable to parameter of type 'SetStateAction<RedditWorkflowResponse | null>'.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(205,42): error TS2345: Argument of type '{ posts: any[]; subreddits: any[]; stats: RedditWorkflowStats; metadata: any; }' is not assignable to parameter of type 'RedditWorkflowResponse'.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(211,34): error TS7006: Parameter 'post' implicitly has an 'any' type.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(243,35): error TS2554: Expected 1 arguments, but got 2.
+src/pages/InformationDashboard/components/WorkflowPanel.tsx(360,11): error TS2322: Type '{ isVisible: boolean; errorInfo: ErrorInfo | null; onClose: () => void; }' is not assignable to type 'IntrinsicAttributes & ErrorModalProps'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(26,3): error TS6133: 'selectWorkflowStats' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(29,15): error TS2305: Module '"../types"' has no exported member 'Workflow'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(35,7): error TS6198: All destructured elements are unused.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(45,41): error TS2304: Cannot find name 'RedditWorkflowResponse'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(109,16): error TS2554: Expected 1-2 arguments, but got 0.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(140,11): error TS6133: 'handleTriggerWorkflow' is declared but its value is never read.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(146,15): error TS2353: Object literal may only specify known properties, and 'data' does not exist in type 'TriggerWorkflowRequest'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(231,37): error TS2339: Property 'posts' does not exist on type '{ posts: RedditPost[]; stats: RedditWorkflowStats; subreddits: ParsedSubredditData[]; metadata: { timestamp: any; success: any; validSubreddits: any; ... 5 more ...; apiSource: any; }; } | { ...; }'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(232,42): error TS2339: Property 'subreddits' does not exist on type '{ posts: RedditPost[]; stats: RedditWorkflowStats; subreddits: ParsedSubredditData[]; metadata: { timestamp: any; success: any; validSubreddits: any; ... 5 more ...; apiSource: any; }; } | { ...; }'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(238,27): error TS2339: Property 'data' does not exist on type '{ posts: RedditPost[]; stats: RedditWorkflowStats; subreddits: ParsedSubredditData[]; metadata: { timestamp: any; success: any; validSubreddits: any; ... 5 more ...; apiSource: any; }; } | { ...; }'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(238,49): error TS2339: Property 'data' does not exist on type '{ posts: RedditPost[]; stats: RedditWorkflowStats; subreddits: ParsedSubredditData[]; metadata: { timestamp: any; success: any; validSubreddits: any; ... 5 more ...; apiSource: any; }; } | { ...; }'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(240,42): error TS2339: Property 'data' does not exist on type '{ posts: RedditPost[]; stats: RedditWorkflowStats; subreddits: ParsedSubredditData[]; metadata: { timestamp: any; success: any; validSubreddits: any; ... 5 more ...; apiSource: any; }; } | { ...; }'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(241,34): error TS2339: Property 'subreddits' does not exist on type '{ posts: RedditPost[]; stats: RedditWorkflowStats; subreddits: ParsedSubredditData[]; metadata: { timestamp: any; success: any; validSubreddits: any; ... 5 more ...; apiSource: any; }; } | { ...; }'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(243,42): error TS2339: Property 'subreddits' does not exist on type '{ posts: RedditPost[]; stats: RedditWorkflowStats; subreddits: ParsedSubredditData[]; metadata: { timestamp: any; success: any; validSubreddits: any; ... 5 more ...; apiSource: any; }; } | { ...; }'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(253,15): error TS2322: Type '{ subreddit: string; category: string; posts: { title: string; score: any; comments: number; url: string; author: any; created: string; }[]; }[]' is not assignable to type 'ParsedSubredditData[]'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(259,43): error TS2339: Property 'score' does not exist on type 'ParsedRedditPost'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(262,28): error TS2339: Property 'author' does not exist on type 'ParsedRedditPost'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(323,16): error TS2554: Expected 1-2 arguments, but got 0.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(374,39): error TS2345: Argument of type 'WorkflowSettings | { name: string; enabled: boolean; }' is not assignable to parameter of type 'SetStateAction<{ name: string; webhookUrl: string; enabled: boolean; }>'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(434,41): error TS2345: Argument of type 'WorkflowSettings' is not assignable to parameter of type 'SetStateAction<{ name: string; webhookUrl: string; enabled: boolean; }>'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(489,21): error TS2353: Object literal may only specify known properties, and 'nodeCount' does not exist in type 'WorkflowInfo'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(543,21): error TS2353: Object literal may only specify known properties, and 'nodeCount' does not exist in type 'WorkflowInfo'.
+src/pages/InformationDashboard/components/WorkflowSidebar.tsx(621,23): error TS2322: Type '{ workflow: WorkflowInfo; selected: boolean; loading: false; error: null; progressStatus: string; lastUpdated: Date | undefined; onClick: () => void; onTrigger: () => void; onSettings: () => void; size: "small"; showActions: false; }' is not assignable to type 'IntrinsicAttributes & WorkflowCardProps'.
+src/pages/InformationDashboard/InvoiceOCRPage.tsx(88,10): error TS6133: 'uploadedFiles' is declared but its value is never read.
+src/pages/InformationDashboard/InvoiceOCRPage.tsx(89,10): error TS6133: 'ocrResults' is declared but its value is never read.
+src/pages/InformationDashboard/InvoiceOCRPage.tsx(190,9): error TS6133: 'handleFileDelete' is declared but its value is never read.
+src/pages/InformationDashboard/InvoiceOCRPage.tsx(326,13): error TS2322: Type '(data: { executionId?: string; googleSheetsUrl?: string; processedFiles?: number; totalFiles?: number; enhancedData?: EnhancedWebhookResponse; }) => void' is not assignable to type '(data: { executionId?: string | undefined; googleSheetsUrl?: string | undefined; processedFiles?: number | undefined; totalFiles?: number | undefined; }) => void'.
+src/pages/InformationDashboard/types.ts(274,36): error TS2552: Cannot find name 'ApiResponse'. Did you mean 'Response'?
+src/pages/InformationDashboard/types.ts(274,48): error TS2304: Cannot find name 'PaginatedResponse'.
+src/pages/InformationDashboard/types.ts(275,41): error TS2552: Cannot find name 'ApiResponse'. Did you mean 'Response'?
+src/pages/InformationDashboard/types.ts(276,39): error TS2552: Cannot find name 'ApiResponse'. Did you mean 'Response'?
+src/pages/InformationDashboard/types.ts(277,3): error TS2304: Cannot find name 'PaginatedResponse'.
+src/pages/InformationDashboard/types.ts(279,37): error TS2552: Cannot find name 'ApiResponse'. Did you mean 'Response'?
+src/pages/InformationDashboard/types.ts(280,42): error TS2552: Cannot find name 'ApiResponse'. Did you mean 'Response'?
+src/pages/NotFound/index.tsx(7,20): error TS6133: 'Text' is declared but its value is never read.
+src/pages/NotificationDemo/NotificationDemo.tsx(25,23): error TS6133: 'setCurrentUser' is declared but its value is never read.
+src/pages/NotificationDemo/NotificationDemo.tsx(27,10): error TS6133: 'settings' is declared but its value is never read.
+src/pages/Profile/index.tsx(76,10): error TS6133: 'avatarFile' is declared but its value is never read.
+src/pages/Profile/index.tsx(76,22): error TS6133: 'setAvatarFile' is declared but its value is never read.
+src/pages/Profile/index.tsx(86,7): error TS2322: Type 'string | $SpecialObject | TFunctionDetailedResult<string | $SpecialObject, any>' is not assignable to type 'string'.
+src/pages/Profile/index.tsx(159,39): error TS6133: 'values' is declared but its value is never read.
+src/pages/RAGSystem/components/RAGChat.tsx(2,25): error TS6133: 'Card' is declared but its value is never read.
+src/pages/RAGSystem/components/RAGChat.tsx(13,7): error TS6133: 'Text' is declared but its value is never read.
+src/pages/RAGSystem/components/RAGToolbar.tsx(6,3): error TS6133: 'CloudUploadOutlined' is declared but its value is never read.
+src/pages/RAGSystem/hooks/useChatHistory.ts(61,24): error TS18048: 'lastMessage' is possibly 'undefined'.
+src/pages/RAGSystem/hooks/useChatHistory.ts(62,15): error TS18048: 'lastMessage' is possibly 'undefined'.
+src/pages/RAGSystem/hooks/useChatHistory.ts(63,16): error TS18048: 'lastMessage' is possibly 'undefined'.
+src/pages/RAGSystem/hooks/useChatHistory.ts(65,22): error TS18048: 'lastMessage' is possibly 'undefined'.
+src/pages/RAGSystem/hooks/useChatHistory.ts(188,31): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'SetStateAction<string>'.
+src/pages/RAGSystem/hooks/useChatHistory.ts(224,11): error TS2345: Argument of type '([sessionId, messages]: [string, any[]]) => void' is not assignable to parameter of type '(value: [string, unknown], index: number, array: [string, unknown][]) => void'.
+src/pages/RAGSystem/index.tsx(17,9): error TS6133: 't' is declared but its value is never read.
+src/pages/RNDReport/components/CategoryManager.tsx(6,27): error TS6133: 'useEffect' is declared but its value is never read.
+src/pages/RNDReport/components/CategoryManager.tsx(23,3): error TS6133: 'Badge' is declared but its value is never read.
+src/pages/RNDReport/components/CategoryManager.tsx(39,15): error TS6133: 'Title' is declared but its value is never read.
+src/pages/RNDReport/components/CategoryManager.tsx(171,82): error TS2379: Argument of type '{ name: string; description: string | undefined; color: string | undefined; }' is not assignable to parameter of type 'Partial<Category>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+src/pages/RNDReport/components/CategoryManager.tsx(186,58): error TS2379: Argument of type '{ name: string; description: string | undefined; color: string | undefined; }' is not assignable to parameter of type 'Omit<Category, "id" | "createdDate" | "reportCount">' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+src/pages/RNDReport/components/CategoryManager.tsx(313,22): error TS2322: Type '{ children: string; size: string; color: "default"; }' is not assignable to type 'IntrinsicAttributes & TagProps & RefAttributes<HTMLSpanElement>'.
+src/pages/RNDReport/components/ReportList.tsx(19,3): error TS6133: 'Modal' is declared but its value is never read.
+src/pages/RNDReport/components/ReportList.tsx(21,3): error TS6133: 'Progress' is declared but its value is never read.
+src/pages/RNDReport/components/ReportList.tsx(28,3): error TS6133: 'FilterOutlined' is declared but its value is never read.
+src/pages/RNDReport/components/ReportList.tsx(34,3): error TS6133: 'SettingOutlined' is declared but its value is never read.
+src/pages/RNDReport/components/ReportList.tsx(40,3): error TS6133: 'CheckCircleOutlined' is declared but its value is never read.
+src/pages/RNDReport/components/ReportList.tsx(50,3): error TS6196: 'ReportSearchFilters' is declared but never used.
+src/pages/RNDReport/components/ReportList.tsx(55,1): error TS6192: All imports in import declaration are unused.
+src/pages/RNDReport/components/ReportList.tsx(58,7): error TS6133: 'Option' is declared but its value is never read.
+src/pages/RNDReport/components/ReportList.tsx(95,3): error TS6133: 'onCategorySelect' is declared but its value is never read.
+src/pages/RNDReport/components/ReportList.tsx(250,9): error TS6133: 'handleViewModeChange' is declared but its value is never read.
+src/pages/RNDReport/components/ReportList.tsx(321,9): error TS6133: 'renderCategoryTree' is declared but its value is never read.
+src/pages/RNDReport/components/ReportSettings.tsx(18,3): error TS6133: 'Tag' is declared but its value is never read.
+src/pages/RNDReport/components/ReportSettings.tsx(20,3): error TS6133: 'Popconfirm' is declared but its value is never read.
+src/pages/RNDReport/components/ReportSettings.tsx(29,3): error TS6133: 'FolderOutlined' is declared but its value is never read.
+src/pages/RNDReport/components/ReportSettings.tsx(33,3): error TS6133: 'ClockCircleOutlined' is declared but its value is never read.
+src/pages/RNDReport/components/ReportSettings.tsx(34,3): error TS6133: 'UserOutlined' is declared but its value is never read.
+src/pages/RNDReport/components/ReportSettings.tsx(35,3): error TS6133: 'CalendarOutlined' is declared but its value is never read.
+src/pages/RNDReport/components/ReportSettings.tsx(46,15): error TS6133: 'Title' is declared but its value is never read.
+src/pages/RNDReport/components/ReportSettings.tsx(148,9): error TS2375: Type '{ description: string | undefined; title?: string; author?: string; createdDate?: Date; keywords?: string[]; version?: string; lastModified?: Date; }' is not assignable to type 'ReportMetadata' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+src/pages/RNDReport/components/ReportSettings.tsx(218,9): error TS6133: 'getCategoryName' is declared but its value is never read.
+src/pages/RNDReport/components/ReportSettings.tsx(352,30): error TS2339: Property 'formatDate' does not exist on type 'typeof DateUtils'.
+src/pages/RNDReport/components/ReportSettings.tsx(355,52): error TS2339: Property 'formatDate' does not exist on type 'typeof DateUtils'.
+src/pages/RNDReport/components/ReportViewer.tsx(25,3): error TS6133: 'EyeOutlined' is declared but its value is never read.
+src/pages/RNDReport/components/ReportViewer.tsx(67,3): error TS6133: 'report' is declared but its value is never read.
+src/pages/RNDReport/components/ReportViewer.tsx(354,11): error TS6133: 'hasHeadTag' is declared but its value is never read.
+src/pages/RNDReport/components/ReportViewer.tsx(494,9): error TS6133: 'analyzeHtmlContent' is declared but its value is never read.
+src/pages/RNDReport/components/ReportViewer.tsx(645,9): error TS6133: 'cleanupOrphanedCaches' is declared but its value is never read.
+src/pages/RNDReport/components/ReportViewer.tsx(686,9): error TS6133: 'optimizeStorage' is declared but its value is never read.
+src/pages/RNDReport/components/ReportViewer.tsx(844,40): error TS7030: Not all code paths return a value.
+src/pages/RNDReport/components/ReportViewer.tsx(870,21): error TS2532: Object is possibly 'undefined'.
+src/pages/RNDReport/components/ReportViewer.tsx(1022,13): error TS7030: Not all code paths return a value.
+src/pages/RNDReport/components/ReportViewer.tsx(1237,27): error TS6133: 'e' is declared but its value is never read.
+src/pages/RNDReport/components/UploadConfirmationDialog.tsx(23,3): error TS6133: 'CloseOutlined' is declared but its value is never read.
+src/pages/RNDReport/components/UploadConfirmationDialog.tsx(31,15): error TS6133: 'Title' is declared but its value is never read.
+src/pages/RNDReport/components/UploadZone.tsx(18,23): error TS6133: 'FileIcon' is declared but its value is never read.
+src/pages/RNDReport/components/UploadZone.tsx(28,15): error TS6133: 'Paragraph' is declared but its value is never read.
+src/pages/RNDReport/components/UploadZone.tsx(121,30): error TS2339: Property 'file' does not exist on type 'File'.
+src/pages/RNDReport/components/UploadZone.tsx(121,36): error TS2339: Property 'errors' does not exist on type 'File'.
+src/pages/RNDReport/components/UploadZone.tsx(122,44): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/pages/RNDReport/components/UploadZone.tsx(128,43): error TS2339: Property 'file' does not exist on type 'File'.
+src/pages/RNDReport/components/UploadZone.tsx(133,55): error TS2532: Object is possibly 'undefined'.
+src/pages/RNDReport/components/UploadZone.tsx(218,57): error TS2532: Object is possibly 'undefined'.
+src/pages/RNDReport/components/UploadZone.tsx(268,5): error TS2322: Type '(acceptedFiles: File[], rejectedFiles: File[]) => Promise<void>' is not assignable to type '<T extends File>(acceptedFiles: T[], fileRejections: FileRejection[], event: DropEvent) => void'.
+src/pages/RNDReport/RNDReport.tsx(42,3): error TS6133: 'Alert' is declared but its value is never read.
+src/pages/RNDReport/RNDReport.tsx(50,3): error TS6133: 'PlusOutlined' is declared but its value is never read.
+src/pages/RNDReport/RNDReport.tsx(61,1): error TS6133: 'ReportSettings' is declared but its value is never read.
+src/pages/RNDReport/RNDReport.tsx(75,10): error TS6133: 'useAppSelector' is declared but its value is never read.
+src/pages/RNDReport/RNDReport.tsx(86,9): error TS6133: 'dispatch' is declared but its value is never read.
+src/pages/RNDReport/RNDReport.tsx(863,45): error TS6133: 'categoryId' is declared but its value is never read.
+src/pages/Settings/index.tsx(25,15): error TS6196: 'ThemeMode' is declared but never used.
+src/pages/SocialMedia/components/AirtableTable.tsx(25,3): error TS6133: 'Progress' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(30,3): error TS6133: 'VideoCameraOutlined' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(32,3): error TS6133: 'ExclamationCircleOutlined' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(34,3): error TS6133: 'EyeOutlined' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(35,3): error TS6133: 'EditOutlined' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(37,3): error TS6133: 'UploadOutlined' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(38,3): error TS6133: 'ClearOutlined' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(39,3): error TS6133: 'CloseOutlined' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(46,1): error TS6133: 'TKViralExtractAirtableService' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(48,9): error TS6133: 'Title' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(63,9): error TS6133: 't' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(83,10): error TS6133: 'clearModalVisible' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(83,29): error TS6133: 'setClearModalVisible' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(84,10): error TS6133: 'importModalVisible' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(84,30): error TS6133: 'setImportModalVisible' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(85,10): error TS6133: 'clearing' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(85,20): error TS6133: 'setClearing' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(86,10): error TS6133: 'importing' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(86,21): error TS6133: 'setImporting' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(87,10): error TS6133: 'cancelImport' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(87,24): error TS6133: 'setCancelImport' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(88,10): error TS6133: 'importFile' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(88,22): error TS6133: 'setImportFile' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(89,10): error TS6133: 'clearProgress' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(89,25): error TS6133: 'setClearProgress' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(90,10): error TS6133: 'importProgress' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(90,26): error TS6133: 'setImportProgress' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(94,9): error TS6133: 'cancelImportRef' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(99,9): error TS6133: 'formatFileSize' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(110,9): error TS6133: 'formatDate' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(123,9): error TS6133: 'getViralScoreColor' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(134,9): error TS6133: 'getPlatformColor' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(355,9): error TS6133: 'handleEdit' is declared but its value is never read.
+src/pages/SocialMedia/components/AirtableTable.tsx(438,23): error TS6133: 'filters' is declared but its value is never read.
+src/pages/SocialMedia/components/InputForm.tsx(10,1): error TS6133: 'tkWebhookService' is declared but its value is never read.
+src/pages/SocialMedia/components/InputForm.tsx(11,35): error TS6196: 'SimplifiedInputFormProps' is declared but never used.
+src/pages/SocialMedia/components/RedNoteContentGenerator.tsx(52,9): error TS6133: 't' is declared but its value is never read.
+src/pages/SocialMedia/components/RedNoteContentGenerator.tsx(111,21): error TS2532: Object is possibly 'undefined'.
+src/pages/SocialMedia/components/RedNoteContentGenerator.tsx(112,25): error TS2532: Object is possibly 'undefined'.
+src/pages/SocialMedia/components/RedNoteContentGenerator.tsx(140,13): error TS2375: Type '{ id: string; inputContent: string; contentType: string; tone: string; writingTechnique: string; successFactor: string; targetAudience: string | undefined; keywords: string[] | undefined; createdAt: string; }' is not assignable to type 'RedNoteContentRequest' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+src/pages/SocialMedia/components/RedNoteContentGenerator.tsx(219,9): error TS6133: 'generateMockContent' is declared but its value is never read.
+src/pages/SocialMedia/components/RedNoteContentGenerator.tsx(228,9): error TS2532: Object is possibly 'undefined'.
+src/pages/SocialMedia/components/ResultPanel.tsx(17,3): error TS6133: 'Alert' is declared but its value is never read.
+src/pages/SocialMedia/components/ResultPanel.tsx(18,3): error TS6133: 'Row' is declared but its value is never read.
+src/pages/SocialMedia/components/ResultPanel.tsx(19,3): error TS6133: 'Col' is declared but its value is never read.
+src/pages/SocialMedia/components/ResultPanel.tsx(28,3): error TS6133: 'ShareAltOutlined' is declared but its value is never read.
+src/pages/SocialMedia/components/ResultPanel.tsx(34,9): error TS6133: 'Title' is declared but its value is never read.
+src/pages/SocialMedia/components/ResultPanel.tsx(98,20): error TS2339: Property 'subreddit' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(105,27): error TS2339: Property 'score' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(111,27): error TS2339: Property 'numComments' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(115,47): error TS2339: Property 'score' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(115,60): error TS2322: Type '{ children: string; color: string; size: string; }' is not assignable to type 'IntrinsicAttributes & TagProps & RefAttributes<HTMLSpanElement>'.
+src/pages/SocialMedia/components/ResultPanel.tsx(116,33): error TS2339: Property 'score' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(134,23): error TS2339: Property 'title' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(136,20): error TS2322: Type '{ children: any[]; size: string; }' is not assignable to type 'IntrinsicAttributes & TagProps & RefAttributes<HTMLSpanElement>'.
+src/pages/SocialMedia/components/ResultPanel.tsx(137,25): error TS2339: Property 'subreddit' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(143,23): error TS2339: Property 'createdAt' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(144,35): error TS2339: Property 'createdAt' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(147,21): error TS2339: Property 'author' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(150,27): error TS2339: Property 'author' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(157,16): error TS2339: Property 'selftext' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(157,33): error TS2339: Property 'selftext' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(162,21): error TS2339: Property 'selftext' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(164,20): error TS2339: Property 'url' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(164,33): error TS2339: Property 'url' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(172,28): error TS2339: Property 'url' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(176,23): error TS2339: Property 'url' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(248,19): error TS2339: Property 'subreddit' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(249,16): error TS2339: Property 'subreddit' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(251,5): error TS2532: Object is possibly 'undefined'.
+src/pages/SocialMedia/components/ResultPanel.tsx(251,14): error TS2339: Property 'subreddit' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/ResultPanel.tsx(312,67): error TS2339: Property 'score' does not exist on type 'ParsedSubredditData'.
+src/pages/SocialMedia/components/TKViralExtract.tsx(24,22): error TS6133: 'setParameters' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowPanel.tsx(9,23): error TS6133: 'LoadingOutlined' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowPanel.tsx(33,3): error TS6133: 'onDataReceived' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(10,3): error TS6133: 'Card' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(11,3): error TS6133: 'List' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(12,3): error TS6133: 'Button' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(13,3): error TS6133: 'Space' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(14,3): error TS6133: 'Tag' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(15,3): error TS6133: 'Tooltip' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(17,3): error TS6133: 'Divider' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(18,3): error TS6133: 'Alert' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(19,3): error TS6133: 'Progress' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(20,3): error TS6133: 'Empty' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(21,3): error TS6133: 'Spin' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(26,1): error TS6192: All imports in import declaration are unused.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(46,1): error TS6133: 'workflowService' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(51,3): error TS6133: 'WorkflowSettingsButton' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(56,7): error TS6198: All destructured elements are unused.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(83,9): error TS6133: 'workflowStats' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(84,9): error TS6133: 'loading' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(95,10): error TS6133: 'workflowLoadingStates' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(96,10): error TS6133: 'workflowErrors' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(97,10): error TS6133: 'workflowProgressStates' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(97,34): error TS6133: 'setWorkflowProgressStates' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(98,10): error TS6133: 'lastUpdatedTimes' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(101,10): error TS6133: 'redditLoading' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(102,10): error TS6133: 'redditError' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(103,10): error TS6133: 'redditProgressStatus' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(114,29): error TS6133: 'w' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(117,9): error TS6133: 'hasWorkflows' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(130,9): error TS6133: 'handleWorkflowTrigger' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(150,15): error TS6133: 'result' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(175,9): error TS6133: 'handleRedditWorkflowStart' is declared but its value is never read.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(246,17): error TS2353: Object literal may only specify known properties, and 'nodeCount' does not exist in type 'WorkflowInfo'.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(298,17): error TS2353: Object literal may only specify known properties, and 'nodeCount' does not exist in type 'WorkflowInfo'.
+src/pages/SocialMedia/components/WorkflowSidebar.tsx(347,11): error TS2322: Type '{ visible: boolean; workflowId: string; workflowName: string; onCancel: () => void; onSave: (settings: any) => void; }' is not assignable to type 'IntrinsicAttributes & WorkflowSettingsModalProps'.
+src/pages/SocialMedia/SocialMedia.tsx(24,27): error TS6133: 'Text' is declared but its value is never read.
+src/pages/SocialMedia/SocialMedia.tsx(35,10): error TS6133: 'redditWorkflowData' is declared but its value is never read.
+src/pages/SocialMedia/SocialMedia.tsx(36,10): error TS6133: 'viralContentData' is declared but its value is never read.
+src/pages/SocialMedia/SocialMedia.tsx(56,9): error TS6133: 'handleRedditWorkflowDataReceived' is declared but its value is never read.
+src/pages/SocialMedia/SocialMedia.tsx(132,17): error TS2322: Type '{ onParametersChange: (params: any) => void; onDataLoaded: (data: ViralContentRecord[]) => void; onError: (error: any) => void; }' is not assignable to type 'IntrinsicAttributes'.
+src/pages/SocialMedia/SocialMedia.tsx(132,38): error TS7006: Parameter 'params' implicitly has an 'any' type.
+src/pages/SocialMedia/SocialMedia.tsx(134,27): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/pages/SocialMedia/types.ts(199,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(48,3): error TS6133: 'notification' is declared but its value is never read.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(70,3): error TS6196: 'InvoiceOCRSettings' is declared but never used.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(73,3): error TS6196: 'InvoiceFileType' is declared but never used.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(74,3): error TS6196: 'InvoiceOCRLanguage' is declared but never used.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(75,3): error TS6196: 'InvoiceOCROutputFormat' is declared but never used.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(77,8): error TS2307: Cannot find module '../../../pages/InformationDashboard/types' or its corresponding type declarations.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(186,11): error TS6133: 't' is declared but its value is never read.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(224,13): error TS2554: Expected 1 arguments, but got 2.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(244,13): error TS2554: Expected 1 arguments, but got 2.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(273,13): error TS2554: Expected 1 arguments, but got 2.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(300,7): error TS7006: Parameter 'info' implicitly has an 'any' type.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(480,30): error TS2379: Argument of type '{ executionId: string | undefined; googleSheetsUrl: string; processedFiles: number; totalFiles: number; enhancedData: any; }' is not assignable to parameter of type '{ executionId?: string; googleSheetsUrl?: string; processedFiles?: number; totalFiles?: number; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(697,11): error TS2554: Expected 1 arguments, but got 3.
+src/pages/Tools/components/invoice-ocr/InvoiceFileUpload.tsx(1004,11): error TS2322: Type '{ visible: boolean; errorInfo: ErrorInfo | null; onClose: () => void; }' is not assignable to type 'IntrinsicAttributes & ErrorModalProps'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(82,15): error TS2300: Duplicate identifier 'ColumnsType'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(83,15): error TS2300: Duplicate identifier 'ColumnsType'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(88,3): error TS2724: '"@/pages/InformationDashboard/types"' has no exported member named 'InvoiceOCRWorkflowStats'. Did you mean 'InvoiceOCRWorkflow'?
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(89,3): error TS2724: '"@/pages/InformationDashboard/types"' has no exported member named 'InvoiceOCRExecutionHistory'. Did you mean 'InvoiceOCRExecution'?
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(90,3): error TS2305: Module '"@/pages/InformationDashboard/types"' has no exported member 'EnhancedWebhookResponse'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(215,10): error TS6133: 'history' is declared but its value is never read.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(293,31): error TS2551: Property 'downloadResultFile' does not exist on type 'InvoiceOCRService'. Did you mean 'downloadResult'?
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(298,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(315,31): error TS2551: Property 'downloadBatchResults' does not exist on type 'InvoiceOCRService'. Did you mean 'downloadResults'?
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(320,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(333,72): error TS2339: Property 'fileName' does not exist on type 'InvoiceOCRResult'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(336,37): error TS2554: Expected 2 arguments, but got 1.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(342,15): error TS2554: Expected 1 arguments, but got 3.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(790,40): error TS18046: 'item' is of type 'unknown'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(802,30): error TS18046: 'item' is of type 'unknown'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(806,21): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(867,24): error TS2304: Cannot find name 'BarChartOutlined'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(912,29): error TS2339: Property 'batchName' does not exist on type 'InvoiceOCRBatchTask'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(915,50): error TS2339: Property 'totalFiles' does not exist on type 'InvoiceOCRBatchTask'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(938,41): error TS2339: Property 'fileName' does not exist on type 'InvoiceOCRResult'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(957,29): error TS2339: Property 'fileName' does not exist on type 'InvoiceOCRResult'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(967,35): error TS18048: 'selectedResult.confidence' is possibly 'undefined'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(969,23): error TS18048: 'selectedResult.confidence' is possibly 'undefined'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(973,38): error TS2339: Property 'processedAt' does not exist on type 'InvoiceOCRResult'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(979,42): error TS2339: Property 'extractedFields' does not exist on type 'InvoiceOCRResult'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(1023,15): error TS6133: 'stats' is declared but its value is never read.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(1445,24): error TS6133: 'selectedRowKeys' is declared but its value is never read.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRResults.tsx(1465,9): error TS2322: Type '{ visible: boolean; errorInfo: ErrorInfo | null; onClose: () => void; }' is not assignable to type 'IntrinsicAttributes & ErrorModalProps'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRSettings.tsx(107,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRSettings.tsx(126,11): error TS2554: Expected 1 arguments, but got 2.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRSettings.tsx(143,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRSettings.tsx(172,11): error TS2554: Expected 1 arguments, but got 3.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRSettings.tsx(172,18): error TS2339: Property 'error' does not exist on type '{ success: boolean; message: string; }'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRSettings.tsx(180,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRSettings.tsx(242,6): error TS2375: Type '{ children: (Element | null)[]; className: string | undefined; title: Element; loading: boolean; }' is not assignable to type 'CardProps' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRSettings.tsx(470,16): error TS18047: 'errorInfo' is possibly 'null'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRSettings.tsx(471,18): error TS18047: 'errorInfo' is possibly 'null'.
+src/pages/Tools/components/invoice-ocr/InvoiceOCRSettings.tsx(472,18): error TS18047: 'errorInfo' is possibly 'null'.
+src/pages/Tools/components/InvoiceOCRPage.tsx(35,3): error TS6133: 'Statistic' is declared but its value is never read.
+src/pages/Tools/components/InvoiceOCRPage.tsx(39,3): error TS6133: 'Badge' is declared but its value is never read.
+src/pages/Tools/components/InvoiceOCRPage.tsx(53,3): error TS6133: 'ExclamationCircleOutlined' is declared but its value is never read.
+src/pages/Tools/components/InvoiceOCRPage.tsx(64,3): error TS6196: 'InvoiceOCRBatchTask' is declared but never used.
+src/pages/Tools/components/InvoiceOCRPage.tsx(69,7): error TS6133: 'Step' is declared but its value is never read.
+src/pages/Tools/components/InvoiceOCRPage.tsx(97,10): error TS6133: 'uploadedFiles' is declared but its value is never read.
+src/pages/Tools/components/InvoiceOCRPage.tsx(98,10): error TS6133: 'ocrResults' is declared but its value is never read.
+src/pages/Tools/components/InvoiceOCRPage.tsx(99,10): error TS6133: 'stats' is declared but its value is never read.
+src/pages/Tools/components/InvoiceOCRPage.tsx(122,12): error TS6133: 'files' is declared but its value is never read.
+src/pages/Tools/components/InvoiceOCRPage.tsx(141,11): error TS2554: Expected 1 arguments, but got 3.
+src/pages/Tools/components/InvoiceOCRPage.tsx(197,9): error TS2554: Expected 1 arguments, but got 3.
+src/pages/Tools/components/InvoiceOCRPage.tsx(208,9): error TS6133: 'handleFilesUploaded' is declared but its value is never read.
+src/pages/Tools/components/InvoiceOCRPage.tsx(228,9): error TS6133: 'handleFileDelete' is declared but its value is never read.
+src/pages/Tools/components/InvoiceOCRPage.tsx(314,9): error TS2322: Type '"error" | "success" | "wait" | "process"' is not assignable to type '"error" | "wait" | "process" | "finish"'.
+src/pages/Tools/components/InvoiceOCRPage.tsx(361,28): error TS2367: This comparison appears to be unintentional because the types '"uploading" | "idle"' and '"processing"' have no overlap.
+src/pages/Tools/components/InvoiceOCRPage.tsx(373,9): error TS2322: Type '{ executionId?: string; googleSheetsUrl?: string; processedFiles?: number; totalFiles?: number; enhancedData?: EnhancedWebhookResponse; } | null' is not assignable to type '{ executionId?: string; googleSheetsUrl?: string; processedFiles?: number; totalFiles?: number; enhancedData?: any; }'.
+src/pages/Tools/components/InvoiceOCRPage.tsx(410,11): error TS2322: Type '{ visible: boolean; errorInfo: ErrorInfo | null; onClose: () => void; }' is not assignable to type 'IntrinsicAttributes & ErrorModalProps'.
+src/pages/Tools/components/ResultPanel.tsx(14,3): error TS6133: 'Alert' is declared but its value is never read.
+src/pages/Tools/components/ResultPanel.tsx(16,3): error TS6133: 'Spin' is declared but its value is never read.
+src/pages/Tools/components/ResultPanel.tsx(24,3): error TS6133: 'MessageOutlined' is declared but its value is never read.
+src/pages/Tools/components/ResultPanel.tsx(25,3): error TS6133: 'LikeOutlined' is declared but its value is never read.
+src/pages/Tools/components/ResultPanel.tsx(31,15): error TS6133: 'Title' is declared but its value is never read.
+src/pages/Tools/components/ResultPanel.tsx(45,18): error TS6133: 'loading' is declared but its value is never read.
+src/pages/Tools/components/ResultPanel.tsx(46,11): error TS6133: 't' is declared but its value is never read.
+src/pages/Tools/components/ResultPanel.tsx(77,49): error TS2339: Property 'subreddit' does not exist on type 'ParsedSubredditData'.
+src/pages/Tools/components/SmartOpportunities.tsx(17,9): error TS6133: 't' is declared but its value is never read.
+src/pages/Tools/components/TaxInvoiceReceipt.tsx(7,10): error TS6133: 'Card' is declared but its value is never read.
+src/pages/Tools/components/TaxInvoiceReceipt.tsx(9,7): error TS6133: 'Title' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(32,3): error TS6133: 'Statistic' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(36,3): error TS6133: 'Badge' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(50,3): error TS6133: 'ExclamationCircleOutlined' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(54,1): error TS6133: 'invoiceOCRService' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(61,3): error TS6196: 'UniversalOCRSettings' is declared but never used.
+src/pages/Tools/components/UniversalOCRPage.tsx(62,3): error TS6196: 'DEFAULT_UNIVERSAL_OCR_SETTINGS' is declared but never used.
+src/pages/Tools/components/UniversalOCRPage.tsx(68,7): error TS6133: 'Step' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(86,22): error TS6133: 'errorInfo' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(96,10): error TS6133: 'uploadedFiles' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(97,10): error TS6133: 'ocrResults' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(98,10): error TS6133: 'stats' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(109,10): error TS6133: 'completedData' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(120,9): error TS6133: 'handleProcessOCR' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(182,9): error TS6133: 'handleOCRCompleted' is declared but its value is never read.
+src/pages/Tools/components/UniversalOCRPage.tsx(234,9): error TS6133: 'handleFilesUploaded' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(8,15): error TS6133: 'Space' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(8,42): error TS6133: 'Typography' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(12,1): error TS6192: All imports in import declaration are unused.
+src/pages/Tools/components/WorkflowPanel.tsx(76,11): error TS6133: 'workflows' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(86,12): error TS6133: 'redditLoading' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(87,12): error TS6133: 'redditError' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(88,12): error TS6133: 'redditProgressStatus' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(89,12): error TS6133: 'redditData' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(90,12): error TS6133: 'redditWorkflowData' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(111,11): error TS6133: 'handleTriggerWorkflow' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(154,11): error TS6133: 'handleRefresh' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(162,11): error TS6133: 'handleRedditWorkflowStart' is declared but its value is never read.
+src/pages/Tools/components/WorkflowPanel.tsx(177,33): error TS2345: Argument of type '{ posts: any[]; subreddits: any[]; stats: RedditWorkflowStats; metadata: any; }' is not assignable to parameter of type 'SetStateAction<RedditWorkflowResponse | null>'.
+src/pages/Tools/components/WorkflowPanel.tsx(183,42): error TS2345: Argument of type '{ posts: any[]; subreddits: any[]; stats: RedditWorkflowStats; metadata: any; }' is not assignable to parameter of type 'RedditWorkflowResponse'.
+src/pages/Tools/components/WorkflowSidebar.tsx(13,3): error TS6133: 'Typography' is declared but its value is never read.
+src/pages/Tools/components/WorkflowSidebar.tsx(124,11): error TS6133: 'handleTriggerWorkflow' is declared but its value is never read.
+src/pages/Tools/Tools.tsx(23,16): error TS6133: 'Paragraph' is declared but its value is never read.
+src/utils/codeCleanup/CodeAnalyzer.ts(18,3): error TS6196: 'FileAnalysis' is declared but never used.
+src/utils/codeCleanup/CodeAnalyzer.ts(116,35): error TS6133: 'patterns' is declared but its value is never read.
+src/utils/codeCleanup/CodeAnalyzer.ts(218,36): error TS6133: 'files' is declared but its value is never read.
+src/utils/codeCleanup/CodeAnalyzer.ts(305,15): error TS6133: 'importMatches' is declared but its value is never read.
+src/utils/codeCleanup/CodeAnalyzer.ts(467,5): error TS6133: 'totalFiles' is declared but its value is never read.
+src/utils/codeCleanup/CodeAnalyzer.ts(522,5): error TS6133: 'unusedImports' is declared but its value is never read.

@@ -378,6 +378,7 @@ export interface InvoiceOCRQueryParams {
   search?: string;
   sortBy?: 'createdAt' | 'completedAt' | 'confidence' | 'fileName';
   sortOrder?: 'asc' | 'desc';
+  batchTaskId?: string;
 }
 
 /**

@@ -9,19 +9,19 @@ export interface ErrorModalProps {
   /** 是否显示模态框 */
   visible: boolean;
   /** 错误标题 */
-  title?: string;
+  title?: string | undefined;
   /** 错误消息 */
   message: string;
   /** 错误详情（可选） */
-  details?: string;
+  details?: string | undefined;
   /** 故障排除步骤（可选） */
-  troubleshooting?: string[];
+  troubleshooting?: string[] | undefined;
   /** 关闭回调 */
   onClose: () => void;
   /** 是否显示复制按钮 */
-  showCopy?: boolean;
+  showCopy?: boolean | undefined;
   /** 自定义操作按钮 */
-  actions?: React.ReactNode[];
+  actions?: React.ReactNode[] | undefined;
 }
 
 /**

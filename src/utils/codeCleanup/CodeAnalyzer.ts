@@ -227,11 +227,16 @@ export class CodeAnalyzer {
             cwd: this.projectRoot,
             stdio: 'pipe',
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           // Parse TypeScript errors
+          const execError = error as { stdout?: unknown; stderr?: unknown };
           const output =
-            error.stdout?.toString() || error.stderr?.toString() || '';
-          const lines = output.split('\n').filter(line => line.trim());
+            (execError.stdout as Buffer)?.toString() ||
+            (execError.stderr as Buffer)?.toString() ||
+            '';
+          const lines = output
+            .split('\n')
+            .filter((line: string) => line.trim());
 
           for (const line of lines) {
             const match = line.match(
@@ -239,14 +244,16 @@ export class CodeAnalyzer {
             );
             if (match) {
               const [, file, lineNum, colNum, , code, message] = match;
-              errors.push({
-                file: path.resolve(file),
-                line: parseInt(lineNum),
-                column: parseInt(colNum),
-                message: message.trim(),
-                code: `TS${code}`,
-                fixable: this.isFixableError(`TS${code}`),
-              });
+              if (file && lineNum && colNum && code && message) {
+                errors.push({
+                  file: path.resolve(file),
+                  line: parseInt(lineNum),
+                  column: parseInt(colNum),
+                  message: message.trim(),
+                  code: `TS${code}`,
+                  fixable: this.isFixableError(`TS${code}`),
+                });
+              }
             }
           }
         }
@@ -301,7 +308,7 @@ export class CodeAnalyzer {
           content.match(/import\s+.*?\s+from\s+['"][^'"]+['"]/g) || [];
 
         for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
+          const line = lines[i]?.trim() || '';
 
           if (line.startsWith('import')) {
             // Basic check for unused imports
@@ -311,27 +318,29 @@ export class CodeAnalyzer {
               /import\s+{([^}]+)}\s+from\s+['"]([^'"]+)['"]/
             );
             if (importMatch) {
-              const [, imports, modulePath] = importMatch;
-              const importedItems = imports
-                .split(',')
-                .map(item => item.trim().split(' as ')[0]);
+              const [, imports] = importMatch;
+              if (imports) {
+                const importedItems = imports
+                  .split(',')
+                  .map(item => item.trim().split(' as ')[0]);
 
-              // Check if imported items are used in the file
-              const unusedItems: string[] = [];
-              for (const item of importedItems) {
-                if (item && !content.includes(item)) {
-                  unusedItems.push(item);
+                // Check if imported items are used in the file
+                const unusedItems: string[] = [];
+                for (const item of importedItems) {
+                  if (item && !content.includes(item)) {
+                    unusedItems.push(item);
+                  }
                 }
-              }
 
-              if (unusedItems.length > 0) {
-                unusedImports.push({
-                  file,
-                  importStatement: line,
-                  unusedIdentifiers: unusedItems,
-                  line: i + 1,
-                  safeToRemove: unusedItems.length === importedItems.length,
-                });
+                if (unusedItems.length > 0) {
+                  unusedImports.push({
+                    file,
+                    importStatement: line,
+                    unusedIdentifiers: unusedItems,
+                    line: i + 1,
+                    safeToRemove: unusedItems.length === importedItems.length,
+                  });
+                }
               }
             }
           }
@@ -364,7 +373,7 @@ export class CodeAnalyzer {
         // This is a basic implementation - production version would use
         // more sophisticated static analysis
         for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
+          const line = lines[i]?.trim() || '';
 
           // Skip empty lines and comments
           if (
@@ -395,15 +404,17 @@ export class CodeAnalyzer {
             const varMatch = line.match(/^(const|let|var)\s+(\w+)/);
             if (varMatch) {
               const varName = varMatch[2];
-              const remainingContent = lines.slice(i + 1).join('\n');
-              if (!remainingContent.includes(varName)) {
-                deadRegions.push({
-                  startLine: i + 1,
-                  endLine: i + 1,
-                  content: line,
-                  reason: 'Unused variable declaration',
-                });
-                deadLines++;
+              if (varName) {
+                const remainingContent = lines.slice(i + 1).join('\n');
+                if (!remainingContent.includes(varName)) {
+                  deadRegions.push({
+                    startLine: i + 1,
+                    endLine: i + 1,
+                    content: line,
+                    reason: 'Unused variable declaration',
+                  });
+                  deadLines++;
+                }
               }
             }
           }

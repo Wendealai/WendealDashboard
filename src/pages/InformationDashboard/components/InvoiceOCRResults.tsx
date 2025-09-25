@@ -76,9 +76,7 @@ import {
   ReloadOutlined,
   DeleteOutlined,
   MoreOutlined,
-  TableOutlined,
   BarChartOutlined,
-  FileExcelOutlined,
   CloudDownloadOutlined,
   BulbOutlined,
   CloseCircleOutlined,
@@ -91,8 +89,8 @@ import type {
   InvoiceOCRBatchTask,
   InvoiceOCRQueryParams,
   InvoiceOCRPaginatedResponse,
-  InvoiceOCRWorkflowStats,
-  InvoiceOCRExecutionHistory,
+  InvoiceOCRStatistics,
+  InvoiceOCRExecution,
   InvoiceData,
   InvoiceLineItem,
 } from '../types/invoiceOCR';
@@ -225,12 +223,12 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const { isVisible, errorInfo, showError, hideError } = useErrorModal();
   const [results, setResults] = useState<InvoiceOCRResult[]>([]);
   const [batchTasks, setBatchTasks] = useState<InvoiceOCRBatchTask[]>([]);
-  const [stats, setStats] = useState<InvoiceOCRWorkflowStats | null>(null);
-  const [history, setHistory] = useState<InvoiceOCRExecutionHistory[]>([]);
+  const [stats, setStats] = useState<InvoiceOCRStatistics | null>(null);
+  const [history, setHistory] = useState<InvoiceOCRExecution[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedResults, setSelectedResults] = useState<InvoiceOCRResult[]>(
     []
-  );
+  ); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedResult, setSelectedResult] = useState<InvoiceOCRResult | null>(
     null
@@ -308,7 +306,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
    */
   const handleDownloadResult = useCallback(async (result: InvoiceOCRResult) => {
     try {
-      await invoiceOCRService.downloadResultFile(result.id);
+      await invoiceOCRService.downloadResult(result.workflowId, result.id);
       message.success('File downloaded successfully');
     } catch (error) {
       showError(
@@ -330,16 +328,15 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
 
     try {
       const resultIds = selectedResults.map(result => result.id);
-      await invoiceOCRService.downloadBatchResults(resultIds);
+      await invoiceOCRService.downloadResults(workflowId, resultIds);
       message.success('Batch download successful');
     } catch (error) {
       showError(
         'Batch download failed',
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
+        error instanceof Error ? error.message : 'Unknown error'
       );
     }
-  }, [selectedResults]);
+  }, [selectedResults, workflowId]);
 
   /**
    * 删除结果
@@ -348,17 +345,16 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     async (result: InvoiceOCRResult) => {
       confirm({
         title: 'Confirm Delete',
-        content: `Are you sure you want to delete the result "${result.fileName}"?`,
+        content: `Are you sure you want to delete the result "${result.originalFile.name}"?`,
         onOk: async () => {
           try {
-            await invoiceOCRService.deleteResult(result.id);
+            await invoiceOCRService.deleteResult(result.workflowId, result.id);
             message.success('Deleted successfully');
             loadResults();
           } catch (error) {
             showError(
               'Delete failed',
-              error instanceof Error ? error.message : 'Unknown error',
-              error instanceof Error ? error.stack : undefined
+              error instanceof Error ? error.message : 'Unknown error'
             );
           }
         },
@@ -395,12 +391,12 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const resultColumns: ColumnsType<InvoiceOCRResult> = [
     {
       title: 'File Name',
-      dataIndex: 'fileName',
+      dataIndex: 'originalFile',
       key: 'fileName',
-      render: (fileName: string) => (
+      render: (originalFile: InvoiceOCRResult['originalFile']) => (
         <Space>
-          {getFileTypeIcon(fileName)}
-          <Text strong>{fileName}</Text>
+          {getFileTypeIcon(originalFile.name)}
+          <Text strong>{originalFile.name}</Text>
         </Space>
       ),
     },
@@ -432,35 +428,37 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       title: 'Confidence',
       dataIndex: 'confidence',
       key: 'confidence',
-      render: (confidence: number) => (
+      render: (confidence: number | undefined) => (
         <Progress
-          percent={Math.round(confidence * 100)}
+          percent={confidence ? Math.round(confidence * 100) : 0}
           size='small'
           status={
-            confidence >= 0.8
-              ? 'success'
-              : confidence >= 0.6
-                ? 'normal'
-                : 'exception'
+            !confidence
+              ? 'exception'
+              : confidence >= 0.8
+                ? 'success'
+                : confidence >= 0.6
+                  ? 'normal'
+                  : 'exception'
           }
         />
       ),
     },
     {
       title: 'Extracted Fields',
-      dataIndex: 'extractedFields',
+      dataIndex: 'extractedData',
       key: 'extractedFields',
-      render: (fields: any) => (
-        <Tag color='blue'>{Object.keys(fields || {}).length} fields</Tag>
+      render: (data: InvoiceData) => (
+        <Tag color='blue'>{data ? Object.keys(data).length : 0} fields</Tag>
       ),
     },
     {
       title: 'Processed Time',
-      dataIndex: 'processedAt',
+      dataIndex: 'completedAt',
       key: 'processedAt',
-      render: (processedAt: string) => (
+      render: (completedAt: string) => (
         <Text type='secondary'>
-          {new Date(processedAt).toLocaleString('en-US')}
+          {completedAt ? new Date(completedAt).toLocaleString('en-US') : 'N/A'}
         </Text>
       ),
     },
@@ -856,14 +854,14 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
           <Col span={6}>
             <Statistic
               title='Total Files'
-              value={stats.totalFiles}
+              value={stats.totalProcessed}
               prefix={<FileTextOutlined />}
             />
           </Col>
           <Col span={6}>
             <Statistic
               title='Successful'
-              value={stats.successfulFiles}
+              value={stats.successCount}
               prefix={<CheckCircleOutlined />}
               valueStyle={{ color: '#3f8600' }}
             />
@@ -871,7 +869,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
           <Col span={6}>
             <Statistic
               title='Failed'
-              value={stats.failedFiles}
+              value={stats.failureCount}
               prefix={<ExclamationCircleOutlined />}
               valueStyle={{ color: '#cf1322' }}
             />
@@ -927,10 +925,10 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                     }}
                   />
                 }
-                title={task.batchName}
+                title={task.name}
                 description={
                   <Space>
-                    <Text type='secondary'>{task.totalFiles} 个文件</Text>
+                    <Text type='secondary'>{task.progress.total} 个文件</Text>
                     <Text type='secondary'>•</Text>
                     <Text type='secondary'>
                       {new Date(task.createdAt).toLocaleString('zh-CN')}
@@ -953,7 +951,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
 
     return (
       <Modal
-        title={`结果详情 - ${selectedResult.fileName}`}
+        title={`结果详情 - ${selectedResult.originalFile.name}`}
         open={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={[
@@ -972,7 +970,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       >
         <Descriptions bordered column={2}>
           <Descriptions.Item label='文件名'>
-            {selectedResult.fileName}
+            {selectedResult.originalFile.name}
           </Descriptions.Item>
           <Descriptions.Item label='处理状态'>
             <Badge
@@ -982,26 +980,40 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
           </Descriptions.Item>
           <Descriptions.Item label='置信度'>
             <Progress
-              percent={Math.round(selectedResult.confidence * 100)}
+              percent={
+                selectedResult.confidence
+                  ? Math.round(selectedResult.confidence * 100)
+                  : 0
+              }
               size='small'
-              status={selectedResult.confidence >= 0.8 ? 'success' : 'normal'}
+              status={
+                selectedResult.confidence && selectedResult.confidence >= 0.8
+                  ? 'success'
+                  : 'normal'
+              }
             />
           </Descriptions.Item>
           <Descriptions.Item label='处理时间'>
-            {new Date(selectedResult.processedAt).toLocaleString('zh-CN')}
+            {selectedResult.completedAt
+              ? new Date(selectedResult.completedAt).toLocaleString('zh-CN')
+              : 'N/A'}
           </Descriptions.Item>
         </Descriptions>
 
         <Divider>提取的字段</Divider>
         <Descriptions bordered column={1}>
-          {Object.entries(selectedResult.extractedFields || {}).map(
-            ([key, value]) => (
+          {selectedResult.extractedData ? (
+            Object.entries(selectedResult.extractedData).map(([key, value]) => (
               <Descriptions.Item key={key} label={key}>
                 {typeof value === 'object'
                   ? JSON.stringify(value, null, 2)
                   : String(value)}
               </Descriptions.Item>
-            )
+            ))
+          ) : (
+            <Descriptions.Item label='No data'>
+              No extracted data available
+            </Descriptions.Item>
           )}
         </Descriptions>
       </Modal>
@@ -1032,9 +1044,11 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       // 检查 enhancedData 是否包含必要的字段（适配实际数据结构）
       if (
         enhancedData &&
-        (enhancedData.summary ||
-          enhancedData.financialSummary ||
-          enhancedData.processingDetails)
+        enhancedData.results &&
+        enhancedData.results.length > 0 &&
+        (enhancedData.results[0].summary ||
+          enhancedData.results[0].financialSummary ||
+          enhancedData.results[0].processingDetails)
       ) {
         console.log('显示详细的增强数据结果');
         console.log('enhancedData 包含的字段:', Object.keys(enhancedData));
@@ -1069,11 +1083,11 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             </Card>
 
             {/* 处理建议 */}
-            {enhancedData.recommendations &&
-              enhancedData.recommendations.length > 0 && (
+            {enhancedData.results[0].recommendations &&
+              enhancedData.results[0].recommendations.length > 0 && (
                 <Card title='💡 Recommendations' style={{ marginBottom: 24 }}>
                   <List
-                    dataSource={enhancedData.recommendations}
+                    dataSource={enhancedData.results[0].recommendations}
                     renderItem={(recommendation: string) => (
                       <List.Item>
                         <List.Item.Meta
@@ -1159,13 +1173,15 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             </Card>
 
             {/* 财务摘要 */}
-            {enhancedData.financialSummary && (
+            {enhancedData.results?.[0]?.financialSummary && (
               <Card title='💰 Financial Summary' style={{ marginBottom: 24 }}>
                 <Row gutter={[16, 16]}>
                   <Col xs={12} sm={8} md={8}>
                     <Statistic
                       title='Average Amount'
-                      value={enhancedData.financialSummary.averageAmount}
+                      value={
+                        enhancedData.results[0].financialSummary.averageAmount
+                      }
                       precision={2}
                       prefix='$'
                       valueStyle={{ color: '#1890ff' }}
@@ -1174,7 +1190,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                   <Col xs={12} sm={8} md={8}>
                     <Statistic
                       title='Min Amount'
-                      value={enhancedData.financialSummary.minAmount}
+                      value={enhancedData.results[0].financialSummary.minAmount}
                       precision={2}
                       prefix='$'
                       valueStyle={{ color: '#52c41a' }}
@@ -1183,7 +1199,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                   <Col xs={12} sm={8} md={8}>
                     <Statistic
                       title='Max Amount'
-                      value={enhancedData.financialSummary.maxAmount}
+                      value={enhancedData.results[0].financialSummary.maxAmount}
                       precision={2}
                       prefix='$'
                       valueStyle={{ color: '#fa8c16' }}
@@ -1194,18 +1210,19 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             )}
 
             {/* 处理详情 */}
-            {enhancedData.processingDetails && (
+            {enhancedData.results?.[0]?.processingDetails && (
               <Card title='📋 Processing Details' style={{ marginBottom: 24 }}>
                 <Tabs defaultActiveKey='successful'>
                   <TabPane
-                    tab={`✅ Successful (${enhancedData.processingDetails.successfulInvoices?.length || 0})`}
+                    tab={`✅ Successful (${enhancedData.results[0].processingDetails.successfulInvoices?.length || 0})`}
                     key='successful'
                   >
-                    {enhancedData.processingDetails.successfulInvoices?.length >
-                    0 ? (
+                    {enhancedData.results[0].processingDetails
+                      .successfulInvoices?.length > 0 ? (
                       <List
                         dataSource={
-                          enhancedData.processingDetails.successfulInvoices
+                          enhancedData.results[0].processingDetails
+                            .successfulInvoices
                         }
                         renderItem={(item: any) => (
                           <List.Item>
@@ -1237,14 +1254,15 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                     )}
                   </TabPane>
                   <TabPane
-                    tab={`❌ Failed (${enhancedData.processingDetails.failedExtractions?.length || 0})`}
+                    tab={`❌ Failed (${enhancedData.results[0].processingDetails.failedExtractions?.length || 0})`}
                     key='failed'
                   >
-                    {enhancedData.processingDetails.failedExtractions?.length >
-                    0 ? (
+                    {enhancedData.results[0].processingDetails.failedExtractions
+                      ?.length > 0 ? (
                       <List
                         dataSource={
-                          enhancedData.processingDetails.failedExtractions
+                          enhancedData.results[0].processingDetails
+                            .failedExtractions
                         }
                         renderItem={(item: any) => (
                           <List.Item>
@@ -1265,14 +1283,15 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                     )}
                   </TabPane>
                   <TabPane
-                    tab={`⚠️ Quality Issues (${enhancedData.processingDetails.qualityIssues?.length || 0})`}
+                    tab={`⚠️ Quality Issues (${enhancedData.results[0].processingDetails.qualityIssues?.length || 0})`}
                     key='quality'
                   >
-                    {enhancedData.processingDetails.qualityIssues?.length >
-                    0 ? (
+                    {enhancedData.results[0].processingDetails.qualityIssues
+                      ?.length > 0 ? (
                       <List
                         dataSource={
-                          enhancedData.processingDetails.qualityIssues
+                          enhancedData.results[0].processingDetails
+                            .qualityIssues
                         }
                         renderItem={(item: any) => (
                           <List.Item>
@@ -1305,9 +1324,10 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       console.log('显示简化版本的完成界面');
       console.log('enhancedData 检查结果:', {
         enhancedDataExists: !!enhancedData,
-        hasSummary: !!enhancedData?.summary,
-        hasFinancialSummary: !!enhancedData?.financialSummary,
-        hasProcessingDetails: !!enhancedData?.processingDetails,
+        hasResults: !!enhancedData?.results,
+        hasSummary: !!enhancedData?.results?.[0]?.summary,
+        hasFinancialSummary: !!enhancedData?.results?.[0]?.financialSummary,
+        hasProcessingDetails: !!enhancedData?.results?.[0]?.processingDetails,
         availableFields: enhancedData ? Object.keys(enhancedData) : [],
       });
 
@@ -1480,7 +1500,8 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       {/* 错误模态框 */}
       <ErrorModal
         visible={isVisible}
-        errorInfo={errorInfo}
+        message={errorInfo?.message || 'An error occurred'}
+        details={errorInfo?.details}
         onClose={hideError}
       />
     </div>

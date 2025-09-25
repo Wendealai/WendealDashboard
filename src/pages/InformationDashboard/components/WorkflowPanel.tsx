@@ -48,7 +48,10 @@ import type {
   WorkflowTriggerRequest,
   WorkflowStatus,
 } from '../types';
-import type { ParsedSubredditData, RedditWorkflowResponse } from '@/services/redditWebhookService';
+import type {
+  ParsedSubredditData,
+  RedditWorkflowResponse,
+} from '@/services/redditWebhookService';
 import WorkflowGrid from '@/components/workflow/WorkflowGrid';
 
 const { Text } = Typography;
@@ -58,6 +61,7 @@ const { Text } = Typography;
  */
 interface WorkflowPanelProps {
   className?: string;
+  onWorkflowSelect?: (workflow: Workflow) => void;
   onWorkflowTriggered?: (workflowId: string, executionId: string) => void;
   onRedditDataReceived?: (data: ParsedSubredditData[]) => void;
   onRedditWorkflowDataReceived?: (data: RedditWorkflowResponse) => void;
@@ -114,7 +118,8 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
     const [redditProgressStatus, setRedditProgressStatus] =
       useState<string>('');
     const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
-    const [redditWorkflowData, setRedditWorkflowData] = useState<RedditWorkflowResponse | null>(null);
+    const [redditWorkflowData, setRedditWorkflowData] =
+      useState<RedditWorkflowResponse | null>(null);
 
     /**
      * Initialize data loading
@@ -206,19 +211,20 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
           }
 
           // Also provide backward compatibility with old format
-          const subredditsData = workflowResponse.subreddits?.map(sub => ({
-            name: sub.name,
-            posts: sub.posts.map(post => ({
-              title: post.title,
-              author: post.author,
-              score: post.score,
-              comments: post.comments,
-              url: post.url,
-              subreddit: sub.name,
-              rank: post.rank,
-            })),
-            totalPosts: sub.stats.totalPosts,
-          })) || [];
+          const subredditsData =
+            workflowResponse.subreddits?.map(sub => ({
+              name: sub.name,
+              posts: sub.posts.map(post => ({
+                title: post.title,
+                author: post.author,
+                score: post.score,
+                comments: post.comments,
+                url: post.url,
+                subreddit: sub.name,
+                rank: post.rank,
+              })),
+              totalPosts: sub.stats.totalPosts,
+            })) || [];
 
           setRedditData(subredditsData);
           if (onRedditDataReceived) {
@@ -300,12 +306,6 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
                 </p>
                 <p>
                   <strong>
-                    {t('informationDashboard.workflowPanel.nodeCount')}:
-                  </strong>{' '}
-                  {selectedWorkflow.nodeCount}
-                </p>
-                <p>
-                  <strong>
                     {t('informationDashboard.workflowPanel.workflowStatus')}:
                   </strong>
                   <Tag
@@ -357,8 +357,9 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
           )}
         </Modal>
         <ErrorModal
-          isVisible={isVisible}
-          errorInfo={errorInfo}
+          visible={isVisible}
+          message={errorInfo?.message || 'An error occurred'}
+          details={errorInfo?.details}
           onClose={hideError}
         />
       </div>

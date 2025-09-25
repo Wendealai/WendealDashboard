@@ -3,7 +3,10 @@
  * Defines interfaces and types related to invoice OCR recognition
  */
 
-import type { WorkflowInfo, WorkflowExecution } from '../types';
+import type {
+  WorkflowInfo,
+  WorkflowExecution,
+} from '../../../pages/InformationDashboard/types';
 
 /**
  * Invoice OCR Workflow Type
