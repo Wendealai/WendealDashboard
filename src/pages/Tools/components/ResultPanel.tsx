@@ -11,9 +11,7 @@ import {
   Space,
   Typography,
   Badge,
-  Alert,
   Empty,
-  Spin,
   Button,
   Tooltip,
   Avatar,
@@ -21,14 +19,12 @@ import {
 import {
   RedditOutlined,
   LinkOutlined,
-  MessageOutlined,
-  LikeOutlined,
   UserOutlined,
   ClockCircleOutlined,
 } from '@ant-design/icons';
 import type { ParsedSubredditData } from '@/services/redditWebhookService';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 /**
  * Tools Result Panel Props Interface
@@ -73,8 +69,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
             return acc;
           }
 
-          const subreddit =
-            subredditData.name || subredditData.subreddit || 'unknown';
+          const subreddit = subredditData.name || 'unknown';
           console.log(
             'ResultPanel: Processing subreddit:',
             subreddit,

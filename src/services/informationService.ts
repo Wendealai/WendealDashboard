@@ -253,12 +253,10 @@ class InformationService {
     return {
       success: true,
       data: {
-        data: paginatedData,
-        pagination: {
-          current: page,
-          pageSize,
-          total: filteredData.length,
-        },
+        items: paginatedData,
+        total: filteredData.length,
+        page,
+        pageSize,
       },
       message: '获取信息列表成功',
     };

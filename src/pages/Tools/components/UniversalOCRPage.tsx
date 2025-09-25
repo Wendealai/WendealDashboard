@@ -29,11 +29,9 @@ import {
   Card,
   Button,
   Space,
-  Statistic,
   Alert,
   Typography,
   Divider,
-  Badge,
   Spin,
   Steps,
   Modal,
@@ -47,19 +45,16 @@ import {
   SettingOutlined,
   EyeOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
 // We'll reuse the invoice OCR service for now, can create a dedicated universal OCR service later
-import { invoiceOCRService } from '../../../services/invoiceOCRService';
+// import { invoiceOCRService } from '../../../services/invoiceOCRService';
 import type {
   UniversalOCRFile,
   UniversalOCRResult,
   UniversalOCRStats,
   UniversalOCRFileType,
   UniversalOCRStatus,
-  UniversalOCRSettings,
-  DEFAULT_UNIVERSAL_OCR_SETTINGS,
 } from '../types/universalOCR';
 import type { EnhancedWebhookResponse } from '@/types/workflow';
 

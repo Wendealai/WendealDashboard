@@ -17,11 +17,8 @@ import WorkflowPanel from './components/WorkflowPanel';
 import ResultPanel from './components/ResultPanel';
 import RedNoteContentGenerator from './components/RedNoteContentGenerator';
 import TKViralExtract from './components/TKViralExtract';
-import type {
-  ParsedSubredditData,
-  RedditWorkflowResponse,
-} from '@/services/redditWebhookService';
-import type { Workflow, ViralContentRecord } from './types';
+import type { ParsedSubredditData } from '@/services/redditWebhookService';
+import type { Workflow } from './types';
 import './components/styles.css';
 
 const { Title, Paragraph } = Typography;
@@ -118,11 +115,7 @@ const SocialMedia: React.FC = () => {
               <RedNoteContentGenerator />
             ) : selectedWorkflow ? (
               <>
-                <WorkflowPanel
-                  workflow={selectedWorkflow}
-                  loading={false}
-                  onDataReceived={handleRedditDataReceived}
-                />
+                <WorkflowPanel workflow={selectedWorkflow} loading={false} />
                 <Divider />
                 <ResultPanel redditData={redditData} loading={false} />
               </>

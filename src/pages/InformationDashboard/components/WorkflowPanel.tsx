@@ -58,9 +58,7 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
 
     // Component state
     const [triggerModalVisible, setTriggerModalVisible] = useState(false);
-    const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(
-      null
-    );
+    const [selectedWorkflow] = useState<Workflow | null>(null);
     const [triggerForm] = Form.useForm();
 
     /**

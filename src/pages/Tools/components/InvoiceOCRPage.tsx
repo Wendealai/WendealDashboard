@@ -136,11 +136,11 @@ const InvoiceOCRPage: React.FC = () => {
           err.message || t('invoiceOCR.upload.processFailed');
         setError(errorMessage);
         setProcessingStatus('error');
-        showError(
-          t('invoiceOCR.upload.processFailed'),
-          err.message || t('common.unknownError'),
-          err.stack
-        );
+        showError({
+          title: t('invoiceOCR.upload.processFailed'),
+          message: err.message || t('common.unknownError'),
+          details: err.stack,
+        });
       } finally {
         setLoading(false);
       }
@@ -311,7 +311,16 @@ const InvoiceOCRPage: React.FC = () => {
     <Card style={{ marginBottom: 24 }}>
       <Steps
         current={currentStep}
-        status={getStatusColor(processingStatus)}
+        status={
+          processingStatus === 'completed'
+            ? 'finish'
+            : processingStatus === 'error'
+              ? 'error'
+              : processingStatus === 'processing' ||
+                  processingStatus === 'uploading'
+                ? 'process'
+                : 'wait'
+        }
         items={getSteps()}
       />
       {error && (
@@ -407,7 +416,10 @@ const InvoiceOCRPage: React.FC = () => {
         {/* Error Modal */}
         <ErrorModal
           visible={isVisible}
-          errorInfo={errorInfo}
+          title={errorInfo?.title}
+          message={errorInfo?.message || ''}
+          details={errorInfo?.details}
+          troubleshooting={errorInfo?.troubleshooting}
           onClose={hideError}
         />
 

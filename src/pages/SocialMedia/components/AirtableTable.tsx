@@ -3,13 +3,7 @@
  * 显示TK Viral Extract数据的完整表格组件（基于Smart Opportunities架构）
  */
 
-import React, {
-  useMemo,
-  useState,
-  useCallback,
-  useRef,
-  useEffect,
-} from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   Table,
   Card,
@@ -42,7 +36,7 @@ import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
 import type { AirtableTableProps, ViralContentRecord } from '../types';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 /**
  * TK Viral Extract AirtableTable组件

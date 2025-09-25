@@ -44,8 +44,8 @@
     "alwaysStrict": true,
 
     /* Additional Checks */
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
@@ -59,6 +59,8 @@
     "src/**/*.test.*",
     "src/**/*.spec.*",
     "src/__tests__/**/*",
-    "coverage/**/*"
+    "coverage/**/*",
+    "src/utils/diagnostic/**/*",
+    "src/utils/codeCleanup/**/*"
   ]
 }

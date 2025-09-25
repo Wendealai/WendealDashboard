@@ -846,7 +846,7 @@ const RNDReport: React.FC = () => {
             <Space direction='vertical' size='large' style={{ width: '100%' }}>
               <Card size='small'>
                 <UploadZone
-                  onFilesConfirmed={(files, categoryId, fileCategories) =>
+                  onFilesConfirmed={(files, _categoryId, fileCategories) =>
                     handleFileUpload(files, fileCategories)
                   }
                   categories={categories}
