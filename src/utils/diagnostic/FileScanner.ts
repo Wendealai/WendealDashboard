@@ -429,4 +429,7 @@ export const fileScanner = new FileScanner({
   enableCache: true,
   cacheExpiry: 5 * 60 * 1000,
   severityThreshold: 'info' as any,
+  includeTypes: true,
+  includeTests: false,
+  concurrency: 5,
 });

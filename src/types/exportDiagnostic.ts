@@ -377,6 +377,8 @@ export interface ScanProgress {
   issuesFound: number;
   /** 已用时间（毫秒） */
   elapsedTime: number;
+  /** 当前阶段 */
+  stage?: string;
 }
 
 /**
@@ -514,6 +516,8 @@ export interface DiagnosticReport {
   config: DiagnosticConfig;
   /** 统计信息 */
   statistics: DiagnosticStatistics;
+  /** 导出信息列表 */
+  exports: ExportInfo[];
   /** 问题列表 */
   issues: ExportIssue[];
   /** 建议列表 */
@@ -538,13 +542,29 @@ export interface DiagnosticReport {
   issuesByType?: Record<ExportIssueType, number>;
   /** 摘要信息 */
   summary?: {
+    totalFiles: number;
+    scannedFiles: number;
     totalExports: number;
     usedExports: number;
     unusedExports: number;
     exportUsageRate: number;
+    averageReferences: number;
+    totalIssues: number;
+    autoFixableIssues: number;
+    issuesByType: Record<string, number>;
+    issuesBySeverity: Record<string, number>;
+  };
+  /** 性能信息 */
+  performance?: {
+    scanTime: number;
+    analysisTime: number;
+    suggestionsTime: number;
+    totalTime: number;
   };
   /** 状态 */
   status: 'completed' | 'failed' | 'cancelled';
   /** 错误信息 */
   error?: string;
+  /** 生成时间 */
+  generatedAt?: Date;
 }

@@ -131,12 +131,10 @@ export class WorkflowService {
       return {
         success: true,
         data: {
-          data: workflows,
-          pagination: {
-            current: params.page || 1,
-            pageSize: params.pageSize || 10,
-            total: workflows.length,
-          },
+          items: workflows,
+          total: workflows.length,
+          page: params.page || 1,
+          pageSize: params.pageSize || 10,
         },
         message: '获取工作流列表成功',
       };

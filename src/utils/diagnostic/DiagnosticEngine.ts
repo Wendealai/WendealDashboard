@@ -18,6 +18,7 @@ import type {
   ExportIssue,
   FixSuggestion,
 } from '@/types/exportDiagnostic';
+import type { TypeScriptConfig } from './TypeScriptIntegration';
 
 /**
  * 诊断引擎类
@@ -42,13 +43,27 @@ export class DiagnosticEngine {
     this.eslintIntegration = new ESLintIntegration(
       config.eslintConfig || { enabled: false }
     );
-    this.typescriptIntegration = new TypeScriptIntegration(
-      config.typescriptConfig || {
-        strict: false,
-        checkTypeExports: true,
-        target: 'ES2020',
-      }
-    );
+    const tsConfig = config.typescriptConfig
+      ? {
+          strict: config.typescriptConfig.strict ?? false,
+          checkTypeExports: config.typescriptConfig.checkTypeExports ?? true,
+          target: config.typescriptConfig.target ?? 'ES2020',
+          moduleResolution: (config.typescriptConfig.moduleResolution ??
+            'node') as 'node' | 'classic',
+          jsx: (config.typescriptConfig.jsx ?? 'react') as
+            | 'react'
+            | 'preserve'
+            | 'react-native',
+        }
+      : {
+          strict: false,
+          checkTypeExports: true,
+          target: 'ES2020',
+          moduleResolution: 'node' as const,
+          jsx: 'react' as const,
+        };
+
+    this.typescriptIntegration = new TypeScriptIntegration(tsConfig);
   }
 
   /**
@@ -254,6 +269,32 @@ export class DiagnosticEngine {
     );
 
     return {
+      id: `report-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: new Date(),
+      config: this.config,
+      statistics: {
+        totalFiles: [...new Set(exports.map(exp => exp.location.filePath))]
+          .length,
+        totalExports: exports.length,
+        totalIssues: issues.length,
+        issuesBySeverity,
+        issuesByType,
+        totalFileSize: 0, // TODO: calculate file sizes
+        averageProcessingTime: performance.totalTime / exports.length || 0,
+      },
+      exports,
+      issues,
+      suggestions,
+      filesScanned: [...new Set(exports.map(exp => exp.location.filePath))]
+        .length,
+      totalExports: exports.length,
+      usedExports,
+      unusedExports: exports.length - usedExports,
+      processingTime: performance.totalTime,
+      scanTime: performance.scanTime,
+      issuesFound: issues.length,
+      issuesBySeverity,
+      issuesByType,
       summary: {
         totalFiles: [...new Set(exports.map(exp => exp.location.filePath))]
           .length,
@@ -265,17 +306,14 @@ export class DiagnosticEngine {
         exportUsageRate: exports.length > 0 ? usedExports / exports.length : 0,
         averageReferences,
         totalIssues: issues.length,
-        autoFixableIssues: suggestions.filter(s => s.fixType === 'AUTO_FIX')
+        autoFixableIssues: suggestions.filter(s => s.fixType === 'auto_fix')
           .length,
         issuesByType,
         issuesBySeverity,
       },
-      exports,
-      issues,
-      suggestions,
       performance,
+      status: 'completed' as const,
       generatedAt: new Date(),
-      config: this.config,
     };
   }
 
@@ -309,7 +347,9 @@ export class DiagnosticEngine {
     }
 
     // 检查是否过期
-    const cacheAge = Date.now() - cached.generatedAt.getTime();
+    const cacheAge = cached.generatedAt
+      ? Date.now() - cached.generatedAt.getTime()
+      : Infinity;
     if (cacheAge > this.config.cacheExpiry) {
       return false;
     }
@@ -378,9 +418,12 @@ export const diagnosticEngine = new DiagnosticEngine({
     '**/coverage/**',
   ],
   maxDepth: 10,
-  timeout: 30000,
+  includeTypes: true,
+  includeTests: false,
   enableCache: true,
   cacheExpiry: 5 * 60 * 1000,
+  concurrency: 4,
+  timeout: 30000,
   severityThreshold: 'info' as any,
   typescriptConfig: {
     strict: false,

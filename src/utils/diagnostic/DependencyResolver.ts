@@ -128,8 +128,10 @@ export class DependencyResolver {
       while ((match = importRegex.exec(content)) !== null) {
         const importClause = match[1]?.trim();
         const modulePath = match[2];
+        const fullMatch = match[0];
+        const matchIndex = match.index;
 
-        if (!importClause || !modulePath) continue;
+        if (!importClause || !modulePath || !fullMatch) continue;
 
         // 解析相对路径
         const resolvedPath = await this.resolveModulePath(filePath, modulePath);
@@ -145,9 +147,9 @@ export class DependencyResolver {
             importType: imp.type,
             location: {
               filePath,
-              line: match.index + 1,
-              column: match[0].indexOf('import'),
-              codeSnippet: match[0],
+              line: this.getLineNumber(content, matchIndex),
+              column: fullMatch.indexOf('import'),
+              codeSnippet: fullMatch,
             },
           }))
         );

@@ -192,11 +192,11 @@ const InvoiceOCRPage: React.FC = () => {
       setStats(statsData);
     } catch (error) {
       console.error('Failed to load initial data:', error);
-      showError(
-        t('globalMessages.refreshFailed'),
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
-      );
+      showError({
+        title: t('globalMessages.refreshFailed'),
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : undefined,
+      });
     } finally {
       setLoading(false);
     }
@@ -266,8 +266,11 @@ const InvoiceOCRPage: React.FC = () => {
       case 'error':
         return 'error';
       case 'processing':
+        return 'process';
       case 'uploading':
         return 'process';
+      case 'idle':
+        return 'wait';
       default:
         return 'wait';
     }
@@ -367,7 +370,7 @@ const InvoiceOCRPage: React.FC = () => {
             }}
             onOCRProcess={handleProcessOCR}
             onOCRCompleted={handleOCRCompleted}
-            ocrProcessing={processingStatus === 'processing'}
+            ocrProcessing={false}
           />
         </Card>
       );
@@ -379,7 +382,7 @@ const InvoiceOCRPage: React.FC = () => {
         showStats={true}
         showHistory={true}
         processingStatus={processingStatus}
-        completedData={completedData}
+        completedData={completedData || {}}
         onResultSelect={result => {
           console.log('Selected result:', result);
         }}

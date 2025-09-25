@@ -87,9 +87,12 @@ export class FixSuggester {
         id: `remove-unused-export-${issue.relatedExport.name}`,
         title: '移除未使用的导出',
         description: `删除未使用的导出声明以减少代码体积`,
+        type: 'remove',
         fixType: 'manual_fix' as FixType,
         confidence: 0.9,
-        codeSnippet: '',
+        fixCode: '',
+        impact: 'file',
+        isSafe: true,
         affectedFiles: [issue.location.filePath],
         relatedIssue: issue,
       });
@@ -100,9 +103,12 @@ export class FixSuggester {
           id: `convert-to-default-${issue.relatedExport.name}`,
           title: '转换为默认导出',
           description: `将命名导出转换为默认导出（如果这是文件的唯一导出）`,
+          type: 'modify',
           fixType: 'manual_fix' as FixType,
           confidence: 0.6,
-          codeSnippet: `export default ${issue.relatedExport.name};`,
+          fixCode: `export default ${issue.relatedExport.name};`,
+          impact: 'file',
+          isSafe: false,
           affectedFiles: [issue.location.filePath],
           relatedIssue: issue,
         });
@@ -123,9 +129,12 @@ export class FixSuggester {
       id: `add-missing-export-${issue.location.filePath}`,
       title: '添加缺失的导出',
       description: `在相应文件中添加缺失的导出声明`,
+      type: 'add',
       fixType: 'manual_fix' as FixType,
       confidence: 0.8,
-      codeSnippet: `export const ${issue.description.match(/'([^']+)'/)?.[1] || 'missingExport'} = /* implementation */;`,
+      fixCode: `export const ${issue.description.match(/'([^']+)'/)?.[1] || 'missingExport'} = /* implementation */;`,
+      impact: 'file',
+      isSafe: false,
       affectedFiles: [issue.location.filePath],
       relatedIssue: issue,
     });
@@ -145,9 +154,12 @@ export class FixSuggester {
         id: `fix-naming-convention-${issue.location.filePath}`,
         title: '修复命名约定',
         description: `将导出名称改为符合项目命名约定的格式`,
+        type: 'modify',
         fixType: 'manual_fix' as FixType,
         confidence: 0.7,
-        codeSnippet: `// 例如: camelCase 或 PascalCase`,
+        fixCode: `// 例如: camelCase 或 PascalCase`,
+        impact: 'file',
+        isSafe: false,
         affectedFiles: [issue.location.filePath],
         relatedIssue: issue,
       });
@@ -159,10 +171,13 @@ export class FixSuggester {
         id: `resolve-duplicate-exports-${issue.location.filePath}`,
         title: '解决重复导出',
         description: `重命名或合并重复的导出声明`,
+        type: 'modify',
         fixType: 'manual_fix' as FixType,
         confidence: 0.6,
-        codeSnippet: `// 考虑使用 barrel exports 或重构模块结构`,
-        affectedFiles: issue.relatedFiles || [issue.location.filePath],
+        fixCode: `// 考虑使用 barrel exports 或重构模块结构`,
+        impact: 'project',
+        isSafe: false,
+        affectedFiles: issue.context?.relatedFiles || [issue.location.filePath],
         relatedIssue: issue,
       });
     }
@@ -180,13 +195,16 @@ export class FixSuggester {
       id: `resolve-circular-dependency-${issue.location.filePath}`,
       title: '解决循环依赖',
       description: `重构代码以消除模块间的循环引用`,
+      type: 'modify',
       fixType: 'manual_fix' as FixType,
       confidence: 0.5,
-      codeSnippet: `// 建议方案:
+      fixCode: `// 建议方案:
 // 1. 提取共同依赖到单独模块
 // 2. 使用依赖注入模式
 // 3. 重构模块职责`,
-      affectedFiles: issue.relatedFiles || [issue.location.filePath],
+      impact: 'project',
+      isSafe: false,
+      affectedFiles: issue.context?.relatedFiles || [issue.location.filePath],
       relatedIssue: issue,
     });
 
@@ -203,9 +221,12 @@ export class FixSuggester {
       id: `fix-type-export-${issue.location.filePath}`,
       title: '修复类型导出',
       description: `将类型导出改为命名导出以提高类型安全性`,
+      type: 'modify',
       fixType: 'manual_fix' as FixType,
       confidence: 0.8,
-      codeSnippet: `export type { ${issue.description.match(/'([^']+)'/)?.[1] || 'TypeName'} };`,
+      fixCode: `export type { ${issue.description.match(/'([^']+)'/)?.[1] || 'TypeName'} };`,
+      impact: 'file',
+      isSafe: true,
       affectedFiles: [issue.location.filePath],
       relatedIssue: issue,
     });
@@ -223,10 +244,13 @@ export class FixSuggester {
       id: `resolve-default-export-conflict-${issue.location.filePath}`,
       title: '解决默认导出冲突',
       description: `每个文件只能有一个默认导出，请选择保留一个或转换为命名导出`,
+      type: 'modify',
       fixType: 'manual_fix' as FixType,
       confidence: 0.9,
-      codeSnippet: `// 保留一个默认导出，其余改为命名导出:
+      fixCode: `// 保留一个默认导出，其余改为命名导出:
 // export { otherExport1, otherExport2 };`,
+      impact: 'file',
+      isSafe: false,
       affectedFiles: [issue.location.filePath],
       relatedIssue: issue,
     });
@@ -242,9 +266,12 @@ export class FixSuggester {
       id: `generic-fix-${issue.id}`,
       title: '查看问题详情',
       description: `请手动检查并修复此导出问题`,
+      type: 'modify',
       fixType: 'manual_fix' as FixType,
       confidence: 0.3,
-      codeSnippet: `// ${issue.description}`,
+      fixCode: `// ${issue.description}`,
+      impact: 'file',
+      isSafe: false,
       affectedFiles: [issue.location.filePath],
       relatedIssue: issue,
     };
@@ -301,7 +328,7 @@ export class FixSuggester {
    */
   private async validateFix(fix: FixSuggestion): Promise<boolean> {
     // 基本验证：检查必要字段
-    if (!fix.id || !fix.title || !fix.affectedFiles.length) {
+    if (!fix.id || !fix.title || !fix.affectedFiles?.length) {
       return false;
     }
 
@@ -346,4 +373,7 @@ export const fixSuggester = new FixSuggester({
   enableCache: true,
   cacheExpiry: 5 * 60 * 1000,
   severityThreshold: 'info' as any,
+  includeTypes: true,
+  includeTests: false,
+  concurrency: 5,
 });

@@ -174,13 +174,65 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
         if (response.success && response.data) {
           // Handle new Reddit workflow response format
           const workflowResponse = response.data;
-          setRedditWorkflowData(workflowResponse);
+          const redditWorkflowResponse: RedditWorkflowResponse = {
+            success: true,
+            headerInfo: {
+              title: 'Reddit Workflow',
+              subtitle: '',
+              timeRange: '',
+              timestamp: new Date().toISOString(),
+              totalPosts: Array.isArray(workflowResponse.posts)
+                ? workflowResponse.posts.length
+                : 0,
+            },
+            summary: {
+              totalSubreddits: workflowResponse.subreddits?.length || 0,
+              totalPosts: Array.isArray(workflowResponse.posts)
+                ? workflowResponse.posts.length
+                : 0,
+              totalScore: 0,
+              totalComments: 0,
+              topSubreddit: null,
+              categories: [],
+              averagePostsPerSub: 0,
+              dataFreshness: 'fresh',
+            },
+            subreddits: workflowResponse.subreddits || [],
+            metadata: workflowResponse.metadata || {},
+          };
+          setRedditWorkflowData(redditWorkflowResponse);
           setRedditProgressStatus('Reddit数据获取完成！');
           message.success('Reddit数据获取成功！');
 
           // Notify parent component with new data format
           if (onRedditWorkflowDataReceived) {
-            onRedditWorkflowDataReceived(workflowResponse);
+            const redditWorkflowResponse: RedditWorkflowResponse = {
+              success: true,
+              headerInfo: {
+                title: 'Reddit Workflow',
+                subtitle: '',
+                timeRange: '',
+                timestamp: new Date().toISOString(),
+                totalPosts: Array.isArray(workflowResponse.posts)
+                  ? workflowResponse.posts.length
+                  : 0,
+              },
+              summary: {
+                totalSubreddits: workflowResponse.subreddits?.length || 0,
+                totalPosts: Array.isArray(workflowResponse.posts)
+                  ? workflowResponse.posts.length
+                  : 0,
+                totalScore: 0,
+                totalComments: 0,
+                topSubreddit: null,
+                categories: [],
+                averagePostsPerSub: 0,
+                dataFreshness: 'fresh',
+              },
+              subreddits: workflowResponse.subreddits || [],
+              metadata: workflowResponse.metadata || {},
+            };
+            onRedditWorkflowDataReceived(redditWorkflowResponse);
           }
 
           // Also provide backward compatibility with old format
