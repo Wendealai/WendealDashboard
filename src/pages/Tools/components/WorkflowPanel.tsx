@@ -3,7 +3,7 @@
  * Copy of Information Dashboard WorkflowPanel for Tools page
  */
 
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tag, Space, Modal, Form, Input, Typography } from 'antd';
 import { useMessage } from '@/hooks';
@@ -81,6 +81,14 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
       null
     );
     const [triggerForm] = Form.useForm();
+
+    // Reddit workflow state
+    const [redditLoading, setRedditLoading] = useState(false);
+    const [redditError, setRedditError] = useState<string | null>(null);
+    const [redditProgressStatus, setRedditProgressStatus] = useState('');
+    const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
+    const [redditWorkflowData, setRedditWorkflowData] =
+      useState<RedditWorkflowResponse | null>(null);
 
     // 确保Form组件已连接
     useEffect(() => {
