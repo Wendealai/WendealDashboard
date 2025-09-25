@@ -18,7 +18,6 @@ import {
   Popconfirm,
   Row,
   Col,
-  DatePicker,
   Typography,
   Badge,
   Dropdown,
@@ -72,6 +71,9 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
     const message = useMessage();
     const { isVisible, errorInfo, showError, hideError } = useErrorModal();
 
+    // Remove unused variable
+    // const stats = useAppSelector(selectInformationStats);
+
     // 组件状态
     const [searchText, setSearchText] = useState('');
     const [filters, setFilters] = useState<Partial<InformationQueryParams>>({});
@@ -102,7 +104,7 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
      */
     const handleSearch = useCallback(() => {
       const queryParams: InformationQueryParams = {
-        search: searchText || undefined,
+        ...(searchText ? { search: searchText } : {}),
         ...filters,
         page: 1,
       };
@@ -176,7 +178,7 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
         };
 
         // 这里应该调用更新API
-        message.success(t('informationGrid.messages.updateSuccess'));
+        message.success(t('informationGrid.messages.updateSuccess'), 3);
         setEditModalVisible(false);
 
         if (onItemUpdate) {
@@ -186,10 +188,10 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
         // 刷新列表
         handleSearch();
       } catch (error) {
-        showError(
-          t('informationGrid.messages.updateFailed'),
-          error instanceof Error ? error.message : String(error)
-        );
+        showError({
+          title: t('informationGrid.messages.updateFailed'),
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
     }, [selectedItem, editForm, onItemUpdate, handleSearch]);
 
@@ -200,13 +202,13 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
       async (id: string) => {
         try {
           // 这里应该调用删除API
-          message.success(t('informationGrid.messages.deleteSuccess'));
+          message.success(t('informationGrid.messages.deleteSuccess'), 3);
           handleSearch();
         } catch (error) {
-          showError(
-            t('informationGrid.messages.deleteFailed'),
-            error instanceof Error ? error.message : String(error)
-          );
+          showError({
+            title: t('informationGrid.messages.deleteFailed'),
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
       },
       [handleSearch]
@@ -226,15 +228,16 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
         message.success(
           t('informationGrid.messages.batchDeleteSuccess', {
             count: selectedRowKeys.length,
-          })
+          }),
+          3
         );
         setSelectedRowKeys([]);
         handleSearch();
       } catch (error) {
-        showError(
-          t('informationGrid.messages.batchDeleteFailed'),
-          error instanceof Error ? error.message : String(error)
-        );
+        showError({
+          title: t('informationGrid.messages.batchDeleteFailed'),
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
     }, [selectedRowKeys, handleSearch, message, t]);
 
@@ -248,30 +251,33 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
     /**
      * 信息类型颜色映射
      */
-    const getTypeColor = useCallback((type: InformationType): string => {
-      switch (type) {
-        case 'text':
-          return 'blue';
-        case 'number':
-          return 'green';
-        case 'date':
-          return 'orange';
-        case 'url':
-          return 'purple';
-        case 'json':
-          return 'cyan';
-        case 'image':
-          return 'magenta';
-        default:
-          return 'default';
-      }
-    }, []);
+    const getTypeColor = useCallback(
+      (type: InformationItem['type']): string => {
+        switch (type) {
+          case 'text':
+            return 'blue';
+          case 'number':
+            return 'green';
+          case 'date':
+            return 'orange';
+          case 'url':
+            return 'purple';
+          case 'json':
+            return 'cyan';
+          case 'image':
+            return 'magenta';
+          default:
+            return 'default';
+        }
+      },
+      []
+    );
 
     /**
      * 优先级颜色映射
      */
     const getPriorityColor = useCallback(
-      (priority: InformationPriority): string => {
+      (priority: InformationItem['priority']): string => {
         switch (priority) {
           case 'urgent':
             return 'red';
@@ -291,24 +297,27 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
     /**
      * 状态颜色映射
      */
-    const getStatusColor = useCallback((status: InformationStatus): string => {
-      switch (status) {
-        case 'active':
-          return 'success';
-        case 'archived':
-          return 'default';
-        case 'draft':
-          return 'warning';
-        default:
-          return 'default';
-      }
-    }, []);
+    const getStatusColor = useCallback(
+      (status: InformationItem['status']): string => {
+        switch (status) {
+          case 'active':
+            return 'success';
+          case 'archived':
+            return 'default';
+          case 'draft':
+            return 'warning';
+          default:
+            return 'default';
+        }
+      },
+      []
+    );
 
     /**
      * 渲染内容
      */
     const renderContent = useCallback(
-      (content: string, type: InformationType) => {
+      (content: string, type: InformationItem['type']) => {
         switch (type) {
           case 'url':
             return (
@@ -403,7 +412,7 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
           dataIndex: 'status',
           key: 'status',
           width: 80,
-          render: (status: InformationStatus) => (
+          render: (status: InformationItem['status']) => (
             <Tag color={getStatusColor(status)}>
               {t(`informationGrid.status.${status}`)}
             </Tag>
@@ -417,11 +426,9 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
           render: (tags: string[]) => (
             <Space size={4} wrap>
               {tags?.slice(0, 2).map(tag => (
-                <Tag key={tag} size='small'>
-                  {tag}
-                </Tag>
+                <Tag key={tag}>{tag}</Tag>
               ))}
-              {tags?.length > 2 && <Tag size='small'>+{tags.length - 2}</Tag>}
+              {tags?.length > 2 && <Tag>+{tags.length - 2}</Tag>}
             </Space>
           ),
         },
@@ -437,7 +444,7 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
           key: 'actions',
           width: 120,
           fixed: 'right' as const,
-          render: (_, record: InformationItem) => (
+          render: (_text: any, record: InformationItem) => (
             <Space size={0}>
               <Tooltip title={t('common.actions.viewDetails')}>
                 <Button
@@ -527,7 +534,7 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
     const handlePaginationChange = useCallback(
       (page: number, pageSize?: number) => {
         const queryParams: InformationQueryParams = {
-          search: searchText || undefined,
+          ...(searchText ? { search: searchText } : {}),
           ...filters,
           page,
           pageSize: pageSize || 20,
@@ -556,7 +563,7 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
                 placeholder={t('informationGrid.filters.category')}
                 allowClear
                 style={{ width: '100%' }}
-                value={filters.category}
+                value={filters.category || null}
                 onChange={value => handleFilterChange('category', value)}
               >
                 <Option value='系统监控'>
@@ -581,7 +588,7 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
                 placeholder={t('informationGrid.filters.type')}
                 allowClear
                 style={{ width: '100%' }}
-                value={filters.type}
+                value={filters.type || null}
                 onChange={value => handleFilterChange('type', value)}
               >
                 <Option value='text'>{t('informationGrid.types.text')}</Option>
@@ -601,7 +608,7 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
                 placeholder={t('informationGrid.filters.priority')}
                 allowClear
                 style={{ width: '100%' }}
-                value={filters.priority}
+                value={filters.priority || null}
                 onChange={value => handleFilterChange('priority', value)}
               >
                 <Option value='urgent'>{t('common.priority.urgent')}</Option>
@@ -657,7 +664,7 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
           {/* 数据表格 */}
           <Table
             columns={columns}
-            dataSource={informationData?.data || []}
+            dataSource={informationData?.list || []}
             rowKey='id'
             loading={loading}
             rowSelection={rowSelection}
@@ -913,8 +920,10 @@ const InformationGrid: React.FC<InformationGridProps> = memo(
         </Modal>
 
         <ErrorModal
-          isVisible={isVisible}
-          errorInfo={errorInfo}
+          visible={isVisible}
+          {...(errorInfo?.title && { title: errorInfo.title })}
+          message={errorInfo?.message || ''}
+          {...(errorInfo?.details && { details: errorInfo.details })}
           onClose={hideError}
         />
       </div>
