@@ -35,7 +35,6 @@ import {
 import { useAuth } from '@/contexts';
 import { useTranslation } from 'react-i18next';
 import { useMessage } from '@/hooks';
-import type { UploadFile } from 'antd/es/upload/interface';
 import dayjs from 'dayjs';
 import './index.scss';
 

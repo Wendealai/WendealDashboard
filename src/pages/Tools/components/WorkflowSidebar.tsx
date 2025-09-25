@@ -5,17 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Card,
-  Button,
-  Space,
-  Tooltip,
-  Typography,
-  Empty,
-  Spin,
-  Row,
-  Col,
-} from 'antd';
+import { Card, Button, Space, Tooltip, Empty, Spin, Row, Col } from 'antd';
 import { useMessage } from '@/hooks';
 import { ReloadOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -116,35 +106,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
         onWorkflowSelect?.(workflow);
       },
       [onWorkflowSelect]
-    );
-
-    /**
-     * Handle workflow trigger
-     */
-    const handleTriggerWorkflow = useCallback(
-      async (workflow: Workflow) => {
-        try {
-          const result = await dispatch(
-            triggerWorkflow({
-              workflowId: workflow.id,
-            })
-          ).unwrap();
-
-          // Update Last Updated time
-          setLastUpdatedTimes(prev => ({
-            ...prev,
-            [workflow.id]: new Date(),
-          }));
-
-          onWorkflowTriggered?.(workflow.id, result.executionId);
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          const detailedError = `工作流执行失败：\n工作流：${workflow.name}\n文件：WorkflowSidebar.tsx\n错误详情：${errorMessage}`;
-          console.error('Failed to trigger workflow:', detailedError);
-        }
-      },
-      [dispatch, onWorkflowTriggered]
     );
 
     /**

@@ -11,7 +11,6 @@ import { ReloadOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchWorkflows,
-  triggerWorkflow,
   selectWorkflowsList,
   selectLoading,
 } from '@/store/slices/informationDashboardSlice';
@@ -32,7 +31,6 @@ import WorkflowCard from '@/components/workflow/WorkflowCard';
 interface WorkflowSidebarProps {
   className?: string;
   onWorkflowSelect?: (workflow: Workflow | null) => void;
-  onWorkflowTriggered?: (workflowId: string, executionId: string) => void;
   onRedditDataReceived?: (data: ParsedSubredditData[]) => void;
   onRedditWorkflowDataReceived?: (data: RedditWorkflowResponse) => void;
 }
@@ -48,7 +46,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
   ({
     className,
     onWorkflowSelect,
-    onWorkflowTriggered,
     onRedditDataReceived,
     onRedditWorkflowDataReceived,
   }) => {

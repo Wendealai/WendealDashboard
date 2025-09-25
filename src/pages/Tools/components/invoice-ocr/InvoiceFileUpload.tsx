@@ -45,7 +45,6 @@ import {
   Row,
   Col,
   Alert,
-  notification,
 } from 'antd';
 import { useMessage } from '@/hooks';
 import { useErrorModal } from '@/hooks/useErrorModal';
@@ -67,12 +66,8 @@ import { invoiceOCRService } from '../../../../services/invoiceOCRService';
 import { n8nWebhookService } from '../../../../services/n8nWebhookService';
 import type {
   InvoiceOCRWorkflow,
-  InvoiceOCRSettings,
   InvoiceOCRBatchTask,
   InvoiceOCRUploadRequest,
-  InvoiceFileType,
-  InvoiceOCRLanguage,
-  InvoiceOCROutputFormat,
 } from '../../../../pages/InformationDashboard/types/invoiceOCR';
 
 const { Title, Text } = Typography;
@@ -182,7 +177,6 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
     const [previewFile, setPreviewFile] = useState<UploadFile | null>(null);
     const message = useMessage();
     const { isVisible, errorInfo, showError, hideError } = useErrorModal();
-    const { t } = useTranslation();
 
     // Cache processing options to avoid creating new objects on each render
     const memoizedProcessingOptions = useMemo(

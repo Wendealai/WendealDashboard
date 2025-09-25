@@ -1133,7 +1133,8 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                       </Text>
                       <Text>
                         <CalendarOutlined />{' '}
-                        {DateUtils.getRelativeTimeString(report.uploadDate)}
+                        {DateUtils?.getRelativeTimeString(report.uploadDate) ||
+                          'Unknown'}
                       </Text>
                       {report.metadata?.author && (
                         <Text>
@@ -1164,9 +1165,9 @@ const ReportViewer: React.FC<ReportViewerProps> = ({
                       />
                       <Text type='secondary' style={{ fontSize: '12px' }}>
                         {t('rndReport.viewer.lastRead')}:{' '}
-                        {DateUtils.getRelativeTimeString(
+                        {DateUtils?.getRelativeTimeString(
                           readingProgress.lastReadAt
-                        )}
+                        ) || 'Unknown'}
                       </Text>
                     </div>
                   </div>

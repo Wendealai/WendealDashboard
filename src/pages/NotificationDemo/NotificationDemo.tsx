@@ -211,7 +211,7 @@ const NotificationDemo: React.FC = () => {
   };
 
   // Handle settings change
-  const handleSettingsChange = (newSettings: NotificationSettings) => {
+  const handleSettingsChange = () => {
     // Settings are handled by the service, no local state needed
     toast.success(
       'Settings Updated',

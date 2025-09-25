@@ -29,7 +29,6 @@ import {
 export class DiagnosticService implements IDiagnosticService {
   private config: DiagnosticConfig;
   private engine: DiagnosticEngine;
-  private options: DiagnosticServiceOptions;
   private events: IDiagnosticServiceEvents;
   private history: DiagnosticReport[] = [];
   private isScanning = false;
@@ -47,7 +46,6 @@ export class DiagnosticService implements IDiagnosticService {
     }
 
     this.config = config;
-    this.options = options;
     this.events = options.events || {};
     this.startTime = new Date();
 
@@ -210,7 +208,9 @@ export class DiagnosticService implements IDiagnosticService {
 
     if (this.history.length > 0) {
       const scanTime = this.history[this.history.length - 1]!.scanTime;
-      result.lastScanTime = scanTime ? new Date(scanTime) : undefined;
+      if (scanTime) {
+        result.lastScanTime = new Date(scanTime);
+      }
     }
 
     return result;

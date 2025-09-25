@@ -825,7 +825,6 @@ const RNDReport: React.FC = () => {
                   categories={categories}
                   viewState={listViewState}
                   onReportSelect={handleReportSelect}
-                  onCategorySelect={handleCategorySelect}
                   onViewStateChange={setListViewState}
                   onReportDelete={handleReportDelete}
                   onReportRename={handleReportRename}

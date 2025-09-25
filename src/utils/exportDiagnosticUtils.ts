@@ -30,9 +30,12 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
     '**/coverage/**',
   ],
   maxDepth: 10,
-  timeout: 30000, // 30秒
+  includeTypes: true,
+  includeTests: false,
   enableCache: true,
   cacheExpiry: 5 * 60 * 1000, // 5分钟
+  concurrency: 4,
+  timeout: 30000, // 30秒
   severityThreshold: IssueSeverity.INFO,
   typescriptConfig: {
     strict: false,
@@ -379,7 +382,8 @@ export class IssueClassifier {
     };
 
     const issueLevel = severityLevels[issue.severity];
-    const thresholdLevel = severityLevels[config.severityThreshold];
+    const thresholdLevel =
+      severityLevels[config.severityThreshold || IssueSeverity.INFO];
 
     return issueLevel >= thresholdLevel;
   }

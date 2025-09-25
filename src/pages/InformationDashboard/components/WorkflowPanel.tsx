@@ -20,10 +20,6 @@ import type {
   WorkflowTriggerRequest,
   WorkflowStatus,
 } from '../types';
-import type {
-  ParsedSubredditData,
-  RedditWorkflowResponse,
-} from '@/services/redditWebhookService';
 
 /**
  * 工作流面板组件属性

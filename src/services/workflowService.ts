@@ -376,24 +376,29 @@ export class WorkflowService {
       const result = await response.json();
 
       return (
-        result.data?.map((execution: any) => ({
-          id: execution.id,
-          workflowId: execution.workflowId,
-          status: this.mapN8nExecutionStatus(
-            execution.finished,
-            execution.stoppedAt
-          ),
-          startedAt: execution.startedAt,
-          finishedAt: execution.stoppedAt,
-          duration:
-            execution.stoppedAt && execution.startedAt
-              ? new Date(execution.stoppedAt).getTime() -
-                new Date(execution.startedAt).getTime()
-              : undefined,
-          errorMessage: execution.data?.resultData?.error?.message,
-          inputData: execution.data?.startData,
-          outputData: execution.data?.resultData,
-        })) || []
+        result.data?.map((execution: any) => {
+          const executionData: WorkflowExecution = {
+            id: execution.id,
+            workflowId: execution.workflowId,
+            status: this.mapN8nExecutionStatus(
+              execution.finished,
+              execution.stoppedAt
+            ),
+            startedAt: execution.startedAt,
+            finishedAt: execution.stoppedAt,
+            errorMessage: execution.data?.resultData?.error?.message,
+            inputData: execution.data?.startData,
+            outputData: execution.data?.resultData,
+          };
+
+          if (execution.stoppedAt && execution.startedAt) {
+            executionData.duration =
+              new Date(execution.stoppedAt).getTime() -
+              new Date(execution.startedAt).getTime();
+          }
+
+          return executionData;
+        }) || []
       );
     } catch (error) {
       console.error('从n8n获取执行记录失败:', error);
@@ -457,27 +462,30 @@ export class WorkflowService {
 
       const execution = await response.json();
 
+      const executionData: WorkflowExecution = {
+        id: execution.id,
+        workflowId: execution.workflowId,
+        status: this.mapN8nExecutionStatus(
+          execution.finished,
+          execution.stoppedAt
+        ),
+        startedAt: execution.startedAt,
+        finishedAt: execution.stoppedAt,
+        errorMessage: execution.data?.resultData?.error?.message,
+        inputData: execution.data?.startData,
+        outputData: execution.data?.resultData,
+        logs: this.extractLogsFromExecution(execution),
+      };
+
+      if (execution.stoppedAt && execution.startedAt) {
+        executionData.duration =
+          new Date(execution.stoppedAt).getTime() -
+          new Date(execution.startedAt).getTime();
+      }
+
       return {
         success: true,
-        data: {
-          id: execution.id,
-          workflowId: execution.workflowId,
-          status: this.mapN8nExecutionStatus(
-            execution.finished,
-            execution.stoppedAt
-          ),
-          startedAt: execution.startedAt,
-          finishedAt: execution.stoppedAt,
-          duration:
-            execution.stoppedAt && execution.startedAt
-              ? new Date(execution.stoppedAt).getTime() -
-                new Date(execution.startedAt).getTime()
-              : undefined,
-          errorMessage: execution.data?.resultData?.error?.message,
-          inputData: execution.data?.startData,
-          outputData: execution.data?.resultData,
-          logs: this.extractLogsFromExecution(execution),
-        },
+        data: executionData,
         message: '获取执行详情成功',
       };
     } catch (error) {

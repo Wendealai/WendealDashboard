@@ -614,12 +614,7 @@ const InformationDashboard: React.FC = () => {
               <div
                 style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
               >
-                <WorkflowPanel
-                  onRedditDataReceived={handleRedditDataReceived}
-                  onRedditWorkflowDataReceived={
-                    handleRedditWorkflowDataReceived
-                  }
-                />
+                <WorkflowPanel />
                 <Divider />
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <ResultPanel

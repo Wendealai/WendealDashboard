@@ -375,7 +375,7 @@ export class TypeScriptIntegration {
     const name = element.name.text;
     const symbol = checker.getSymbolAtLocation(element.name);
 
-    return {
+    const exportInfo: ExportInfo = {
       name,
       type: 'named',
       location: {
@@ -391,8 +391,13 @@ export class TypeScriptIntegration {
       isUsed: false, // 需要进一步分析
       referenceCount: 0,
       lastModified: new Date(),
-      valueType: symbol ? this.getSymbolType(symbol, checker) : undefined,
     };
+
+    if (symbol) {
+      exportInfo.valueType = this.getSymbolType(symbol, checker);
+    }
+
+    return exportInfo;
   }
 
   /**
@@ -434,7 +439,7 @@ export class TypeScriptIntegration {
     const name = declaration.name.text;
     const symbol = checker.getSymbolAtLocation(declaration.name);
 
-    return {
+    const exportInfo: ExportInfo = {
       name,
       type: 'named',
       location: {
@@ -450,8 +455,13 @@ export class TypeScriptIntegration {
       isUsed: false,
       referenceCount: 0,
       lastModified: new Date(),
-      valueType: symbol ? this.getSymbolType(symbol, checker) : undefined,
     };
+
+    if (symbol) {
+      exportInfo.valueType = this.getSymbolType(symbol, checker);
+    }
+
+    return exportInfo;
   }
 
   /**
@@ -579,10 +589,13 @@ export class TypeScriptIntegration {
    */
   private getSymbolType(symbol: ts.Symbol, checker: ts.TypeChecker): string {
     try {
-      const type = checker.getTypeOfSymbolAtLocation(
-        symbol,
-        symbol.valueDeclaration || symbol.declarations[0]
-      );
+      const declaration =
+        symbol.valueDeclaration ||
+        (symbol.declarations && symbol.declarations[0]);
+      if (!declaration) {
+        return 'unknown';
+      }
+      const type = checker.getTypeOfSymbolAtLocation(symbol, declaration);
       return checker.typeToString(type);
     } catch {
       return 'unknown';
