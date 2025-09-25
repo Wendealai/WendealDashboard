@@ -172,11 +172,11 @@ export interface TKViralExtractProps {
 }
 
 export interface WorkflowParameters {
-  keyword: string;        // 检索关键词
-  offset?: string;        // 偏移量
-  count?: string;         // 数量
-  sortMethod?: string;    // 排序方法 (0相关度 1最多点赞)
-  timeRange?: string;     // 发布时间范围 (0不限制 1最近1天 7最近7天等)
+  keyword: string; // 检索关键词
+  offset?: string; // 偏移量
+  count?: string; // 数量
+  sortMethod?: string; // 排序方法 (0相关度 1最多点赞)
+  timeRange?: string; // 发布时间范围 (0不限制 1最近1天 7最近7天等)
 }
 
 export interface SimplifiedInputFormProps {
@@ -196,12 +196,15 @@ export interface AirtableTableProps {
   onPageChange?: (page: number, pageSize: number) => void;
 }
 
-export enum DataLoadingState {
-  IDLE = 'idle',
-  LOADING = 'loading',
-  SUCCESS = 'success',
-  ERROR = 'error',
-}
+export const DataLoadingState = {
+  IDLE: 'idle',
+  LOADING: 'loading',
+  SUCCESS: 'success',
+  ERROR: 'error',
+} as const;
+
+export type DataLoadingState =
+  (typeof DataLoadingState)[keyof typeof DataLoadingState];
 
 /**
  * Airtable工作流相关类型定义

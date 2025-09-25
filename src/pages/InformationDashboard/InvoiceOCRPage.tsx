@@ -50,11 +50,10 @@ import {
   CheckCircleOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
-import { invoiceOCRService } from '../../services/invoiceOCRService';
 import InvoiceFileUpload from './components/InvoiceFileUpload';
 import InvoiceOCRResults from './components/InvoiceOCRResults';
 import InvoiceOCRSettings from './components/InvoiceOCRSettings';
-import type { InvoiceOCRFile, InvoiceOCRResult } from './types/invoiceOCR';
+import type { InvoiceOCRResult } from './types/invoiceOCR';
 import type { EnhancedWebhookResponse } from '../../types/workflow';
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -87,10 +86,10 @@ const InvoiceOCRPage: React.FC = () => {
   // Data state
   const [error, setError] = useState<string | null>(null);
   const [completedData, setCompletedData] = useState<{
-    executionId?: string | undefined;
-    googleSheetsUrl?: string | undefined;
-    processedFiles?: number | undefined;
-    totalFiles?: number | undefined;
+    executionId: string;
+    googleSheetsUrl?: string;
+    processedFiles?: number;
+    totalFiles?: number;
     /** 增强版webhook响应数据 */
     enhancedData?: EnhancedWebhookResponse;
   } | null>(null);
@@ -139,17 +138,18 @@ const InvoiceOCRPage: React.FC = () => {
       enhancedData?: EnhancedWebhookResponse;
     }) => {
       console.log('OCR处理完成，接收到数据:', data);
-      // Only set completedData if we have valid data
-      const completedData = {
-        ...(data.executionId && { executionId: data.executionId }),
-        ...(data.googleSheetsUrl && { googleSheetsUrl: data.googleSheetsUrl }),
-        ...(data.processedFiles && { processedFiles: data.processedFiles }),
-        ...(data.totalFiles && { totalFiles: data.totalFiles }),
-        ...(data.enhancedData && { enhancedData: data.enhancedData }),
-      };
-      setCompletedData(
-        Object.keys(completedData).length > 0 ? completedData : null
-      );
+      // Only set completedData if we have executionId (required)
+      if (data.executionId) {
+        setCompletedData({
+          executionId: data.executionId,
+          ...(data.googleSheetsUrl && {
+            googleSheetsUrl: data.googleSheetsUrl,
+          }),
+          ...(data.processedFiles && { processedFiles: data.processedFiles }),
+          ...(data.totalFiles && { totalFiles: data.totalFiles }),
+          ...(data.enhancedData && { enhancedData: data.enhancedData }),
+        });
+      }
       setProcessingStatus('completed');
       setCurrentStep(3);
       setLoading(false);

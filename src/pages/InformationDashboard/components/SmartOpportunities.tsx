@@ -21,10 +21,10 @@ import type {
  */
 const SmartOpportunities: React.FC<SmartOpportunitiesProps> = ({
   onParametersChange,
-  onDataLoaded,
-  onError,
+  onDataLoaded: _onDataLoaded,
+  onError: _onError,
 }) => {
-  const { t } = useTranslation();
+  const { t: _t } = useTranslation();
 
   // 状态管理
   const [parameters, setParameters] = useState<WorkflowParameters>({

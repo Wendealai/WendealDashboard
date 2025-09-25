@@ -3,25 +3,9 @@
  * Provides workflow display, management and operation functionality
  */
 
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Card,
-  Button,
-  Tag,
-  Space,
-  Modal,
-  Form,
-  Input,
-  Tooltip,
-  Row,
-  Col,
-  List,
-  Typography,
-  Alert,
-  Progress,
-  Empty,
-} from 'antd';
+import { Modal, Form, Input, Tag } from 'antd';
 import { useMessage } from '@/hooks';
 import { useErrorModal } from '@/hooks/useErrorModal';
 import ErrorModal from '@/components/common/ErrorModal';
@@ -53,9 +37,6 @@ import type {
   ParsedSubredditData,
   RedditWorkflowResponse,
 } from '@/services/redditWebhookService';
-import WorkflowGrid from '@/components/workflow/WorkflowGrid';
-
-const { Text } = Typography;
 
 /**
  * 工作流面板组件属性
@@ -90,7 +71,7 @@ const getWorkflowStatusColor = (status: WorkflowStatus): string => {
 const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
   ({
     className,
-    onWorkflowSelect,
+    onWorkflowSelect: _onWorkflowSelect,
     onWorkflowTriggered,
     onRedditDataReceived,
     onRedditWorkflowDataReceived,
@@ -102,9 +83,9 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
     const { workflows: workflowsState } = useAppSelector(
       state => state.informationDashboard
     );
-    const workflows = workflowsState.list;
-    const loading = workflowsState.loading;
-    const workflowStats = useAppSelector(selectWorkflowStats);
+    const _workflows = workflowsState.list;
+    const _loading = workflowsState.loading;
+    const _workflowStats = useAppSelector(selectWorkflowStats);
 
     // Component state
     const [triggerModalVisible, setTriggerModalVisible] = useState(false);
@@ -114,12 +95,12 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
     const [triggerForm] = Form.useForm();
 
     // Reddit workflow state
-    const [redditLoading, setRedditLoading] = useState(false);
-    const [redditError, setRedditError] = useState<string | null>(null);
-    const [redditProgressStatus, setRedditProgressStatus] =
+    const [_redditLoading, setRedditLoading] = useState(false);
+    const [_redditError, setRedditError] = useState<string | null>(null);
+    const [_redditProgressStatus, setRedditProgressStatus] =
       useState<string>('');
-    const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
-    const [redditWorkflowData, setRedditWorkflowData] =
+    const [_redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
+    const [_redditWorkflowData, setRedditWorkflowData] =
       useState<RedditWorkflowResponse | null>(null);
 
     /**
@@ -133,7 +114,7 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
     /**
      * Handle workflow trigger
      */
-    const handleTriggerWorkflow = useCallback(
+    const _handleTriggerWorkflow = useCallback(
       async (workflow: Workflow) => {
         setSelectedWorkflow(workflow);
         setTriggerModalVisible(true);
@@ -179,7 +160,7 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
     /**
      * Refresh data
      */
-    const handleRefresh = useCallback(() => {
+    const _handleRefresh = useCallback(() => {
       dispatch(fetchWorkflows({}));
       dispatch(fetchWorkflowExecutions());
     }, [dispatch]);
@@ -187,7 +168,7 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
     /**
      * Handle Reddit workflow start
      */
-    const handleRedditWorkflowStart = useCallback(async () => {
+    const _handleRedditWorkflowStart = useCallback(async () => {
       setRedditLoading(true);
       setRedditError(null);
       setRedditProgressStatus('准备启动Reddit工作流...');

@@ -3,8 +3,7 @@
  * 显示工作流执行结果、Reddit数据和信息统计
  */
 
-import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useMemo, useCallback, memo } from 'react';
 import {
   Card,
   List,
@@ -13,11 +12,9 @@ import {
   Badge,
   Alert,
   Empty,
-  Spin,
   Button,
   Tooltip,
   Avatar,
-  Progress,
   Tag,
   Row,
   Col,
@@ -31,15 +28,8 @@ import {
   LikeOutlined,
   UserOutlined,
   ClockCircleOutlined,
-  ExclamationCircleOutlined,
-  LoadingOutlined,
-  TrophyOutlined,
-  FireOutlined,
-  EyeOutlined,
 } from '@ant-design/icons';
-import { useAppSelector } from '@/store/hooks';
-import { selectLoading } from '@/store/slices/informationDashboardSlice';
-import type { InformationItem, WorkflowInfo } from '../types';
+import type { WorkflowInfo } from '../types';
 import type {
   ParsedSubredditData,
   RedditWorkflowResponse,
@@ -84,30 +74,6 @@ interface ResultPanelProps {
 }
 
 /**
- * 格式化时间戳
- */
-const formatTimestamp = (timestamp: number): string => {
-  const date = new Date(timestamp * 1000);
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
-
-/**
- * 格式化分数显示
- */
-const formatScore = (score: number): string => {
-  if (score >= 1000) {
-    return `${(score / 1000).toFixed(1)}k`;
-  }
-  return score.toString();
-};
-
-/**
  * 检查 Reddit 工作流数据是否有效
  */
 const isValidRedditWorkflowData = (
@@ -123,51 +89,10 @@ const isValidRedditWorkflowData = (
 };
 
 /**
- * 获取热度等级
- */
-const getHotLevel = (
-  score: number
-): { level: string; color: string; icon: React.ReactNode } => {
-  if (score >= 1000) {
-    return {
-      level: '热门',
-      color: 'var(--color-error, #ff4d4f)',
-      icon: <FireOutlined />,
-    };
-  } else if (score >= 500) {
-    return {
-      level: '受欢迎',
-      color: 'var(--color-warning, #fa8c16)',
-      icon: <TrophyOutlined />,
-    };
-  } else if (score >= 100) {
-    return {
-      level: '一般',
-      color: 'var(--color-primary, #1890ff)',
-      icon: <EyeOutlined />,
-    };
-  }
-  return {
-    level: '冷门',
-    color: 'var(--color-text-secondary, #d9d9d9)',
-    icon: <EyeOutlined />,
-  };
-};
-
-/**
  * 结果展示面板组件
  */
 const ResultPanel: React.FC<ResultPanelProps> = memo(
-  ({
-    className,
-    selectedWorkflow,
-    redditData,
-    redditWorkflowData,
-    loading = false,
-  }) => {
-    const { t } = useTranslation();
-    const storeLoading = useAppSelector(selectLoading);
-
+  ({ className, redditData, redditWorkflowData }) => {
     // 使用useMemo优化数据处理
     const groupedRedditData = useMemo(() => {
       console.log('🔄 ResultPanel: 处理Reddit数据:', {
@@ -434,7 +359,6 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                 dataSource={subreddit.posts}
                 style={{ height: '100%' }}
                 renderItem={(post: RedditWorkflowPost) => {
-                  const hotLevel = getHotLevel(post.score);
                   return (
                     <List.Item
                       className='compact-spacing'
@@ -655,7 +579,6 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                           dataSource={posts.slice(0, 5)} // 限制最多显示5条帖子
                           style={{ height: '100%' }}
                           renderItem={post => {
-                            const hotLevel = getHotLevel(post.score || 0);
                             return (
                               <List.Item
                                 className='compact-spacing'

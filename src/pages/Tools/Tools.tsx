@@ -20,7 +20,7 @@ import SmartOpportunities from './components/SmartOpportunities';
 import TaxInvoiceReceipt from './components/TaxInvoiceReceipt';
 import type { Workflow } from './types';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 
 /**
  * Tools Dashboard main page component

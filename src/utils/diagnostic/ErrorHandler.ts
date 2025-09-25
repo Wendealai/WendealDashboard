@@ -9,38 +9,42 @@ import { ExportIssueType, IssueSeverity } from '@/types/exportDiagnostic';
 /**
  * 错误类型枚举
  */
-export enum ErrorType {
+export const ErrorType = {
   /** 文件系统错误 */
-  FILE_SYSTEM_ERROR = 'file_system_error',
+  FILE_SYSTEM_ERROR: 'file_system_error',
   /** 解析错误 */
-  PARSING_ERROR = 'parsing_error',
+  PARSING_ERROR: 'parsing_error',
   /** 配置错误 */
-  CONFIGURATION_ERROR = 'configuration_error',
+  CONFIGURATION_ERROR: 'configuration_error',
   /** 网络错误 */
-  NETWORK_ERROR = 'network_error',
+  NETWORK_ERROR: 'network_error',
   /** 超时错误 */
-  TIMEOUT_ERROR = 'timeout_error',
+  TIMEOUT_ERROR: 'timeout_error',
   /** 内存错误 */
-  MEMORY_ERROR = 'memory_error',
+  MEMORY_ERROR: 'memory_error',
   /** 未知错误 */
-  UNKNOWN_ERROR = 'unknown_error',
-}
+  UNKNOWN_ERROR: 'unknown_error',
+} as const;
+
+export type ErrorType = (typeof ErrorType)[keyof typeof ErrorType];
 
 /**
  * 日志级别枚举
  */
-export enum LogLevel {
+export const LogLevel = {
   /** 调试 */
-  DEBUG = 'debug',
+  DEBUG: 'debug',
   /** 信息 */
-  INFO = 'info',
+  INFO: 'info',
   /** 警告 */
-  WARN = 'warn',
+  WARN: 'warn',
   /** 错误 */
-  ERROR = 'error',
+  ERROR: 'error',
   /** 致命错误 */
-  FATAL = 'fatal',
-}
+  FATAL: 'fatal',
+} as const;
+
+export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
 
 /**
  * 日志条目接口
@@ -55,9 +59,9 @@ export interface LogEntry {
   /** 错误对象 */
   error?: Error;
   /** 上下文信息 */
-  context?: Record<string, any>;
+  context?: Record<string, any> | undefined;
   /** 堆栈跟踪 */
-  stack?: string;
+  stack?: string | undefined;
 }
 
 /**
@@ -103,15 +107,15 @@ export class ErrorHandler {
   async handleError(
     error: Error | unknown,
     context?: {
-      operation?: string;
-      filePath?: string;
-      component?: string;
-      additionalInfo?: Record<string, any>;
+      operation?: string | undefined;
+      filePath?: string | undefined;
+      component?: string | undefined;
+      additionalInfo?: Record<string, any> | undefined;
     }
   ): Promise<{
     handled: boolean;
     recoverable: boolean;
-    suggestion?: string;
+    suggestion?: string | undefined;
   }> {
     const errorInfo = this.normalizeError(error);
     const errorType = this.classifyError(errorInfo);
@@ -141,9 +145,9 @@ export class ErrorHandler {
   async withRetry<T>(
     operation: () => Promise<T>,
     context?: {
-      operationName?: string;
-      maxRetries?: number;
-      retryDelay?: number;
+      operationName?: string | undefined;
+      maxRetries?: number | undefined;
+      retryDelay?: number | undefined;
     }
   ): Promise<T> {
     const maxRetries = context?.maxRetries ?? this.options.maxRetries ?? 3;
@@ -185,7 +189,7 @@ export class ErrorHandler {
     operation: Promise<T>,
     timeoutMs: number,
     context?: {
-      operationName?: string;
+      operationName?: string | undefined;
     }
   ): Promise<T> {
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -215,8 +219,8 @@ export class ErrorHandler {
   createErrorBoundary<T extends (...args: any[]) => any>(
     fn: T,
     context?: {
-      operationName?: string;
-      component?: string;
+      operationName?: string | undefined;
+      component?: string | undefined;
     }
   ): T {
     return ((...args: Parameters<T>) => {
@@ -277,12 +281,12 @@ export class ErrorHandler {
    * 记录错误
    */
   private logError(
-    error: { message: string; stack?: string; name: string },
+    error: { message: string; stack?: string | undefined; name: string },
     context?: {
-      operation?: string;
-      filePath?: string;
-      component?: string;
-      additionalInfo?: Record<string, any>;
+      operation?: string | undefined;
+      filePath?: string | undefined;
+      component?: string | undefined;
+      additionalInfo?: Record<string, any> | undefined;
     }
   ): void {
     this.log(LogLevel.ERROR, error.message, {
@@ -364,7 +368,11 @@ export class ErrorHandler {
    */
   exportLogs(): {
     logs: LogEntry[];
-    stats: ReturnType<typeof this.getErrorStats>;
+    stats: {
+      totalErrors: number;
+      errorsByType: Record<ErrorType, number>;
+      recentErrors: LogEntry[];
+    };
   } {
     return {
       logs: [...this.logs],
@@ -377,7 +385,7 @@ export class ErrorHandler {
    */
   private normalizeError(error: Error | unknown): {
     message: string;
-    stack?: string;
+    stack?: string | undefined;
     name: string;
   } {
     if (error instanceof Error) {
@@ -406,7 +414,7 @@ export class ErrorHandler {
    */
   private classifyError(error: {
     message: string;
-    stack?: string;
+    stack?: string | undefined;
     name: string;
   }): ErrorType {
     const message = error.message.toLowerCase();
@@ -470,7 +478,7 @@ export class ErrorHandler {
   private generateSuggestion(
     errorType: ErrorType,
     error: { message: string },
-    context?: { operation?: string; filePath?: string }
+    context?: { operation?: string | undefined; filePath?: string | undefined }
   ): string {
     switch (errorType) {
       case ErrorType.FILE_SYSTEM_ERROR:
@@ -559,8 +567,8 @@ export const errorHandler = new ErrorHandler({
 export function withErrorHandling<T extends (...args: any[]) => any>(
   fn: T,
   context?: {
-    operationName?: string;
-    component?: string;
+    operationName?: string | undefined;
+    component?: string | undefined;
   }
 ): T {
   return errorHandler.createErrorBoundary(fn, context);
@@ -572,9 +580,9 @@ export function withErrorHandling<T extends (...args: any[]) => any>(
 export function withRetry<T extends (...args: any[]) => any>(
   fn: T,
   options?: {
-    maxRetries?: number;
-    retryDelay?: number;
-    operationName?: string;
+    maxRetries?: number | undefined;
+    retryDelay?: number | undefined;
+    operationName?: string | undefined;
   }
 ): T {
   return ((...args: Parameters<T>) => {
@@ -592,7 +600,7 @@ export function withRetry<T extends (...args: any[]) => any>(
 export function withTimeout<T extends (...args: any[]) => any>(
   fn: T,
   timeoutMs: number,
-  operationName?: string
+  operationName?: string | undefined
 ): T {
   return ((...args: Parameters<T>) => {
     return errorHandler.withTimeout(fn(...args), timeoutMs, { operationName });

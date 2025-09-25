@@ -85,8 +85,6 @@ import { invoiceOCRService } from '../../../services/invoiceOCRService';
 import type {
   InvoiceOCRResult,
   InvoiceOCRBatchTask,
-  InvoiceOCRStatistics,
-  InvoiceOCRExecution,
   InvoiceData,
 } from '../types/invoiceOCR';
 import type { EnhancedWebhookResponse } from '../../../types/workflow';
@@ -212,8 +210,6 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const { isVisible, errorInfo, showError, hideError } = useErrorModal();
   const [results, setResults] = useState<InvoiceOCRResult[]>([]);
   const [batchTasks, setBatchTasks] = useState<InvoiceOCRBatchTask[]>([]);
-  const [stats, setStats] = useState<InvoiceOCRStatistics | null>(null);
-  const [history, setHistory] = useState<InvoiceOCRExecution[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedResults, setSelectedResults] = useState<InvoiceOCRResult[]>(
     []
@@ -251,21 +247,6 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
         pageSize: 50,
       });
       setBatchTasks(batchTasksData.items || []);
-
-      // 加载统计信息
-      if (showStats) {
-        const statsData = await invoiceOCRService.getStatistics(workflowId);
-        setStats(statsData);
-      }
-
-      // 加载执行历史
-      if (showHistory) {
-        const historyData = await invoiceOCRService.getExecutions(workflowId, {
-          page: 1,
-          pageSize: 20,
-        });
-        setHistory(historyData.items || []);
-      }
     } catch (error) {
       showError({
         title: 'Failed to load data',
@@ -275,7 +256,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [workflowId, batchTaskId, showStats, showHistory]);
+  }, [workflowId, batchTaskId, showHistory]);
 
   /**
    * 组件挂载时加载数据
@@ -841,7 +822,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     }
 
     // 后备：显示原有统计信息
-    if (!showStats || !stats) return null;
+    if (!showStats) return null;
 
     return (
       <Card title='Statistics' size='small' style={{ marginBottom: 16 }}>
@@ -849,14 +830,14 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
           <Col span={6}>
             <Statistic
               title='Total Files'
-              value={stats.totalProcessed}
+              value={0}
               prefix={<FileTextOutlined />}
             />
           </Col>
           <Col span={6}>
             <Statistic
               title='Successful'
-              value={stats.successCount}
+              value={0}
               prefix={<CheckCircleOutlined />}
               valueStyle={{ color: '#3f8600' }}
             />
@@ -864,7 +845,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
           <Col span={6}>
             <Statistic
               title='Failed'
-              value={stats.failureCount}
+              value={0}
               prefix={<ExclamationCircleOutlined />}
               valueStyle={{ color: '#cf1322' }}
             />
@@ -872,7 +853,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
           <Col span={6}>
             <Statistic
               title='Avg Confidence'
-              value={stats.averageConfidence}
+              value={0}
               precision={2}
               suffix='%'
               prefix={<BarChartOutlined />}
@@ -1048,7 +1029,6 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       ) {
         console.log('显示详细的增强数据结果');
         console.log('enhancedData 包含的字段:', Object.keys(enhancedData));
-        const stats = invoiceOCRService.extractProcessingStats(enhancedData);
 
         return (
           <div className='invoice-processing-enhanced'>
@@ -1476,7 +1456,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
           size='small'
           rowSelection={{
             selectedRowKeys: selectedResults.map(result => result.id),
-            onChange: (selectedRowKeys, selectedRows) => {
+            onChange: (_selectedRowKeys, selectedRows) => {
               setSelectedResults(selectedRows);
             },
           }}
