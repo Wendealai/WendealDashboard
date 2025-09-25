@@ -15,13 +15,11 @@ import {
   Tooltip,
   Button,
   Modal,
-  Input,
   Progress,
 } from 'antd';
 import {
   DatabaseOutlined,
   GlobalOutlined,
-  ShopOutlined,
   MailOutlined,
   ReloadOutlined,
   ExclamationCircleOutlined,
@@ -36,8 +34,6 @@ import type { ColumnsType } from 'antd/es/table';
 import type {
   AirtableTableProps,
   OpportunityRecord,
-  TableSort,
-  TablePagination,
 } from '@/types/smartOpportunities';
 import {
   AirtableService,
