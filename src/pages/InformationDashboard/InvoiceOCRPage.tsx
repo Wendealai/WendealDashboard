@@ -54,11 +54,7 @@ import { invoiceOCRService } from '../../services/invoiceOCRService';
 import InvoiceFileUpload from './components/InvoiceFileUpload';
 import InvoiceOCRResults from './components/InvoiceOCRResults';
 import InvoiceOCRSettings from './components/InvoiceOCRSettings';
-import type {
-  InvoiceOCRFile,
-  InvoiceOCRResult,
-  InvoiceOCRStats,
-} from './types/invoiceOCR';
+import type { InvoiceOCRFile, InvoiceOCRResult } from './types/invoiceOCR';
 import type { EnhancedWebhookResponse } from '../../types/workflow';
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -123,11 +119,7 @@ const InvoiceOCRPage: React.FC = () => {
           err.message || t('invoiceOCR.upload.processFailed');
         setError(errorMessage);
         setProcessingStatus('error');
-        showError(
-          t('invoiceOCR.upload.processFailed'),
-          err.message || t('common.unknownError'),
-          err.stack
-        );
+        showError(t('invoiceOCR.upload.processFailed'));
       } finally {
         setLoading(false);
       }
@@ -175,11 +167,7 @@ const InvoiceOCRPage: React.FC = () => {
       setOcrResults(resultsData);
     } catch (error) {
       console.error('Failed to load initial data:', error);
-      showError(
-        t('globalMessages.refreshFailed'),
-        error instanceof Error ? error.message : 'Unknown error',
-        error instanceof Error ? error.stack : undefined
-      );
+      showError(t('globalMessages.refreshFailed'));
     } finally {
       setLoading(false);
     }
@@ -236,7 +224,7 @@ const InvoiceOCRPage: React.FC = () => {
   const getStatusColor = (status: ProcessingStatus) => {
     switch (status) {
       case 'completed':
-        return 'success';
+        return 'finish';
       case 'error':
         return 'error';
       case 'processing':
@@ -309,7 +297,11 @@ const InvoiceOCRPage: React.FC = () => {
    * Render main content
    */
   const renderMainContent = () => {
-    if (processingStatus === 'idle' || processingStatus === 'uploading') {
+    if (
+      processingStatus === 'idle' ||
+      processingStatus === 'uploading' ||
+      processingStatus === 'processing'
+    ) {
       return (
         <Card
           title={t('invoiceOCR.upload.title')}
@@ -344,7 +336,7 @@ const InvoiceOCRPage: React.FC = () => {
         showStats={true}
         showHistory={true}
         processingStatus={processingStatus}
-        completedData={completedData}
+        {...(completedData && { completedData })}
         onResultSelect={result => {
           console.log('Selected result:', result);
         }}
@@ -381,7 +373,7 @@ const InvoiceOCRPage: React.FC = () => {
         {/* Error Modal */}
         <ErrorModal
           visible={isVisible}
-          errorInfo={errorInfo}
+          message={errorInfo?.message || 'An error occurred'}
           onClose={hideError}
         />
 
