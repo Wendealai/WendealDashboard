@@ -1,15 +1,16 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { PayloadAction } from '@reduxjs/toolkit';
+import {
+  createSlice,
+  createAsyncThunk,
+  type PayloadAction,
+} from '@reduxjs/toolkit';
 import {
   fetchDashboardStats,
   fetchRecentActivities,
   fetchSystemStatus,
   refreshDashboardData,
-} from '@/services/dashboardService';
-import type {
-  DashboardStats,
-  ActivityItem,
-  SystemStatus,
+  type DashboardStats,
+  type ActivityItem,
+  type SystemStatus,
 } from '@/services/dashboardService';
 
 interface DashboardState {

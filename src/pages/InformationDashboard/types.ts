@@ -140,18 +140,24 @@ export interface TriggerWorkflowResponse {
  */
 export interface RedditWorkflowResponse {
   success: boolean;
+  headerInfo: any; // Required to match service interface
+  summary: any; // Required to match service interface
+  subreddits: any[]; // Required to match service interface
+  metadata: any; // Required to match service interface
   posts?: any[];
-  subreddits?: any[];
   stats?: any;
-  metadata?: any;
-  headerInfo?: any;
-  summary?: any;
   message?: string;
   timestamp?: string;
   validSubreddits?: any;
   totalSubreddits?: number;
   messageLength?: number;
   apiSource?: any;
+  error?: string;
+  debugInfo?: {
+    subredditsAttempted: string[];
+    commonIssues: string[];
+    suggestions: string[];
+  };
 }
 
 /**

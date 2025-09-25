@@ -5,14 +5,15 @@
 
 import path from 'path';
 import fs from 'fs';
-import type {
-  ExportInfo,
-  FileLocation,
-  ExportIssue,
-  FixSuggestion,
-  DiagnosticConfig,
+import {
+  IssueSeverity,
+  ExportIssueType,
+  type ExportInfo,
+  type FileLocation,
+  type ExportIssue,
+  type FixSuggestion,
+  type DiagnosticConfig,
 } from '@/types/exportDiagnostic';
-import { IssueSeverity, ExportIssueType } from '@/types/exportDiagnostic';
 
 /**
  * 默认诊断配置

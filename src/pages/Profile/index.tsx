@@ -83,7 +83,7 @@ const ProfilePage: React.FC = () => {
         console.warn('i18n not initialized, using fallback for key:', key);
         return key;
       }
-      return t(key, options);
+      return String(t(key, options));
     } catch (error) {
       console.warn('Translation error for key:', key, error);
       return key;

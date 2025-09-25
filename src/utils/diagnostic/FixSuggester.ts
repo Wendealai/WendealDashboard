@@ -3,13 +3,14 @@
  * 修复建议生成器
  */
 
-import type {
-  ExportIssue,
-  FixSuggestion,
-  DiagnosticConfig,
-  FixType,
+import {
+  ExportIssueType,
+  IssueSeverity,
+  type ExportIssue,
+  type FixSuggestion,
+  type DiagnosticConfig,
+  type FixType,
 } from '@/types/exportDiagnostic';
-import { ExportIssueType, IssueSeverity } from '@/types/exportDiagnostic';
 
 /**
  * 修复建议器类

@@ -9,17 +9,6 @@ import { Modal, Form, Input, Tag } from 'antd';
 import { useMessage } from '@/hooks';
 import { useErrorModal } from '@/hooks/useErrorModal';
 import ErrorModal from '@/components/common/ErrorModal';
-import {
-  PlayCircleOutlined,
-  ReloadOutlined,
-  EyeOutlined,
-  ThunderboltOutlined,
-  RedditOutlined,
-  ExportOutlined,
-  CommentOutlined,
-  LikeOutlined,
-  LoadingOutlined,
-} from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchWorkflows,
@@ -71,7 +60,6 @@ const getWorkflowStatusColor = (status: WorkflowStatus): string => {
 const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
   ({
     className,
-    onWorkflowSelect: _onWorkflowSelect,
     onWorkflowTriggered,
     onRedditDataReceived,
     onRedditWorkflowDataReceived,
@@ -80,12 +68,6 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
     const dispatch = useAppDispatch();
     const message = useMessage();
     const { isVisible, errorInfo, showError, hideError } = useErrorModal();
-    const { workflows: workflowsState } = useAppSelector(
-      state => state.informationDashboard
-    );
-    const _workflows = workflowsState.list;
-    const _loading = workflowsState.loading;
-    const _workflowStats = useAppSelector(selectWorkflowStats);
 
     // Component state
     const [triggerModalVisible, setTriggerModalVisible] = useState(false);
@@ -95,12 +77,12 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
     const [triggerForm] = Form.useForm();
 
     // Reddit workflow state
-    const [_redditLoading, setRedditLoading] = useState(false);
-    const [_redditError, setRedditError] = useState<string | null>(null);
-    const [_redditProgressStatus, setRedditProgressStatus] =
+    const [redditLoading, setRedditLoading] = useState(false);
+    const [redditError, setRedditError] = useState<string | null>(null);
+    const [redditProgressStatus, setRedditProgressStatus] =
       useState<string>('');
-    const [_redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
-    const [_redditWorkflowData, setRedditWorkflowData] =
+    const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
+    const [redditWorkflowData, setRedditWorkflowData] =
       useState<RedditWorkflowResponse | null>(null);
 
     /**
@@ -110,18 +92,6 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
       dispatch(fetchWorkflows({}));
       dispatch(fetchWorkflowExecutions());
     }, [dispatch]);
-
-    /**
-     * Handle workflow trigger
-     */
-    const _handleTriggerWorkflow = useCallback(
-      async (workflow: Workflow) => {
-        setSelectedWorkflow(workflow);
-        setTriggerModalVisible(true);
-        triggerForm.resetFields();
-      },
-      [triggerForm]
-    );
 
     /**
      * Confirm workflow trigger
@@ -156,136 +126,6 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
         });
       }
     }, [selectedWorkflow, triggerForm, dispatch, t, onWorkflowTriggered]);
-
-    /**
-     * Refresh data
-     */
-    const _handleRefresh = useCallback(() => {
-      dispatch(fetchWorkflows({}));
-      dispatch(fetchWorkflowExecutions());
-    }, [dispatch]);
-
-    /**
-     * Handle Reddit workflow start
-     */
-    const _handleRedditWorkflowStart = useCallback(async () => {
-      setRedditLoading(true);
-      setRedditError(null);
-      setRedditProgressStatus('准备启动Reddit工作流...');
-
-      try {
-        const response = await workflowService.triggerRedditWebhook(
-          (status: string) => {
-            setRedditProgressStatus(status);
-          }
-        );
-
-        if (response.success && response.data) {
-          // Handle new Reddit workflow response format
-          const workflowResponse: RedditWorkflowResponse = {
-            ...response.data,
-            success: true,
-            headerInfo: {
-              title: 'Reddit Hot Content',
-              subtitle: 'Latest trending posts',
-              timeRange: '24h',
-              timestamp: new Date().toISOString(),
-              totalPosts:
-                response.data.subreddits?.reduce(
-                  (sum: number, sub: any) => sum + (sub.posts?.length || 0),
-                  0
-                ) || 0,
-            },
-            summary: {
-              totalSubreddits: response.data.subreddits?.length || 0,
-              totalPosts:
-                response.data.subreddits?.reduce(
-                  (sum: number, sub: any) => sum + (sub.posts?.length || 0),
-                  0
-                ) || 0,
-              totalScore:
-                response.data.subreddits?.reduce(
-                  (sum: number, sub: any) => sum + (sub.stats?.totalScore || 0),
-                  0
-                ) || 0,
-              totalComments:
-                response.data.subreddits?.reduce(
-                  (sum: number, sub: any) =>
-                    sum + (sub.stats?.totalComments || 0),
-                  0
-                ) || 0,
-              topSubreddit: response.data.subreddits?.[0]?.name || null,
-              categories:
-                response.data.subreddits
-                  ?.map((sub: any) => sub.category)
-                  .filter(Boolean) || [],
-              averagePostsPerSub: response.data.subreddits?.length
-                ? response.data.subreddits.reduce(
-                    (sum: number, sub: any) => sum + (sub.posts?.length || 0),
-                    0
-                  ) / response.data.subreddits.length
-                : 0,
-              dataFreshness: 'fresh',
-            },
-          };
-          setRedditWorkflowData(workflowResponse);
-          setRedditProgressStatus('Reddit数据获取完成！');
-          message.success('Reddit数据获取成功！');
-
-          // Notify parent component with new data format
-          if (onRedditWorkflowDataReceived) {
-            onRedditWorkflowDataReceived(workflowResponse);
-          }
-
-          // Also provide backward compatibility with old format
-          const subredditsData =
-            workflowResponse.subreddits?.map((sub: any) => ({
-              name: sub.name,
-              posts: sub.posts.map((post: any) => ({
-                title: post.title,
-                author: post.author,
-                score: post.score,
-                comments: post.comments,
-                url: post.url,
-                subreddit: sub.name,
-                rank: post.rank,
-                upvotes: post.score, // Map score to upvotes for compatibility
-              })),
-              totalPosts: sub.stats?.totalPosts || 0,
-            })) || [];
-
-          setRedditData(subredditsData as any);
-          if (onRedditDataReceived) {
-            onRedditDataReceived(subredditsData as any);
-          }
-
-          // Notify that workflow has been triggered
-          if (onWorkflowTriggered) {
-            onWorkflowTriggered(
-              'reddit-workflow',
-              'reddit-execution-' + Date.now()
-            );
-          }
-        } else {
-          throw new Error(response.error || 'Reddit数据获取失败');
-        }
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Reddit数据获取失败';
-        setRedditError(errorMessage);
-        setRedditProgressStatus('');
-        showError({
-          title: 'Reddit数据获取失败',
-          message: errorMessage,
-        });
-      } finally {
-        setRedditLoading(false);
-        // Clear progress status (delay 3 seconds)
-        setTimeout(() => {
-          setRedditProgressStatus('');
-        }, 3000);
-      }
-    }, [onRedditDataReceived, onWorkflowTriggered]);
 
     /**
      * Workflow table column definition

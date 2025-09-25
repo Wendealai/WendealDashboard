@@ -31,16 +31,7 @@ const grayTabStyles = `
 }
 </style>
 `;
-import {
-  Tabs,
-  Card,
-  Typography,
-  Space,
-  Button,
-  Badge,
-  Tooltip,
-  Alert,
-} from 'antd';
+import { Tabs, Card, Typography, Space, Button, Badge, Tooltip } from 'antd';
 import {
   FileTextOutlined,
   UploadOutlined,

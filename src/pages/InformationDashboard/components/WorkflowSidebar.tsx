@@ -7,7 +7,11 @@ import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, Button, Space, Tooltip, Empty, Spin, Row, Col } from 'antd';
 import { useMessage } from '@/hooks';
-import { ReloadOutlined, SettingOutlined } from '@ant-design/icons';
+import {
+  ReloadOutlined,
+  SettingOutlined,
+  ExclamationCircleOutlined,
+} from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchWorkflows,
@@ -66,6 +70,9 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
     const [redditLoading, setRedditLoading] = useState(false);
     const [redditProgressStatus, setRedditProgressStatus] = useState('');
     const [redditError, setRedditError] = useState<string | null>(null);
+    const [redditData, setRedditData] = useState<ParsedSubredditData[]>([]);
+    const [redditWorkflowData, setRedditWorkflowData] =
+      useState<RedditWorkflowResponse | null>(null);
 
     const [lastUpdatedTimes, setLastUpdatedTimes] = useState<
       Record<string, Date>

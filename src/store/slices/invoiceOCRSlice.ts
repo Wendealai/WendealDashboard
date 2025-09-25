@@ -3,23 +3,26 @@
  * 管理 Invoice OCR 工作流的状态和异步操作
  */
 
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { PayloadAction } from '@reduxjs/toolkit';
+import {
+  createSlice,
+  createAsyncThunk,
+  type PayloadAction,
+} from '@reduxjs/toolkit';
 // import { invoiceOCRService } from '../../services/invoiceOCRService';
-import type {
-  InvoiceOCRWorkflow,
-  InvoiceOCRSettings,
-  InvoiceOCRResult,
-  InvoiceOCRStatus,
-  InvoiceOCRBatchTask,
-  InvoiceOCRStatistics,
-  InvoiceOCRQueryParams,
-  CreateInvoiceOCRWorkflowRequest,
-  UpdateInvoiceOCRWorkflowRequest,
-  InvoiceOCRUploadRequest,
-  InvoiceOCRExecution,
+import {
+  DEFAULT_INVOICE_OCR_SETTINGS,
+  type InvoiceOCRWorkflow,
+  type InvoiceOCRSettings,
+  type InvoiceOCRResult,
+  type InvoiceOCRStatus,
+  type InvoiceOCRBatchTask,
+  type InvoiceOCRStatistics,
+  type InvoiceOCRQueryParams,
+  type CreateInvoiceOCRWorkflowRequest,
+  type UpdateInvoiceOCRWorkflowRequest,
+  type InvoiceOCRUploadRequest,
+  type InvoiceOCRExecution,
 } from '../../pages/InformationDashboard/types/invoiceOCR';
-import { DEFAULT_INVOICE_OCR_SETTINGS } from '../../pages/InformationDashboard/types/invoiceOCR';
 
 /**
  * Invoice OCR 状态接口

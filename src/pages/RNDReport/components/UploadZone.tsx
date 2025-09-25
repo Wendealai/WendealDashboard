@@ -5,7 +5,18 @@
 
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Card, Progress, Typography, Space, Button, Alert, List, Tag, Select, notification } from 'antd';
+import {
+  Card,
+  Progress,
+  Typography,
+  Space,
+  Button,
+  Alert,
+  List,
+  Tag,
+  Select,
+  notification,
+} from 'antd';
 import {
   UploadOutlined,
   FileTextOutlined,
@@ -33,7 +44,11 @@ const { Option } = Select;
  */
 export interface UploadZoneProps {
   /** Callback when files are confirmed for upload with categories */
-  onFilesConfirmed: (files: File[], categoryId: string, fileCategories?: Map<string, string>) => Promise<void>;
+  onFilesConfirmed: (
+    files: File[],
+    categoryId: string,
+    fileCategories?: Map<string, string>
+  ) => Promise<void>;
   /** Available categories for selection */
   categories: Category[];
   /** Whether files are currently being uploaded */
@@ -76,70 +91,84 @@ const UploadZone: React.FC<UploadZoneProps> = ({
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [acceptedFiles, setAcceptedFiles] = useState<File[]>([]);
   const [rejectedFiles, setRejectedFiles] = useState<File[]>([]);
-  const [fileCategories, setFileCategories] = useState<Map<string, string>>(new Map());
+  const [fileCategories, setFileCategories] = useState<Map<string, string>>(
+    new Map()
+  );
 
   /**
    * Handle file drop and validation
    */
-  const onDrop = useCallback(async (acceptedFiles: File[], rejectedFiles: File[]) => {
-    // Clear previous errors
-    setValidationErrors([]);
-    setAcceptedFiles([]);
-    setRejectedFiles([]);
+  const onDrop = useCallback(
+    async (acceptedFiles: File[], fileRejections: any[]) => {
+      // Clear previous errors
+      setValidationErrors([]);
+      setAcceptedFiles([]);
+      setRejectedFiles([]);
 
-    const errors: string[] = [];
-    const validFiles: File[] = [];
+      const errors: string[] = [];
+      const validFiles: File[] = [];
 
-    // Validate accepted files
-    for (const file of acceptedFiles) {
-      try {
-        const validation = await FileProcessingUtils.validateHtmlFile(file, {
-          maxFileSize,
-          allowedFileTypes: acceptedFileTypes,
-          storagePath: 'rnd-reports',
-          autoExtractMetadata: true,
-          enableReadingProgress: true,
-          enableBookmarks: true,
-          enableSearch: true,
-          enableCategories: true,
-          defaultViewMode: 'list',
-          itemsPerPage: 20,
-          enableOfflineMode: true,
-        });
+      // Validate accepted files
+      for (const file of acceptedFiles) {
+        try {
+          const validation = await FileProcessingUtils.validateHtmlFile(file, {
+            maxFileSize,
+            allowedFileTypes: acceptedFileTypes,
+            storagePath: 'rnd-reports',
+            autoExtractMetadata: true,
+            enableReadingProgress: true,
+            enableBookmarks: true,
+            enableSearch: true,
+            enableCategories: true,
+            defaultViewMode: 'list',
+            itemsPerPage: 20,
+            enableOfflineMode: true,
+          });
 
-        if (validation.isValid) {
-          validFiles.push(file);
-        } else {
-          errors.push(`${file.name}: ${validation.error}`);
+          if (validation.isValid) {
+            validFiles.push(file);
+          } else {
+            errors.push(`${file.name}: ${validation.error}`);
+          }
+        } catch (error) {
+          errors.push(
+            `${file.name}: ${error instanceof Error ? error.message : 'Validation failed'}`
+          );
         }
-      } catch (error) {
-        errors.push(`${file.name}: ${error instanceof Error ? error.message : 'Validation failed'}`);
       }
-    }
 
-    // Handle rejected files
-    rejectedFiles.forEach(({ file, errors: fileErrors }) => {
-      const errorMessages = fileErrors.map(err => err.message).join(', ');
-      errors.push(`${file.name}: ${errorMessages}`);
-    });
-
-    // Update state
-    setAcceptedFiles(validFiles);
-    setRejectedFiles(rejectedFiles.map(({ file }) => file));
-    setValidationErrors(errors);
-
-    // Initialize category selection for each file (default to first category or uncategorized)
-    if (validFiles.length > 0) {
-      const defaultCategory = categories.length > 0 ? categories[0].id : '';
-      const newFileCategories = new Map(fileCategories);
-
-      validFiles.forEach(file => {
-        newFileCategories.set(file.name, defaultCategory);
+      // Handle rejected files
+      fileRejections.forEach((rejection: any) => {
+        const errorMessages =
+          rejection.errors?.map((err: any) => err.message).join(', ') ||
+          'Unknown error';
+        errors.push(
+          `${rejection.file?.name || 'Unknown file'}: ${errorMessages}`
+        );
       });
 
-      setFileCategories(newFileCategories);
-    }
-  }, [maxFileSize, acceptedFileTypes, t]);
+      // Update state
+      setAcceptedFiles(validFiles);
+      setRejectedFiles(
+        fileRejections.map((rejection: any) => rejection.file).filter(Boolean)
+      );
+      setValidationErrors(errors);
+
+      // Initialize category selection for each file (default to first category or uncategorized)
+      if (validFiles.length > 0) {
+        const defaultCategory =
+          categories.length > 0 && categories[0] ? categories[0].id : '';
+        const newFileCategories = new Map(fileCategories);
+
+        validFiles.forEach(file => {
+          newFileCategories.set(file.name, defaultCategory);
+        });
+
+        setFileCategories(newFileCategories);
+      }
+    },
+    [maxFileSize, acceptedFileTypes, t]
+  );
 
   /**
    * Handle category change for a specific file
@@ -153,7 +182,10 @@ const UploadZone: React.FC<UploadZoneProps> = ({
   /**
    * Show detailed upload success notification
    */
-  const showUploadSuccessNotification = (uploadedFiles: File[], fileCategories: Map<string, string>) => {
+  const showUploadSuccessNotification = (
+    uploadedFiles: File[],
+    fileCategories: Map<string, string>
+  ) => {
     const totalSize = uploadedFiles.reduce((sum, file) => sum + file.size, 0);
     const categoryStats = new Map<string, number>();
 
@@ -162,7 +194,10 @@ const UploadZone: React.FC<UploadZoneProps> = ({
       const categoryId = fileCategories.get(file.name) || '';
       const category = categories.find(cat => cat.id === categoryId);
       const categoryName = category?.name || 'Uncategorized';
-      categoryStats.set(categoryName, (categoryStats.get(categoryName) || 0) + 1);
+      categoryStats.set(
+        categoryName,
+        (categoryStats.get(categoryName) || 0) + 1
+      );
     });
 
     const categoryList = Array.from(categoryStats.entries())
@@ -181,18 +216,36 @@ const UploadZone: React.FC<UploadZoneProps> = ({
       description: (
         <div style={{ color: '#6c757d', fontSize: '14px', lineHeight: '1.5' }}>
           <div style={{ marginBottom: '8px' }}>
-            <strong>{uploadedFiles.length}</strong> file{uploadedFiles.length > 1 ? 's' : ''} uploaded successfully
+            <strong>{uploadedFiles.length}</strong> file
+            {uploadedFiles.length > 1 ? 's' : ''} uploaded successfully
           </div>
           <div style={{ marginBottom: '8px' }}>
-            <strong>Total size:</strong> {FileProcessingUtils.formatFileSize(totalSize)}
+            <strong>Total size:</strong>{' '}
+            {FileProcessingUtils.formatFileSize(totalSize)}
           </div>
           <div style={{ marginBottom: '8px' }}>
             <strong>Categories:</strong>
           </div>
-          <div style={{ paddingLeft: '8px', borderLeft: '2px solid #dee2e6', marginLeft: '8px' }}>
+          <div
+            style={{
+              paddingLeft: '8px',
+              borderLeft: '2px solid #dee2e6',
+              marginLeft: '8px',
+            }}
+          >
             {categoryList.split('\n').map((line, index) => (
-              <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                <FolderOutlined style={{ color: '#666666', fontSize: '12px' }} />
+              <div
+                key={index}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginBottom: '4px',
+                }}
+              >
+                <FolderOutlined
+                  style={{ color: '#666666', fontSize: '12px' }}
+                />
                 <span>{line}</span>
               </div>
             ))}
@@ -215,17 +268,23 @@ const UploadZone: React.FC<UploadZoneProps> = ({
 
     try {
       // 确保所有文件都有分类（如果用户没有选择，使用默认分类）
-      const defaultCategoryId = categories.length > 0 ? categories[0].id : '';
+      const defaultCategoryId =
+        categories.length > 0 && categories[0] ? categories[0].id : '';
       const completeFileCategories = new Map(fileCategories);
 
       acceptedFiles.forEach(file => {
         if (!completeFileCategories.has(file.name)) {
           completeFileCategories.set(file.name, defaultCategoryId);
-          console.log(`📂 为文件 "${file.name}" 设置默认分类: ${defaultCategoryId}`);
+          console.log(
+            `📂 为文件 "${file.name}" 设置默认分类: ${defaultCategoryId}`
+          );
         }
       });
 
-      console.log('📋 文件分类映射:', Object.fromEntries(completeFileCategories));
+      console.log(
+        '📋 文件分类映射:',
+        Object.fromEntries(completeFileCategories)
+      );
 
       // Pass all files with their category mappings
       await onFilesConfirmed(acceptedFiles, '', completeFileCategories);
@@ -247,7 +306,9 @@ const UploadZone: React.FC<UploadZoneProps> = ({
    * Handle remove file
    */
   const handleRemoveFile = (fileToRemove: File) => {
-    const newAcceptedFiles = acceptedFiles.filter(file => file !== fileToRemove);
+    const newAcceptedFiles = acceptedFiles.filter(
+      file => file !== fileToRemove
+    );
     const newFileCategories = new Map(fileCategories);
     newFileCategories.delete(fileToRemove.name);
 
@@ -316,7 +377,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({
   const getDropzoneContent = () => {
     if (isUploading) {
       return (
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space direction='vertical' size='large' style={{ width: '100%' }}>
           <LoadingOutlined style={{ fontSize: '48px', color: '#666' }} />
           <div>
             <Text strong>{t('rndReport.upload.uploading')}</Text>
@@ -324,7 +385,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({
               <Progress
                 percent={progress}
                 status={progress === 100 ? 'success' : 'active'}
-                strokeColor="#666"
+                strokeColor='#666'
               />
             </div>
           </div>
@@ -335,8 +396,10 @@ const UploadZone: React.FC<UploadZoneProps> = ({
     if (isDragActive) {
       if (isDragAccept) {
         return (
-          <Space direction="vertical" size="large">
-            <CheckCircleOutlined style={{ fontSize: '48px', color: '#52c41a' }} />
+          <Space direction='vertical' size='large'>
+            <CheckCircleOutlined
+              style={{ fontSize: '48px', color: '#52c41a' }}
+            />
             <Text strong style={{ color: '#52c41a' }}>
               Drop to upload files
             </Text>
@@ -344,8 +407,10 @@ const UploadZone: React.FC<UploadZoneProps> = ({
         );
       } else if (isDragReject) {
         return (
-          <Space direction="vertical" size="large">
-            <CloseCircleOutlined style={{ fontSize: '48px', color: '#ff4d4f' }} />
+          <Space direction='vertical' size='large'>
+            <CloseCircleOutlined
+              style={{ fontSize: '48px', color: '#ff4d4f' }}
+            />
             <Text strong style={{ color: '#ff4d4f' }}>
               Invalid file types
             </Text>
@@ -355,14 +420,23 @@ const UploadZone: React.FC<UploadZoneProps> = ({
     }
 
     return (
-      <Space direction="vertical" size="large">
+      <Space direction='vertical' size='large'>
         <InboxOutlined style={{ fontSize: '48px', color: '#d9d9d9' }} />
         <div>
           <Text strong>Drag and drop files here</Text>
           <br />
-          <Text type="secondary">or click to select files</Text>
+          <Text type='secondary'>or click to select files</Text>
         </div>
-        <Button type="default" icon={<UploadOutlined />} disabled={isUploading} style={{ backgroundColor: '#666', borderColor: '#666', color: 'white' }}>
+        <Button
+          type='default'
+          icon={<UploadOutlined />}
+          disabled={isUploading}
+          style={{
+            backgroundColor: '#666',
+            borderColor: '#666',
+            color: 'white',
+          }}
+        >
           Select Files
         </Button>
       </Space>
@@ -372,7 +446,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({
   return (
     <div className={className}>
       <Card
-        size="small"
+        size='small'
         title={
           <Space>
             <UploadOutlined />
@@ -380,7 +454,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({
           </Space>
         }
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space direction='vertical' size='middle' style={{ width: '100%' }}>
           {/* Dropzone */}
           <div {...getRootProps()} style={getDropzoneStyles()}>
             <input {...getInputProps()} />
@@ -389,10 +463,11 @@ const UploadZone: React.FC<UploadZoneProps> = ({
 
           {/* File Type Info */}
           <div style={{ textAlign: 'center' }}>
-            <Text type="secondary" style={{ fontSize: '12px' }}>
+            <Text type='secondary' style={{ fontSize: '12px' }}>
               Accepted formats: HTML (.html, .htm)
               <br />
-              Maximum file size: {FileProcessingUtils.formatFileSize(maxFileSize)}
+              Maximum file size:{' '}
+              {FileProcessingUtils.formatFileSize(maxFileSize)}
               {multiple && (
                 <>
                   <br />
@@ -404,20 +479,20 @@ const UploadZone: React.FC<UploadZoneProps> = ({
 
           {/* Upload Progress */}
           {isUploading && (
-            <Card size="small">
-              <Space direction="vertical" style={{ width: '100%' }}>
+            <Card size='small'>
+              <Space direction='vertical' style={{ width: '100%' }}>
                 <Text strong>Processing files...</Text>
-                <Progress percent={progress} status="active" />
+                <Progress percent={progress} status='active' />
                 {acceptedFiles.length > 0 && (
                   <List
-                    size="small"
+                    size='small'
                     dataSource={acceptedFiles}
-                    renderItem={(file) => (
+                    renderItem={file => (
                       <List.Item>
                         <Space>
                           <FileTextOutlined />
                           <Text>{file.name}</Text>
-                          <Tag color="processing">
+                          <Tag color='processing'>
                             {FileProcessingUtils.formatFileSize(file.size)}
                           </Tag>
                         </Space>
@@ -432,21 +507,21 @@ const UploadZone: React.FC<UploadZoneProps> = ({
           {/* Validation Errors */}
           {validationErrors.length > 0 && (
             <Alert
-              message="Validation errors"
+              message='Validation errors'
               description={
                 <List
-                  size="small"
+                  size='small'
                   dataSource={validationErrors}
-                  renderItem={(error) => (
+                  renderItem={error => (
                     <List.Item>
-                      <Text type="danger" style={{ fontSize: '12px' }}>
+                      <Text type='danger' style={{ fontSize: '12px' }}>
                         {error}
                       </Text>
                     </List.Item>
                   )}
                 />
               }
-              type="error"
+              type='error'
               showIcon
               closable
               onClose={() => setValidationErrors([])}
@@ -454,64 +529,79 @@ const UploadZone: React.FC<UploadZoneProps> = ({
           )}
 
           {/* Upload Summary */}
-          {(acceptedFiles.length > 0 || rejectedFiles.length > 0) && !isUploading && (
-            <Card size="small">
-              <Space direction="vertical" size="small">
-                {acceptedFiles.length > 0 && (
-                  <Text type="success">
-                    <CheckCircleOutlined style={{ marginRight: '8px' }} />
-                    Accepted files: {acceptedFiles.length}
-                  </Text>
-                )}
-                {rejectedFiles.length > 0 && (
-                  <Text type="danger">
-                    <CloseCircleOutlined style={{ marginRight: '8px' }} />
-                    Rejected files: {rejectedFiles.length}
-                  </Text>
-                )}
-              </Space>
-            </Card>
-          )}
+          {(acceptedFiles.length > 0 || rejectedFiles.length > 0) &&
+            !isUploading && (
+              <Card size='small'>
+                <Space direction='vertical' size='small'>
+                  {acceptedFiles.length > 0 && (
+                    <Text type='success'>
+                      <CheckCircleOutlined style={{ marginRight: '8px' }} />
+                      Accepted files: {acceptedFiles.length}
+                    </Text>
+                  )}
+                  {rejectedFiles.length > 0 && (
+                    <Text type='danger'>
+                      <CloseCircleOutlined style={{ marginRight: '8px' }} />
+                      Rejected files: {rejectedFiles.length}
+                    </Text>
+                  )}
+                </Space>
+              </Card>
+            )}
 
           {/* File List with Category Selection */}
           {acceptedFiles.length > 0 && !isUploading && (
-            <Card size="small" title="Files to Upload">
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Card size='small' title='Files to Upload'>
+              <Space
+                direction='vertical'
+                size='middle'
+                style={{ width: '100%' }}
+              >
                 <List
-                  size="small"
+                  size='small'
                   dataSource={acceptedFiles}
-                  renderItem={(file) => (
+                  renderItem={file => (
                     <List.Item
                       actions={[
                         <Button
-                          key="remove"
-                          type="text"
+                          key='remove'
+                          type='text'
                           danger
-                          size="small"
+                          size='small'
                           onClick={() => handleRemoveFile(file)}
                         >
                           Remove
-                        </Button>
+                        </Button>,
                       ]}
                     >
-                      <Space direction="vertical" style={{ width: '100%' }}>
+                      <Space direction='vertical' style={{ width: '100%' }}>
                         <Space>
                           <FileTextOutlined />
                           <div>
                             <Text>{file.name}</Text>
                             <br />
-                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                            <Text type='secondary' style={{ fontSize: '12px' }}>
                               {FileProcessingUtils.formatFileSize(file.size)}
                             </Text>
                           </div>
                         </Space>
                         <div style={{ marginTop: '8px' }}>
-                          <Text style={{ fontSize: '12px', marginBottom: '4px', display: 'block' }}>Category:</Text>
+                          <Text
+                            style={{
+                              fontSize: '12px',
+                              marginBottom: '4px',
+                              display: 'block',
+                            }}
+                          >
+                            Category:
+                          </Text>
                           <Select
-                            size="small"
+                            size='small'
                             style={{ minWidth: '200px' }}
                             value={fileCategories.get(file.name) || ''}
-                            onChange={(value) => handleFileCategoryChange(file.name, value)}
+                            onChange={value =>
+                              handleFileCategoryChange(file.name, value)
+                            }
                           >
                             {categories.map(category => (
                               <Option key={category.id} value={category.id}>
@@ -528,7 +618,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({
                 {/* Upload Button */}
                 <div style={{ textAlign: 'right' }}>
                   <Button
-                    type="default"
+                    type='default'
                     onClick={handleUploadAll}
                     disabled={acceptedFiles.length === 0}
                     style={{

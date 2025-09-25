@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/typescript-errors-phase3/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-09-25T10:36:50.247Z",
+      "trigger": "initial",
+      "approvalId": "approval_1758796610207_ucz4pvcqs",
+      "approvalTitle": "TypeScript Errors Phase 3 - Requirements Approval"
+    }
+  ]
+}

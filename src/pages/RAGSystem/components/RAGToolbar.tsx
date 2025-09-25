@@ -3,7 +3,6 @@ import { Button, Space, Upload, Modal, List, Typography } from 'antd';
 import {
   UploadOutlined,
   FolderOpenOutlined,
-  CloudUploadOutlined,
   DeleteOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';

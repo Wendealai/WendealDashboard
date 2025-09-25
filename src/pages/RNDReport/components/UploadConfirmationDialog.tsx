@@ -20,7 +20,6 @@ import {
   FileTextOutlined,
   FolderOutlined,
   UploadOutlined,
-  CloseOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -76,7 +75,8 @@ const UploadConfirmationDialog: React.FC<UploadConfirmationDialogProps> = ({
   useEffect(() => {
     if (visible && categories.length > 0) {
       // Default to first category or uncategorized
-      const defaultCategory = categories.find(cat => cat.name === 'Uncategorized') || categories[0];
+      const defaultCategory =
+        categories.find(cat => cat.name === 'Uncategorized') || categories[0];
       setSelectedCategoryId(defaultCategory?.id || '');
     }
   }, [visible, categories]);
@@ -143,39 +143,40 @@ const UploadConfirmationDialog: React.FC<UploadConfirmationDialogProps> = ({
       onCancel={handleClose}
       width={600}
       footer={[
-        <Button key="cancel" onClick={handleCancel} disabled={uploading}>
+        <Button key='cancel' onClick={handleCancel} disabled={uploading}>
           {t('common.cancel', '取消')}
         </Button>,
         <Button
-          key="confirm"
-          type="primary"
+          key='confirm'
+          type='primary'
           onClick={handleConfirm}
           loading={uploading}
           disabled={!selectedCategoryId || files.length === 0}
         >
           {uploading
             ? t('rndReport.upload.confirm.uploading', '上传中...')
-            : t('rndReport.upload.confirm.upload', '确认上传')
-          }
+            : t('rndReport.upload.confirm.upload', '确认上传')}
         </Button>,
       ]}
       maskClosable={!uploading}
       closable={!uploading}
       destroyOnClose
     >
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Space direction='vertical' size='middle' style={{ width: '100%' }}>
         {/* Upload Summary */}
-        <Card size="small">
-          <Space direction="vertical" size="small">
+        <Card size='small'>
+          <Space direction='vertical' size='small'>
             <Text strong>
               {t('rndReport.upload.confirm.summary', '上传摘要')}
             </Text>
             <Space wrap>
               <Text>
-                {t('rndReport.upload.confirm.filesCount', '文件数量')}: {files.length}
+                {t('rndReport.upload.confirm.filesCount', '文件数量')}:{' '}
+                {files.length}
               </Text>
               <Text>
-                {t('rndReport.upload.confirm.totalSize', '总大小')}: {FileProcessingUtils.formatFileSize(getTotalFileSize())}
+                {t('rndReport.upload.confirm.totalSize', '总大小')}:{' '}
+                {FileProcessingUtils.formatFileSize(getTotalFileSize())}
               </Text>
             </Space>
           </Space>
@@ -187,21 +188,25 @@ const UploadConfirmationDialog: React.FC<UploadConfirmationDialogProps> = ({
             {t('rndReport.upload.confirm.selectCategory', '选择分类')} *
           </Text>
           <Select
-            placeholder={t('rndReport.upload.confirm.selectCategoryPlaceholder', '请选择分类')}
+            placeholder={t(
+              'rndReport.upload.confirm.selectCategoryPlaceholder',
+              '请选择分类'
+            )}
             value={selectedCategoryId}
             onChange={setSelectedCategoryId}
             style={{ width: '100%' }}
             disabled={uploading}
             showSearch
-            optionFilterProp="children"
+            optionFilterProp='children'
           >
-            {categories.map((category) => (
+            {categories.map(category => (
               <Option key={category.id} value={category.id}>
                 <Space>
                   <FolderOutlined />
                   {category.name}
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    ({category.reportCount || 0} {t('rndReport.category.reports', '报告')})
+                  <Text type='secondary' style={{ fontSize: '12px' }}>
+                    ({category.reportCount || 0}{' '}
+                    {t('rndReport.category.reports', '报告')})
                   </Text>
                 </Space>
               </Option>
@@ -209,8 +214,12 @@ const UploadConfirmationDialog: React.FC<UploadConfirmationDialogProps> = ({
           </Select>
 
           {selectedCategoryId && (
-            <Text type="secondary" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
-              {t('rndReport.upload.confirm.selectedCategory', '已选择')}: {getSelectedCategoryName()}
+            <Text
+              type='secondary'
+              style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}
+            >
+              {t('rndReport.upload.confirm.selectedCategory', '已选择')}:{' '}
+              {getSelectedCategoryName()}
             </Text>
           )}
         </div>
@@ -223,22 +232,24 @@ const UploadConfirmationDialog: React.FC<UploadConfirmationDialogProps> = ({
             {t('rndReport.upload.confirm.files', '待上传文件')}
           </Text>
           <List
-            size="small"
+            size='small'
             dataSource={files}
-            renderItem={(file) => (
+            renderItem={file => (
               <List.Item>
-                <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                <Space
+                  style={{ width: '100%', justifyContent: 'space-between' }}
+                >
                   <Space>
                     <FileTextOutlined />
                     <div>
                       <Text>{file.name}</Text>
                       <br />
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                      <Text type='secondary' style={{ fontSize: '12px' }}>
                         {FileProcessingUtils.formatFileSize(file.size)}
                       </Text>
                     </div>
                   </Space>
-                  <Tag color="processing">
+                  <Tag color='processing'>
                     {t('rndReport.upload.confirm.ready', '准备上传')}
                   </Tag>
                 </Space>
@@ -251,14 +262,18 @@ const UploadConfirmationDialog: React.FC<UploadConfirmationDialogProps> = ({
         {uploading && (
           <>
             <Divider />
-            <Card size="small">
-              <Space direction="vertical" style={{ width: '100%' }}>
+            <Card size='small'>
+              <Space direction='vertical' style={{ width: '100%' }}>
                 <Text strong>
-                  {t('rndReport.upload.confirm.uploadingFiles', '正在上传文件...')}
+                  {t(
+                    'rndReport.upload.confirm.uploadingFiles',
+                    '正在上传文件...'
+                  )}
                 </Text>
                 <div>
-                  <Text type="secondary">
-                    {t('rndReport.upload.confirm.progress', '进度')}: {progress}%
+                  <Text type='secondary'>
+                    {t('rndReport.upload.confirm.progress', '进度')}: {progress}
+                    %
                   </Text>
                   <div
                     style={{
@@ -288,9 +303,15 @@ const UploadConfirmationDialog: React.FC<UploadConfirmationDialogProps> = ({
         {/* Warning for large uploads */}
         {files.length > 5 && (
           <Alert
-            message={t('rndReport.upload.confirm.largeUploadWarning', '批量上传提醒')}
-            description={t('rndReport.upload.confirm.largeUploadMessage', '您正在上传多个文件，这可能需要一些时间。请不要关闭页面。')}
-            type="info"
+            message={t(
+              'rndReport.upload.confirm.largeUploadWarning',
+              '批量上传提醒'
+            )}
+            description={t(
+              'rndReport.upload.confirm.largeUploadMessage',
+              '您正在上传多个文件，这可能需要一些时间。请不要关闭页面。'
+            )}
+            type='info'
             showIcon
           />
         )}

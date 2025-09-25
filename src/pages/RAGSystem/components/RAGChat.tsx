@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Input, Button, Card, Typography, Space, Spin } from 'antd';
+import { Input, Button, Typography, Space, Spin } from 'antd';
 import { SendOutlined, ClearOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useMessage } from '@/hooks/useMessage';

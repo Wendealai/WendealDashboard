@@ -4,8 +4,12 @@
  */
 
 import { ESLint } from 'eslint';
-import type { ExportIssue, DiagnosticConfig } from '@/types/exportDiagnostic';
-import { ExportIssueType, IssueSeverity } from '@/types/exportDiagnostic';
+import {
+  ExportIssueType,
+  IssueSeverity,
+  type ExportIssue,
+  type DiagnosticConfig,
+} from '@/types/exportDiagnostic';
 import { FileSystemUtils } from '@/utils/exportDiagnosticUtils';
 
 /**

@@ -3,15 +3,15 @@
  * 导出诊断流程协调和结果整合
  */
 
-import type {
-  ExportInfo,
-  ExportIssue,
-  DiagnosticReport,
-  ScanOptions,
-  ScanProgress,
-  DiagnosticConfig,
+import {
+  IssueSeverity,
+  type ExportInfo,
+  type ExportIssue,
+  type DiagnosticReport,
+  type ScanOptions,
+  type ScanProgress,
+  type DiagnosticConfig,
 } from '@/types/exportDiagnostic';
-import { IssueSeverity } from '@/types/exportDiagnostic';
 import { FileScanner } from './FileScanner';
 import { ExportAnalyzer } from './ExportAnalyzer';
 import { DependencyResolver } from './DependencyResolver';

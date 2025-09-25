@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { HomeOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
-const { Paragraph, Text } = Typography;
+const { Paragraph } = Typography;
 
 interface NotFoundPageProps {}
 

@@ -1,15 +1,17 @@
-// 认证状态管理切片
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { PayloadAction } from '@reduxjs/toolkit';
-import type {
-  User,
-  LoginRequest,
-  RegisterRequest,
-  UpdateProfileRequest,
-  ChangePasswordRequest,
-  AuthError,
+import {
+  createSlice,
+  createAsyncThunk,
+  type PayloadAction,
+} from '@reduxjs/toolkit';
+import {
+  AuthErrorType,
+  type User,
+  type LoginRequest,
+  type RegisterRequest,
+  type UpdateProfileRequest,
+  type ChangePasswordRequest,
+  type AuthError,
 } from '../../types/auth';
-import { AuthErrorType } from '../../types/auth';
 import { LocalAuthService } from '../../services/auth/LocalAuthService';
 import { ClerkAuthService } from '../../services/auth/ClerkAuthService';
 import type { IAuthService } from '../../services/auth/IAuthService';

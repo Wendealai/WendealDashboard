@@ -3,12 +3,13 @@
  * 依赖关系解析器
  */
 
-import type {
-  ExportInfo,
-  ExportIssue,
-  DiagnosticConfig,
+import {
+  ExportIssueType,
+  IssueSeverity,
+  type ExportInfo,
+  type ExportIssue,
+  type DiagnosticConfig,
 } from '@/types/exportDiagnostic';
-import { ExportIssueType, IssueSeverity } from '@/types/exportDiagnostic';
 import { FileSystemUtils } from '@/utils/exportDiagnosticUtils';
 
 /**

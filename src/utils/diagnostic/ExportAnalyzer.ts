@@ -3,13 +3,14 @@
  * 导出声明一致性和完整性分析
  */
 
-import type {
-  ExportInfo,
-  ExportIssue,
-  FileLocation,
-  DiagnosticConfig,
+import {
+  ExportIssueType,
+  IssueSeverity,
+  type ExportInfo,
+  type ExportIssue,
+  type FileLocation,
+  type DiagnosticConfig,
 } from '@/types/exportDiagnostic';
-import { ExportIssueType, IssueSeverity } from '@/types/exportDiagnostic';
 import { IssueClassifier } from '@/utils/exportDiagnosticUtils';
 
 /**

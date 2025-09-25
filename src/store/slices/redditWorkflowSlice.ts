@@ -3,8 +3,11 @@
  * 管理Reddit热门内容抓取工作流的状态、数据和配置
  */
 
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { PayloadAction } from '@reduxjs/toolkit';
+import {
+  createSlice,
+  createAsyncThunk,
+  type PayloadAction,
+} from '@reduxjs/toolkit';
 import type {
   RedditPost,
   WorkflowLog,

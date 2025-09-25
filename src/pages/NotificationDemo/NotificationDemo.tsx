@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next';
 
 const NotificationDemo: React.FC = () => {
   const { t } = useTranslation();
-  const [currentUser, setCurrentUser] = useState('demo-user-123');
+  const [currentUser] = useState('demo-user-123');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
 

@@ -143,56 +143,6 @@ export interface FixSuggestion {
 }
 
 /**
- * 诊断报告接口
- */
-export interface DiagnosticReport {
-  /** 报告ID */
-  id: string;
-  /** 扫描时间 */
-  timestamp: Date;
-  /** 扫描配置 */
-  config: DiagnosticConfig;
-  /** 扫描统计信息 */
-  statistics: DiagnosticStatistics;
-  /** 发现的问题列表 */
-  issues: ExportIssue[];
-  /** 修复建议列表 */
-  suggestions: FixSuggestion[];
-  /** 扫描的文件列表 */
-  scannedFiles: string[];
-  /** 扫描用时（毫秒） */
-  duration: number;
-  /** 报告状态 */
-  status: 'completed' | 'failed' | 'cancelled';
-  /** 错误信息（如果有） */
-  error?: string;
-}
-
-/**
- * 诊断配置接口
- */
-export interface DiagnosticConfig {
-  /** 扫描的文件模式 */
-  filePatterns: string[];
-  /** 忽略的文件模式 */
-  ignorePatterns: string[];
-  /** 扫描深度 */
-  maxDepth: number;
-  /** 是否包含类型定义 */
-  includeTypes: boolean;
-  /** 是否包含测试文件 */
-  includeTests: boolean;
-  /** 是否启用缓存 */
-  enableCache: boolean;
-  /** 缓存过期时间（毫秒） */
-  cacheExpiry: number;
-  /** 并发扫描数量 */
-  concurrency: number;
-  /** 超时时间（毫秒） */
-  timeout: number;
-}
-
-/**
  * 诊断统计信息
  */
 export interface DiagnosticStatistics {

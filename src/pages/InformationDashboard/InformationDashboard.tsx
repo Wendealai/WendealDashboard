@@ -381,7 +381,7 @@ const InformationDashboard: React.FC = () => {
   /**
    * Handle workflow selection
    */
-  const handleWorkflowSelect = useCallback((workflow: WorkflowInfo) => {
+  const handleWorkflowSelect = useCallback((workflow: WorkflowInfo | null) => {
     console.log('InformationDashboard: Selected workflow:', workflow);
     setSelectedWorkflow(workflow);
   }, []);

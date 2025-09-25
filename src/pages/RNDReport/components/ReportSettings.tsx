@@ -37,7 +37,11 @@ import {
 import { useTranslation } from 'react-i18next';
 
 // Import types
-import type { Report, Category, ReadingProgress } from '../../../types/rndReport';
+import type {
+  Report,
+  Category,
+  ReadingProgress,
+} from '../../../types/rndReport';
 import type { RNDReportService } from '../../../services/rndReportService';
 
 // Import utilities
@@ -95,7 +99,8 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
   // State
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null);
+  const [readingProgress, setReadingProgress] =
+    useState<ReadingProgress | null>(null);
 
   /**
    * Load reading progress when modal opens
@@ -145,11 +150,14 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
       const updates: Partial<Report> = {
         name: values.name,
         categoryId: values.categoryId,
-        metadata: {
+      };
+
+      if (values.description !== undefined) {
+        updates.metadata = {
           ...report.metadata,
           description: values.description,
-        },
-      };
+        };
+      }
 
       const updatedReport = await service.updateReport(report.id, updates);
       onReportUpdate(updatedReport);
@@ -176,7 +184,7 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
           <Alert
             message={t('rndReport.settings.delete.warning')}
             description={t('rndReport.settings.delete.warningDesc')}
-            type="warning"
+            type='warning'
             showIcon
             style={{ marginTop: '16px' }}
           />
@@ -253,7 +261,7 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
       <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
         <Form
           form={form}
-          layout="vertical"
+          layout='vertical'
           onFinish={handleFormSubmit}
           initialValues={{
             name: report.name,
@@ -261,7 +269,7 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
             categoryId: report.categoryId,
           }}
         >
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Space direction='vertical' size='large' style={{ width: '100%' }}>
             {/* Basic Information */}
             <Card
               title={
@@ -270,20 +278,27 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
                   {t('rndReport.settings.basic.title')}
                 </Space>
               }
-              size="small"
+              size='small'
             >
               <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item
-                    name="name"
+                    name='name'
                     label={t('rndReport.settings.basic.name')}
                     rules={[
-                      { required: true, message: t('rndReport.settings.validation.nameRequired') },
+                      {
+                        required: true,
+                        message: t(
+                          'rndReport.settings.validation.nameRequired'
+                        ),
+                      },
                       { validator: validateReportName },
                     ]}
                   >
                     <Input
-                      placeholder={t('rndReport.settings.basic.namePlaceholder')}
+                      placeholder={t(
+                        'rndReport.settings.basic.namePlaceholder'
+                      )}
                       maxLength={255}
                       disabled={saving}
                     />
@@ -291,11 +306,13 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
                 </Col>
                 <Col span={12}>
                   <Form.Item
-                    name="categoryId"
+                    name='categoryId'
                     label={t('rndReport.settings.basic.category')}
                   >
                     <Select
-                      placeholder={t('rndReport.settings.basic.categoryPlaceholder')}
+                      placeholder={t(
+                        'rndReport.settings.basic.categoryPlaceholder'
+                      )}
                       disabled={saving}
                     >
                       {categories.map(category => (
@@ -319,11 +336,13 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
               </Row>
 
               <Form.Item
-                name="description"
+                name='description'
                 label={t('rndReport.settings.basic.description')}
               >
                 <Input.TextArea
-                  placeholder={t('rndReport.settings.basic.descriptionPlaceholder')}
+                  placeholder={t(
+                    'rndReport.settings.basic.descriptionPlaceholder'
+                  )}
                   maxLength={1000}
                   rows={3}
                   disabled={saving}
@@ -339,33 +358,51 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
                   {t('rndReport.settings.metadata.title')}
                 </Space>
               }
-              size="small"
+              size='small'
             >
-              <Descriptions size="small" column={2}>
-                <Descriptions.Item label={t('rndReport.settings.metadata.originalName')}>
+              <Descriptions size='small' column={2}>
+                <Descriptions.Item
+                  label={t('rndReport.settings.metadata.originalName')}
+                >
                   {report.originalName}
                 </Descriptions.Item>
-                <Descriptions.Item label={t('rndReport.settings.metadata.fileSize')}>
+                <Descriptions.Item
+                  label={t('rndReport.settings.metadata.fileSize')}
+                >
                   {FileProcessingUtils.formatFileSize(report.fileSize)}
                 </Descriptions.Item>
-                <Descriptions.Item label={t('rndReport.settings.metadata.uploadDate')}>
-                  {DateUtils.formatDate(report.uploadDate)}
+                <Descriptions.Item
+                  label={t('rndReport.settings.metadata.uploadDate')}
+                >
+                  {FileProcessingUtils.formatDate(report.uploadDate)}
                 </Descriptions.Item>
-                <Descriptions.Item label={t('rndReport.settings.metadata.lastRead')}>
-                  {report.lastReadDate ? DateUtils.formatDate(report.lastReadDate) : t('rndReport.settings.metadata.neverRead')}
+                <Descriptions.Item
+                  label={t('rndReport.settings.metadata.lastRead')}
+                >
+                  {report.lastReadDate
+                    ? FileProcessingUtils.formatDate(report.lastReadDate)
+                    : t('rndReport.settings.metadata.neverRead')}
                 </Descriptions.Item>
                 {report.metadata?.author && (
-                  <Descriptions.Item label={t('rndReport.settings.metadata.author')} span={2}>
+                  <Descriptions.Item
+                    label={t('rndReport.settings.metadata.author')}
+                    span={2}
+                  >
                     {report.metadata.author}
                   </Descriptions.Item>
                 )}
                 {report.metadata?.title && (
-                  <Descriptions.Item label={t('rndReport.settings.metadata.title')} span={2}>
+                  <Descriptions.Item
+                    label={t('rndReport.settings.metadata.title')}
+                    span={2}
+                  >
                     {report.metadata.title}
                   </Descriptions.Item>
                 )}
                 {report.metadata?.version && (
-                  <Descriptions.Item label={t('rndReport.settings.metadata.version')}>
+                  <Descriptions.Item
+                    label={t('rndReport.settings.metadata.version')}
+                  >
                     {report.metadata.version}
                   </Descriptions.Item>
                 )}
@@ -381,14 +418,14 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
                     {t('rndReport.settings.progress.title')}
                   </Space>
                 }
-                size="small"
+                size='small'
               >
                 <Row gutter={16}>
                   <Col span={12}>
                     <Statistic
                       title={t('rndReport.settings.progress.percentage')}
                       value={readingProgress.currentPosition}
-                      suffix="%"
+                      suffix='%'
                       valueStyle={{ color: '#666' }}
                     />
                   </Col>
@@ -403,31 +440,44 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
                 <Divider />
 
                 <div>
-                  <Text strong style={{ marginBottom: '8px', display: 'block' }}>
+                  <Text
+                    strong
+                    style={{ marginBottom: '8px', display: 'block' }}
+                  >
                     {t('rndReport.settings.progress.visual')}
                   </Text>
                   <Progress
                     percent={readingProgress.currentPosition}
-                    status="active"
-                    strokeColor="#666"
+                    status='active'
+                    strokeColor='#666'
                   />
                 </div>
 
                 {readingProgress.bookmarks.length > 0 && (
                   <div style={{ marginTop: '16px' }}>
-                    <Text strong style={{ marginBottom: '8px', display: 'block' }}>
+                    <Text
+                      strong
+                      style={{ marginBottom: '8px', display: 'block' }}
+                    >
                       {t('rndReport.settings.progress.bookmarks')}
                     </Text>
-                    <Space direction="vertical" style={{ width: '100%' }}>
+                    <Space direction='vertical' style={{ width: '100%' }}>
                       {readingProgress.bookmarks.map((bookmark, index) => (
-                        <Card key={bookmark.id || index} size="small">
-                          <Space direction="vertical" size={2}>
-                            <Text strong>{bookmark.title || `${t('rndReport.settings.progress.bookmark')} ${index + 1}`}</Text>
-                            <Text type="secondary" style={{ fontSize: '12px' }}>
-                              {t('rndReport.settings.progress.position')}: {bookmark.position}%
+                        <Card key={bookmark.id || index} size='small'>
+                          <Space direction='vertical' size={2}>
+                            <Text strong>
+                              {bookmark.title ||
+                                `${t('rndReport.settings.progress.bookmark')} ${index + 1}`}
+                            </Text>
+                            <Text type='secondary' style={{ fontSize: '12px' }}>
+                              {t('rndReport.settings.progress.position')}:{' '}
+                              {bookmark.position}%
                             </Text>
                             {bookmark.notes && (
-                              <Paragraph ellipsis={{ rows: 2 }} style={{ fontSize: '12px', margin: 0 }}>
+                              <Paragraph
+                                ellipsis={{ rows: 2 }}
+                                style={{ fontSize: '12px', margin: 0 }}
+                              >
                                 {bookmark.notes}
                               </Paragraph>
                             )}
@@ -441,16 +491,22 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
             )}
 
             {/* Actions */}
-            <Card size="small">
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Card size='small'>
+              <Space
+                direction='vertical'
+                size='middle'
+                style={{ width: '100%' }}
+              >
                 <Alert
                   message={t('rndReport.settings.danger.title')}
                   description={t('rndReport.settings.danger.description')}
-                  type="warning"
+                  type='warning'
                   showIcon
                 />
 
-                <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                <Space
+                  style={{ width: '100%', justifyContent: 'space-between' }}
+                >
                   <Button
                     danger
                     icon={<DeleteOutlined />}
@@ -465,12 +521,16 @@ const ReportSettings: React.FC<ReportSettingsProps> = ({
                       {t('common.cancel')}
                     </Button>
                     <Button
-                      type="default"
+                      type='default'
                       icon={<SaveOutlined />}
-                      htmlType="submit"
+                      htmlType='submit'
                       loading={saving}
                       disabled={loading}
-                      style={{ backgroundColor: '#666', borderColor: '#666', color: 'white' }}
+                      style={{
+                        backgroundColor: '#666',
+                        borderColor: '#666',
+                        color: 'white',
+                      }}
                     >
                       {t('common.save')}
                     </Button>

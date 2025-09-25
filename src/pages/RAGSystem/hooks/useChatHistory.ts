@@ -58,11 +58,11 @@ export const useChatHistory = () => {
           id: sessionId,
           sessionId,
           title,
-          lastMessage: lastMessage.content
+          lastMessage: lastMessage?.content
             ? lastMessage.content.slice(0, 50) +
               (lastMessage.content.length > 50 ? '...' : '')
             : 'No content',
-          timestamp: lastMessage.timestamp,
+          timestamp: lastMessage?.timestamp || new Date(),
           messageCount: messages.length,
         });
       } else {
@@ -184,7 +184,7 @@ export const useChatHistory = () => {
         const remainingConversations = Array.from(conversations.keys()).filter(
           id => id !== sessionId
         );
-        if (remainingConversations.length > 0) {
+        if (remainingConversations.length > 0 && remainingConversations[0]) {
           setCurrentSessionId(remainingConversations[0]);
         } else {
           createNewConversation();
@@ -221,12 +221,14 @@ export const useChatHistory = () => {
 
         // 恢复消息的时间戳
         Object.entries(data.conversations || {}).forEach(
-          ([sessionId, messages]: [string, any[]]) => {
-            const restoredMessages = messages.map(msg => ({
-              ...msg,
-              timestamp: new Date(msg.timestamp),
-            }));
-            conversationsMap.set(sessionId, restoredMessages);
+          ([sessionId, messages]) => {
+            if (Array.isArray(messages)) {
+              const restoredMessages = messages.map(msg => ({
+                ...msg,
+                timestamp: new Date(msg.timestamp),
+              }));
+              conversationsMap.set(sessionId, restoredMessages);
+            }
           }
         );
 
