@@ -18,7 +18,6 @@ import {
 } from 'antd';
 import {
   DashboardOutlined,
-  ApiOutlined,
   FilterOutlined,
   BarChartOutlined,
   ThunderboltOutlined,
@@ -26,7 +25,6 @@ import {
   FileTextOutlined,
   InfoCircleOutlined,
   RedditOutlined,
-  PlayCircleOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useMessage } from '@/hooks/useMessage';
@@ -44,7 +42,7 @@ import {
   redditWebhookService,
 } from '@/services/redditWebhookService';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 
 /**
  * Information Dashboard main page component
@@ -122,7 +120,6 @@ const InformationDashboard: React.FC = () => {
 
   // Reddit workflow states
   const [redditLoading, setRedditLoading] = useState(false);
-  const [redditError, setRedditError] = useState<string | null>(null);
   const [redditWorkflowData, setRedditWorkflowData] =
     useState<RedditWorkflowResponse | null>(null);
 
@@ -395,7 +392,6 @@ const InformationDashboard: React.FC = () => {
   const handleRedditWorkflowStart = useCallback(async () => {
     try {
       setRedditLoading(true);
-      setRedditError(null);
 
       console.log('InformationDashboard: Starting Reddit workflow');
       const result = await redditWebhookService.triggerRedditWorkflow(
@@ -417,7 +413,6 @@ const InformationDashboard: React.FC = () => {
         message.success('Reddit workflow completed successfully!');
       } else {
         const errorMsg = result.error || 'Reddit workflow failed';
-        setRedditError(errorMsg);
         console.log(
           'InformationDashboard: About to call message.error, message object:',
           message
@@ -428,7 +423,6 @@ const InformationDashboard: React.FC = () => {
       const errorMessage =
         error instanceof Error ? error.message : 'Reddit workflow failed';
       console.error('InformationDashboard: Reddit workflow error:', error);
-      setRedditError(errorMessage);
       console.log(
         'InformationDashboard: About to call message.error in catch, message object:',
         message
