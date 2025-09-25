@@ -17,23 +17,17 @@ import {
   Col,
 } from 'antd';
 import { useMessage } from '@/hooks';
-import {
-  ReloadOutlined,
-  SettingOutlined,
-} from '@ant-design/icons';
+import { ReloadOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchWorkflows,
   triggerWorkflow,
   selectWorkflowsList,
-  selectWorkflowStats,
   selectLoading,
 } from '@/store/slices/informationDashboardSlice';
 import type { Workflow, WorkflowStatus } from '../types';
 import { WorkflowSettingsModal } from '@/components/workflow';
 import WorkflowCard from '@/components/workflow/WorkflowCard';
-
-const { Text, Title } = Typography;
 
 /**
  * Tools Workflow Sidebar Component Props Interface
@@ -52,11 +46,7 @@ interface WorkflowSidebarProps {
  * Tools Workflow Sidebar Component
  */
 const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
-  ({
-    className,
-    onWorkflowSelect,
-    onWorkflowTriggered,
-  }) => {
+  ({ className, onWorkflowSelect, onWorkflowTriggered }) => {
     const { t } = useTranslation();
     const dispatch = useAppDispatch();
     const message = useMessage();
@@ -159,9 +149,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
       [dispatch, onWorkflowTriggered]
     );
 
-
-
-
     /**
      * Refresh workflow list
      */
@@ -181,7 +168,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
       },
       []
     );
-
 
     // Load workflow settings function
     const loadWorkflowSettings = useCallback(
@@ -212,7 +198,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
       [t]
     );
 
-
     // Use useMemo to optimize computed values
     const filteredWorkflows = useMemo(() => {
       return workflows.filter(
@@ -223,7 +208,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
     const hasWorkflows = useMemo(() => {
       return workflows.length > 0;
     }, [workflows.length]);
-
 
     /**
      * Close settings modal
@@ -288,13 +272,16 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
               </span>
             </Space>
           }
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+          }}
           styles={{ body: { flex: 1, padding: 0, position: 'relative' } }}
         >
           <Spin spinning={loading}>
             <Row gutter={[12, 12]} style={{ padding: '12px' }}>
-
-
               {/* Invoice OCR workflow card */}
               <Col xs={24} sm={24} md={12} lg={8} xl={6}>
                 <WorkflowCard
@@ -355,7 +342,8 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                   workflow={{
                     id: 'universal-ocr-workflow',
                     name: 'Universal OCR',
-                    description: 'OCR processing for all document formats including PDF, images, and scanned documents',
+                    description:
+                      'OCR processing for all document formats including PDF, images, and scanned documents',
                     status: 'active' as WorkflowStatus,
                     nodeCount: 6,
                     lastExecution: new Date().toISOString(),
@@ -370,7 +358,8 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     handleWorkflowSelect({
                       id: 'universal-ocr-workflow',
                       name: 'Universal OCR',
-                      description: 'OCR processing for all document formats including PDF, images, and scanned documents',
+                      description:
+                        'OCR processing for all document formats including PDF, images, and scanned documents',
                       status: 'active' as WorkflowStatus,
                       nodeCount: 6,
                       lastExecution: new Date().toISOString(),
@@ -383,7 +372,8 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     handleWorkflowSelect({
                       id: 'universal-ocr-workflow',
                       name: 'Universal OCR',
-                      description: 'OCR processing for all document formats including PDF, images, and scanned documents',
+                      description:
+                        'OCR processing for all document formats including PDF, images, and scanned documents',
                       status: 'active' as WorkflowStatus,
                       nodeCount: 6,
                       lastExecution: new Date().toISOString(),
@@ -409,14 +399,17 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                   workflow={{
                     id: 'tax-invoice-receipt-workflow',
                     name: 'Tax Invoice/Receipt',
-                    description: 'Generate and manage tax invoices and receipts',
+                    description:
+                      'Generate and manage tax invoices and receipts',
                     status: 'active' as WorkflowStatus,
                     nodeCount: 1,
                     lastExecution: new Date().toISOString(),
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   }}
-                  selected={selectedWorkflow?.id === 'tax-invoice-receipt-workflow'}
+                  selected={
+                    selectedWorkflow?.id === 'tax-invoice-receipt-workflow'
+                  }
                   loading={false}
                   error={null}
                   progressStatus=''
@@ -424,7 +417,8 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     handleWorkflowSelect({
                       id: 'tax-invoice-receipt-workflow',
                       name: 'Tax Invoice/Receipt',
-                      description: 'Generate and manage tax invoices and receipts',
+                      description:
+                        'Generate and manage tax invoices and receipts',
                       status: 'active' as WorkflowStatus,
                       nodeCount: 1,
                       lastExecution: new Date().toISOString(),
@@ -437,7 +431,8 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     handleWorkflowSelect({
                       id: 'tax-invoice-receipt-workflow',
                       name: 'Tax Invoice/Receipt',
-                      description: 'Generate and manage tax invoices and receipts',
+                      description:
+                        'Generate and manage tax invoices and receipts',
                       status: 'active' as WorkflowStatus,
                       nodeCount: 1,
                       lastExecution: new Date().toISOString(),
@@ -461,14 +456,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
               {filteredWorkflows
                 .filter(w => w.name !== 'Data Sync Workflow')
                 .map(workflow => (
-                  <Col
-                    key={workflow.id}
-                    xs={24}
-                    sm={24}
-                    md={12}
-                    lg={8}
-                    xl={6}
-                  >
+                  <Col key={workflow.id} xs={24} sm={24} md={12} lg={8} xl={6}>
                     <WorkflowCard
                       workflow={workflow}
                       selected={selectedWorkflow?.id === workflow.id}
@@ -505,14 +493,15 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           </Spin>
 
           {/* Action buttons positioned at bottom right */}
-          <div style={{
-            position: 'absolute',
-            bottom: '8px',
-            right: '8px',
-            zIndex: 10
-          }}>
-            <Space size="middle">
-
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              right: '8px',
+              zIndex: 10,
+            }}
+          >
+            <Space size='middle'>
               <Tooltip title={t('informationDashboard.actions.refresh')}>
                 <Button
                   type='text'
@@ -524,7 +513,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     background: '#dddddd',
                     border: '1px solid #bbbbbb',
                     borderRadius: '6px',
-                    color: '#666666'
+                    color: '#666666',
                   }}
                 />
               </Tooltip>
