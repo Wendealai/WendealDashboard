@@ -257,17 +257,6 @@ const UniversalOCRPage: React.FC = () => {
   };
 
   /**
-   * Handle file deletion
-   */
-  const handleFileDelete = useCallback(
-    (fileId: string) => {
-      setOcrResults(prev => prev.filter(result => result.id !== fileId));
-      message.success('File deleted successfully');
-    },
-    [message]
-  );
-
-  /**
    * Get processing steps configuration
    */
   const getSteps = () => [
