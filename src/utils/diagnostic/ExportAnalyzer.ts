@@ -7,10 +7,10 @@ import type {
   ExportInfo,
   ExportIssue,
   FileLocation,
+  DiagnosticConfig,
 } from '@/types/exportDiagnostic';
 import { ExportIssueType, IssueSeverity } from '@/types/exportDiagnostic';
 import { IssueClassifier } from '@/utils/exportDiagnosticUtils';
-import type { DiagnosticConfig } from '@/types/exportDiagnostic';
 
 /**
  * 导出分析器类

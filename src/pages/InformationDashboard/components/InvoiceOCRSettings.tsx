@@ -26,7 +26,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { invoiceOCRService } from '../../../services/invoiceOCRService';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { TextArea } = Input;
 
 /**
@@ -235,7 +235,7 @@ const InvoiceOCRSettings: React.FC<InvoiceOCRSettingsProps> = ({
 
   return (
     <Card
-      className={className}
+      {...(className && { className })}
       title={
         <Space>
           <SettingOutlined />
@@ -462,9 +462,9 @@ const InvoiceOCRSettings: React.FC<InvoiceOCRSettingsProps> = ({
       <ErrorModal
         visible={isVisible}
         onClose={hideError}
-        title={errorInfo.title}
-        message={errorInfo.message}
-        details={errorInfo.details}
+        title={errorInfo?.title || 'Error'}
+        message={errorInfo?.message || 'An error occurred'}
+        details={errorInfo?.details}
       />
     </Card>
   );

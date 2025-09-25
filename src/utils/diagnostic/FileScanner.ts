@@ -10,13 +10,13 @@ import type {
   ScanOptions,
   ScanProgress,
   CacheEntry,
+  DiagnosticConfig,
 } from '@/types/exportDiagnostic';
 import {
   PathResolver,
   FileSystemUtils,
   CacheUtils,
 } from '@/utils/exportDiagnosticUtils';
-import type { DiagnosticConfig } from '@/types/exportDiagnostic';
 
 /**
  * 文件扫描器类

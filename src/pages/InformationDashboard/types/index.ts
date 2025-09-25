@@ -5,3 +5,6 @@
 
 // 导出 Invoice OCR 相关类型
 export * from './invoiceOCR';
+
+// 导出工作流相关类型
+export type * from './workflow';

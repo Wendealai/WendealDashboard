@@ -8,7 +8,7 @@ import type {
   User,
   AuthConfig,
 } from '../../types/auth';
-import { UserRole } from '../../types/auth';
+import type { UserRole } from '../../types/auth';
 import type { IAuthService } from './IAuthService';
 import { LocalAuthService } from './LocalAuthService';
 

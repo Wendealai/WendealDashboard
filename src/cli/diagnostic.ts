@@ -88,7 +88,7 @@ program
 
       // 显示结果摘要
       console.log('📊 诊断结果摘要:');
-      console.log(`   扫描文件: ${report.summary.scannedFiles}`);
+      console.log(`   扫描文件: ${report.filesScanned}`);
       console.log(`   发现导出: ${report.summary.totalExports}`);
       console.log(`   已使用导出: ${report.summary.usedExports}`);
       console.log(`   未使用导出: ${report.summary.unusedExports}`);
@@ -117,10 +117,14 @@ program
       await outputResults(report, options);
 
       // 自动修复
-      if (options.fix && !options.dryRun && report.suggestions.length > 0) {
+      if (options.fix && !options.dryRun) {
         console.log('🔧 执行自动修复...');
         // 这里可以实现自动修复逻辑
-        console.log(`   发现 ${report.suggestions.length} 个修复建议`);
+        const totalSuggestions = report.issues.reduce(
+          (sum, issue) => sum + issue.suggestions.length,
+          0
+        );
+        console.log(`   发现 ${totalSuggestions} 个修复建议`);
         console.log('   注意: 自动修复功能尚未实现，请手动修复');
       }
 
@@ -223,7 +227,7 @@ program
         console.log('   详细信息:');
         console.log(`     - 活跃连接: ${health.details.activeConnections}`);
         console.log(
-          `     - 缓存命中率: ${(health.details.cacheHitRate * 100).toFixed(1)}%`
+          `     - 缓存命中率: ${health.details.cacheHitRate ? (health.details.cacheHitRate * 100).toFixed(1) : 'N/A'}%`
         );
         console.log(`     - 平均扫描时间: ${health.details.averageScanTime}ms`);
       }
@@ -348,7 +352,7 @@ function formatAsText(report: any): string {
   text += '='.repeat(50) + '\n\n';
 
   text += `扫描时间: ${new Date().toLocaleString()}\n`;
-  text += `扫描文件: ${report.summary?.scannedFiles || 0}\n`;
+  text += `扫描文件: ${report.filesScanned || 0}\n`;
   text += `发现导出: ${report.summary?.totalExports || 0}\n`;
   text += `已使用导出: ${report.summary?.usedExports || 0}\n`;
   text += `未使用导出: ${report.summary?.unusedExports || 0}\n`;
@@ -395,7 +399,7 @@ function formatAsHtml(report: any): string {
   <div class="summary">
     <h2>摘要</h2>
     <p>扫描时间: ${new Date().toLocaleString()}</p>
-    <p>扫描文件: ${report.summary?.scannedFiles || 0}</p>
+    <p>扫描文件: ${report.filesScanned || 0}</p>
     <p>发现导出: ${report.summary?.totalExports || 0}</p>
     <p>已使用导出: ${report.summary?.usedExports || 0}</p>
     <p>未使用导出: ${report.summary?.unusedExports || 0}</p>

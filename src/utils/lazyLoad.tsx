@@ -1,6 +1,6 @@
-import React, { Suspense, type ComponentType } from 'react';
+import React, { Suspense } from 'react';
+import type { LazyExoticComponent, ComponentType } from 'react';
 import { Spin } from 'antd';
-import type { LazyExoticComponent } from 'react';
 
 // 默认加载组件
 const DefaultFallback: React.FC = () => (

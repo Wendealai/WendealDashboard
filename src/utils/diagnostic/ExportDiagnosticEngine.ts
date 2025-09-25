@@ -9,13 +9,13 @@ import type {
   DiagnosticReport,
   ScanOptions,
   ScanProgress,
+  DiagnosticConfig,
 } from '@/types/exportDiagnostic';
 import { IssueSeverity } from '@/types/exportDiagnostic';
 import { FileScanner } from './FileScanner';
 import { ExportAnalyzer } from './ExportAnalyzer';
 import { DependencyResolver } from './DependencyResolver';
 import { FixSuggester } from './FixSuggester';
-import type { DiagnosticConfig } from '@/types/exportDiagnostic';
 
 /**
  * 诊断引擎类

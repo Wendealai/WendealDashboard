@@ -2,7 +2,7 @@
 // import * as path from 'path'; // Removed for browser compatibility
 import { ExportDetector } from './exportDetector';
 import { ConsistencyAnalyzer } from './consistencyAnalyzer';
-import { type ExportConfig, type ConsistencyIssue } from '../types/export';
+import type { ExportConfig, ConsistencyIssue } from '../types/export';
 import { ExportConfigManager } from './exportConfig';
 
 /**

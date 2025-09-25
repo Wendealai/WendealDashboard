@@ -80,7 +80,6 @@ import {
   CloseCircleOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import type { ColumnsType } from 'antd/es/table';
 import { invoiceOCRService } from '../../../../services/invoiceOCRService';
 import type {
   InvoiceOCRResult,

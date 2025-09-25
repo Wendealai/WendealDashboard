@@ -41,6 +41,7 @@ import {
   fetchWorkflows,
   triggerWorkflow,
   fetchWorkflowExecutions,
+  selectWorkflowStats,
 } from '@/store/slices/informationDashboardSlice';
 import { workflowService } from '@/services/workflowService';
 import type {
@@ -98,12 +99,12 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
     const dispatch = useAppDispatch();
     const message = useMessage();
     const { isVisible, errorInfo, showError, hideError } = useErrorModal();
-    const {
-      workflows: workflowsState,
-      loading,
-      workflowStats,
-    } = useAppSelector(state => state.informationDashboard);
+    const { workflows: workflowsState } = useAppSelector(
+      state => state.informationDashboard
+    );
     const workflows = workflowsState.list;
+    const loading = workflowsState.loading;
+    const workflowStats = useAppSelector(selectWorkflowStats);
 
     // Component state
     const [triggerModalVisible, setTriggerModalVisible] = useState(false);
@@ -125,8 +126,8 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
      * Initialize data loading
      */
     useEffect(() => {
-      dispatch(fetchWorkflows());
-      dispatch(fetchWorkflowExecutions({ limit: 10 }));
+      dispatch(fetchWorkflows({}));
+      dispatch(fetchWorkflowExecutions());
     }, [dispatch]);
 
     /**
@@ -161,17 +162,17 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
         setTriggerModalVisible(false);
 
         // Refresh execution list
-        dispatch(fetchWorkflowExecutions({ limit: 10 }));
+        dispatch(fetchWorkflowExecutions());
 
         // Notify parent component
         if (onWorkflowTriggered) {
           onWorkflowTriggered(selectedWorkflow.id, result.executionId);
         }
       } catch (error) {
-        showError(
-          t('informationDashboard.messages.operationFailed'),
-          error instanceof Error ? error.message : String(error)
-        );
+        showError({
+          title: t('informationDashboard.messages.operationFailed'),
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
     }, [selectedWorkflow, triggerForm, dispatch, t, onWorkflowTriggered]);
 
@@ -179,8 +180,8 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
      * Refresh data
      */
     const handleRefresh = useCallback(() => {
-      dispatch(fetchWorkflows());
-      dispatch(fetchWorkflowExecutions({ limit: 10 }));
+      dispatch(fetchWorkflows({}));
+      dispatch(fetchWorkflowExecutions());
     }, [dispatch]);
 
     /**
@@ -200,7 +201,52 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
 
         if (response.success && response.data) {
           // Handle new Reddit workflow response format
-          const workflowResponse = response.data;
+          const workflowResponse: RedditWorkflowResponse = {
+            ...response.data,
+            success: true,
+            headerInfo: {
+              title: 'Reddit Hot Content',
+              subtitle: 'Latest trending posts',
+              timeRange: '24h',
+              timestamp: new Date().toISOString(),
+              totalPosts:
+                response.data.subreddits?.reduce(
+                  (sum: number, sub: any) => sum + (sub.posts?.length || 0),
+                  0
+                ) || 0,
+            },
+            summary: {
+              totalSubreddits: response.data.subreddits?.length || 0,
+              totalPosts:
+                response.data.subreddits?.reduce(
+                  (sum: number, sub: any) => sum + (sub.posts?.length || 0),
+                  0
+                ) || 0,
+              totalScore:
+                response.data.subreddits?.reduce(
+                  (sum: number, sub: any) => sum + (sub.stats?.totalScore || 0),
+                  0
+                ) || 0,
+              totalComments:
+                response.data.subreddits?.reduce(
+                  (sum: number, sub: any) =>
+                    sum + (sub.stats?.totalComments || 0),
+                  0
+                ) || 0,
+              topSubreddit: response.data.subreddits?.[0]?.name || null,
+              categories:
+                response.data.subreddits
+                  ?.map((sub: any) => sub.category)
+                  .filter(Boolean) || [],
+              averagePostsPerSub: response.data.subreddits?.length
+                ? response.data.subreddits.reduce(
+                    (sum: number, sub: any) => sum + (sub.posts?.length || 0),
+                    0
+                  ) / response.data.subreddits.length
+                : 0,
+              dataFreshness: 'fresh',
+            },
+          };
           setRedditWorkflowData(workflowResponse);
           setRedditProgressStatus('Reddit数据获取完成！');
           message.success('Reddit数据获取成功！');
@@ -212,9 +258,9 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
 
           // Also provide backward compatibility with old format
           const subredditsData =
-            workflowResponse.subreddits?.map(sub => ({
+            workflowResponse.subreddits?.map((sub: any) => ({
               name: sub.name,
-              posts: sub.posts.map(post => ({
+              posts: sub.posts.map((post: any) => ({
                 title: post.title,
                 author: post.author,
                 score: post.score,
@@ -222,13 +268,14 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
                 url: post.url,
                 subreddit: sub.name,
                 rank: post.rank,
+                upvotes: post.score, // Map score to upvotes for compatibility
               })),
-              totalPosts: sub.stats.totalPosts,
+              totalPosts: sub.stats?.totalPosts || 0,
             })) || [];
 
-          setRedditData(subredditsData);
+          setRedditData(subredditsData as any);
           if (onRedditDataReceived) {
-            onRedditDataReceived(subredditsData);
+            onRedditDataReceived(subredditsData as any);
           }
 
           // Notify that workflow has been triggered
@@ -246,7 +293,10 @@ const WorkflowPanel: React.FC<WorkflowPanelProps> = memo(
           error instanceof Error ? error.message : 'Reddit数据获取失败';
         setRedditError(errorMessage);
         setRedditProgressStatus('');
-        showError('Reddit数据获取失败', errorMessage);
+        showError({
+          title: 'Reddit数据获取失败',
+          message: errorMessage,
+        });
       } finally {
         setRedditLoading(false);
         // Clear progress status (delay 3 seconds)

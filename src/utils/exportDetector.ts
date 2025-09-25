@@ -1,10 +1,6 @@
 import * as ts from 'typescript';
 // import { readFileSync } from 'fs'; // Removed for browser compatibility
-import {
-  type ExportInfo,
-  type ParsedExport,
-  type SourceLocation,
-} from '../types/export';
+import type { ExportInfo, ParsedExport, SourceLocation } from '../types/export';
 
 /**
  * 导出检测器类 - 用于分析TypeScript文件中的导出语句

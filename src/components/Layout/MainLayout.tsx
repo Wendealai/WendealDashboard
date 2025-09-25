@@ -11,7 +11,7 @@ import {
   Drawer,
 } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import NotificationCenter from '../Notification/NotificationCenter';
 import NotificationButton from '../Notification/NotificationButton';
 import { notificationService } from '@/services/notificationService';
@@ -51,14 +51,17 @@ import {
   ToolOutlined,
 } from '@ant-design/icons';
 import WhatsNewPanel from './WhatsNewPanel';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAppSelector, useAppDispatch, useMessage } from '../../hooks';
+import {
+  useAppSelector,
+  useAppDispatch,
+  useMessage,
+  useMediaQuery,
+} from '../../hooks';
 import { useErrorModal } from '../../hooks/useErrorModal';
 import ErrorModal from '../common/ErrorModal';
 import { toggleSidebar } from '../../store/slices/uiSlice';
 import { useAuth } from '../../contexts/AuthContext';
 import { navigationItems } from '../../router/routes';
-import { useMediaQuery } from '../../hooks';
 
 const { Header, Sider, Content } = AntLayout;
 const { Text } = Typography;

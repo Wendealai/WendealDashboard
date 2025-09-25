@@ -94,7 +94,7 @@ export class DiagnosticService implements IDiagnosticService {
       // 更新统计信息
       this.stats.totalScans++;
       this.stats.successfulScans++;
-      this.stats.totalFilesProcessed += report.summary.totalFiles;
+      this.stats.totalFilesProcessed += report.filesScanned;
       this.stats.totalIssuesFound += report.issues.length;
 
       const scanTime = Date.now() - scanStartTime;
@@ -196,15 +196,22 @@ export class DiagnosticService implements IDiagnosticService {
   }> {
     const engineStats = this.engine.getStats();
 
-    return {
+    const result: {
+      isRunning: boolean;
+      activeScans: number;
+      cacheSize: number;
+      lastScanTime?: Date;
+    } = {
       isRunning: this.isScanning,
       activeScans: this.isScanning ? 1 : 0,
       cacheSize: engineStats.cacheHits + engineStats.cacheMisses,
-      lastScanTime:
-        this.history.length > 0
-          ? this.history[this.history.length - 1].generatedAt
-          : undefined,
     };
+
+    if (this.history.length > 0) {
+      result.lastScanTime = this.history[this.history.length - 1]!.scanTime;
+    }
+
+    return result;
   }
 
   /**
@@ -285,14 +292,19 @@ export class DiagnosticService implements IDiagnosticService {
    * 获取服务统计信息
    */
   getStats(): DiagnosticServiceStats {
-    return {
+    const baseStats = {
       ...this.stats,
       uptime: Date.now() - this.startTime.getTime(),
-      lastScanTime:
-        this.history.length > 0
-          ? this.history[this.history.length - 1].generatedAt
-          : undefined,
     };
+
+    if (this.history.length > 0) {
+      return {
+        ...baseStats,
+        lastScanTime: this.history[this.history.length - 1]!.scanTime,
+      };
+    }
+
+    return baseStats;
   }
 
   /**

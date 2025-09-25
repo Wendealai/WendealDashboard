@@ -141,19 +141,36 @@ export function mergeConfigs(
     ...overrides,
     // 深度合并嵌套对象
     typescriptConfig: {
-      ...base.typescriptConfig,
+      strict: base.typescriptConfig?.strict ?? false,
+      checkTypeExports: base.typescriptConfig?.checkTypeExports ?? true,
+      target: base.typescriptConfig?.target ?? 'ES2020',
+      moduleResolution: base.typescriptConfig?.moduleResolution ?? 'node',
+      jsx: base.typescriptConfig?.jsx ?? 'react',
       ...overrides.typescriptConfig,
     },
     eslintConfig: {
-      ...base.eslintConfig,
+      enabled: base.eslintConfig?.enabled ?? true,
+      configFile: base.eslintConfig?.configFile ?? '.eslintrc.js',
+      extensions: base.eslintConfig?.extensions ?? [
+        '.ts',
+        '.tsx',
+        '.js',
+        '.jsx',
+      ],
       ...overrides.eslintConfig,
     },
     output: {
-      ...base.output,
+      format: base.output?.format ?? 'json',
+      file: base.output?.file ?? 'export-diagnostic-report.json',
+      verbose: base.output?.verbose ?? false,
+      includeSuggestions: base.output?.includeSuggestions ?? true,
+      includeCodeSnippets: base.output?.includeCodeSnippets ?? true,
       ...overrides.output,
     },
     performance: {
-      ...base.performance,
+      enableProfiling: base.performance?.enableProfiling ?? false,
+      maxMemoryUsage: base.performance?.maxMemoryUsage ?? 512 * 1024 * 1024,
+      timeoutPerFile: base.performance?.timeoutPerFile ?? 5000,
       ...overrides.performance,
     },
   };
@@ -225,17 +242,17 @@ export function validateConfig(config: DiagnosticConfig): {
   }
 
   // 验证最大深度
-  if (config.maxDepth < 1) {
+  if ((config.maxDepth ?? 10) < 1) {
     errors.push('maxDepth 必须大于0');
   }
 
   // 验证超时时间
-  if (config.timeout < 1000) {
+  if ((config.timeout ?? 30000) < 1000) {
     errors.push('timeout 必须至少1000ms');
   }
 
   // 验证并发数
-  if (config.concurrency < 1) {
+  if ((config.concurrency ?? 4) < 1) {
     errors.push('concurrency 必须至少为1');
   }
 

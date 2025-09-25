@@ -11,8 +11,7 @@ import type {
   AuthError,
   AuthErrorTypeValue,
 } from '../../types/auth';
-import { AuthErrorType } from '../../types/auth';
-import { UserRole } from '../../types/auth';
+import { AuthErrorType, UserRole } from '../../types/auth';
 import type { IAuthService } from './IAuthService';
 
 /**

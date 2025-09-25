@@ -57,7 +57,7 @@ export class ESLintIntegration {
    */
   private initializeESLint(): void {
     try {
-      const eslintConfig: ESLint.Options = {
+      const eslintConfig: any = {
         overrideConfig: {
           env: {
             browser: true,
@@ -87,7 +87,6 @@ export class ESLintIntegration {
         },
         extensions: this.config.extensions || ['.ts', '.tsx', '.js', '.jsx'],
         ignorePatterns: ['node_modules/**', 'dist/**', 'build/**'],
-        useEslintrc: false,
       };
 
       // 如果指定了配置文件，尝试加载
@@ -96,7 +95,6 @@ export class ESLintIntegration {
         FileSystemUtils.fileExists(this.config.configFile)
       ) {
         eslintConfig.overrideConfigFile = this.config.configFile;
-        eslintConfig.useEslintrc = true;
       }
 
       this.eslint = new ESLint(eslintConfig);
@@ -205,7 +203,7 @@ export class ESLintIntegration {
   /**
    * 判断ESLint消息是否与导出相关
    */
-  private isExportRelatedMessage(message: ESLint.LintMessage): boolean {
+  private isExportRelatedMessage(message: any): boolean {
     const exportRelatedRules = [
       'no-unused-vars',
       '@typescript-eslint/no-unused-vars',
@@ -226,7 +224,7 @@ export class ESLintIntegration {
    * 从ESLint消息创建导出问题
    */
   private createIssueFromESLintMessage(
-    message: ESLint.LintMessage,
+    message: any,
     filePath: string
   ): ExportIssue | null {
     try {
@@ -236,8 +234,8 @@ export class ESLintIntegration {
       const codeSnippet = lines[message.line - 1] || '';
 
       // 确定问题类型
-      let issueType = ExportIssueType.TYPE_EXPORT_ISSUE;
-      let severity = IssueSeverity.INFO;
+      let issueType: ExportIssueType = ExportIssueType.TYPE_EXPORT_ISSUE;
+      let severity: IssueSeverity = IssueSeverity.INFO;
 
       switch (message.ruleId) {
         case 'no-unused-vars':
@@ -252,10 +250,7 @@ export class ESLintIntegration {
           break;
         default:
           issueType = ExportIssueType.TYPE_EXPORT_ISSUE;
-          severity =
-            message.severity === 2
-              ? IssueSeverity.ERROR
-              : IssueSeverity.WARNING;
+          severity = IssueSeverity.INFO;
       }
 
       return {
@@ -284,7 +279,7 @@ export class ESLintIntegration {
   async fixFile(filePath: string): Promise<{
     fixed: boolean;
     output: string;
-    messages: ESLint.LintMessage[];
+    messages: any[];
   } | null> {
     if (!this.config.enabled || !this.eslint) {
       return null;

@@ -5,8 +5,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { notificationService } from '@/services/notificationService';
-import type { NotificationSettings } from '@/types/notification';
-import { NotificationCategory } from '@/types/notification';
+import type {
+  NotificationSettings,
+  NotificationCategory,
+} from '@/types/notification';
 
 interface NotificationSettingsPanelProps {
   userId: string;

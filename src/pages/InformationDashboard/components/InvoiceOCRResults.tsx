@@ -43,7 +43,6 @@ import {
   Statistic,
   Row,
   Col,
-  Alert,
   Empty,
   Spin,
   Modal,
@@ -85,24 +84,14 @@ import type { ColumnsType } from 'antd/es/table';
 import { invoiceOCRService } from '../../../services/invoiceOCRService';
 import type {
   InvoiceOCRResult,
-  InvoiceOCRStatus,
   InvoiceOCRBatchTask,
-  InvoiceOCRQueryParams,
-  InvoiceOCRPaginatedResponse,
   InvoiceOCRStatistics,
   InvoiceOCRExecution,
   InvoiceData,
-  InvoiceLineItem,
 } from '../types/invoiceOCR';
-import type {
-  EnhancedWebhookResponse,
-  InvoiceProcessingSummary,
-  FinancialSummary,
-  ProcessingDetails,
-  QualityMetrics,
-} from '../../../types/workflow';
+import type { EnhancedWebhookResponse } from '../../../types/workflow';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 const { confirm } = Modal;
 
 /**
@@ -228,7 +217,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const [loading, setLoading] = useState(false);
   const [selectedResults, setSelectedResults] = useState<InvoiceOCRResult[]>(
     []
-  ); // eslint-disable-line @typescript-eslint/no-unused-vars
+  );
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedResult, setSelectedResult] = useState<InvoiceOCRResult | null>(
     null
@@ -243,11 +232,17 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     setLoading(true);
     try {
       // 加载结果列表
-      const resultsData = await invoiceOCRService.getResults(workflowId, {
-        batchTaskId,
+      const queryParams: any = {
         page: 1,
         pageSize: 100,
-      });
+      };
+      if (batchTaskId) {
+        queryParams.batchTaskId = batchTaskId;
+      }
+      const resultsData = await invoiceOCRService.getResults(
+        workflowId,
+        queryParams
+      );
       setResults(resultsData.items || []);
 
       // 加载批处理任务
@@ -1046,6 +1041,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
         enhancedData &&
         enhancedData.results &&
         enhancedData.results.length > 0 &&
+        enhancedData.results[0] &&
         (enhancedData.results[0].summary ||
           enhancedData.results[0].financialSummary ||
           enhancedData.results[0].processingDetails)
@@ -1083,7 +1079,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             </Card>
 
             {/* 处理建议 */}
-            {enhancedData.results[0].recommendations &&
+            {enhancedData.results[0]?.recommendations &&
               enhancedData.results[0].recommendations.length > 0 && (
                 <Card title='💡 Recommendations' style={{ marginBottom: 24 }}>
                   <List

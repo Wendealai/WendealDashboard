@@ -39,8 +39,7 @@ import {
 } from '@ant-design/icons';
 import { useAppSelector } from '@/store/hooks';
 import { selectLoading } from '@/store/slices/informationDashboardSlice';
-import type { InformationItem } from '../types';
-import type { WorkflowInfo } from '../types';
+import type { InformationItem, WorkflowInfo } from '../types';
 import type {
   ParsedSubredditData,
   RedditWorkflowResponse,
