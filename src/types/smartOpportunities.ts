@@ -95,8 +95,12 @@ export interface AirtableTableProps {
   loading?: boolean;
   /** 错误信息 */
   error?: string | null;
+  /** Airtable服务实例 */
+  airtableService?: any;
   /** 数据变化回调 */
   onDataChange?: (data: OpportunityRecord[]) => void;
+  /** 刷新回调 */
+  onRefresh?: () => void;
   /** 排序变化回调 */
   onSort?: (field: string, direction: 'asc' | 'desc') => void;
   /** 分页变化回调 */

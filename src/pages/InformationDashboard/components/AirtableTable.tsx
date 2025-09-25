@@ -51,8 +51,8 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
   data,
   loading,
   error,
-  onRefresh,
   airtableService,
+  onRefresh,
   onDataChange,
 }) => {
   const { t } = useTranslation();
@@ -109,17 +109,17 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       ],
       // 数据行
       ...data.map(record => [
-        record.fields['Business Name'] || '',
-        record.fields['Category'] || '',
-        record.fields['City'] || '',
-        record.fields['Address'] || '',
-        record.fields['Website'] || '',
-        record.fields['Phone'] || '',
-        record.fields['Rating'] || '',
-        record.fields['Reviews'] || '',
-        record.fields['Opportunities'] || '',
-        record.fields['Lead Score'] || '',
-        record.fields['Created Time'] || '',
+        record.fields.businessName || '',
+        record.fields.industry || '',
+        record.fields.city || '',
+        record.fields.country || '',
+        record.fields.description || '',
+        record.fields.contactInfo || '',
+        '', // Rating - not in current schema
+        '', // Reviews - not in current schema
+        '', // Opportunities - not in current schema
+        '', // Lead Score - not in current schema
+        record.fields.createdTime || '',
       ]),
     ]
       .map(row => row.map(cell => `"${cell}"`).join(','))
@@ -260,6 +260,10 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       const lines = text.split('\n');
       console.log('Total lines:', lines.length);
 
+      if (lines.length === 0 || !lines[0]) {
+        throw new Error('CSV file is empty or invalid');
+      }
+
       // 使用正则表达式正确解析CSV，处理引号和逗号
       const parseCSVLine = (line: string): string[] => {
         const result: string[] = [];
@@ -316,9 +320,10 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
       // 解析数据行
       const newRecords = [];
       for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        const values = parseCSVLine(lines[i]);
-        console.log(`Parsing line ${i}:`, lines[i]);
+        const line = lines[i];
+        if (!line || !line.trim()) continue;
+        const values = parseCSVLine(line);
+        console.log(`Parsing line ${i}:`, line);
         console.log(`Parsed values:`, values);
         console.log(`Values count:`, values.length);
         const record: any = {};
@@ -392,9 +397,13 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
         } catch (recordError) {
           console.error(`❌ Failed to create record ${i + 1}:`, recordError);
           failedCount++;
+          const errorMessage =
+            recordError instanceof Error
+              ? recordError.message
+              : 'Unknown error';
           failedRecords.push({
             index: i + 1,
-            error: recordError.message,
+            error: errorMessage,
             data: recordData,
           });
           // 继续处理其他记录，但记录失败情况
@@ -667,7 +676,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
               icon={<UploadOutlined />}
               onClick={handleImportClick}
               size='small'
-              disabled={loading}
+              disabled={!!loading}
             >
               Import CSV
             </Button>
@@ -676,7 +685,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
               icon={<DownloadOutlined />}
               onClick={handleExportCSV}
               size='small'
-              disabled={loading || data.length === 0}
+              disabled={!!loading || data.length === 0}
             >
               Export CSV
             </Button>
@@ -685,7 +694,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
               icon={<ClearOutlined />}
               onClick={handleClearClick}
               size='small'
-              disabled={loading || data.length === 0}
+              disabled={!!loading || data.length === 0}
               danger
             >
               Clear Table
@@ -695,7 +704,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
               icon={<ReloadOutlined />}
               onClick={handleRefresh}
               size='small'
-              disabled={loading}
+              disabled={!!loading}
             >
               Reload
             </Button>
@@ -722,7 +731,9 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
             <Alert
               message='Data Loading Error'
               description={
-                error.message || 'Failed to load business opportunity data'
+                typeof error === 'string'
+                  ? error
+                  : 'Failed to load business opportunity data'
               }
               type='error'
               showIcon
@@ -760,7 +771,7 @@ const AirtableTable: React.FC<AirtableTableProps> = ({
                 />
               ),
             }}
-            loading={loading}
+            loading={!!loading}
           />
         </div>
       </Card>
