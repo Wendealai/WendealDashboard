@@ -222,12 +222,17 @@ export const handlers = [
   }),
 
   http.post('/api/users', async ({ request }) => {
-    const userData = await request.json();
+    const userData = (await request.json()) as Record<string, any>;
     const newUser = {
       id: Date.now().toString(),
-      ...userData,
-      createdAt: new Date().toISOString(),
+      username: userData.username || '',
+      email: userData.email || '',
+      displayName: userData.displayName || '',
+      role: userData.role || 'user',
+      avatar: userData.avatar || null,
       status: 'active',
+      lastLogin: userData.lastLogin || new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
     mockUsers.push(newUser);
 
@@ -240,7 +245,7 @@ export const handlers = [
 
   http.put('/api/users/:id', async ({ params, request }) => {
     const { id } = params;
-    const userData = await request.json();
+    const userData = (await request.json()) as Record<string, any>;
     const userIndex = mockUsers.findIndex(u => u.id === id);
 
     if (userIndex === -1) {
@@ -250,7 +255,18 @@ export const handlers = [
       );
     }
 
-    mockUsers[userIndex] = { ...mockUsers[userIndex], ...userData };
+    const existingUser = mockUsers[userIndex]!;
+    mockUsers[userIndex] = {
+      id: existingUser.id,
+      username: userData.username ?? existingUser.username,
+      email: userData.email ?? existingUser.email,
+      displayName: userData.displayName ?? existingUser.displayName,
+      role: userData.role ?? existingUser.role,
+      avatar: userData.avatar ?? existingUser.avatar,
+      status: userData.status ?? existingUser.status,
+      lastLogin: userData.lastLogin ?? existingUser.lastLogin,
+      createdAt: existingUser.createdAt,
+    };
 
     return HttpResponse.json({
       success: true,
@@ -443,7 +459,6 @@ export const handlers = [
       const formData = await request.formData();
       const files = formData.getAll('files');
       const batchName = formData.get('batchName');
-      const processingOptions = formData.get('processingOptions');
 
       // 模拟文件上传和OCR处理
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -482,7 +497,11 @@ export const handlers = [
 
   http.post('/api/invoice-ocr/process', async ({ request }) => {
     try {
-      const { fileIds, webhookUrl } = await request.json();
+      const body = (await request.json()) as {
+        fileIds: string[];
+        webhookUrl?: string;
+      };
+      const { fileIds, webhookUrl } = body;
 
       // 验证输入参数
       if (!fileIds || !Array.isArray(fileIds)) {
@@ -554,7 +573,7 @@ export const handlers = [
   }),
 
   http.post('/api/invoice-ocr/test-webhook', async ({ request }) => {
-    const { webhookUrl } = await request.json();
+    const body = (await request.json()) as { webhookUrl: string };
 
     // 模拟webhook连接测试
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -630,7 +649,7 @@ export const handlers = [
   }),
 
   http.post('/api/invoice-ocr/workflows', async ({ request }) => {
-    const workflow = await request.json();
+    const workflow = (await request.json()) as Record<string, any>;
 
     // 模拟创建工作流
     return HttpResponse.json({
