@@ -167,9 +167,6 @@ export default defineConfig({
             if (id.includes('dayjs') || id.includes('moment')) {
               return 'date-vendor';
             }
-            if (id.includes('echarts') || id.includes('chart')) {
-              return 'chart-vendor';
-            }
             if (id.includes('axios') || id.includes('msw')) {
               return 'http-vendor';
             }
