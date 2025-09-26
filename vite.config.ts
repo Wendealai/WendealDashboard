@@ -32,7 +32,7 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
-    host: true, // 允许外部访问
+    host: '0.0.0.0', // 允许外部访问
     // 开发服务器优化
     hmr: {
       overlay: false, // 禁用错误覆盖层
@@ -129,6 +129,11 @@ export default defineConfig({
           });
         },
       },
+    },
+    preview: {
+      host: '0.0.0.0',  // 关键：允许外部访问
+      port: 5173,       // 与Container Port匹配
+      strictPort: true, // 强制使用指定端口
     },
   },
 
