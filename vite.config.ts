@@ -155,9 +155,6 @@ export default defineConfig({
         manualChunks: (id) => {
           // 第三方库分割
           if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor';
-            }
             if (id.includes('@reduxjs/toolkit') || id.includes('react-redux')) {
               return 'redux-vendor';
             }
