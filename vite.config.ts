@@ -130,11 +130,11 @@ export default defineConfig({
         },
       },
     },
-    preview: {
-      host: '0.0.0.0',  // 关键：允许外部访问
-      port: 5173,       // 与Container Port匹配
-      strictPort: true, // 强制使用指定端口
-    },
+  },
+  preview: {
+    host: '0.0.0.0',  // 关键：允许外部访问
+    port: 5173,       // 与Container Port匹配
+    strictPort: true, // 强制使用指定端口
   },
 
   build: {

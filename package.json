@@ -26,7 +26,7 @@
     "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "test:debug": "node --inspect-brk node_modules/.bin/jest --runInBand",
     "test:update-snapshots": "jest --updateSnapshot",
-    "preview": "vite preview",
+    "preview": "vite preview --host 0.0.0.0 --port 5173",
     "webhook": "tsx src/services/notionWebhookServer.ts",
     "webhook:dev": "tsx watch src/services/notionWebhookServer.ts",
     "dev:with-webhook": "concurrently \"npm run dev\" \"npm run webhook\"",
