@@ -83,17 +83,25 @@
 
 /* 确保所有文本内容在浅色模式下都是深色 */
 [data-theme='light'] .whats-new-panel .ant-list-item * {
-  color: #333333 !important;
+  color: #000000 !important;
 }
 
 [data-theme='light'] .whats-new-panel .ant-list-item {
-  color: #333333 !important;
+  color: #000000 !important;
 }
 
 [data-theme='light'] .whats-new-panel span {
-  color: #333333 !important;
+  color: #000000 !important;
 }
 
 [data-theme='light'] .whats-new-panel div {
-  color: #333333 !important;
+  color: #000000 !important;
+}
+
+[data-theme='light'] .whats-new-panel .ant-typography {
+  color: #000000 !important;
+}
+
+[data-theme='light'] .whats-new-panel .anticon {
+  color: #666666 !important;
 }

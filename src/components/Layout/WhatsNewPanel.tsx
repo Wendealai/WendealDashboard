@@ -82,10 +82,7 @@ const WhatsNewPanel: React.FC<WhatsNewPanelProps> = ({ collapsed = false }) => {
             <ExclamationCircleOutlined
               style={{ color: 'var(--color-accent, #722ed1)' }}
             />
-            <Text
-              strong
-              style={{ color: 'var(--color-white, white)', fontSize: '14px' }}
-            >
+            <Text strong style={{ color: '#000000', fontSize: '14px' }}>
               {t('whatsNew.title', "What's New")}
             </Text>
           </Space>
@@ -131,8 +128,7 @@ const WhatsNewPanel: React.FC<WhatsNewPanelProps> = ({ collapsed = false }) => {
                   {getIcon(item.type)}
                   <Text
                     style={{
-                      color:
-                        'var(--color-text-whatsnew, rgba(255, 255, 255, 0.85))',
+                      color: '#000000',
                       fontSize: '12px',
                     }}
                   >
@@ -148,8 +144,7 @@ const WhatsNewPanel: React.FC<WhatsNewPanelProps> = ({ collapsed = false }) => {
                 </Space>
                 <RightOutlined
                   style={{
-                    color:
-                      'var(--color-text-whatsnew-secondary, rgba(255, 255, 255, 0.45))',
+                    color: '#666666',
                     fontSize: '10px',
                   }}
                 />
