@@ -41,7 +41,6 @@ import type {
 const { TextArea } = Input;
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
-const { TabPane } = Tabs;
 
 /**
  * International Social Media Content Generator Component Props Interface
@@ -1636,8 +1635,10 @@ const InternationalSocialMediaGenerator: React.FC<
                                             // 处理连续的##格式，如 "##n8n##AutomationTips##LearningToAutomate"
                                             const tags = allTagsString
                                               .split('##')
-                                              .filter(tag => tag.trim())
-                                              .map(tag => `#${tag}`);
+                                              .filter((tag: string) =>
+                                                tag.trim()
+                                              )
+                                              .map((tag: string) => `#${tag}`);
                                             allTags.push(...tags);
                                           } else {
                                             // 正常空格分割
@@ -4450,15 +4451,17 @@ const InternationalSocialMediaGenerator: React.FC<
                             <div>
                               <Text strong>推荐标签：</Text>
                               <div style={{ marginTop: 8 }}>
-                                {generatedResponse.hashtags.map(tag => (
-                                  <Tag
-                                    key={tag}
-                                    color='blue'
-                                    style={{ marginBottom: 4 }}
-                                  >
-                                    #{tag}
-                                  </Tag>
-                                ))}
+                                {generatedResponse.hashtags.map(
+                                  (tag: string) => (
+                                    <Tag
+                                      key={tag}
+                                      color='blue'
+                                      style={{ marginBottom: 4 }}
+                                    >
+                                      #{tag}
+                                    </Tag>
+                                  )
+                                )}
                               </div>
                             </div>
                           )}
