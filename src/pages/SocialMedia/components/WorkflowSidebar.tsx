@@ -252,6 +252,121 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
               showActions={false} // Hide start button
             />
           </Col>
+
+          {/* Image Generation workflow card */}
+          <Col xs={24} sm={12} md={8} lg={6} xl={6}>
+            <WorkflowCard
+              workflow={{
+                id: 'image-generation',
+                name: 'Image Generation',
+                description:
+                  'Generate images from text prompts or edit existing images',
+                status: 'active' as WorkflowStatus,
+                nodeCount: 2,
+                lastExecution: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                type: 'manual' as const,
+                executionCount: 0,
+                successRate: 0,
+                author: { id: 'system', name: 'System' },
+              }}
+              selected={selectedWorkflow?.id === 'image-generation'}
+              loading={false}
+              error={null}
+              onClick={() =>
+                handleWorkflowSelect({
+                  id: 'image-generation',
+                  name: 'Image Generation',
+                  description:
+                    'Generate images from text prompts or edit existing images',
+                  status: 'active' as WorkflowStatus,
+                  nodeCount: 2,
+                  lastExecution: new Date().toISOString(),
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                })
+              }
+              onTrigger={() => {
+                handleWorkflowSelect({
+                  id: 'image-generation',
+                  name: 'Image Generation',
+                  description:
+                    'Generate images from text prompts or edit existing images',
+                  status: 'active' as WorkflowStatus,
+                  nodeCount: 2,
+                  lastExecution: new Date().toISOString(),
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }}
+              onSettings={() => {
+                handleOpenSettings('image-generation', 'Image Generation');
+              }}
+              size='small'
+              showActions={false} // Hide start button
+            />
+          </Col>
+
+          {/* International Social Media Generator workflow card */}
+          <Col xs={24} sm={12} md={8} lg={6} xl={6}>
+            <WorkflowCard
+              workflow={{
+                id: 'international-social-media-generator',
+                name: 'International Social Media Generator',
+                description:
+                  'Generate content for Twitter, LinkedIn, Instagram, and Facebook',
+                status: 'active' as WorkflowStatus,
+                nodeCount: 4,
+                lastExecution: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                type: 'manual' as const,
+                executionCount: 0,
+                successRate: 0,
+                author: { id: 'system', name: 'System' },
+              }}
+              selected={
+                selectedWorkflow?.id === 'international-social-media-generator'
+              }
+              loading={false}
+              error={null}
+              onClick={() =>
+                handleWorkflowSelect({
+                  id: 'international-social-media-generator',
+                  name: 'International Social Media Generator',
+                  description:
+                    'Generate content for Twitter, LinkedIn, Instagram, and Facebook',
+                  status: 'active' as WorkflowStatus,
+                  nodeCount: 4,
+                  lastExecution: new Date().toISOString(),
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                })
+              }
+              onTrigger={() => {
+                handleWorkflowSelect({
+                  id: 'international-social-media-generator',
+                  name: 'International Social Media Generator',
+                  description:
+                    'Generate content for Twitter, LinkedIn, Instagram, and Facebook',
+                  status: 'active' as WorkflowStatus,
+                  nodeCount: 4,
+                  lastExecution: new Date().toISOString(),
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }}
+              onSettings={() => {
+                handleOpenSettings(
+                  'international-social-media-generator',
+                  'International Social Media Generator'
+                );
+              }}
+              size='small'
+              showActions={false} // Hide start button
+            />
+          </Col>
         </Row>
 
         {/* Settings modal */}

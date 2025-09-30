@@ -27,7 +27,11 @@ import {
   LinkOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import type { RedNoteContentRequest, RedNoteContentResponse } from '../types';
+import type {
+  RedNoteContentRequest,
+  RedNoteContentResponse,
+  RedNoteWebhookResponse,
+} from '../types';
 
 const { TextArea } = Input;
 const { Title, Text, Paragraph } = Typography;
@@ -70,6 +74,8 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
   const [progressText, setProgressText] = useState<string>('');
   const [generatedResponse, setGeneratedResponse] =
     useState<RedNoteContentResponse | null>(null);
+  const [webhookResponse, setWebhookResponse] =
+    useState<RedNoteWebhookResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -171,13 +177,109 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
 
       const responseText = await response.text();
 
-      // 创建响应对象
+      // 清理markdown标记并解析JSON
+      let cleanedResponseText = responseText;
+      if (cleanedResponseText.startsWith('```json')) {
+        cleanedResponseText = cleanedResponseText
+          .replace(/^```json\s*/, '')
+          .replace(/\s*```$/, '');
+      }
+
+      let parsedWebhookResponse;
+      try {
+        const parsedData = JSON.parse(cleanedResponseText);
+
+        // 如果返回的是数组，取第一个元素
+        if (Array.isArray(parsedData) && parsedData.length > 0) {
+          parsedWebhookResponse = parsedData[0].json;
+        } else if (parsedData.json) {
+          // 如果是包含json属性的对象
+          parsedWebhookResponse = parsedData.json;
+        } else {
+          // 直接就是数据对象
+          parsedWebhookResponse = parsedData;
+        }
+
+        // 验证数据结构
+        if (
+          !parsedWebhookResponse.xiaohongshu ||
+          !parsedWebhookResponse.analytics
+        ) {
+          console.warn('Webhook响应数据结构不完整，使用备用格式');
+          // 如果数据结构不完整，创建一个兼容的结构
+          parsedWebhookResponse = {
+            xiaohongshu: {
+              title: parsedWebhookResponse.title || '生成的标题',
+              content: parsedWebhookResponse.content || cleanedResponseText,
+              hashtags: parsedWebhookResponse.hashtags || '#小红书 #分享',
+              publishReady:
+                parsedWebhookResponse.publishReady || cleanedResponseText,
+              shortVersion:
+                parsedWebhookResponse.shortVersion ||
+                cleanedResponseText.substring(0, 200) + '...',
+            },
+            management: {
+              alternativeTitles: parsedWebhookResponse.alternativeTitles || [],
+              engagementHooks: parsedWebhookResponse.engagementHooks || [],
+              publishTips: parsedWebhookResponse.publishTips || [],
+              visualSuggestions: parsedWebhookResponse.visualSuggestions || [],
+              optimizationNotes: parsedWebhookResponse.optimizationNotes || [],
+            },
+            analytics: {
+              titleCount: parsedWebhookResponse.titleCount || 1,
+              totalTags: parsedWebhookResponse.totalTags || 2,
+              contentLength:
+                parsedWebhookResponse.contentLength ||
+                cleanedResponseText.length,
+              engagementQuestions:
+                parsedWebhookResponse.engagementQuestions || 0,
+              generatedAt: new Date().toLocaleString('zh-CN', {
+                timeZone: 'Asia/Shanghai',
+              }),
+            },
+            apiFormat: {
+              title: parsedWebhookResponse.title || '生成的标题',
+              content: parsedWebhookResponse.content || {
+                opening: '',
+                body: cleanedResponseText,
+                conclusion: '',
+              },
+              tags: parsedWebhookResponse.tags || [],
+              metadata: {
+                visual_suggestions:
+                  parsedWebhookResponse.visualSuggestions || [],
+                engagement_strategy:
+                  parsedWebhookResponse.engagement_strategy || {
+                    comment_hooks: [],
+                    interaction_tips: [],
+                  },
+                optimization_notes:
+                  parsedWebhookResponse.optimization_notes || [],
+              },
+            },
+          };
+        }
+      } catch (error) {
+        throw new Error(
+          `JSON解析失败: ${error instanceof Error ? error.message : '未知错误'}`
+        );
+      }
+
+      setWebhookResponse(parsedWebhookResponse);
+
+      // 创建兼容的响应对象 - 添加安全检查
       const apiResponse: RedNoteContentResponse = {
         id: `response_${Date.now()}`,
         requestId: request.id,
-        generatedContent: responseText,
-        title: generateMockTitle(inputContent, contentType),
-        hashtags: generateMockHashtags(keywords, contentType),
+        generatedContent:
+          parsedWebhookResponse.xiaohongshu?.publishReady ||
+          cleanedResponseText,
+        title: parsedWebhookResponse.xiaohongshu?.title || '生成的标题',
+        hashtags: parsedWebhookResponse.xiaohongshu?.hashtags
+          ? parsedWebhookResponse.xiaohongshu.hashtags
+              .split(' #')
+              .filter((tag: string) => tag.trim())
+          : ['#小红书', '#分享'],
         googleSheetUrl: `https://docs.google.com/spreadsheets/d/api_sheet_id_${Date.now()}`,
         status: 'completed',
         createdAt: new Date().toISOString(),
@@ -289,21 +391,32 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
    * 复制内容到剪贴板
    */
   const handleCopyContent = useCallback(async () => {
-    if (generatedResponse?.generatedContent) {
+    let contentToCopy = '';
+
+    if (webhookResponse?.xiaohongshu?.publishReady) {
+      contentToCopy = webhookResponse.xiaohongshu.publishReady;
+    } else if (webhookResponse?.xiaohongshu?.content) {
+      contentToCopy = webhookResponse.xiaohongshu.content;
+    } else if (generatedResponse?.generatedContent) {
+      contentToCopy = generatedResponse.generatedContent;
+    }
+
+    if (contentToCopy) {
       try {
-        await navigator.clipboard.writeText(generatedResponse.generatedContent);
+        await navigator.clipboard.writeText(contentToCopy);
         message.success('内容已复制到剪贴板');
       } catch (err) {
         message.error('复制失败，请手动复制');
       }
     }
-  }, [generatedResponse]);
+  }, [generatedResponse, webhookResponse]);
 
   /**
    * 重新生成
    */
   const handleRegenerate = useCallback(() => {
     setGeneratedResponse(null);
+    setWebhookResponse(null);
     setError(null);
     setProgress(0);
     setProgressText('');
@@ -669,7 +782,344 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                 />
               )}
 
-              {generatedResponse && !loading && (
+              {webhookResponse && !loading && (
+                <Space
+                  direction='vertical'
+                  style={{ width: '100%' }}
+                  size='middle'
+                >
+                  {/* 统计分析卡片 */}
+                  <Card
+                    size='small'
+                    title='📊 数据统计'
+                    style={{ backgroundColor: '#f0f9ff' }}
+                  >
+                    <Row gutter={[16, 8]}>
+                      <Col span={8}>
+                        <Text type='secondary'>标题数量</Text>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                          {webhookResponse.analytics?.titleCount || 1}
+                        </div>
+                      </Col>
+                      <Col span={8}>
+                        <Text type='secondary'>标签数量</Text>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                          {webhookResponse.analytics?.totalTags || 2}
+                        </div>
+                      </Col>
+                      <Col span={8}>
+                        <Text type='secondary'>内容长度</Text>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                          {webhookResponse.analytics?.contentLength || 0}
+                        </div>
+                      </Col>
+                    </Row>
+                    <div
+                      style={{
+                        marginTop: '8px',
+                        fontSize: '12px',
+                        color: '#666',
+                      }}
+                    >
+                      生成时间：
+                      {webhookResponse.analytics?.generatedAt ||
+                        new Date().toLocaleString()}
+                    </div>
+                  </Card>
+
+                  {/* 主要发布内容 */}
+                  <Card
+                    size='small'
+                    title='📱 小红书发布专用格式'
+                    style={{ backgroundColor: '#fff7ed' }}
+                  >
+                    {/* 完整发布版本 */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <Text strong style={{ color: '#ea580c' }}>
+                        完整发布版本（推荐）：
+                      </Text>
+                      <Card
+                        size='small'
+                        style={{ marginTop: 8, backgroundColor: '#fef3c7' }}
+                        styles={{ body: { padding: '12px' } }}
+                      >
+                        <Paragraph
+                          style={{
+                            whiteSpace: 'pre-wrap',
+                            margin: 0,
+                            fontSize: '14px',
+                            lineHeight: '1.6',
+                          }}
+                          copyable={{
+                            text:
+                              webhookResponse.xiaohongshu?.publishReady ||
+                              webhookResponse.xiaohongshu?.content ||
+                              '',
+                          }}
+                        >
+                          {webhookResponse.xiaohongshu?.publishReady ||
+                            webhookResponse.xiaohongshu?.content ||
+                            '内容生成中...'}
+                        </Paragraph>
+                      </Card>
+                    </div>
+
+                    {/* 简洁版本 */}
+                    <div>
+                      <Text strong style={{ color: '#ea580c' }}>
+                        简洁版本：
+                      </Text>
+                      <Card
+                        size='small'
+                        style={{ marginTop: 8, backgroundColor: '#f3f4f6' }}
+                        styles={{ body: { padding: '12px' } }}
+                      >
+                        <Paragraph
+                          style={{
+                            whiteSpace: 'pre-wrap',
+                            margin: 0,
+                            fontSize: '13px',
+                            color: '#666',
+                          }}
+                          copyable={{
+                            text:
+                              webhookResponse.xiaohongshu?.shortVersion ||
+                              webhookResponse.xiaohongshu?.content?.substring(
+                                0,
+                                200
+                              ) + '...' ||
+                              '',
+                          }}
+                        >
+                          {webhookResponse.xiaohongshu?.shortVersion ||
+                            webhookResponse.xiaohongshu?.content?.substring(
+                              0,
+                              200
+                            ) + '...' ||
+                            '内容生成中...'}
+                        </Paragraph>
+                      </Card>
+                    </div>
+                  </Card>
+
+                  {/* 运营管理数据 */}
+                  <Card
+                    size='small'
+                    title='🎯 运营管理数据'
+                    style={{ backgroundColor: '#f0fdf4' }}
+                  >
+                    {/* 备选标题 */}
+                    {webhookResponse.management?.alternativeTitles &&
+                      (Array.isArray(
+                        webhookResponse.management.alternativeTitles
+                      )
+                        ? webhookResponse.management.alternativeTitles.length >
+                          0
+                        : false) && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <Text strong>备选标题：</Text>
+                          <div style={{ marginTop: '4px' }}>
+                            {Array.isArray(
+                              webhookResponse.management.alternativeTitles
+                            ) &&
+                              webhookResponse.management.alternativeTitles.map(
+                                (title, index) => (
+                                  <Tag
+                                    key={index}
+                                    color='purple'
+                                    style={{ marginBottom: '4px' }}
+                                  >
+                                    {title}
+                                  </Tag>
+                                )
+                              )}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* 互动钩子 */}
+                    {webhookResponse.management?.engagementHooks &&
+                      (Array.isArray(webhookResponse.management.engagementHooks)
+                        ? webhookResponse.management.engagementHooks.length > 0
+                        : false) && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <Text strong>互动钩子：</Text>
+                          <div style={{ marginTop: '4px' }}>
+                            {Array.isArray(
+                              webhookResponse.management.engagementHooks
+                            ) &&
+                              webhookResponse.management.engagementHooks.map(
+                                (hook, index) => (
+                                  <div
+                                    key={index}
+                                    style={{
+                                      padding: '4px 8px',
+                                      backgroundColor: '#e0e7ff',
+                                      borderRadius: '4px',
+                                      marginBottom: '4px',
+                                      fontSize: '12px',
+                                    }}
+                                  >
+                                    💬 {hook}
+                                  </div>
+                                )
+                              )}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* 发布技巧 */}
+                    {webhookResponse.management?.publishTips && (
+                      <div style={{ marginBottom: '12px' }}>
+                        <Text strong>发布技巧：</Text>
+                        <div style={{ marginTop: '4px' }}>
+                          {Array.isArray(
+                            webhookResponse.management.publishTips
+                          ) ? (
+                            webhookResponse.management.publishTips.map(
+                              (tip, index) => (
+                                <div
+                                  key={index}
+                                  style={{
+                                    padding: '4px 8px',
+                                    backgroundColor: '#dcfce7',
+                                    borderRadius: '4px',
+                                    marginBottom: '4px',
+                                    fontSize: '12px',
+                                  }}
+                                >
+                                  💡 {tip}
+                                </div>
+                              )
+                            )
+                          ) : (
+                            <div
+                              style={{
+                                padding: '4px 8px',
+                                backgroundColor: '#dcfce7',
+                                borderRadius: '4px',
+                                marginBottom: '4px',
+                                fontSize: '12px',
+                              }}
+                            >
+                              💡 {webhookResponse.management.publishTips}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 视觉建议 */}
+                    {webhookResponse.management?.visualSuggestions && (
+                      <div style={{ marginBottom: '12px' }}>
+                        <Text strong>视觉建议：</Text>
+                        <div style={{ marginTop: '4px' }}>
+                          {Array.isArray(
+                            webhookResponse.management.visualSuggestions
+                          ) ? (
+                            webhookResponse.management.visualSuggestions.map(
+                              (suggestion, index) => (
+                                <div
+                                  key={index}
+                                  style={{
+                                    padding: '4px 8px',
+                                    backgroundColor: '#fef3c7',
+                                    borderRadius: '4px',
+                                    marginBottom: '4px',
+                                    fontSize: '12px',
+                                  }}
+                                >
+                                  🎨 {suggestion}
+                                </div>
+                              )
+                            )
+                          ) : typeof webhookResponse.management
+                              .visualSuggestions === 'object' ? (
+                            // 处理对象格式
+                            <>
+                              {Object.entries(
+                                webhookResponse.management.visualSuggestions
+                              ).map(([key, value]) => (
+                                <div
+                                  key={key}
+                                  style={{
+                                    padding: '4px 8px',
+                                    backgroundColor: '#fef3c7',
+                                    borderRadius: '4px',
+                                    marginBottom: '4px',
+                                    fontSize: '12px',
+                                  }}
+                                >
+                                  🎨 <strong>{key}:</strong>{' '}
+                                  {Array.isArray(value)
+                                    ? value.join(', ')
+                                    : String(value)}
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            // 处理字符串格式
+                            <div
+                              style={{
+                                padding: '4px 8px',
+                                backgroundColor: '#fef3c7',
+                                borderRadius: '4px',
+                                marginBottom: '4px',
+                                fontSize: '12px',
+                              }}
+                            >
+                              🎨 {webhookResponse.management.visualSuggestions}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 优化建议 */}
+                    {webhookResponse.management?.optimizationNotes &&
+                      (Array.isArray(
+                        webhookResponse.management.optimizationNotes
+                      )
+                        ? webhookResponse.management.optimizationNotes.length >
+                          0
+                        : false) && (
+                        <div>
+                          <Text strong>优化建议：</Text>
+                          <div style={{ marginTop: '4px' }}>
+                            {Array.isArray(
+                              webhookResponse.management.optimizationNotes
+                            ) &&
+                              webhookResponse.management.optimizationNotes.map(
+                                (note, index) => (
+                                  <div
+                                    key={index}
+                                    style={{
+                                      padding: '4px 8px',
+                                      backgroundColor: '#fce7f3',
+                                      borderRadius: '4px',
+                                      marginBottom: '4px',
+                                      fontSize: '12px',
+                                    }}
+                                  >
+                                    ⚡ {note}
+                                  </div>
+                                )
+                              )}
+                          </div>
+                        </div>
+                      )}
+                  </Card>
+
+                  {/* 生成时间 */}
+                  <div>
+                    <Text type='secondary' style={{ fontSize: '12px' }}>
+                      生成时间：{new Date().toLocaleString()}
+                    </Text>
+                  </div>
+                </Space>
+              )}
+
+              {generatedResponse && !loading && !webhookResponse && (
                 <Space
                   direction='vertical'
                   style={{ width: '100%' }}
@@ -747,7 +1197,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                 </Space>
               )}
 
-              {!loading && !generatedResponse && !error && (
+              {!loading && !generatedResponse && !webhookResponse && !error && (
                 <div
                   style={{
                     textAlign: 'center',

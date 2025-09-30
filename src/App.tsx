@@ -33,13 +33,13 @@ const queryClient = new QueryClient({
   },
 });
 
-// App content component that uses theme context
+// App content component that uses theme context and App context
 const AppContent: React.FC = () => {
+  const { message } = AppContext.useApp();
   const { state } = useTheme();
   const { currentTheme } = state;
   const [i18nReady, setI18nReady] = useState(i18n.isInitialized);
   const { i18n: i18nInstance } = useTranslation();
-  const { message } = AppContext.useApp();
 
   // 设置全局message实例
   useEffect(() => {
@@ -125,14 +125,10 @@ const AppContent: React.FC = () => {
       locale={getAntdLocale()}
       componentSize='middle'
     >
-      <AntApp>
-        <div data-theme={currentTheme.isDark ? 'dark' : 'light'}>
-          <AuthProvider>
-            <AppRouter />
-            <GlobalChat />
-          </AuthProvider>
-        </div>
-      </AntApp>
+      <AuthProvider>
+        <AppRouter />
+        <GlobalChat />
+      </AuthProvider>
     </ConfigProvider>
   );
 };
@@ -143,7 +139,9 @@ const App: React.FC = () => {
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <AppContent />
+          <AntApp>
+            <AppContent />
+          </AntApp>
         </ThemeProvider>
       </QueryClientProvider>
     </Provider>

@@ -1,0 +1,136 @@
+# 图像生成工作流实施任务
+
+- [x] 1. 扩展类型定义
+  - File: src/pages/SocialMedia/types.ts
+  - 扩展现有的类型定义，添加图像生成相关接口
+  - 添加 ImageGenerationWorkflow、ImageGenerationRequest、ImageGenerationResponse 等类型
+  - Purpose: 建立图像生成功能的类型安全基础
+  - _Leverage: 现有的 Workflow、WorkflowStatus 等类型定义_
+  - _Requirements: 1, 2, 3, 4_
+  - _Prompt: Role: TypeScript Developer specializing in type systems and interfaces | Task: 扩展 Social Media 页面的类型定义，添加图像生成工作流相关的接口和类型，遵循需求 1-4 的要求，复用现有的基础类型定义 | Restrictions: 不要修改现有的核心类型，保持向后兼容性，遵循项目的命名约定 | Success: 所有类型定义编译通过，完整覆盖图像生成功能需求，正确继承现有基础类型_
+
+- [x] 2. 创建图像生成服务
+  - File: src/services/imageGenerationService.ts
+  - 实现图像生成服务类，处理与 n8n webhook 的通信
+  - 包含文本到图像生成和图像编辑两个方法
+  - Purpose: 提供图像生成业务逻辑层的核心功能
+  - _Leverage: 现有的 N8NWebhookService、错误处理机制_
+  - _Requirements: 2, 3, 4_
+  - _Prompt: Role: Backend Developer with expertise in API integration and service architecture | Task: 创建图像生成服务，实现文本到图像生成和图像编辑功能，遵循需求 2-4，使用现有的 N8NWebhookService 进行 webhook 通信 | Restrictions: 必须正确处理文件上传和错误情况，不要绕过现有的验证机制，保持服务的模块化 | Success: 服务正确实现两个核心方法，文件上传和 webhook 通信正常工作，错误处理完善_
+
+- [x] 3. 创建工作流卡片组件
+  - File: src/pages/SocialMedia/components/ImageGenerationWorkflowCard.tsx
+  - 实现图像生成工作流卡片组件
+  - 复用现有的 WorkflowCard 组件结构
+  - Purpose: 在 WorkflowSidebar 中提供图像生成工作流的访问入口
+  - _Leverage: 现有的 WorkflowCard 组件、antd 组件库_
+  - _Requirements: 1, 4_
+  - _Prompt: Role: Frontend Developer specializing in React component development | Task: 创建图像生成工作流卡片组件，遵循需求 1 和 4，复用现有的 WorkflowCard 结构和设计模式 | Restrictions: 必须遵循现有的组件设计模式，使用 antd 组件库，保持与现有工作流卡片的一致性 | Success: 工作流卡片正确显示，点击交互正常，与现有工作流卡片保持视觉一致性_
+
+- [x] 4. 创建图像生成面板组件
+  - File: src/pages/SocialMedia/components/ImageGenerationPanel.tsx
+  - 实现主要的图像生成面板组件
+  - 包含模式切换、输入表单、结果显示等功能
+  - Purpose: 提供完整的图像生成用户界面
+  - _Leverage: 现有的面板组件结构、antd 表单组件、文件上传组件_
+  - _Requirements: 2, 3, 4_
+  - _Prompt: Role: Frontend Developer with expertise in complex UI components and state management | Task: 实现图像生成面板组件，包含文生图和图片编辑两个模式，遵循需求 2-4，使用现有的组件结构和设计模式 | Restrictions: 必须正确管理组件状态，实现直观的模式切换，不要过度复杂化用户界面 | Success: 面板功能完整，模式切换流畅，表单验证正确，用户体验良好_
+
+- [x] 5. 创建文生图标签页组件
+  - File: src/pages/SocialMedia/components/TextToImageTab.tsx
+  - 实现文本到图像生成功能的具体实现
+  - 包含提示词输入、生成按钮、结果显示
+  - Purpose: 处理纯文本到图像的转换功能
+  - _Leverage: 现有的输入组件、按钮组件、图片显示组件_
+  - _Requirements: 2, 4_
+  - _Prompt: Role: Frontend Developer specializing in form handling and user interactions | Task: 实现文生图标签页组件，包含提示词输入和生成功能，遵循需求 2 和 4，使用现有的表单组件模式 | Restrictions: 必须提供直观的输入体验，实现正确的加载状态，不要在组件中处理业务逻辑 | Success: 用户可以流畅地输入提示词并生成图像，加载状态清晰，反馈及时_
+
+- [x] 6. 创建图片编辑标签页组件
+  - File: src/pages/SocialMedia/components/ImageEditTab.tsx
+  - 实现图像编辑功能的具体实现
+  - 包含图片上传、编辑指令输入、结果显示
+  - Purpose: 处理图像上传和编辑功能
+  - _Leverage: 现有的文件上传组件、输入组件、图片预览组件_
+  - _Requirements: 3, 4_
+  - _Prompt: Role: Frontend Developer with expertise in file upload and image handling | Task: 实现图片编辑标签页组件，包含文件上传和编辑指令输入，遵循需求 3 和 4，使用现有的文件处理组件 | Restrictions: 必须正确处理文件上传验证，实现直观的图片预览，不要在组件中处理图像处理逻辑 | Success: 用户可以顺利上传图片并输入编辑指令，文件验证正确，预览功能正常_
+
+- [x] 7. 集成到 Social Media 页面
+  - File: src/pages/SocialMedia/SocialMedia.tsx
+  - 将图像生成工作流集成到主页面
+  - 在工作流选择逻辑中添加图像生成选项
+  - Purpose: 让图像生成工作流在 Social Media 页面中可用
+  - _Leverage: 现有的工作流选择和切换逻辑_
+  - _Requirements: 1, 4_
+  - _Prompt: Role: Frontend Developer with expertise in page integration and routing | Task: 将图像生成工作流集成到 Social Media 主页面，遵循需求 1 和 4，复用现有的工作流管理逻辑 | Restrictions: 不要破坏现有的工作流功能，保持页面布局的一致性，确保切换逻辑正确 | Success: 图像生成工作流正确集成到页面，选择和切换功能正常，现有功能不受影响_
+
+- [x] 8. 更新工作流侧边栏
+  - File: src/pages/SocialMedia/components/WorkflowSidebar.tsx
+  - 在侧边栏中添加图像生成工作流卡片
+  - 复用现有的工作流卡片添加逻辑
+  - Purpose: 在工作流列表中显示图像生成选项
+  - _Leverage: 现有的工作流卡片渲染逻辑_
+  - _Requirements: 1, 4_
+  - _Prompt: Role: Frontend Developer specializing in component composition and reuse | Task: 在工作流侧边栏中添加图像生成工作流卡片，遵循需求 1 和 4，复用现有的卡片渲染模式 | Restrictions: 必须保持与现有工作流卡片的一致性，不要修改现有的工作流逻辑 | Success: 图像生成工作流卡片正确显示在侧边栏，点击选择功能正常，与其他工作流卡片保持一致的外观和行为_
+
+- [x] 9. 添加服务集成
+  - File: src/services/index.ts
+  - 将新的图像生成服务导出
+  - 确保服务在整个应用中可用
+  - Purpose: 让图像生成服务在应用中可被导入和使用
+  - _Leverage: 现有的服务导出模式_
+  - _Requirements: 2, 3_
+  - _Prompt: Role: Developer with expertise in service architecture and module organization | Task: 将图像生成服务添加到服务索引文件中，遵循需求 2 和 3，确保服务在应用中正确导出 | Restrictions: 不要破坏现有的服务导出结构，保持导入路径的一致性 | Success: 图像生成服务正确导出，可以在整个应用中被导入和使用_
+
+- [x] 10. 创建组件样式文件
+  - File: src/pages/SocialMedia/components/ImageGenerationPanel.css
+  - 为图像生成面板创建专用样式
+  - 保持与现有设计系统的一致性
+  - Purpose: 提供美观且一致的用户界面样式
+  - _Leverage: 现有的 CSS 模块和样式约定_
+  - _Requirements: 4_
+  - _Prompt: Role: Frontend Developer with expertise in CSS and design systems | Task: 为图像生成面板创建样式文件，遵循需求 4，保持与现有设计系统的一致性 | Restrictions: 必须使用现有的 CSS 约定和变量，不要引入新的设计模式 | Success: 样式正确实现，界面美观，与现有组件保持视觉一致性，响应式布局正常_
+
+- [x] 11. 添加错误处理和用户反馈
+  - File: src/pages/SocialMedia/components/ImageGenerationPanel.tsx
+  - 实现完善的错误处理和用户反馈机制
+  - 包含加载状态、错误提示、重试功能
+  - Purpose: 提供良好的用户体验和错误恢复能力
+  - _Leverage: 现有的错误处理模式和消息提示系统_
+  - _Requirements: 4_
+  - _Prompt: Role: Frontend Developer with expertise in user experience and error handling | Task: 在图像生成面板中实现完善的错误处理和用户反馈，遵循需求 4，使用现有的错误处理和消息提示模式 | Restrictions: 必须提供友好的错误消息，不要暴露技术细节，包含重试机制 | Success: 错误情况得到妥善处理，用户反馈清晰明确，错误恢复功能正常工作_
+
+- [x] 12. 测试图像生成服务
+  - File: src/services/__tests__/imageGenerationService.test.ts
+  - 创建图像生成服务的单元测试
+  - 测试 webhook 通信、错误处理等功能
+  - Purpose: 确保服务层的可靠性和正确性
+  - _Leverage: 现有的测试工具和模式_
+  - _Requirements: 2, 3_
+  - _Prompt: Role: QA Engineer with expertise in service testing and mocking | Task: 创建图像生成服务的单元测试，覆盖需求 2 和 3 的功能，使用现有的测试工具和模式 | Restrictions: 必须模拟外部依赖，测试业务逻辑的正确性，不要测试第三方服务 | Success: 服务方法得到充分测试，错误情况覆盖完整，测试运行稳定可靠_
+
+- [x] 13. 测试面板组件
+  - File: src/pages/SocialMedia/components/__tests__/ImageGenerationPanel.test.tsx
+  - 创建面板组件的功能测试
+  - 测试用户交互、状态管理等功能
+  - Purpose: 确保组件功能的正确性和用户体验
+  - _Leverage: 现有的测试工具和 React 测试模式_
+  - _Requirements: 2, 3, 4_
+  - _Prompt: Role: QA Engineer with expertise in React component testing | Task: 创建图像生成面板组件的功能测试，覆盖需求 2-4 的功能，使用现有的 React 测试模式 | Restrictions: 必须测试用户交互流程，模拟 API 调用，不要依赖真实的服务 | Success: 组件交互功能测试完整，状态变化正确处理，测试覆盖关键用户场景_
+
+- [x] 14. 集成测试
+  - File: src/__tests__/integration/imageGenerationWorkflow.integration.test.tsx
+  - 创建端到端的集成测试
+  - 测试完整的工作流从选择到结果显示
+  - Purpose: 验证整个功能的工作流程和集成
+  - _Leverage: 现有的集成测试模式和工具_
+  - _Requirements: 1, 2, 3, 4_
+  - _Prompt: Role: QA Engineer with expertise in end-to-end testing | Task: 创建图像生成工作流的集成测试，验证从工作流选择到图像生成的完整流程，覆盖需求 1-4 | Restrictions: 必须测试真实的用户场景，正确模拟外部依赖，确保测试的可靠性 | Success: 端到端流程测试通过，各个组件正确协作，功能完整可用_
+
+- [x] 15. 性能优化和代码清理
+  - File: 所有相关文件
+  - 优化组件性能，添加必要的 memo 和 useCallback
+  - 清理代码，移除调试信息，完善注释
+  - Purpose: 确保代码质量和性能达到生产标准
+  - _Leverage: 现有的性能优化模式和代码规范_
+  - _Requirements: 4_
+  - _Prompt: Role: Senior Developer with expertise in React performance and code quality | Task: 优化图像生成组件的性能，清理代码确保质量，遵循需求 4，使用现有的优化模式 | Restrictions: 不要破坏现有功能，确保性能优化不会影响用户体验，保持代码的可维护性 | Success: 组件性能得到优化，代码质量符合标准，注释完善，调试信息清理完成_

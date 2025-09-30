@@ -16,7 +16,9 @@ import WorkflowSidebar from './components/WorkflowSidebar';
 import WorkflowPanel from './components/WorkflowPanel';
 import ResultPanel from './components/ResultPanel';
 import RedNoteContentGenerator from './components/RedNoteContentGenerator';
+import InternationalSocialMediaGenerator from './components/InternationalSocialMediaGenerator';
 import TKViralExtract from './components/TKViralExtract';
+import ImageGenerationPanel from './components/ImageGenerationPanel';
 import type { ParsedSubredditData } from '@/services/redditWebhookService';
 import type { Workflow } from './types';
 import './components/styles.css';
@@ -103,16 +105,27 @@ const SocialMedia: React.FC = () => {
                 <FilterOutlined />
                 {selectedWorkflow?.id === 'rednote-content-generator'
                   ? 'Rednote Content Generator'
-                  : t('socialMedia.title', 'Social Media Dashboard')}
+                  : selectedWorkflow?.id ===
+                      'international-social-media-generator'
+                    ? 'International Social Media Generator'
+                    : t('socialMedia.title', 'Social Media Dashboard')}
               </Space>
             }
             className='data-display-card'
-            style={{ height: 'calc(100vh - 200px)', minHeight: '600px' }}
+            style={{ minHeight: '600px' }}
           >
             {selectedWorkflow?.id === 'tk-viral-extract' ? (
               <TKViralExtract />
             ) : selectedWorkflow?.id === 'rednote-content-generator' ? (
               <RedNoteContentGenerator />
+            ) : selectedWorkflow?.id ===
+              'international-social-media-generator' ? (
+              <InternationalSocialMediaGenerator />
+            ) : selectedWorkflow?.id === 'image-generation' ? (
+              <ImageGenerationPanel
+                workflow={selectedWorkflow as any}
+                loading={false}
+              />
             ) : selectedWorkflow ? (
               <>
                 <WorkflowPanel workflow={selectedWorkflow} loading={false} />

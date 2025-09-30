@@ -98,6 +98,17 @@
   height: 24px !important;
 }
 
+/* TextArea样式优化 - 允许更大的高度 */
+.ant-input textarea {
+  min-height: 120px !important;
+  height: auto !important;
+}
+
+.ant-textarea {
+  min-height: 120px !important;
+  height: auto !important;
+}
+
 /* 选择器样式优化 */
 .ant-select {
   font-size: var(--font-size-small) !important;

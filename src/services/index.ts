@@ -69,5 +69,15 @@ export { workflowService } from './workflowService';
 export { informationService } from './informationService';
 export { redditWebhookService } from './redditWebhookService';
 export { n8nWebhookService } from './n8nWebhookService';
+export { imageGenerationService } from './imageGenerationService';
 export type { ParsedSubredditData } from './redditWebhookService';
 export type { ActivityItem } from './dashboardService';
+
+// 导出图像生成服务类型
+export type {
+  ImageGenerationRequest,
+  ImageGenerationResponse,
+  ImageGenerationSettings,
+  ImageGenerationMode,
+  ImageGenerationStatus,
+} from '@/pages/SocialMedia/types';

@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/image-generation-workflow/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-09-27T01:16:13.175Z",
+      "trigger": "initial",
+      "approvalId": "approval_1758935773148_wgw5gi82l",
+      "approvalTitle": "图像生成工作流设计文档审批"
+    }
+  ]
+}

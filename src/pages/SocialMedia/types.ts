@@ -27,7 +27,8 @@ export type WorkflowType =
   | 'manual'
   | 'event'
   | 'social-media'
-  | 'rednote-content-generator';
+  | 'rednote-content-generator'
+  | 'global-social-media-generator';
 
 /**
  * 工作流信息接口 - 与Information Dashboard兼容
@@ -108,8 +109,9 @@ export interface RedditData {
 }
 
 /**
- * 小红书文案生成相关类型定义
+ * 小红书文案生成相关类型定义 - 基于新的webhook数据格式
  */
+
 export interface RedNoteContentRequest {
   id: string;
   inputContent: string;
@@ -133,6 +135,51 @@ export interface RedNoteContentResponse {
   createdAt: string;
   completedAt?: string;
   errorMessage?: string;
+}
+
+/**
+ * 新的webhook返回数据格式类型定义
+ */
+export interface RedNoteWebhookResponse {
+  raw: any;
+  xiaohongshu: {
+    title: string;
+    content: string;
+    hashtags: string;
+    publishReady: string;
+    shortVersion: string;
+  };
+  management: {
+    alternativeTitles: string[];
+    engagementHooks: string[];
+    publishTips: string[];
+    visualSuggestions: string[];
+    optimizationNotes: string[];
+  };
+  analytics: {
+    titleCount: number;
+    totalTags: number;
+    contentLength: number;
+    engagementQuestions: number;
+    generatedAt: string;
+  };
+  apiFormat: {
+    title: string;
+    content: {
+      opening: string;
+      body: string;
+      conclusion: string;
+    };
+    tags: string[];
+    metadata: {
+      visual_suggestions: string[];
+      engagement_strategy: {
+        comment_hooks: string[];
+        interaction_tips: string[];
+      };
+      optimization_notes: string[];
+    };
+  };
 }
 
 export interface RedNoteWorkflowSettings {
@@ -218,4 +265,286 @@ export interface AirtableWorkflowResponse {
   data?: ViralContentRecord[];
   error?: string;
   processingTime?: number;
+}
+
+/**
+ * 图像生成工作流相关类型定义
+ */
+
+export type ImageGenerationMode = 'text-to-image' | 'image-edit';
+
+export type ImageGenerationStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed';
+
+export interface ImageGenerationRequest {
+  id: string;
+  mode: ImageGenerationMode;
+  prompt: string;
+  imageFile?: File;
+  webhookUrl: string;
+  createdAt: string;
+  status: ImageGenerationStatus;
+}
+
+export interface ImageGenerationResponse {
+  id: string;
+  requestId: string;
+  imageUrl: string;
+  prompt?: string;
+  processingTime?: number;
+  createdAt: string;
+  errorMessage?: string;
+}
+
+export interface ImageGenerationSettings {
+  webhookUrl: string;
+  defaultPrompt?: string;
+  maxImageSize: number;
+  supportedFormats: string[];
+  timeout: number;
+}
+
+export interface ImageGenerationWorkflow extends Workflow {
+  mode: ImageGenerationMode;
+  settings: ImageGenerationSettings;
+  lastGeneratedImage?: string;
+}
+
+/**
+ * 国外社交媒体文案生成相关类型定义
+ */
+
+export interface SocialMediaContentRequest {
+  id: string;
+  platform: 'twitter' | 'linkedin' | 'instagram' | 'facebook';
+  inputContent: string;
+  contentType: string;
+  tone: string;
+  writingTechnique: string;
+  successFactor: string;
+  targetAudience?: string;
+  keywords?: string[];
+  createdAt: string;
+}
+
+export interface SocialMediaContentResponse {
+  id: string;
+  requestId: string;
+  platform: 'twitter' | 'linkedin' | 'instagram' | 'facebook';
+  generatedContent: string;
+  title?: string;
+  hashtags: string[];
+  googleSheetUrl?: string;
+  status: 'pending' | 'generating' | 'completed' | 'failed';
+  createdAt: string;
+  completedAt?: string;
+  errorMessage?: string;
+}
+
+export interface SocialMediaWebhookResponse {
+  raw: any;
+  content?: string;
+  post?: string;
+  hashtags?: string[];
+  title?: string;
+  // Twitter 特殊格式支持
+  single_tweet?: {
+    content: string;
+    character_count: string;
+    hook_type: string;
+    hashtags: string;
+    mentions: string;
+    ready_to_post: string;
+  };
+  thread?: {
+    total_tweets: string;
+    summary: string;
+    tweets: string[];
+    ready_to_post: string[] | string;
+  };
+  // LinkedIn 特殊格式支持
+  linkedin_post?: {
+    content: string;
+    character_count: string;
+    hook_type: string;
+    content_type: string;
+    hashtags: string;
+    brand_tag: string;
+    ready_to_post: string;
+  };
+  // Instagram 特殊格式支持
+  instagram_post?: {
+    content: string;
+    character_count: string;
+    hook_type: string;
+    content_type: string;
+    hashtags: string;
+    ready_to_post: string;
+  };
+  // Facebook 特殊格式支持
+  facebook_post?: {
+    content: string;
+    character_count: string;
+    hook_type: string;
+    content_type: string;
+    hashtags: string;
+    ready_to_post: string;
+  };
+  quick_publish?: {
+    single_tweet_ready?: string;
+    thread_ready?: string[];
+    post_ready?: string;
+    optimal_time?: string;
+    viral_score?: string;
+    engagement_score?: string;
+    discussion_questions?: string[];
+  };
+  hashtag_strategy?: {
+    industry: string[];
+    content: string[];
+    brand: string;
+    all_tags_string: string;
+    industry_tags?: string[];
+    content_tags?: string[];
+    brand_tag?: string;
+  };
+  engagement?: {
+    optimal_timing: string;
+    discussion_starters: string[];
+    reply_templates: string[];
+    cta_suggestions?: string[];
+  };
+  research_data?: {
+    industry_trends: string[];
+    supporting_data: string[];
+    case_studies: string[];
+    latest_trends?: string[];
+    expert_quotes?: string[];
+  };
+  performance?: {
+    engagement_potential: string;
+    engagement_label: string;
+    professional_impact: string;
+    optimization_notes: string;
+    viral_potential?: string;
+    viral_potential_label?: string;
+    audience_fit?: string;
+  };
+  analysis?: {
+    core_insights: string[];
+    professional_value: string;
+    target_engagement: string;
+    controversy_potential?: string;
+  };
+  visual?: {
+    image_type: string;
+    design_notes: string;
+  };
+  raw_output?: any;
+  generated_at?: string;
+  input_info?: {
+    platform: string;
+    content_type: string;
+    tone: string;
+    writing_technique: string;
+    success_factor: string;
+    target_audience: string;
+    original_content: string;
+  };
+  alternative_angles?: string[];
+  analytics?: {
+    titleCount?: number;
+    totalTags?: number;
+    contentLength?: number;
+    engagementQuestions?: number;
+    generatedAt?: string;
+  };
+  optimization?: {
+    tips?: string[] | string;
+    visualSuggestions?: string[];
+    notes?: string[];
+  };
+}
+
+export interface GlobalSocialMediaRequest {
+  id: string;
+  inputContent: string;
+  platform: 'twitter' | 'linkedin' | 'instagram' | 'facebook';
+  contentType: string;
+  tone: string;
+  writingTechnique: string;
+  targetAudience?: string;
+  keywords?: string[];
+  callToAction?: string;
+  createdAt: string;
+}
+
+export interface GlobalSocialMediaResponse {
+  id: string;
+  requestId: string;
+  platform: 'twitter' | 'linkedin' | 'instagram' | 'facebook';
+  generatedContent: string;
+  title?: string;
+  hashtags: string[];
+  googleSheetUrl?: string;
+  status: 'pending' | 'generating' | 'completed' | 'failed';
+  createdAt: string;
+  completedAt?: string;
+  errorMessage?: string;
+}
+
+export interface GlobalSocialMediaWebhookResponse {
+  raw: any;
+  socialMedia: {
+    platform: 'twitter' | 'linkedin' | 'instagram' | 'facebook';
+    title?: string;
+    content: string;
+    hashtags: string;
+    publishReady: string;
+    shortVersion: string;
+  };
+  management: {
+    alternativeTitles: string[];
+    engagementHooks: string[];
+    publishTips: string[];
+    visualSuggestions: string[];
+    optimizationNotes: string[];
+  };
+  analytics: {
+    titleCount: number;
+    totalTags: number;
+    contentLength: number;
+    engagementQuestions: number;
+    generatedAt: string;
+  };
+  apiFormat: {
+    title?: string;
+    content: {
+      opening: string;
+      body: string;
+      conclusion: string;
+    };
+    tags: string[];
+    metadata: {
+      visual_suggestions: string[];
+      engagement_strategy: {
+        comment_hooks: string[];
+        interaction_tips: string[];
+      };
+      optimization_notes: string[];
+    };
+  };
+}
+
+export interface GlobalSocialMediaSettings {
+  name: string;
+  description: string;
+  webhookUrl: string;
+  googleSheetId?: string;
+  autoSave: boolean;
+  maxContentLength: number;
+  supportedPlatforms: ('twitter' | 'linkedin' | 'instagram' | 'facebook')[];
 }

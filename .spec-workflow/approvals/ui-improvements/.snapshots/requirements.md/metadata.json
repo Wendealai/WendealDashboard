@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/ui-improvements/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-09-29T10:06:23.786Z",
+      "trigger": "initial",
+      "approvalId": "approval_1759140383741_9uqag9nrq",
+      "approvalTitle": "UI Improvements Requirements - Chinese to English Translation and Content Display Fixes"
+    }
+  ]
+}

@@ -115,7 +115,7 @@ const TKViralExtract: React.FC = () => {
         <Card
           title='📄 TK Viral Extract - Notion 文档'
           style={{ height: '100%', margin: 16 }}
-          bodyStyle={{ padding: 0, height: '100%' }}
+          styles={{ body: { padding: 0, height: '100%' } }}
         >
           <div
             style={{
