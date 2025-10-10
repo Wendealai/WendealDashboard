@@ -548,3 +548,69 @@ export interface GlobalSocialMediaSettings {
   maxContentLength: number;
   supportedPlatforms: ('twitter' | 'linkedin' | 'instagram' | 'facebook')[];
 }
+
+/**
+ * 视频生成工作流相关类型定义
+ */
+
+export type VideoGenerationStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed';
+
+export interface VideoGenerationRequest {
+  id: string;
+  description: string;
+  images: File[];
+  videoCount: number;
+  webhookUrl: string;
+  metadata?: {
+    userId: string;
+    timestamp: string;
+    source: 'wendeal-dashboard';
+  };
+  createdAt: string;
+  status: VideoGenerationStatus;
+}
+
+export interface VideoGenerationResponse {
+  id: string;
+  requestId: string;
+  videoUrl: string;
+  videoId?: string;
+  description?: string;
+  processingTime?: number;
+  createdAt: string;
+  errorMessage?: string;
+  metadata?: {
+    duration: number;
+    format: string;
+    size: number | string;
+    model?: string;
+    expiresAt?: number;
+  };
+}
+
+export interface VideoGenerationState {
+  isGenerating: boolean;
+  progress: number;
+  error: string | null;
+  result: VideoGenerationResponse | null;
+  uploadedImages: File[];
+}
+
+export interface VideoGenerationSettings {
+  webhookUrl: string;
+  defaultDescription?: string;
+  maxImages: number;
+  maxImageSize: number;
+  supportedImageFormats: string[];
+  timeout: number;
+  maxVideoDuration?: number;
+}
+
+export interface VideoGenerationWorkflow extends Workflow {
+  settings: VideoGenerationSettings;
+  lastGeneratedVideo?: string;
+}

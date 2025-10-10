@@ -31,7 +31,16 @@ const grayTabStyles = `
 }
 </style>
 `;
-import { Tabs, Card, Typography, Space, Button, Badge, Tooltip } from 'antd';
+import {
+  Tabs,
+  Card,
+  Typography,
+  Space,
+  Button,
+  Badge,
+  Tooltip,
+  Breadcrumb,
+} from 'antd';
 import {
   FileTextOutlined,
   UploadOutlined,
@@ -39,6 +48,8 @@ import {
   SettingOutlined,
   BarChartOutlined,
   InfoCircleOutlined,
+  HomeOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useMessage } from '@/hooks/useMessage';
@@ -755,6 +766,39 @@ const RNDReport: React.FC = () => {
   return (
     <div style={{ padding: '24px', height: '100%' }}>
       <div dangerouslySetInnerHTML={{ __html: grayTabStyles }} />
+
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb
+        style={{ marginBottom: '16px' }}
+        items={[
+          {
+            href: '/',
+            title: <HomeOutlined />,
+          },
+          {
+            href: '/rnd-report',
+            title: (
+              <>
+                <ExperimentOutlined />
+                <span>R&D Report</span>
+              </>
+            ),
+          },
+          {
+            title:
+              activeTab === 'all-reports'
+                ? 'All Reports'
+                : activeTab === 'upload'
+                  ? 'Upload'
+                  : activeTab === 'categories'
+                    ? 'Categories'
+                    : activeTab === 'settings'
+                      ? 'Settings'
+                      : 'Dashboard',
+          },
+        ]}
+      />
+
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <Space direction='vertical' size='small' style={{ width: '100%' }}>

@@ -15,6 +15,7 @@ import {
   Tooltip,
   Popover,
   Button,
+  Breadcrumb,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -25,6 +26,8 @@ import {
   FileTextOutlined,
   InfoCircleOutlined,
   RedditOutlined,
+  HomeOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useMessage } from '@/hooks/useMessage';
@@ -434,6 +437,29 @@ const InformationDashboard: React.FC = () => {
 
   return (
     <div className='information-dashboard'>
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb
+        style={{ marginBottom: '16px' }}
+        items={[
+          {
+            href: '/',
+            title: <HomeOutlined />,
+          },
+          {
+            href: '/information-dashboard',
+            title: (
+              <>
+                <DatabaseOutlined />
+                <span>Information Dashboard</span>
+              </>
+            ),
+          },
+          {
+            title: selectedWorkflow?.name || 'Dashboard',
+          },
+        ]}
+      />
+
       {/* Page title */}
       <div className='page-header'>
         <Title

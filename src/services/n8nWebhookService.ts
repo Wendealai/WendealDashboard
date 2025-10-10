@@ -309,13 +309,32 @@ export class N8NWebhookService {
         return false;
       }
 
-      const response = await fetch(webhookUrl, {
+      // 在开发环境中使用相对路径，让Vite代理处理
+      let requestUrl = webhookUrl;
+      if (
+        process.env.NODE_ENV === 'development' &&
+        webhookUrl.includes('n8n.wendealai.com')
+      ) {
+        // 从完整URL中提取webhook路径部分
+        const url = new URL(webhookUrl);
+        requestUrl = url.pathname; // 例如: /webhook/sora2
+        console.log('开发环境使用代理路径测试连接:', requestUrl);
+      }
+
+      const fetchOptions: RequestInit = {
         method: 'GET',
         headers: {
           'User-Agent': 'WendealDashboard/1.0',
         },
         signal: AbortSignal.timeout(5000), // 5秒超时
-      });
+      };
+
+      // 在开发环境中不需要设置mode，因为代理会处理CORS
+      if (process.env.NODE_ENV !== 'development') {
+        fetchOptions.mode = 'cors';
+      }
+
+      const response = await fetch(requestUrl, fetchOptions);
 
       console.log('Webhook连接测试结果:', {
         status: response.status,

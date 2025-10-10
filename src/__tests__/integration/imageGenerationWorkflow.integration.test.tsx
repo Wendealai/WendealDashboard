@@ -12,7 +12,6 @@ jest.mock('@/services/imageGenerationService', () => ({
   imageGenerationService: {
     generateImageFromText: jest.fn(),
     editImageWithPrompt: jest.fn(),
-    testWebhookConnection: jest.fn(),
   },
 }));
 

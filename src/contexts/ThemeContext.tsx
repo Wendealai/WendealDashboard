@@ -5,8 +5,7 @@ import React, {
   useEffect,
   type ReactNode,
 } from 'react';
-import { ConfigProvider, theme } from 'antd';
-import type { ThemeConfig } from 'antd';
+import { ConfigProvider, theme, type ThemeConfig } from 'antd';
 
 // 主题类型定义
 export interface CustomTheme {
@@ -367,6 +366,12 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
     // 设置body的主题类
     document.body.className = theme.isDark ? 'theme-dark' : 'theme-light';
+
+    // 设置data-theme属性用于CSS选择器
+    document.documentElement.setAttribute(
+      'data-theme',
+      theme.isDark ? 'dark' : 'light'
+    );
   }, [state.currentTheme]);
 
   const setTheme = (theme: CustomTheme) => {
@@ -403,6 +408,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         colorPrimary: currentTheme.primaryColor,
         colorBgBase: currentTheme.backgroundColor,
         colorTextBase: currentTheme.textColor,
+        // 强化标题在暗黑模式下的可读性
+        colorTextHeading: currentTheme.isDark
+          ? '#ffffff'
+          : currentTheme.textColor,
         colorBorder: currentTheme.borderColor,
         borderRadius: currentTheme.borderRadius,
         fontSize: currentTheme.fontSize.medium,
@@ -412,11 +421,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       components: {
         Layout: {
           colorBgLayout: currentTheme.backgroundColor,
-          colorBgHeader: currentTheme.headerColor,
-          colorBgBody: currentTheme.backgroundColor,
           headerBg: currentTheme.headerColor,
-          siderBg: currentTheme.sidebarColor,
           bodyBg: currentTheme.backgroundColor,
+          siderBg: currentTheme.sidebarColor,
         },
         Card: {
           colorBgContainer: currentTheme.cardColor,

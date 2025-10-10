@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Layout as AntLayout,
   Menu,
@@ -10,25 +10,10 @@ import {
   Badge,
   Drawer,
 } from 'antd';
+import OriginUIAvatar from '../OriginUIAvatar';
+import GradientText from '../GradientText';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import NotificationCenter from '../Notification/NotificationCenter';
-import NotificationButton from '../Notification/NotificationButton';
-import { notificationService } from '@/services/notificationService';
-
-// Legacy NotificationItem interface for backward compatibility
-interface NotificationItem {
-  id: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  title: string;
-  content: string;
-  priority: 'low' | 'medium' | 'high';
-  category: string;
-  read: boolean;
-  timestamp: Date;
-  actionUrl?: string;
-  actionText?: string;
-}
 import ThemeToggle from '../common/ThemeToggle';
 import LanguageSwitcher from '../common/LanguageSwitcher';
 
@@ -79,97 +64,6 @@ const MainLayout: React.FC = () => {
 
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [mobileDrawerVisible, setMobileDrawerVisible] = useState(false);
-  const [notificationVisible, setNotificationVisible] = useState(false);
-
-  // Notification related state and methods
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  // Load notifications from service
-  useEffect(() => {
-    loadNotifications();
-  }, []);
-
-  const loadNotifications = async () => {
-    try {
-      const response = await notificationService.getNotifications();
-      const adaptedNotifications = response.notifications.map(notification => ({
-        id: notification.id,
-        type: notification.type === 'system' ? 'info' : notification.type,
-        title: notification.title,
-        content: notification.content,
-        priority: (notification.priority === 'urgent'
-          ? 'high'
-          : notification.priority === 'normal'
-            ? 'medium'
-            : 'low') as 'low' | 'medium' | 'high',
-        category: notification.category,
-        read: notification.status === 'read',
-        timestamp: notification.createdAt,
-        actionUrl: notification.actions[0]?.url || '',
-        actionText: notification.actions[0]?.label || '',
-      }));
-      setNotifications(adaptedNotifications);
-      setUnreadCount(response.unreadCount);
-    } catch (error) {
-      console.error('Failed to load notifications:', error);
-    }
-  };
-
-  // Notification actions
-  const markAsRead = async (id: string) => {
-    try {
-      await notificationService.markAsRead(id);
-      setNotifications(prev =>
-        prev.map(n => (n.id === id ? { ...n, read: true } : n))
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
-      message.success('已标记为已读');
-    } catch (error) {
-      console.error('Failed to mark as read:', error);
-      message.error('标记已读失败');
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      const unreadNotifications = notifications.filter(n => !n.read);
-      for (const notification of unreadNotifications) {
-        await notificationService.markAsRead(notification.id);
-      }
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      setUnreadCount(0);
-      message.success('所有通知已标记为已读');
-    } catch (error) {
-      console.error('Failed to mark all as read:', error);
-      message.error('全部标记已读失败');
-    }
-  };
-
-  const deleteNotification = async (id: string) => {
-    try {
-      await notificationService.deleteNotification(id);
-      setNotifications(prev => prev.filter(n => n.id !== id));
-      message.success('通知已删除');
-    } catch (error) {
-      console.error('Failed to delete notification:', error);
-      message.error('删除通知失败');
-    }
-  };
-
-  const clearAllNotifications = async () => {
-    try {
-      for (const notification of notifications) {
-        await notificationService.deleteNotification(notification.id);
-      }
-      setNotifications([]);
-      setUnreadCount(0);
-      message.success('所有通知已清空');
-    } catch (error) {
-      console.error('Failed to clear all notifications:', error);
-      message.error('清空通知失败');
-    }
-  };
 
   // Handle sidebar toggle
   const handleSidebarToggle = () => {
@@ -288,9 +182,20 @@ const MainLayout: React.FC = () => {
   const sidebarContent = (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div className='layout-logo'>
-        <Text strong style={{ color: 'var(--text-color)', fontSize: '18px' }}>
+        <GradientText
+          strong
+          style={{
+            fontSize: sidebarCollapsed && !isMobile ? '16px' : '18px',
+            margin: 0,
+            display: 'block',
+            textAlign: 'center',
+            padding: '16px 8px',
+            minHeight: '24px',
+            lineHeight: '24px',
+          }}
+        >
           {sidebarCollapsed && !isMobile ? 'WD' : 'WendealDashboard'}
-        </Text>
+        </GradientText>
       </div>
       <Menu
         theme={theme === 'dark' ? 'dark' : 'light'}
@@ -396,12 +301,6 @@ const MainLayout: React.FC = () => {
             {/* Theme Toggle */}
             <ThemeToggle size='small' />
 
-            {/* Notifications */}
-            <NotificationButton
-              count={unreadCount}
-              onClick={() => setNotificationVisible(true)}
-            />
-
             {/* User Profile */}
             <Dropdown
               menu={{ items: userMenuItems }}
@@ -409,23 +308,46 @@ const MainLayout: React.FC = () => {
               arrow
             >
               <Space style={{ cursor: 'pointer' }}>
-                <Avatar
-                  size='small'
-                  icon={<UserOutlined />}
-                  src={user?.avatar || null}
+                <OriginUIAvatar
+                  src={user?.avatar || undefined}
+                  alt='Profile image'
+                  fallback={
+                    !user?.avatar && isAuthenticated && user?.username
+                      ? user.username.charAt(0).toUpperCase()
+                      : 'U'
+                  }
+                  size={24}
+                  showChevron={true}
+                  asButton={false}
                   style={{
                     backgroundColor: isAuthenticated
                       ? 'var(--color-text-secondary, #666666)'
                       : 'var(--color-border, #cccccc)',
                   }}
+                />
+                <Text
+                  className='user-display-name'
+                  style={{
+                    color: 'var(--text-color)',
+                    fontFamily:
+                      "'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+                    background:
+                      'linear-gradient(135deg, var(--text-color) 0%, rgba(255, 255, 255, 0.8) 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    letterSpacing: '0.025em',
+                    userSelect: 'none',
+                    cursor: 'default',
+                  }}
+                  role='text'
+                  aria-label={`User: ${isAuthenticated ? user?.firstName || user?.username || 'User' : 'Not logged in'}`}
                 >
-                  {!user?.avatar && isAuthenticated && user?.username
-                    ? user.username.charAt(0).toUpperCase()
-                    : undefined}
-                </Avatar>
-                <Text style={{ color: 'var(--text-color)', fontWeight: 500 }}>
                   {isAuthenticated
-                    ? user?.displayName || user?.username || t('common.user')
+                    ? user?.firstName || user?.username || t('common.user')
                     : t('common.notLoggedIn')}
                 </Text>
                 {isAuthenticated && user?.role && (
@@ -467,17 +389,6 @@ const MainLayout: React.FC = () => {
           <Outlet />
         </Content>
       </AntLayout>
-
-      {/* Notification Center */}
-      <NotificationCenter
-        visible={notificationVisible}
-        onClose={() => setNotificationVisible(false)}
-        notifications={notifications}
-        onMarkAsRead={markAsRead}
-        onMarkAllAsRead={markAllAsRead}
-        onDelete={deleteNotification}
-        onClearAll={clearAllNotifications}
-      />
 
       <ErrorModal
         visible={isVisible}

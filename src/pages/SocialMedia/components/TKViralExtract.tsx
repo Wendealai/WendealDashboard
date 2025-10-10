@@ -97,8 +97,8 @@ const TKViralExtract: React.FC = () => {
       <div
         style={{
           padding: '16px',
-          borderBottom: '1px solid #e8e8e8',
-          background: '#fafafa',
+          borderBottom: '1px solid var(--color-border, #e8e8e8)',
+          background: 'var(--color-bg-layout, #fafafa)',
         }}
       >
         <InputForm
@@ -128,10 +128,10 @@ const TKViralExtract: React.FC = () => {
               style={{
                 width: '100%',
                 height: '100%',
-                border: '1px solid #e8e8e8',
+                border: '1px solid var(--color-border, #e8e8e8)',
                 borderRadius: '8px',
                 overflow: 'hidden',
-                background: '#ffffff',
+                background: 'var(--color-bg-container, #ffffff)',
               }}
             >
               <iframe

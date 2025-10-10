@@ -1,6 +1,7 @@
-import React from 'react';
-import { Button, Tooltip } from 'antd';
-import { SunOutlined, MoonOutlined } from '@ant-design/icons';
+import React, { useState } from 'react';
+import { MoonOutlined, SunOutlined } from '@ant-design/icons';
+import { Flex, Segmented } from 'antd';
+import type { SizeType } from 'antd/es/config-provider/SizeContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export interface ThemeToggleProps {
@@ -14,20 +15,20 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
   type = 'default',
   showText = false,
 }) => {
+  const [componentSize, setComponentSize] = useState<SizeType>('middle');
   const { state, setTheme, getAllThemes } = useTheme();
 
-  // 快速切换深色/浅色模式
-  const handleQuickToggle = () => {
-    const currentTheme = state.currentTheme;
+  // 处理主题切换
+  const handleThemeChange = (value: string) => {
     const allThemes = getAllThemes();
 
-    if (currentTheme.isDark) {
+    if (value === 'light') {
       // 切换到浅色主题
       const lightTheme = allThemes.find(t => !t.isDark);
       if (lightTheme) {
         setTheme(lightTheme);
       }
-    } else {
+    } else if (value === 'dark') {
       // 切换到深色主题
       const darkTheme = allThemes.find(t => t.isDark);
       if (darkTheme) {
@@ -36,19 +37,49 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
     }
   };
 
+  // 如果需要显示文本，使用原始按钮样式
+  if (showText) {
+    return (
+      <Flex gap='small' align='flex-start' vertical>
+        <Segmented
+          options={['small', 'middle', 'large']}
+          value={componentSize}
+          onChange={value => setComponentSize(value as SizeType)}
+        />
+        <Segmented
+          size={componentSize}
+          shape='round'
+          options={[
+            {
+              value: 'light',
+              icon: <SunOutlined />,
+              label: '浅色',
+            },
+            {
+              value: 'dark',
+              icon: <MoonOutlined />,
+              label: '深色',
+            },
+          ]}
+          value={state.currentTheme.isDark ? 'dark' : 'light'}
+          onChange={handleThemeChange}
+        />
+      </Flex>
+    );
+  }
+
+  // 默认使用分段控制器
   return (
-    <Tooltip
-      title={state.currentTheme.isDark ? '切换到浅色模式' : '切换到深色模式'}
-    >
-      <Button
-        type={type}
-        size={size}
-        icon={state.currentTheme.isDark ? <SunOutlined /> : <MoonOutlined />}
-        onClick={handleQuickToggle}
-      >
-        {showText && (state.currentTheme.isDark ? '浅色' : '深色')}
-      </Button>
-    </Tooltip>
+    <Segmented
+      size={size}
+      shape='round'
+      options={[
+        { value: 'light', icon: <SunOutlined /> },
+        { value: 'dark', icon: <MoonOutlined /> },
+      ]}
+      value={state.currentTheme.isDark ? 'dark' : 'light'}
+      onChange={handleThemeChange}
+    />
   );
 };
 

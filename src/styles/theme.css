@@ -112,6 +112,39 @@ body.theme-dark {
     color var(--transition-normal);
 }
 
+/* Reddit Workflow Title - enhanced readability in dark theme */
+body.theme-dark .reddit-workflow-title {
+  color: #ffffff !important;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.65),
+    0 0 10px rgba(255, 255, 255, 0.06);
+  letter-spacing: 0.2px;
+}
+
+/* Light theme default behavior for Reddit Workflow Title */
+body.theme-light .reddit-workflow-title {
+  color: var(--color-text, #212529);
+}
+
+/* Support AntD/data-theme dark mode toggling */
+[data-theme='dark'] .reddit-workflow-title,
+html[data-theme='dark'] .reddit-workflow-title {
+  color: #ffffff !important;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.65),
+    0 0 10px rgba(255, 255, 255, 0.06);
+  letter-spacing: 0.2px;
+}
+
+/* Force AntD Card section titles to pure white within Reddit result panel in dark mode */
+[data-theme='dark'] #reddit-result-panel .ant-card-head-title,
+html[data-theme='dark'] #reddit-result-panel .ant-card-head-title,
+body.theme-dark #reddit-result-panel .ant-card-head-title {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  letter-spacing: 0.3px;
+}
+
 /* 主题相关的通用样式 */
 .theme-card {
   background-color: var(--card-color);
@@ -475,6 +508,59 @@ body.theme-dark .ant-table-thead > tr > th {
 body.theme-dark .ant-table-tbody > tr > td {
   border-color: var(--border-color);
   color: var(--text-color);
+}
+
+/* 暗色主题Typography组件样式 - 使用最高优先级 */
+html[data-theme='dark'] .ant-typography {
+  color: #ffffff !important;
+}
+
+html[data-theme='dark'] .ant-typography strong {
+  color: #ffffff !important;
+  font-weight: bold !important;
+}
+
+html[data-theme='dark'] .ant-typography-secondary {
+  color: #e6f7ff !important;
+}
+
+html[data-theme='dark'] .ant-typography .ant-typography-secondary {
+  color: #e6f7ff !important;
+}
+
+/* 使用更高特异性的选择器覆盖Ant Design的CSS-in-JS样式 */
+html[data-theme='dark'] .ant-typography,
+html[data-theme='dark'] .ant-typography *,
+html[data-theme='dark'] .ant-typography span,
+html[data-theme='dark'] .ant-typography div,
+html[data-theme='dark'] .ant-typography strong,
+html[data-theme='dark'] .ant-typography b {
+  color: #ffffff !important;
+}
+
+/* 特殊处理secondary类型文字 */
+html[data-theme='dark'] .ant-typography-secondary,
+html[data-theme='dark'] .ant-typography .ant-typography-secondary {
+  color: #e6f7ff !important;
+}
+
+/* 覆盖所有可能的Typography变体 */
+html[data-theme='dark'] .ant-typography.ant-typography-secondary {
+  color: #e6f7ff !important;
+}
+
+/* 使用ID选择器获得最高优先级 - 针对Reddit结果面板 */
+#reddit-result-panel .ant-typography,
+#reddit-result-panel .ant-typography *,
+#reddit-result-panel .ant-typography strong,
+#reddit-result-panel .ant-typography b {
+  color: #ffffff !important;
+  font-weight: bold !important;
+}
+
+#reddit-result-panel .ant-typography-secondary,
+#reddit-result-panel .ant-typography .ant-typography-secondary {
+  color: #e6f7ff !important;
 }
 
 /* 主题过渡动画 */

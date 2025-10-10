@@ -3,7 +3,7 @@
  * 显示工作流执行结果、Reddit数据和信息统计
  */
 
-import React, { useMemo, useCallback, memo } from 'react';
+import React, { useMemo, useCallback, memo, useEffect, useRef } from 'react';
 import {
   Card,
   List,
@@ -36,6 +36,7 @@ import type {
   RedditWorkflowPost,
   RedditWorkflowSubreddit,
 } from '@/services/redditWebhookService';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const { Text, Title } = Typography;
 
@@ -93,6 +94,42 @@ const isValidRedditWorkflowData = (
  */
 const ResultPanel: React.FC<ResultPanelProps> = memo(
   ({ className, redditData, redditWorkflowData }) => {
+    const { state } = useTheme();
+    const titleRef = useRef<HTMLHeadingElement | null>(null);
+    const titleStyle = useMemo(() => {
+      const isDark = state.currentTheme?.isDark;
+      return {
+        margin: 0,
+        color: isDark ? '#ffffff' : undefined,
+        textShadow: isDark ? '0 1px 2px rgba(0,0,0,0.35)' : undefined,
+        letterSpacing: isDark ? '0.3px' : undefined,
+      } as React.CSSProperties;
+    }, [state.currentTheme]);
+
+    // 强制覆盖AntD Typography内部样式（含span）在暗黑模式下为纯白
+    useEffect(() => {
+      const isDark = state.currentTheme?.isDark;
+      const el = titleRef.current as unknown as HTMLElement | null;
+      if (!el) return;
+      if (isDark) {
+        try {
+          el.style.setProperty('color', '#ffffff', 'important');
+          const spans = el.querySelectorAll('span');
+          spans.forEach(span => {
+            (span as HTMLElement).style.setProperty(
+              'color',
+              '#ffffff',
+              'important'
+            );
+            (span as HTMLElement).style.setProperty(
+              'font-weight',
+              '600',
+              'important'
+            );
+          });
+        } catch {}
+      }
+    }, [state.currentTheme]);
     // 使用useMemo优化数据处理
     const groupedRedditData = useMemo(() => {
       console.log('🔄 ResultPanel: 处理Reddit数据:', {
@@ -188,14 +225,19 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
       const { headerInfo, summary, subreddits } = redditWorkflowData;
 
       return (
-        <div style={{ height: '100%', overflow: 'auto' }}>
+        <div
+          id='reddit-result-panel'
+          style={{ height: '100%', overflow: 'auto' }}
+        >
           <Space direction='vertical' style={{ width: '100%' }} size={16}>
             {/* 标题信息 */}
             <Card size='small'>
               <Space direction='vertical' size={8}>
                 <Title
                   level={4}
-                  style={{ margin: 0, color: 'var(--color-primary, #ff4500)' }}
+                  className='reddit-workflow-title'
+                  ref={titleRef}
+                  style={titleStyle}
                 >
                   {headerInfo.title}
                 </Title>

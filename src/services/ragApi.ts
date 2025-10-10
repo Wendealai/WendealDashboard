@@ -106,20 +106,6 @@ class RAGApiService {
       console.log('📥 Response data:', responseData);
 
       return this.processResponseData(responseData);
-
-      // 由于CORS问题，直接使用模拟响应
-      // Due to CORS issues, use mock response directly
-      console.warn(
-        '🚫 CORS issue detected - n8n server needs CORS configuration'
-      );
-      console.warn('📋 To fix this permanently, configure n8n server with:');
-      console.warn('   - Access-Control-Allow-Origin: *');
-      console.warn('   - Access-Control-Allow-Methods: GET, POST, OPTIONS');
-      console.warn(
-        '   - Access-Control-Allow-Headers: Content-Type, X-Requested-With'
-      );
-
-      return this.getMockResponse(message);
     } catch (error) {
       console.error('RAG API Error:', error);
 

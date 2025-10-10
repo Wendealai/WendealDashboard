@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/video-generation-workflow/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-10-09T22:14:04.980Z",
+      "trigger": "initial",
+      "approvalId": "approval_1760048044922_d7jql75h7",
+      "approvalTitle": "Video Generation Workflow Tasks"
+    }
+  ]
+}

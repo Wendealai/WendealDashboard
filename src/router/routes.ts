@@ -126,16 +126,6 @@ export const routes: RouteConfig[] = [
         },
       },
       {
-        path: 'dashboard',
-        element: DashboardPage,
-        meta: {
-          title: 'navigation.dashboard',
-          requiresAuth: true,
-          roles: ['admin', 'user'],
-          icon: 'DashboardOutlined',
-        },
-      },
-      {
         path: 'profile',
         element: ProfilePage,
         meta: {

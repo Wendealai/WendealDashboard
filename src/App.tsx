@@ -100,6 +100,10 @@ const AppContent: React.FC = () => {
       colorPrimary: currentTheme.primaryColor,
       colorBgBase: currentTheme.backgroundColor,
       colorTextBase: currentTheme.textColor,
+      // 与上下文主题保持一致，确保标题在暗黑模式下为白色
+      colorTextHeading: currentTheme.isDark
+        ? '#ffffff'
+        : currentTheme.textColor,
       colorBorder: currentTheme.borderColor,
       borderRadius: currentTheme.borderRadius,
       // fontSize: currentTheme.fontSize, // 移除对象类型，使用默认值

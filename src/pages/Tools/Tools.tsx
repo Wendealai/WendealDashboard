@@ -4,11 +4,22 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { Card, Row, Col, Typography, Space, Divider, Popover } from 'antd';
+import {
+  Card,
+  Row,
+  Col,
+  Typography,
+  Space,
+  Divider,
+  Popover,
+  Breadcrumb,
+} from 'antd';
 import {
   ToolOutlined,
   FilterOutlined,
   InfoCircleOutlined,
+  HomeOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import WorkflowSidebar from './components/WorkflowSidebar';
@@ -44,6 +55,29 @@ const Tools: React.FC = () => {
 
   return (
     <div className='information-dashboard'>
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb
+        style={{ marginBottom: '16px' }}
+        items={[
+          {
+            href: '/',
+            title: <HomeOutlined />,
+          },
+          {
+            href: '/tools',
+            title: (
+              <>
+                <SettingOutlined />
+                <span>Tools</span>
+              </>
+            ),
+          },
+          {
+            title: selectedWorkflow?.name || 'Dashboard',
+          },
+        ]}
+      />
+
       {/* Page title */}
       <div className='page-header'>
         <Title level={2} style={{ marginBottom: 8 }}>

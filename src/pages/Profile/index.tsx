@@ -6,8 +6,6 @@ import {
   Form,
   Input,
   Button,
-  Avatar,
-  Upload,
   Space,
   Divider,
   Switch,
@@ -19,6 +17,9 @@ import {
   Modal,
   Tabs,
 } from 'antd';
+import OriginUIAvatar from '@/components/OriginUIAvatar';
+import AvatarUploader from '@/components/AvatarUploader';
+import GradientButton from '@/components/GradientButton';
 import {
   UserOutlined,
   EditOutlined,
@@ -64,7 +65,7 @@ interface UserProfile {
 }
 
 const ProfilePage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { t, i18n } = useTranslation();
   const message = useMessage();
   const [form] = Form.useForm();
@@ -88,27 +89,108 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  // 模拟用户资料数据
-  const [profile, setProfile] = useState<UserProfile>({
-    id: user?.id || '1',
-    username: user?.username || 'admin',
-    email: user?.email || 'admin@wendeal.com',
-    phone: '+86 138 0013 8000',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
-    firstName: t('profile.tags.admin'),
-    lastName: t('profile.fields.username'),
-    bio: t('profile.placeholders.bio'),
-    location: t('profile.placeholders.location'),
-    website: 'https://wendeal.com',
-    birthday: '1990-01-01',
-    gender: 'male',
-    language: 'zh-CN',
-    timezone: 'Asia/Shanghai',
-    emailNotifications: true,
-    smsNotifications: false,
-    marketingEmails: true,
-    securityAlerts: true,
+  // 调试函数：检查localStorage中的数据
+  const debugProfileData = () => {
+    try {
+      const savedData = localStorage.getItem('user_profile');
+      console.log('Current profile state:', profile);
+      console.log(
+        'Saved profile data in localStorage:',
+        savedData ? JSON.parse(savedData) : 'No data found'
+      );
+      console.log('Auth user data:', user);
+    } catch (error) {
+      console.error('Debug error:', error);
+    }
+  };
+
+  // 在开发环境下暴露调试函数到window对象
+  if (process.env.NODE_ENV === 'development') {
+    (window as any).debugProfile = debugProfileData;
+  }
+
+  // Get saved profile data from localStorage
+  const getSavedProfile = (): Partial<UserProfile> => {
+    try {
+      const saved = localStorage.getItem('user_profile');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+      // Migrate old user_avatar to user_profile if exists
+      const oldAvatar = localStorage.getItem('user_avatar');
+      if (oldAvatar) {
+        const migratedProfile = { avatar: oldAvatar };
+        localStorage.setItem('user_profile', JSON.stringify(migratedProfile));
+        localStorage.removeItem('user_avatar'); // Clean up old key
+        return migratedProfile;
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  };
+
+  // Get saved avatar from localStorage
+  const getSavedAvatar = () => {
+    try {
+      const savedProfile = getSavedProfile();
+      return (
+        savedProfile.avatar ||
+        localStorage.getItem('user_avatar') ||
+        user?.avatar ||
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=admin'
+      );
+    } catch {
+      return (
+        user?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin'
+      );
+    }
+  };
+
+  // Initialize profile with saved data, user data from auth context, and defaults
+  const [profile, setProfile] = useState<UserProfile>(() => {
+    const savedProfile = getSavedProfile();
+    return {
+      id: user?.id || savedProfile.id || '1',
+      username: user?.username || savedProfile.username || 'admin',
+      email: user?.email || savedProfile.email || 'admin@wendeal.com',
+      phone: savedProfile.phone || '+86 138 0013 8000',
+      avatar: getSavedAvatar(),
+      firstName:
+        user?.firstName || savedProfile.firstName || t('profile.tags.admin'),
+      lastName:
+        user?.lastName || savedProfile.lastName || t('profile.fields.username'),
+      bio: savedProfile.bio || t('profile.placeholders.bio'),
+      location: savedProfile.location || t('profile.placeholders.location'),
+      website: savedProfile.website || 'https://wendeal.com',
+      birthday: savedProfile.birthday || '1990-01-01',
+      gender: savedProfile.gender || 'male',
+      language: savedProfile.language || 'zh-CN',
+      timezone: savedProfile.timezone || 'Asia/Shanghai',
+      emailNotifications: savedProfile.emailNotifications ?? true,
+      smsNotifications: savedProfile.smsNotifications ?? false,
+      marketingEmails: savedProfile.marketingEmails ?? true,
+      securityAlerts: savedProfile.securityAlerts ?? true,
+    };
   });
+
+  // Update profile when user data changes
+  useEffect(() => {
+    if (user) {
+      setProfile(prev => {
+        const savedProfile = getSavedProfile();
+        return {
+          ...prev,
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          avatar: getSavedAvatar(),
+          firstName: user.firstName || savedProfile.firstName || prev.firstName,
+          lastName: user.lastName || savedProfile.lastName || prev.lastName,
+        };
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     // 初始化表单数据
@@ -130,26 +212,27 @@ const ProfilePage: React.FC = () => {
         birthday: values.birthday ? values.birthday.format('YYYY-MM-DD') : null,
       };
 
+      // Save to localStorage for persistence
+      localStorage.setItem('user_profile', JSON.stringify(updatedProfile));
+
+      // Update local profile state
       setProfile(updatedProfile);
+
+      // Update auth context with relevant fields
+      const authUpdateData = {
+        firstName: updatedProfile.firstName,
+        lastName: updatedProfile.lastName,
+        email: updatedProfile.email,
+        avatar: updatedProfile.avatar,
+      };
+      await updateProfile(authUpdateData);
+
       setEditing(false);
       message.success(t('profile.messages.updateSuccess'));
     } catch (error) {
+      console.error('Profile save error:', error);
       message.error(t('profile.messages.updateFailed'));
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAvatarChange = (info: any) => {
-    if (info.file.status === 'uploading') {
-      setLoading(true);
-      return;
-    }
-    if (info.file.status === 'done') {
-      // 模拟头像上传成功
-      const newAvatar = URL.createObjectURL(info.file.originFileObj);
-      setProfile(prev => ({ ...prev, avatar: newAvatar }));
-      message.success(t('profile.messages.avatarUploadSuccess'));
       setLoading(false);
     }
   };
@@ -184,31 +267,33 @@ const ProfilePage: React.FC = () => {
           <Card className='profile-card'>
             <div className='profile-header'>
               <div className='avatar-section'>
-                <Upload
-                  name='avatar'
-                  listType='picture-circle'
-                  className='avatar-uploader'
-                  showUploadList={false}
-                  beforeUpload={() => false}
-                  onChange={handleAvatarChange}
-                  disabled={!editing}
-                >
-                  {profile.avatar ? (
-                    <Avatar size={100} src={profile.avatar || null} />
-                  ) : (
-                    uploadButton
-                  )}
-                </Upload>
-                {editing && (
-                  <Button
-                    type='link'
-                    icon={<CameraOutlined />}
-                    size='small'
-                    className='change-avatar-btn'
-                  >
-                    {t('profile.changeAvatar')}
-                  </Button>
-                )}
+                <AvatarUploader
+                  value={profile.avatar}
+                  onChange={async (avatar: string | undefined) => {
+                    try {
+                      // Update local profile state
+                      setProfile(prev => {
+                        const updatedProfile = {
+                          ...prev,
+                          avatar: avatar || '',
+                        };
+                        // Save complete profile to localStorage
+                        localStorage.setItem(
+                          'user_profile',
+                          JSON.stringify(updatedProfile)
+                        );
+                        return updatedProfile;
+                      });
+
+                      // Update auth context user profile
+                      await updateProfile({ avatar: avatar || '' });
+                    } catch (error) {
+                      console.error('Avatar update error:', error);
+                      message.error(t('profile.messages.updateFailed'));
+                    }
+                  }}
+                  disabled={false}
+                />
               </div>
 
               <div className='user-info'>
@@ -283,9 +368,8 @@ const ProfilePage: React.FC = () => {
                         <Title level={5}>
                           {t('profile.sections.basicInfo')}
                         </Title>
-                        <Button
-                          type={editing ? 'default' : 'primary'}
-                          icon={editing ? <SaveOutlined /> : <EditOutlined />}
+                        <GradientButton
+                          editing={editing}
                           onClick={() => {
                             if (editing) {
                               form.submit();
@@ -294,11 +378,10 @@ const ProfilePage: React.FC = () => {
                             }
                           }}
                           loading={loading}
-                        >
-                          {editing
-                            ? t('profile.buttons.save')
-                            : t('profile.buttons.edit')}
-                        </Button>
+                          disabled={loading}
+                          editText={t('profile.buttons.edit')}
+                          saveText={t('profile.buttons.save')}
+                        />
                       </div>
 
                       <Form
@@ -492,12 +575,11 @@ const ProfilePage: React.FC = () => {
                             {t('profile.security.passwordDescription')}
                           </Text>
                         </div>
-                        <Button
-                          type='primary'
+                        <GradientButton
+                          editing={false}
                           onClick={() => setChangePasswordVisible(true)}
-                        >
-                          {t('profile.security.changePassword')}
-                        </Button>
+                          editText={t('profile.security.changePassword')}
+                        />
                       </div>
 
                       <Divider />
@@ -550,7 +632,20 @@ const ProfilePage: React.FC = () => {
                             <Form.Item
                               label={t('profile.preferences.language')}
                             >
-                              <Select defaultValue={profile.language}>
+                              <Select
+                                value={profile.language}
+                                onChange={value => {
+                                  const updatedProfile = {
+                                    ...profile,
+                                    language: value,
+                                  };
+                                  setProfile(updatedProfile);
+                                  localStorage.setItem(
+                                    'user_profile',
+                                    JSON.stringify(updatedProfile)
+                                  );
+                                }}
+                              >
                                 <Option value='zh-CN'>
                                   {t('profile.preferences.simplifiedChinese')}
                                 </Option>
@@ -563,7 +658,20 @@ const ProfilePage: React.FC = () => {
                             <Form.Item
                               label={t('profile.preferences.timezone')}
                             >
-                              <Select defaultValue={profile.timezone}>
+                              <Select
+                                value={profile.timezone}
+                                onChange={value => {
+                                  const updatedProfile = {
+                                    ...profile,
+                                    timezone: value,
+                                  };
+                                  setProfile(updatedProfile);
+                                  localStorage.setItem(
+                                    'user_profile',
+                                    JSON.stringify(updatedProfile)
+                                  );
+                                }}
+                              >
                                 <Option value='Asia/Shanghai'>
                                   {t('profile.preferences.beijingTime')}
                                 </Option>
@@ -625,13 +733,18 @@ const ProfilePage: React.FC = () => {
                           </Text>
                         </div>
                         <Switch
-                          defaultChecked={profile.emailNotifications}
-                          onChange={checked =>
-                            setProfile(prev => ({
-                              ...prev,
+                          checked={profile.emailNotifications}
+                          onChange={checked => {
+                            const updatedProfile = {
+                              ...profile,
                               emailNotifications: checked,
-                            }))
-                          }
+                            };
+                            setProfile(updatedProfile);
+                            localStorage.setItem(
+                              'user_profile',
+                              JSON.stringify(updatedProfile)
+                            );
+                          }}
                         />
                       </div>
 
@@ -645,13 +758,18 @@ const ProfilePage: React.FC = () => {
                           </Text>
                         </div>
                         <Switch
-                          defaultChecked={profile.smsNotifications}
-                          onChange={checked =>
-                            setProfile(prev => ({
-                              ...prev,
+                          checked={profile.smsNotifications}
+                          onChange={checked => {
+                            const updatedProfile = {
+                              ...profile,
                               smsNotifications: checked,
-                            }))
-                          }
+                            };
+                            setProfile(updatedProfile);
+                            localStorage.setItem(
+                              'user_profile',
+                              JSON.stringify(updatedProfile)
+                            );
+                          }}
                         />
                       </div>
 
@@ -665,13 +783,18 @@ const ProfilePage: React.FC = () => {
                           </Text>
                         </div>
                         <Switch
-                          defaultChecked={profile.marketingEmails}
-                          onChange={checked =>
-                            setProfile(prev => ({
-                              ...prev,
+                          checked={profile.marketingEmails}
+                          onChange={checked => {
+                            const updatedProfile = {
+                              ...profile,
                               marketingEmails: checked,
-                            }))
-                          }
+                            };
+                            setProfile(updatedProfile);
+                            localStorage.setItem(
+                              'user_profile',
+                              JSON.stringify(updatedProfile)
+                            );
+                          }}
                         />
                       </div>
 
@@ -685,13 +808,18 @@ const ProfilePage: React.FC = () => {
                           </Text>
                         </div>
                         <Switch
-                          defaultChecked={profile.securityAlerts}
-                          onChange={checked =>
-                            setProfile(prev => ({
-                              ...prev,
+                          checked={profile.securityAlerts}
+                          onChange={checked => {
+                            const updatedProfile = {
+                              ...profile,
                               securityAlerts: checked,
-                            }))
-                          }
+                            };
+                            setProfile(updatedProfile);
+                            localStorage.setItem(
+                              'user_profile',
+                              JSON.stringify(updatedProfile)
+                            );
+                          }}
                         />
                       </div>
                     </div>
@@ -778,9 +906,14 @@ const ProfilePage: React.FC = () => {
               <Button onClick={() => setChangePasswordVisible(false)}>
                 {t('profile.buttons.cancel')}
               </Button>
-              <Button type='primary' htmlType='submit' loading={loading}>
-                {t('profile.buttons.confirm')}
-              </Button>
+              <GradientButton
+                editing={false}
+                onClick={() => {}}
+                loading={loading}
+                disabled={loading}
+                editText={t('profile.buttons.confirm')}
+                type='submit'
+              />
             </Space>
           </Form.Item>
         </Form>

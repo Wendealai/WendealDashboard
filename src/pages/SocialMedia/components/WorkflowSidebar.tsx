@@ -16,6 +16,7 @@ import {
   WorkflowSettingsModal,
 } from '@/components/workflow';
 import WorkflowCard from '@/components/workflow/WorkflowCard';
+import VideoGenerationWorkflowCard from './VideoGenerationWorkflowCard';
 
 /**
  * Workflow sidebar interface
@@ -365,6 +366,44 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
               }}
               size='small'
               showActions={false} // Hide start button
+            />
+          </Col>
+
+          {/* Video Generation workflow card */}
+          <Col xs={24} sm={12} md={8} lg={6} xl={6}>
+            <VideoGenerationWorkflowCard
+              selected={selectedWorkflow?.id === 'video-generation'}
+              loading={false}
+              size='small'
+              onClick={() =>
+                handleWorkflowSelect({
+                  id: 'video-generation',
+                  name: 'Video Generation',
+                  description:
+                    'Generate videos from text descriptions and reference images',
+                  status: 'active' as WorkflowStatus,
+                  nodeCount: 3,
+                  lastExecution: new Date().toISOString(),
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                })
+              }
+              onTrigger={() => {
+                handleWorkflowSelect({
+                  id: 'video-generation',
+                  name: 'Video Generation',
+                  description:
+                    'Generate videos from text descriptions and reference images',
+                  status: 'active' as WorkflowStatus,
+                  nodeCount: 3,
+                  lastExecution: new Date().toISOString(),
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }}
+              onSettings={() => {
+                handleOpenSettings('video-generation', 'Video Generation');
+              }}
             />
           </Col>
         </Row>

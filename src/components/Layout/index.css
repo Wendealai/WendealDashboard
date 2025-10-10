@@ -105,6 +105,16 @@
   margin-left: 8px;
 }
 
+/* User display name styling */
+.user-display-name {
+  transition: all 0.2s ease;
+}
+
+.user-display-name:hover {
+  transform: translateY(-1px);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
 /* Responsive adjustments for navigation menu */
 @media (max-width: 768px) {
   .navigation-menu .ant-menu-item {
@@ -116,5 +126,11 @@
   .navigation-menu .ant-menu-item .anticon {
     font-size: 16px;
     margin-right: 8px;
+  }
+
+  /* Responsive user display name */
+  .user-display-name {
+    font-size: 12px !important;
+    font-weight: 500 !important;
   }
 }

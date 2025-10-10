@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-import { visualizer } from 'rollup-plugin-visualizer'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -12,12 +12,16 @@ export default defineConfig({
     }),
     // 代码分割通过rollupOptions.output.manualChunks实现
     // Bundle分析插件（仅在分析模式下启用）
-    ...(process.env.ANALYZE ? [visualizer({
-      filename: 'dist/stats.html',
-      open: true,
-      gzipSize: true,
-      brotliSize: true,
-    }) as any] : [])
+    ...(process.env.ANALYZE
+      ? [
+          visualizer({
+            filename: 'dist/stats.html',
+            open: true,
+            gzipSize: true,
+            brotliSize: true,
+          }) as any,
+        ]
+      : []),
   ],
   define: {
     'process.env': {},
@@ -73,19 +77,49 @@ export default defineConfig({
         target: 'https://n8n.wendealai.com',
         changeOrigin: true,
         secure: true,
+        // 处理OPTIONS预检请求
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('webhook proxy error', err);
           });
-          proxy.on('proxyReq', (_proxyReq, req, _res) => {
-            console.log('Sending Webhook Request to the Target:', req.method, req.url);
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log(
+              'Sending Webhook Request to the Target:',
+              req.method,
+              req.url
+            );
+
+            // 处理OPTIONS预检请求
+            if (req.method === 'OPTIONS') {
+              console.log('Handling OPTIONS preflight request for webhook');
+              res.writeHead(200, {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, User-Agent',
+                'Access-Control-Max-Age': '86400',
+              });
+              res.end();
+              return;
+            }
+
+            console.log('Request Headers:', proxyReq.getHeaders());
+            // 确保multipart/form-data请求正确转发
+            if (req.headers['content-type']) {
+              proxyReq.setHeader('Content-Type', req.headers['content-type']);
+            }
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Webhook Response from the Target:', proxyRes.statusCode, req.url);
-            // 添加CORS头部
+            console.log(
+              'Received Webhook Response from the Target:',
+              proxyRes.statusCode,
+              req.url
+            );
+            // 添加CORS头部到所有响应
             proxyRes.headers['Access-Control-Allow-Origin'] = '*';
-            proxyRes.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
-            proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With';
+            proxyRes.headers['Access-Control-Allow-Methods'] =
+              'GET, POST, PUT, DELETE, OPTIONS';
+            proxyRes.headers['Access-Control-Allow-Headers'] =
+              'Content-Type, Authorization, X-Requested-With, User-Agent';
           });
         },
       },
@@ -94,7 +128,7 @@ export default defineConfig({
         target: 'https://api.airtable.com',
         changeOrigin: true,
         secure: true,
-        rewrite: (path) => path.replace(/^\/airtable/, ''),
+        rewrite: path => path.replace(/^\/airtable/, ''),
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('airtable proxy error', err);
@@ -112,14 +146,20 @@ export default defineConfig({
         target: 'https://api.notion.com',
         changeOrigin: true,
         secure: true,
-        rewrite: (path) => '/v1/databases/' + path.replace('/webhook/notion-fetch/', '') + '/query',
+        rewrite: path =>
+          '/v1/databases/' +
+          path.replace('/webhook/notion-fetch/', '') +
+          '/query',
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('notion proxy error', err);
           });
           proxy.on('proxyReq', (proxyReq, _req, _res) => {
             // 添加Notion API所需的headers
-            proxyReq.setHeader('Authorization', `Bearer ${process.env.NOTION_API_KEY || 'YOUR_NOTION_API_TOKEN'}`);
+            proxyReq.setHeader(
+              'Authorization',
+              `Bearer ${process.env.NOTION_API_KEY || 'YOUR_NOTION_API_TOKEN'}`
+            );
             proxyReq.setHeader('Notion-Version', '2022-06-28');
             proxyReq.setHeader('Content-Type', 'application/json');
             console.log('Notion API Request:', _req.method, _req.url);
@@ -132,8 +172,8 @@ export default defineConfig({
     },
   },
   preview: {
-    host: '0.0.0.0',  // 关键：允许外部访问
-    port: 5173,       // 与Container Port匹配
+    host: '0.0.0.0', // 关键：允许外部访问
+    port: 5173, // 与Container Port匹配
     strictPort: true, // 强制使用指定端口
   },
 
@@ -145,14 +185,17 @@ export default defineConfig({
     rollupOptions: {
       // 忽略 "use client" 指令的警告
       onwarn(warning, warn) {
-        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && warning.message.includes('use client')) {
+        if (
+          warning.code === 'MODULE_LEVEL_DIRECTIVE' &&
+          warning.message.includes('use client')
+        ) {
           return;
         }
         warn(warning);
       },
       output: {
         // 更细粒度的代码分割
-        manualChunks: (id) => {
+        manualChunks: id => {
           // 第三方库分割
           if (id.includes('node_modules')) {
             if (id.includes('@reduxjs/toolkit') || id.includes('react-redux')) {
@@ -175,7 +218,10 @@ export default defineConfig({
             return `page-${pageName}`;
           }
           // 组件级别分割
-          if (id.includes('/components/') && !id.includes('/components/common/')) {
+          if (
+            id.includes('/components/') &&
+            !id.includes('/components/common/')
+          ) {
             return 'components';
           }
         },
@@ -184,7 +230,7 @@ export default defineConfig({
           return `js/[name]-[hash].js`;
         },
         entryFileNames: 'js/[name]-[hash].js',
-        assetFileNames: (assetInfo) => {
+        assetFileNames: assetInfo => {
           const name = assetInfo.name || 'unknown';
           const info = name.split('.');
           const ext = info[info.length - 1];
@@ -242,4 +288,4 @@ export default defineConfig({
     // 生产环境移除console和debugger
     drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
   },
-})
+});

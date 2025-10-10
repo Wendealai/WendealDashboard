@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/video-generation-workflow/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-10-09T22:00:28.830Z",
+      "trigger": "initial",
+      "approvalId": "approval_1760047228785_1icgwnpna",
+      "approvalTitle": "Video Generation Workflow Requirements"
+    }
+  ]
+}
