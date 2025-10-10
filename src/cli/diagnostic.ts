@@ -27,7 +27,7 @@ program
 program
   .command('scan')
   .description('扫描项目中的导出问题')
-  .argument('[directory]', '扫描目录', '.')
+  .option('-d, --directory <directory>', '扫描目录', '.')
   .option('-c, --config <file>', '配置文件路径')
   .option(
     '-f, --format <format>',
@@ -43,8 +43,9 @@ program
   .option('--concurrency <number>', '并发扫描数量', parseInt, 4)
   .option('--timeout <ms>', '超时时间（毫秒）', parseInt, 30000)
   .option('--max-depth <depth>', '最大扫描深度', parseInt, 10)
-  .action(async (directory: string, options: any) => {
+  .action(async (options: any) => {
     try {
+      const directory = options.directory || '.';
       console.log('🚀 开始导出诊断扫描...\n');
 
       // 加载配置

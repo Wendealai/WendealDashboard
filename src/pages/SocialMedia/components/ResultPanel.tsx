@@ -162,6 +162,7 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
         clearInterval(interval);
       };
     }
+    return undefined;
   }, [isDarkTheme, processedData]);
 
   /**

@@ -163,7 +163,7 @@ const VideoResultDisplay: React.FC<VideoResultDisplayProps> = memo(
                   <Text>
                     时长: {video.metadata.duration}s | 格式:{' '}
                     {video.metadata.format} | 大小:{' '}
-                    {formatFileSize(video.metadata.size)}
+                    {formatFileSize(Number(video.metadata.size))}
                   </Text>
                 </div>
               )}
