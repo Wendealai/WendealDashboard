@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/crm-module/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-10-11T02:36:48.682Z",
+      "trigger": "initial",
+      "approvalId": "approval_1760150208628_247yku0dt",
+      "approvalTitle": "CRM Module Requirements - Iframe Integration with Twenty CRM"
+    }
+  ]
+}

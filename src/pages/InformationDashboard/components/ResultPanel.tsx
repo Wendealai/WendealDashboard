@@ -237,7 +237,7 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                   level={4}
                   className='reddit-workflow-title'
                   ref={titleRef}
-                  style={titleStyle}
+                  style={{ ...titleStyle, fontSize: '16px' }}
                 >
                   {headerInfo.title}
                 </Title>
@@ -266,7 +266,10 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
             </Card>
 
             {/* 汇总统计 */}
-            <Card size='small' title='数据汇总'>
+            <Card
+              size='small'
+              title={<span style={{ fontSize: '16px' }}>数据汇总</span>}
+            >
               <Row gutter={[16, 8]}>
                 <Col xs={12} sm={6}>
                   <Statistic
@@ -359,8 +362,10 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
             size='small'
             title={
               <Space>
-                <span style={{ fontSize: '18px' }}>{subreddit.icon}</span>
-                <Text strong>{subreddit.displayName}</Text>
+                <span style={{ fontSize: '14px' }}>{subreddit.icon}</span>
+                <Text strong style={{ fontSize: '14px' }}>
+                  {subreddit.displayName}
+                </Text>
                 <Badge count={subreddit.stats.totalPosts} showZero />
                 <Tag>{subreddit.category}</Tag>
               </Space>
@@ -590,7 +595,9 @@ const ResultPanel: React.FC<ResultPanelProps> = memo(
                             icon={<RedditOutlined />}
                             size='small'
                           />
-                          <Text strong>r/{subreddit}</Text>
+                          <Text strong style={{ fontSize: '14px' }}>
+                            r/{subreddit}
+                          </Text>
                           <Badge
                             count={posts.length}
                             showZero

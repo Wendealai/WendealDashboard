@@ -50,7 +50,7 @@ export class LocalAuthService implements IAuthService {
       firstName: 'Regular',
       lastName: 'User',
       avatar: '',
-      role: UserRole.EMPLOYEE,
+      role: UserRole.USER,
       permissions: ['dashboard.read'],
       isActive: true,
       createdAt: '2024-01-01T00:00:00.000Z',
@@ -83,9 +83,14 @@ export class LocalAuthService implements IAuthService {
   async initialize(config: AuthConfig): Promise<void> {
     this.config = config;
 
-    // 尝试从本地存储恢复认证状态
-    const storedToken = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('auth_user');
+    // 尝试从本地存储恢复认证状态（优先 localStorage，回退 sessionStorage）
+    let storedToken = localStorage.getItem('auth_token');
+    let storedUser = localStorage.getItem('auth_user');
+
+    if (!storedToken || !storedUser) {
+      storedToken = storedToken || sessionStorage.getItem('auth_token');
+      storedUser = storedUser || sessionStorage.getItem('auth_user');
+    }
 
     if (storedToken && storedUser) {
       try {
@@ -206,7 +211,7 @@ export class LocalAuthService implements IAuthService {
       firstName: firstName || '',
       lastName: lastName || '',
       avatar: '',
-      role: UserRole.EMPLOYEE, // 默认为普通员工
+      role: UserRole.USER, // 默认为普通用户角色
       permissions: ['dashboard.read'],
       isActive: true,
       createdAt: new Date().toISOString(),

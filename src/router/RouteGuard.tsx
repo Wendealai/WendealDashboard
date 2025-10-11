@@ -40,15 +40,21 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
   showUnauthorizedPage = false,
 }) => {
   const location = useLocation();
-  const { user, isAuthenticated, isLoading } = useAuth();
   const { t } = useTranslation();
+
+  // 注意：加载状态判断需要在 useAuth 解构之后再执行，避免引用未初始化变量
+
+  // 公共路由不需要认证，避免不必要的 useAuth 调用
+  if (!requiresAuth) {
+    return <AppContext>{children}</AppContext>;
+  }
+
+  // 仅在需要认证时访问认证状态
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   // 如果正在加载或认证状态未确定，显示加载状态
   // 给认证系统更多时间进行 token 验证和刷新
-  if (
-    showLoading &&
-    (isLoading || (requiresAuth && isAuthenticated === undefined))
-  ) {
+  if (showLoading && (isLoading || isAuthenticated === undefined)) {
     return (
       <div
         style={{
@@ -75,11 +81,6 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
   // 如果需要认证但用户信息不存在
   if (requiresAuth && isAuthenticated && !user) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
-  }
-
-  // 如果不需要认证，直接渲染子组件
-  if (!requiresAuth) {
-    return <AppContext>{children}</AppContext>;
   }
 
   // 以下逻辑需要用户已认证且用户信息存在

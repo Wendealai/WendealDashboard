@@ -568,7 +568,9 @@ export default {
     redditWorkflow: 'Reddit Workflow',
     rndReport: 'R&D Report',
     tools: 'Tools',
+    crm: 'CRM',
     notificationDemo: 'Notification Test',
+    docmost: 'Document',
     logout: 'Logout',
   },
 

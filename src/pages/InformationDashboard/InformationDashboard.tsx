@@ -464,7 +464,11 @@ const InformationDashboard: React.FC = () => {
       <div className='page-header'>
         <Title
           level={2}
-          style={{ marginBottom: 8, color: 'var(--text-color)' }}
+          style={{
+            marginBottom: 8,
+            color: 'var(--text-color)',
+            fontSize: '22px',
+          }}
         >
           <span style={{ display: 'flex', alignItems: 'center' }}>
             <DashboardOutlined

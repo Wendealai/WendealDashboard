@@ -113,7 +113,11 @@ const TKViralExtract: React.FC = () => {
       {/* 下方：Notion文档 - 全宽显示 */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Card
-          title='📄 TK Viral Extract - Notion 文档'
+          title={
+            <span style={{ fontSize: '16px' }}>
+              📄 TK Viral Extract - Notion 文档
+            </span>
+          }
           style={{ height: '100%', margin: 16 }}
           styles={{ body: { padding: 0, height: '100%' } }}
         >

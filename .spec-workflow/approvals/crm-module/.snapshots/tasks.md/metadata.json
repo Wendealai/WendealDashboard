@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/crm-module/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-10-11T02:46:37.236Z",
+      "trigger": "initial",
+      "approvalId": "approval_1760150797201_erdqzale9",
+      "approvalTitle": "CRM Module Tasks - Implementation Breakdown"
+    }
+  ]
+}

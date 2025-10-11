@@ -310,7 +310,7 @@ const WorkflowCard: React.FC<WorkflowCardProps> = ({
                     level={responsiveSize === 'small' ? 5 : 4}
                     style={{
                       margin: 0,
-                      fontSize: responsiveSize === 'small' ? 12 : 14,
+                      fontSize: responsiveSize === 'small' ? 14 : 14,
                       lineHeight: 1.2,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',

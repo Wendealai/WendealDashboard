@@ -191,7 +191,10 @@ const ImageEditTab: React.FC<ImageEditTabProps> = memo(
       <div className='image-edit-tab'>
         <Space direction='vertical' style={{ width: '100%' }} size='large'>
           {/* 图片上传区域 */}
-          <Card title='上传图片' size='small'>
+          <Card
+            title={<span style={{ fontSize: '16px' }}>上传图片</span>}
+            size='small'
+          >
             <Form.Item>
               <Button
                 icon={<UploadOutlined />}
@@ -244,7 +247,7 @@ const ImageEditTab: React.FC<ImageEditTabProps> = memo(
             disabled={loading || !uploadedImage}
           >
             <Form.Item
-              label='编辑指令'
+              label={<span style={{ fontSize: '14px' }}>编辑指令</span>}
               name='prompt'
               rules={[
                 { required: true, message: '请输入编辑指令' },
@@ -325,11 +328,15 @@ const ImageEditTab: React.FC<ImageEditTabProps> = memo(
             <>
               <Divider />
               <div className='edit-result'>
-                <Title level={4}>编辑结果</Title>
+                <Title level={4} style={{ fontSize: '16px' }}>
+                  编辑结果
+                </Title>
                 <Space direction='vertical' style={{ width: '100%' }}>
                   <div className='image-comparison'>
                     <div className='image-item'>
-                      <Text strong>原图</Text>
+                      <Text strong style={{ fontSize: '14px' }}>
+                        原图
+                      </Text>
                       <Image
                         src={uploadedImage || ''}
                         alt='Original image'
@@ -337,7 +344,9 @@ const ImageEditTab: React.FC<ImageEditTabProps> = memo(
                       />
                     </div>
                     <div className='image-item'>
-                      <Text strong>编辑结果</Text>
+                      <Text strong style={{ fontSize: '14px' }}>
+                        编辑结果
+                      </Text>
                       <Image
                         src={editedImage.imageUrl}
                         alt='Edited image'
@@ -347,16 +356,18 @@ const ImageEditTab: React.FC<ImageEditTabProps> = memo(
                   </div>
 
                   <div className='image-info'>
-                    <Text type='secondary'>编辑指令: {editedImage.prompt}</Text>
+                    <Text type='secondary' style={{ fontSize: '12px' }}>
+                      编辑指令: {editedImage.prompt}
+                    </Text>
                     <br />
-                    <Text type='secondary'>
+                    <Text type='secondary' style={{ fontSize: '12px' }}>
                       编辑时间:{' '}
                       {new Date(editedImage.createdAt).toLocaleString()}
                     </Text>
                     {editedImage.processingTime && (
                       <>
                         <br />
-                        <Text type='secondary'>
+                        <Text type='secondary' style={{ fontSize: '12px' }}>
                           处理时间: {editedImage.processingTime}ms
                         </Text>
                       </>
@@ -387,7 +398,9 @@ const ImageEditTab: React.FC<ImageEditTabProps> = memo(
             <div style={{ textAlign: 'center' }}>
               <Space size='large'>
                 <div>
-                  <Text strong>原图</Text>
+                  <Text strong style={{ fontSize: '14px' }}>
+                    原图
+                  </Text>
                   <br />
                   <Image
                     src={uploadedImage || ''}
@@ -396,7 +409,9 @@ const ImageEditTab: React.FC<ImageEditTabProps> = memo(
                   />
                 </div>
                 <div>
-                  <Text strong>编辑结果</Text>
+                  <Text strong style={{ fontSize: '14px' }}>
+                    编辑结果
+                  </Text>
                   <br />
                   <Image
                     src={editedImage.imageUrl}

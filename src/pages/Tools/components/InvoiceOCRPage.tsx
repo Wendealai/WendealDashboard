@@ -285,7 +285,7 @@ const InvoiceOCRPage: React.FC = () => {
         <Col>
           <Space align='center'>
             <FileTextOutlined style={{ fontSize: 24, color: '#1890ff' }} />
-            <Title level={3} style={{ margin: 0 }}>
+            <Title level={3} style={{ margin: 0, fontSize: '18px' }}>
               {t('invoiceOCR.title')}
             </Title>
           </Space>
@@ -350,11 +350,15 @@ const InvoiceOCRPage: React.FC = () => {
     if (processingStatus === 'idle' || processingStatus === 'uploading') {
       return (
         <Card
-          title={t('invoiceOCR.upload.title')}
+          title={
+            <span style={{ fontSize: '16px' }}>
+              {t('invoiceOCR.upload.title')}
+            </span>
+          }
           extra={
             <Space>
               <InfoCircleOutlined />
-              <Text type='secondary'>
+              <Text type='secondary' style={{ fontSize: '12px' }}>
                 {t('invoiceOCR.upload.supportedFormats')}
               </Text>
             </Space>

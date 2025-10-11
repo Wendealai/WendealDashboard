@@ -200,6 +200,8 @@ export default {
     redditWorkflow: 'Reddit工作流',
     rndReport: 'R&D报告',
     tools: '工具',
+    crm: 'CRM',
+    docmost: 'Document',
     logout: '退出登录',
   },
 

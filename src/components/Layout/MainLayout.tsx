@@ -34,6 +34,7 @@ import {
   SafetyCertificateOutlined,
   FileTextOutlined,
   ToolOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import WhatsNewPanel from './WhatsNewPanel';
 import {
@@ -162,6 +163,8 @@ const MainLayout: React.FC = () => {
         return <FileTextOutlined />;
       case 'ToolOutlined':
         return <ToolOutlined />;
+      case 'TeamOutlined':
+        return <TeamOutlined />;
       default:
         return null;
     }

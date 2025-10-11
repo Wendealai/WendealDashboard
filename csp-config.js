@@ -47,11 +47,17 @@ const CSP_DIRECTIVES = {
     "https://*.airtable.com",
     "https://*.stripe.com",
     "https://m.stripe.network",
-    "https://js.stripe.com"
+    "https://js.stripe.com",
+    "https://docmost.wendealai.com",
+    "https://docmost.wendealai.com.au"
   ],
   'object-src': "'none'", // 禁止object/embed/applet
   'base-uri': "'self'",
-  'form-action': "'self'",
+  'form-action': [
+    "'self'",
+    "https://docmost.wendealai.com",
+    "https://docmost.wendealai.com.au"
+  ],
   'frame-ancestors': "'self'",
   'upgrade-insecure-requests': true
 };
@@ -107,6 +113,7 @@ console.log('🔧 已配置的允许域名:');
 console.log('  • Airtable: *.airtable.com, api.airtable.com');
 console.log('  • Stripe: *.stripe.com, m.stripe.network, js.stripe.com');
 console.log('  • Google Fonts: fonts.googleapis.com, fonts.gstatic.com');
+console.log('  • Docmost: docmost.wendealai.com, docmost.wendealai.com.au');
 console.log('');
 console.log('✅ 配置已应用到:');
 console.log('  • vite.config.ts (开发服务器头部)');

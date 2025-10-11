@@ -13,10 +13,10 @@ const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
 
-  // 如果已经登录，重定向到仪表板
+  // 如果已经登录，重定向到首页
   useEffect(() => {
     if (isAuthenticated && user) {
-      navigate('/dashboard', { replace: true });
+      navigate('/', { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
 

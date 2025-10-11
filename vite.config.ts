@@ -50,7 +50,7 @@ export default defineConfig({
     //     "img-src 'self' data: https: blob: https://*.airtable.com https://*.stripe.com https://*.notion.so https://*.notion.site",
     //     "font-src 'self' https://fonts.gstatic.com https://*.airtable.com https://airtable.com https://*.notion.so https://*.notion.site https:",
     //     "connect-src 'self' https://*.airtable.com https://*.stripe.com https://m.stripe.network https://js.stripe.com https://api.airtable.com wss://*.airtable.com https://airtable.com https://*.notion.so https://q.stripe.com https://*.notion.site wss://*.notion.site https://wendealau.notion.site https://n8n.wendealai.com https://*.n8n.wendealai.com https:",
-    //     "frame-src 'self' https://airtable.com https://*.airtable.com https://*.stripe.com https://m.stripe.network https://js.stripe.com https://*.notion.so https://*.notion.site",
+    //     "frame-src 'self' https://airtable.com https://*.airtable.com https://*.stripe.com https://m.stripe.network https://js.stripe.com https://*.notion.so https://*.notion.site https://crm.wendealai.com",
     //     "object-src 'none'",
     //     "base-uri 'self'",
     //     "form-action 'self' https:",

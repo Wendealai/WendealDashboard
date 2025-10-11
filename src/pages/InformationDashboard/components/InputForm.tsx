@@ -100,7 +100,7 @@ const InputForm: React.FC<ExtendedInputFormProps> = ({
       title={
         <Space>
           <SendOutlined />
-          <span>Workflow Parameters</span>
+          <span style={{ fontSize: '16px' }}>Workflow Parameters</span>
         </Space>
       }
       size='small'

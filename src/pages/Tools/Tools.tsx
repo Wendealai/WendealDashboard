@@ -80,7 +80,7 @@ const Tools: React.FC = () => {
 
       {/* Page title */}
       <div className='page-header'>
-        <Title level={2} style={{ marginBottom: 8 }}>
+        <Title level={2} style={{ marginBottom: 8, fontSize: '22px' }}>
           <span style={{ display: 'flex', alignItems: 'center' }}>
             <ToolOutlined style={{ marginRight: 12 }} />
             {t('navigation.tools')}
@@ -164,15 +164,18 @@ const Tools: React.FC = () => {
             title={
               <Space>
                 <FilterOutlined />
-                {selectedWorkflow?.id === 'invoice-ocr-workflow'
-                  ? t('informationDashboard.invoiceOCRRecognition')
-                  : selectedWorkflow?.id === 'universal-ocr-workflow'
-                    ? 'Universal OCR Processing'
-                    : selectedWorkflow?.id === 'smart-opportunities'
-                      ? 'Smart Opportunities'
-                      : selectedWorkflow?.id === 'tax-invoice-receipt-workflow'
-                        ? 'Tax Invoice/Receipt'
-                        : t('informationDashboard.title')}
+                <span style={{ fontSize: '16px' }}>
+                  {selectedWorkflow?.id === 'invoice-ocr-workflow'
+                    ? t('informationDashboard.invoiceOCRRecognition')
+                    : selectedWorkflow?.id === 'universal-ocr-workflow'
+                      ? 'Universal OCR Processing'
+                      : selectedWorkflow?.id === 'smart-opportunities'
+                        ? 'Smart Opportunities'
+                        : selectedWorkflow?.id ===
+                            'tax-invoice-receipt-workflow'
+                          ? 'Tax Invoice/Receipt'
+                          : t('informationDashboard.title')}
+                </span>
               </Space>
             }
             className='data-display-card'

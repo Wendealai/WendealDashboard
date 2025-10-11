@@ -40,6 +40,12 @@ const NotificationDemo = lazy(
   () => import('@/pages/NotificationDemo/NotificationDemo')
 );
 
+// CRM
+const CRMPage = lazy(() => import('@/pages/CRM'));
+
+// Docmost
+const DocmostPage = lazy(() => import('@/pages/Docmost'));
+
 export const routes: RouteConfig[] = [
   // Routes without layout (login, register)
   {
@@ -123,6 +129,26 @@ export const routes: RouteConfig[] = [
           requiresAuth: true,
           roles: ['admin', 'user'],
           icon: 'ToolOutlined',
+        },
+      },
+      {
+        path: 'crm',
+        element: CRMPage,
+        meta: {
+          title: 'navigation.crm',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'TeamOutlined',
+        },
+      },
+      {
+        path: 'docmost',
+        element: DocmostPage,
+        meta: {
+          title: 'navigation.docmost',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'FileTextOutlined',
         },
       },
       {

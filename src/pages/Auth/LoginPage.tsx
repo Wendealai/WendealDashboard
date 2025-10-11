@@ -14,8 +14,8 @@ const LoginPage: React.FC = () => {
   const location = useLocation();
   const { user, isAuthenticated, isLoading } = useAuth();
 
-  // 获取重定向路径，默认为仪表板
-  const from = (location.state as any)?.from?.pathname || '/dashboard';
+  // 获取重定向路径，默认为首页
+  const from = (location.state as any)?.from?.pathname || '/';
 
   // 处理已登录用户的自动跳转
   useEffect(() => {

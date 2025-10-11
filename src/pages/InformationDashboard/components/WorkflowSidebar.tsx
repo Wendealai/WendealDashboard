@@ -428,7 +428,7 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           title={
             <Space>
               <SettingOutlined />
-              <span>
+              <span style={{ fontSize: '16px' }}>
                 {t('informationDashboard.workflowPanel.workflowList')}
               </span>
             </Space>

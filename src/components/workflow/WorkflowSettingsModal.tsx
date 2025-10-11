@@ -5,6 +5,9 @@ import {
   SettingOutlined,
   SaveOutlined,
   ReloadOutlined,
+  CloudDownloadOutlined,
+  CloudUploadOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import Modal from '../common/Modal';
 import type { ModalProps } from '../common/Modal';
@@ -268,8 +271,141 @@ const WorkflowSettingsModal: React.FC<WorkflowSettingsModalProps> = ({
     }
   }, [visible, initialSettings, form]);
 
+  /**
+   * Handle export settings
+   */
+  const handleExport = async () => {
+    try {
+      setLoading(true);
+      const exportData = await workflowSettingsService.exportSettings();
+      const blob = new Blob([exportData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `workflow-settings-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      message.success('Settings exported successfully');
+    } catch (error) {
+      console.error('Failed to export settings:', error);
+      message.error('Error occurred while exporting settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Handle import settings
+   */
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async e => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        setLoading(true);
+        const text = await file.text();
+        const response = await workflowSettingsService.importSettings(text);
+
+        if (response.success && response.data) {
+          message.success('Settings imported successfully');
+          // Reload current settings
+          if (workflowId) {
+            loadSettings();
+          }
+        } else {
+          message.error(response.error || 'Failed to import settings');
+        }
+      } catch (error) {
+        console.error('Failed to import settings:', error);
+        message.error('Error occurred while importing settings');
+      } finally {
+        setLoading(false);
+      }
+    };
+    input.click();
+  };
+
+  /**
+   * Handle clear all data
+   */
+  const handleClearAllData = async () => {
+    if (
+      !window.confirm(
+        'Are you sure you want to clear all workflow settings? This action cannot be undone.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await workflowSettingsService.clearAllData();
+      message.success('All settings cleared successfully');
+      handleClose();
+    } catch (error) {
+      console.error('Failed to clear all data:', error);
+      message.error('Error occurred while clearing data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Custom footer buttons
   const footerButtons = [
+    <button
+      key='clear'
+      type='button'
+      className='ant-btn ant-btn-danger'
+      onClick={handleClearAllData}
+      disabled={loading || readonly}
+      style={{
+        marginRight: 8,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+      }}
+    >
+      <DeleteOutlined />
+      Clear All Data
+    </button>,
+    <button
+      key='export'
+      type='button'
+      className='ant-btn ant-btn-default'
+      onClick={handleExport}
+      disabled={loading || readonly}
+      style={{
+        marginRight: 8,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+      }}
+    >
+      <CloudDownloadOutlined />
+      Export
+    </button>,
+    <button
+      key='import'
+      type='button'
+      className='ant-btn ant-btn-default'
+      onClick={handleImport}
+      disabled={loading || readonly}
+      style={{
+        marginRight: 8,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+      }}
+    >
+      <CloudUploadOutlined />
+      Import
+    </button>,
     <button
       key='reset'
       type='button'

@@ -140,10 +140,10 @@ const SocialMedia: React.FC = () => {
 
       {/* Page title */}
       <div className='page-header'>
-        <Title level={2}>
+        <Title level={2} style={{ fontSize: '22px' }}>
           <DashboardOutlined /> {t('navigation.socialMedia')}
         </Title>
-        <Paragraph>
+        <Paragraph style={{ fontSize: '16px' }}>
           {t(
             'socialMedia.subtitle',
             'Social Media Content Management and Analysis Platform'
@@ -161,7 +161,9 @@ const SocialMedia: React.FC = () => {
             title={
               <Space>
                 <ApiOutlined />
-                {t('socialMedia.workflowManagement', 'Workflow List')}
+                <span style={{ fontSize: '16px' }}>
+                  {t('socialMedia.workflowManagement', 'Workflow List')}
+                </span>
               </Space>
             }
             className='workflow-panel-card'
@@ -180,14 +182,16 @@ const SocialMedia: React.FC = () => {
             title={
               <Space>
                 <FilterOutlined />
-                {selectedWorkflow?.id === 'rednote-content-generator'
-                  ? 'Rednote Content Generator'
-                  : selectedWorkflow?.id ===
-                      'international-social-media-generator'
-                    ? 'International Social Media Generator'
-                    : selectedWorkflow?.id === 'video-generation'
-                      ? 'Video Generation'
-                      : t('socialMedia.title', 'Social Media Dashboard')}
+                <span style={{ fontSize: '16px' }}>
+                  {selectedWorkflow?.id === 'rednote-content-generator'
+                    ? 'Rednote Content Generator'
+                    : selectedWorkflow?.id ===
+                        'international-social-media-generator'
+                      ? 'International Social Media Generator'
+                      : selectedWorkflow?.id === 'video-generation'
+                        ? 'Video Generation'
+                        : t('socialMedia.title', 'Social Media Dashboard')}
+                </span>
               </Space>
             }
             className='data-display-card'
@@ -224,7 +228,7 @@ const SocialMedia: React.FC = () => {
                   />
                   <Typography.Text
                     type='secondary'
-                    style={{ fontSize: '16px', textAlign: 'center' }}
+                    style={{ fontSize: '14px', textAlign: 'center' }}
                   >
                     Please select a workflow to execute
                   </Typography.Text>

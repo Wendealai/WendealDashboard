@@ -159,7 +159,7 @@ const TextToImageTab: React.FC<TextToImageTabProps> = memo(
       <div className='text-to-image-tab'>
         <Form form={form} layout='vertical' disabled={loading}>
           <Form.Item
-            label='图像描述'
+            label={<span style={{ fontSize: '14px' }}>图像描述</span>}
             name='prompt'
             rules={[
               { required: true, message: '请输入图像描述' },
@@ -239,7 +239,9 @@ const TextToImageTab: React.FC<TextToImageTabProps> = memo(
           <>
             <Divider />
             <div className='generation-result'>
-              <Title level={4}>生成结果</Title>
+              <Title level={4} style={{ fontSize: '16px' }}>
+                生成结果
+              </Title>
               <Space direction='vertical' style={{ width: '100%' }}>
                 <div className='image-preview'>
                   <Image
@@ -264,16 +266,18 @@ const TextToImageTab: React.FC<TextToImageTabProps> = memo(
                 </div>
 
                 <div className='image-info'>
-                  <Text type='secondary'>提示词: {generatedImage.prompt}</Text>
+                  <Text type='secondary' style={{ fontSize: '12px' }}>
+                    提示词: {generatedImage.prompt}
+                  </Text>
                   <br />
-                  <Text type='secondary'>
+                  <Text type='secondary' style={{ fontSize: '12px' }}>
                     生成时间:{' '}
                     {new Date(generatedImage.createdAt).toLocaleString()}
                   </Text>
                   {generatedImage.processingTime && (
                     <>
                       <br />
-                      <Text type='secondary'>
+                      <Text type='secondary' style={{ fontSize: '12px' }}>
                         处理时间: {generatedImage.processingTime}ms
                       </Text>
                     </>

@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/crm-module/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-10-11T02:39:32.363Z",
+      "trigger": "initial",
+      "approvalId": "approval_1760150372334_3ztvi4syn",
+      "approvalTitle": "CRM Module Design - Iframe Integration Architecture"
+    }
+  ]
+}

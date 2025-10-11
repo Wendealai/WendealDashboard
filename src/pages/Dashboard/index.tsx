@@ -359,31 +359,51 @@ const DashboardPage: React.FC = () => {
 
   const activityColumns: ColumnsType<ActivityItem> = [
     {
-      title: t('dashboard.recentActivities.columns.user'),
+      title: (
+        <span style={{ fontSize: '14px' }}>
+          {t('dashboard.recentActivities.columns.user')}
+        </span>
+      ),
       dataIndex: 'user',
       key: 'user',
       width: 100,
     },
     {
-      title: t('dashboard.recentActivities.columns.action'),
+      title: (
+        <span style={{ fontSize: '14px' }}>
+          {t('dashboard.recentActivities.columns.action')}
+        </span>
+      ),
       dataIndex: 'action',
       key: 'action',
       width: 120,
     },
     {
-      title: t('dashboard.recentActivities.columns.target'),
+      title: (
+        <span style={{ fontSize: '14px' }}>
+          {t('dashboard.recentActivities.columns.target')}
+        </span>
+      ),
       dataIndex: 'target',
       key: 'target',
       width: 150,
     },
     {
-      title: t('dashboard.recentActivities.columns.time'),
+      title: (
+        <span style={{ fontSize: '14px' }}>
+          {t('dashboard.recentActivities.columns.time')}
+        </span>
+      ),
       dataIndex: 'time',
       key: 'time',
       width: 100,
     },
     {
-      title: t('dashboard.recentActivities.columns.status'),
+      title: (
+        <span style={{ fontSize: '14px' }}>
+          {t('dashboard.recentActivities.columns.status')}
+        </span>
+      ),
       dataIndex: 'status',
       key: 'status',
       width: 80,
@@ -444,11 +464,13 @@ const DashboardPage: React.FC = () => {
       <div className='dashboard-header'>
         <div className='header-content'>
           <div>
-            <Title level={2} style={{ margin: 0 }}>
+            <Title level={2} style={{ margin: 0, fontSize: '22px' }}>
               {t('dashboard.title')}
             </Title>
             {user && (
-              <div style={{ marginTop: '8px', color: '#666' }}>
+              <div
+                style={{ marginTop: '8px', color: '#666', fontSize: '14px' }}
+              >
                 {t('dashboard.welcome', {
                   username: user.username,
                   role: user.role,
@@ -513,7 +535,11 @@ const DashboardPage: React.FC = () => {
       <Row gutter={[24, 24]} className='charts-section'>
         <Col xs={24} lg={16}>
           <Card
-            title={t('dashboard.charts.title')}
+            title={
+              <span style={{ fontSize: '16px' }}>
+                {t('dashboard.charts.title')}
+              </span>
+            }
             className='chart-card'
             extra={
               <Space>
@@ -667,7 +693,11 @@ const DashboardPage: React.FC = () => {
         </Col>
         <Col xs={24} lg={8}>
           <Card
-            title={t('dashboard.systemStatus.title')}
+            title={
+              <span style={{ fontSize: '16px' }}>
+                {t('dashboard.systemStatus.title')}
+              </span>
+            }
             className='system-status-card'
             extra={
               canViewAdvancedStats && (
@@ -841,7 +871,11 @@ const DashboardPage: React.FC = () => {
       <Row gutter={[24, 24]} className='bottom-section'>
         <Col xs={24} lg={16}>
           <Card
-            title={t('dashboard.recentActivities.title')}
+            title={
+              <span style={{ fontSize: '16px' }}>
+                {t('dashboard.recentActivities.title')}
+              </span>
+            }
             className='activity-card'
             extra={
               <ExportButton
