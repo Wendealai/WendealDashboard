@@ -1,5 +1,22 @@
 # 🚀 Wendeal Dashboard
 
+## 版本与发布
+
+- 版本策略：遵循语义化版本（SemVer），采用 `MAJOR.MINOR.PATCH`
+- 提交规范：遵循 Conventional Commits（如 `feat(docmost): ...`）
+- 升级命令：`npm version <patch|minor|major> -m "release: v%s – <概要>"`
+- 推送步骤：`git push origin master && git push origin --tags`
+- 标签与发布：使用 GitHub Releases，对应标签如 `v0.1.0`
+- 变更日志：详见 `CHANGELOG.md`
+
+本次发布（v0.1.0）概要：
+
+- 将 Docmost iframe 切换到 `https://docmost.wendealai.com.au`
+- 更新全局 CSP 与客户端安全头，允许 `.com.au` 域名嵌入与表单提交
+- 扩展 iframe sandbox，允许顶层导航与存储访问的用户激活
+
+注意事项：建议通过同站域（如 `dashboard.wendealai.com` 与 `docmost.wendealai.com.au`）部署，避免第三方 Cookie 被阻止导致登录会话无法建立；确保服务端 CSP 已应用最新域名策略。
+
 > 一个现代化的企业级React应用，支持信息仪表板、发票OCR、Reddit内容聚合和商业机会发现等功能。
 
 ## 📋 快速开始
@@ -7,18 +24,22 @@
 ### 🎯 一键启动（推荐）
 
 #### 方法1：完整启动脚本
+
 双击运行项目根目录的 `start-project.bat` 文件
 
 **自动执行：**
+
 - ✅ 环境检查（Node.js、npm）
 - ✅ 依赖安装
 - ✅ 端口检查
 - ✅ 启动开发服务器
 
 #### 方法2：桌面快捷方式
+
 运行 `create-desktop-shortcut.bat` 创建桌面快捷方式，然后双击桌面图标启动
 
 #### 方法3：快速启动
+
 双击运行 `quick-start.bat` 文件（适用于依赖已安装的情况）
 
 ### 🔧 手动启动
@@ -91,6 +112,7 @@ yarn dev
 ### 🔍 核心功能
 
 #### Invoice OCR 发票识别
+
 智能发票处理功能，支持多种格式文件的上传和自动数据提取：
 
 - **多格式支持**: PDF、JPG、JPEG、PNG、TIFF文件格式
