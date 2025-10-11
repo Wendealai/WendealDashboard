@@ -1986,4 +1986,9 @@ export default {
       saveSuccess: 'Saved successfully',
     },
   },
+  tools: {
+    workflow: {
+      title: 'File Converter',
+    },
+  },
 };

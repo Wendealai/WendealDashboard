@@ -1,38 +1,38 @@
 /**
  * Security Headers Component
- * Manages Content Security Policy and other security headers for CRM iframe
+ * Manages Content Security Policy and other security headers for Calendar iframe
  */
 
 import { useEffect } from 'react';
 
 /**
  * Security Headers Component
- * Configures CSP and other security headers for CRM integration
+ * Configures CSP and other security headers for Calendar integration
  */
 const SecurityHeaders: React.FC = () => {
   useEffect(() => {
-    // Configure Content Security Policy for CRM iframe
+    // Configure Content Security Policy for Calendar iframe
     const configureCSP = () => {
       // Note: In a production environment, CSP should be set via server headers
       // This is a client-side fallback for development
 
       const cspDirectives = [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://crm.wendealai.com.au",
-        "style-src 'self' 'unsafe-inline' https://crm.wendealai.com.au https://fonts.googleapis.com",
-        "img-src 'self' data: https: https://crm.wendealai.com.au",
-        "font-src 'self' https://fonts.gstatic.com https://crm.wendealai.com.au",
-        "connect-src 'self' https://crm.wendealai.com.au wss://crm.wendealai.com.au",
-        "frame-src 'self' https://crm.wendealai.com.au",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://calendar.google.com https://www.google.com https://www.gstatic.com",
+        "style-src 'self' 'unsafe-inline' https://calendar.google.com https://www.google.com https://fonts.googleapis.com https://www.gstatic.com",
+        "img-src 'self' data: https: https://calendar.google.com https://www.google.com https://www.gstatic.com",
+        "font-src 'self' https://fonts.gstatic.com https://calendar.google.com https://www.gstatic.com",
+        "connect-src 'self' https://calendar.google.com https://www.google.com https://www.gstatic.com wss://calendar.google.com",
+        "frame-src 'self' https://calendar.google.com",
         "object-src 'none'",
         "base-uri 'self'",
-        "form-action 'self' https://crm.wendealai.com.au",
+        "form-action 'self' https://calendar.google.com https://www.google.com",
         "frame-ancestors 'self'",
       ];
 
       // In development, we log the CSP configuration
       if (process.env.NODE_ENV === 'development') {
-        console.log('CRM Security Configuration:', {
+        console.log('Calendar Security Configuration:', {
           csp: cspDirectives.join('; '),
           note: 'CSP should be configured server-side in production',
         });
@@ -45,7 +45,7 @@ const SecurityHeaders: React.FC = () => {
       // Referrer-Policy is configured in the iframe component
 
       if (process.env.NODE_ENV === 'development') {
-        console.log('CRM Security Headers:', {
+        console.log('Calendar Security Headers:', {
           'X-Frame-Options': 'SAMEORIGIN (via CSP)',
           'Referrer-Policy': 'strict-origin-when-cross-origin (via iframe)',
           'Permissions-Policy': 'Not configured (iframe handles permissions)',

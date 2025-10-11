@@ -35,6 +35,9 @@ import {
   FileTextOutlined,
   ToolOutlined,
   TeamOutlined,
+  CalendarOutlined,
+  ReadOutlined,
+  FolderOutlined,
 } from '@ant-design/icons';
 import WhatsNewPanel from './WhatsNewPanel';
 import {
@@ -161,10 +164,16 @@ const MainLayout: React.FC = () => {
         return <SafetyCertificateOutlined />;
       case 'FileTextOutlined':
         return <FileTextOutlined />;
+      case 'CalendarOutlined':
+        return <CalendarOutlined />;
+      case 'ReadOutlined':
+        return <ReadOutlined />;
       case 'ToolOutlined':
         return <ToolOutlined />;
       case 'TeamOutlined':
         return <TeamOutlined />;
+      case 'FolderOutlined':
+        return <FolderOutlined />;
       default:
         return null;
     }

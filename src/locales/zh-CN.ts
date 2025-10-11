@@ -201,7 +201,10 @@ export default {
     rndReport: 'R&D报告',
     tools: '工具',
     crm: 'CRM',
+    files: '文件',
     docmost: 'Document',
+    note: '笔记',
+    calendar: '日历',
     logout: '退出登录',
   },
 
@@ -2039,6 +2042,46 @@ export default {
       renameSuccess: '报告 "{{oldName}}" 已重命名为 "{{newName}}"',
       updateSuccess: '更新成功',
       saveSuccess: '保存成功',
+    },
+  },
+
+  // Calendar
+  calendar: {
+    loading: '正在加载日历系统...',
+    iframeTitle: 'Google Calendar',
+    errors: {
+      loadFailed: '加载日历系统失败',
+      title: '日历不可用',
+      maxRetries: '已达到最大重试次数',
+      retry: '重试',
+    },
+  },
+
+  // Tools
+  tools: {
+    workflow: {
+      title: 'File Converter',
+      subtitle: '多格式文件转换和处理工具',
+      iframeTitle: '文件转换器',
+      loading: '正在加载文件转换器...',
+      errors: {
+        loadFailed: '加载文件转换器失败',
+        title: '文件转换器不可用',
+        maxRetries: '已达到最大重试次数',
+        retry: '重试',
+      },
+    },
+  },
+
+  // Files
+  files: {
+    loading: '正在加载文件管理系统...',
+    iframeTitle: '文件管理系统',
+    errors: {
+      loadFailed: '加载文件管理系统失败',
+      title: '文件管理系统不可用',
+      maxRetries: '已达到最大重试次数',
+      retry: '重试',
     },
   },
 };

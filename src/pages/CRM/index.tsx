@@ -22,7 +22,8 @@ const CRMPage: React.FC = () => {
   const { t } = useTranslation();
 
   // CRM instance URL - configurable via environment variables
-  const crmUrl = process.env.REACT_APP_CRM_URL || 'https://crm.wendealai.com';
+  const crmUrl =
+    process.env.REACT_APP_CRM_URL || 'https://crm.wendealai.com.au';
 
   return (
     <div className='crm-page crm-page-layout-override'>

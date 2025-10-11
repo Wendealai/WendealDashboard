@@ -1,0 +1,177 @@
+/**
+ * Tools Workflow Container Styles
+ * Responsive iframe integration for business tools
+ */
+
+/* Main container */
+.tools-workflow-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--component-background, #ffffff);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Loading state */
+.tools-workflow-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 400px;
+  padding: 20px;
+  background: var(--component-background, #ffffff);
+}
+
+/* Error state */
+.tools-workflow-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 400px;
+  padding: 20px;
+  background: var(--component-background, #ffffff);
+}
+
+/* Responsive container for business tools iframe */
+.tools-workflow-responsive {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: calc(100vh - 200px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--component-background, #ffffff);
+}
+
+/* Iframe styles */
+.tools-workflow-iframe {
+  width: 100%;
+  height: 100%;
+  min-height: calc(100vh - 200px);
+  border: none;
+  border-radius: 8px;
+  background: var(--component-background, #ffffff);
+  flex: 1;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 576px) {
+  .tools-workflow-responsive {
+    min-height: calc(100vh - 150px);
+  }
+
+  .tools-workflow-iframe {
+    min-height: calc(100vh - 150px);
+  }
+}
+
+@media (min-width: 577px) and (max-width: 768px) {
+  .tools-workflow-responsive {
+    min-height: calc(100vh - 180px);
+  }
+
+  .tools-workflow-iframe {
+    min-height: calc(100vh - 180px);
+  }
+}
+
+@media (min-width: 769px) and (max-width: 992px) {
+  .tools-workflow-responsive {
+    min-height: calc(100vh - 200px);
+  }
+
+  .tools-workflow-iframe {
+    min-height: calc(100vh - 200px);
+  }
+}
+
+@media (min-width: 993px) and (max-width: 1200px) {
+  .tools-workflow-responsive {
+    min-height: calc(100vh - 220px);
+  }
+
+  .tools-workflow-iframe {
+    min-height: calc(100vh - 220px);
+  }
+}
+
+@media (min-width: 1201px) {
+  .tools-workflow-responsive {
+    max-width: 100%;
+    min-height: calc(100vh - 240px);
+  }
+
+  .tools-workflow-iframe {
+    min-height: calc(100vh - 240px);
+  }
+}
+
+/* Dark theme support */
+[data-theme='dark'] .tools-workflow-container,
+[data-theme='dark'] .tools-workflow-loading,
+[data-theme='dark'] .tools-workflow-error,
+[data-theme='dark'] .tools-workflow-responsive {
+  background: var(--component-background-dark, #1f1f1f);
+}
+
+[data-theme='dark'] .tools-workflow-iframe {
+  background: var(--component-background-dark, #1f1f1f);
+}
+
+/* Loading animation */
+.tools-workflow-loading .ant-spin-nested-loading {
+  height: 100%;
+}
+
+.tools-workflow-loading .ant-spin-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Error state styling */
+.tools-workflow-error .ant-result {
+  padding: 20px;
+}
+
+.tools-workflow-error .ant-result-title {
+  color: var(--error-color, #ff4d4f);
+}
+
+.tools-workflow-error .ant-result-subtitle {
+  color: var(--text-color-secondary, #666666);
+}
+
+/* Accessibility improvements */
+.tools-workflow-iframe:focus {
+  outline: 2px solid var(--primary-color, #1890ff);
+  outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+  .tools-workflow-container {
+    break-inside: avoid;
+  }
+
+  .tools-workflow-iframe {
+    display: none;
+  }
+
+  .tools-workflow-loading,
+  .tools-workflow-error {
+    display: block !important;
+    color: #000000;
+    background: #ffffff;
+  }
+}

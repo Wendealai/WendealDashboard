@@ -35,6 +35,11 @@ const RNDReport = lazy(() => import('@/pages/RNDReport/RNDReport'));
 // Tools
 const Tools = lazy(() => import('@/pages/Tools/Tools'));
 
+// Tools Workflow Container
+const ToolsWorkflowContainer = lazy(
+  () => import('@/pages/Tools/components/ToolsWorkflowContainer')
+);
+
 // Notification Demo
 const NotificationDemo = lazy(
   () => import('@/pages/NotificationDemo/NotificationDemo')
@@ -45,6 +50,15 @@ const CRMPage = lazy(() => import('@/pages/CRM'));
 
 // Docmost
 const DocmostPage = lazy(() => import('@/pages/Docmost'));
+
+// Note
+const NotePage = lazy(() => import('@/pages/Note'));
+
+// Calendar
+const CalendarPage = lazy(() => import('@/pages/Calendar'));
+
+// Files
+const FilesPage = lazy(() => import('@/pages/Files'));
 
 export const routes: RouteConfig[] = [
   // Routes without layout (login, register)
@@ -132,6 +146,17 @@ export const routes: RouteConfig[] = [
         },
       },
       {
+        path: 'tools-workflow',
+        element: ToolsWorkflowContainer,
+        meta: {
+          title: 'tools.workflow.title',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'GlobalOutlined',
+          hideInMenu: true,
+        },
+      },
+      {
         path: 'crm',
         element: CRMPage,
         meta: {
@@ -149,6 +174,36 @@ export const routes: RouteConfig[] = [
           requiresAuth: true,
           roles: ['admin', 'user'],
           icon: 'FileTextOutlined',
+        },
+      },
+      {
+        path: 'note',
+        element: NotePage,
+        meta: {
+          title: 'Note',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'ReadOutlined',
+        },
+      },
+      {
+        path: 'calendar',
+        element: CalendarPage,
+        meta: {
+          title: 'Calendar',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'CalendarOutlined',
+        },
+      },
+      {
+        path: 'files',
+        element: FilesPage,
+        meta: {
+          title: 'Files',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'FolderOutlined',
         },
       },
       {

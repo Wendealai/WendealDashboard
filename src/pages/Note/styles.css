@@ -1,0 +1,265 @@
+/**
+ * Note Page Styles
+ * Custom styles for Note module with iframe integration
+ */
+
+/* Note Page Container */
+.note-page {
+  height: 100vh; /* Use full viewport height for maximum iframe display */
+  display: flex;
+  flex-direction: column;
+  padding: 0; /* Remove padding for maximum iframe display */
+  margin: 0; /* Remove margin for maximum iframe display */
+  box-sizing: border-box;
+  overflow: hidden; /* Prevent scrolling at page level */
+}
+
+/* Override MainLayout Content styles for Note page */
+.note-page-layout-override .ant-layout-content {
+  margin: 0 !important; /* Remove margin from MainLayout */
+  padding: 0 !important; /* Remove padding from MainLayout */
+  background: transparent !important; /* Remove background */
+  border-radius: 0 !important; /* Remove border radius */
+  border: none !important; /* Remove border */
+  min-height: 100vh !important; /* Full viewport height */
+}
+
+/* Page Header */
+.note-page .page-header {
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+/* Page Header Title */
+.note-page .page-header .ant-typography {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-color);
+  line-height: 1.4;
+}
+
+/* Note Content Area */
+.note-content {
+  flex: 1;
+  min-height: 0; /* Allow flex child to shrink */
+  position: relative;
+  overflow: hidden;
+  height: 100vh; /* Maximize height for iframe display - full viewport */
+}
+
+/* Note Container */
+.note-container {
+  width: 100%;
+  height: 100%; /* Maximize container height */
+  position: relative;
+  overflow: hidden;
+  border: none; /* Remove border for maximum display */
+  background: transparent; /* Remove background for seamless integration */
+  box-shadow: none; /* Remove shadow for maximum display */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Note Iframe */
+.note-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent; /* Remove background for seamless integration */
+  border-radius: 0; /* Remove border radius for maximum display */
+}
+
+/* Loading States */
+.note-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 100%; /* Fill entire container */
+  color: var(--text-color-secondary);
+  background: var(--card-color);
+  border-radius: 8px;
+  flex: 1;
+}
+
+.note-loading .ant-spin-nested-loading {
+  height: 100%;
+}
+
+.note-loading .ant-spin-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Error States */
+.note-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 100%; /* Fill entire container */
+  color: var(--color-error);
+  text-align: center;
+  background: var(--card-color);
+  border-radius: 8px;
+  padding: 24px;
+  flex: 1;
+}
+
+/* Placeholder for development */
+.note-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 400px;
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  color: var(--text-color-secondary);
+  font-size: 16px;
+  text-align: center;
+  background: var(--card-color);
+  padding: 24px;
+}
+
+/* Skeleton loading styles */
+.note-loading .ant-skeleton {
+  padding: 16px;
+}
+
+.note-loading .ant-skeleton-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.note-loading .ant-skeleton-paragraph {
+  margin: 0;
+}
+
+.note-loading .ant-skeleton-button {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+/* Performance optimization - reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .note-loading .ant-skeleton {
+    animation: none;
+  }
+
+  .note-loading .ant-spin {
+    animation: none;
+  }
+}
+
+/* Responsive Design */
+
+/* Tablet and smaller screens */
+@media (max-width: 1024px) {
+  .note-page {
+    /* No gap or padding for maximum display */
+  }
+}
+
+/* Mobile screens */
+@media (max-width: 768px) {
+  .note-page {
+    /* No padding for maximum display */
+  }
+
+  .note-loading,
+  .note-error {
+    min-height: 250px;
+    padding: 16px;
+  }
+
+  .note-placeholder {
+    min-height: 300px;
+    padding: 16px;
+    font-size: 14px;
+  }
+}
+
+/* Small mobile screens */
+@media (max-width: 480px) {
+  .note-page {
+    /* No padding for maximum display */
+  }
+
+  .note-loading,
+  .note-error {
+    min-height: 200px;
+    padding: 12px;
+  }
+
+  .note-placeholder {
+    min-height: 250px;
+    padding: 12px;
+    font-size: 13px;
+  }
+}
+
+/* Large screens */
+@media (min-width: 1440px) {
+  .note-page .page-header .ant-typography {
+    font-size: 24px;
+  }
+
+  .note-container {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Print styles */
+@media print {
+  .note-page {
+    gap: 0;
+  }
+
+  .note-page .page-header {
+    display: none;
+  }
+
+  .note-container {
+    box-shadow: none;
+    border: none;
+  }
+}
+
+/* Loading States */
+.note-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--text-color-secondary);
+}
+
+/* Error States */
+.note-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--color-error);
+  text-align: center;
+}
+
+/* Placeholder for development */
+.note-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  color: var(--text-color-secondary);
+  font-size: 16px;
+  text-align: center;
+}

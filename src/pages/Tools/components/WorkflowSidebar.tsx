@@ -432,6 +432,67 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                 />
               </Col>
 
+              {/* Tools Workflow card */}
+              <Col xs={24} sm={24} md={12} lg={8} xl={6}>
+                <WorkflowCard
+                  workflow={
+                    {
+                      id: 'tools-workflow',
+                      name: t('tools.workflow.title'),
+                      description: t('tools.workflow.subtitle'),
+                      status: 'active' as const,
+                      type: 'tools-workflow' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any
+                  }
+                  selected={selectedWorkflow?.id === 'tools-workflow'}
+                  loading={false}
+                  error={null}
+                  onClick={() =>
+                    handleWorkflowSelect({
+                      id: 'tools-workflow',
+                      name: t('tools.workflow.title'),
+                      description: t('tools.workflow.subtitle'),
+                      status: 'active' as const,
+                      type: 'tools-workflow' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any)
+                  }
+                  onTrigger={() => {
+                    // Select Tools Workflow, display on the right side
+                    handleWorkflowSelect({
+                      id: 'tools-workflow',
+                      name: t('tools.workflow.title'),
+                      description: t('tools.workflow.subtitle'),
+                      status: 'active' as const,
+                      type: 'tools-workflow' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any);
+                  }}
+                  onSettings={() => {
+                    // Open settings modal
+                    handleOpenSettings(
+                      'tools-workflow',
+                      t('tools.workflow.title')
+                    );
+                  }}
+                  size='small'
+                  showActions={false} // Hide start button
+                />
+              </Col>
+
               {/* Other workflow cards */}
               {filteredWorkflows
                 .filter(w => w.name !== 'Data Sync Workflow')
