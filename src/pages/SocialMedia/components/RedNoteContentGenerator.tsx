@@ -1,24 +1,24 @@
 /**
  * RedNote Content Generator Component
- * 小红书文案生成器组件
+ * 小红书文案生成器组件 - 3步骤版本
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Card,
   Input,
   Button,
   Space,
   Typography,
-  Select,
   Tag,
   Alert,
   Spin,
+  Divider,
   Row,
   Col,
-  Divider,
-  message,
+  message as antdMessage,
   Progress,
+  Statistic,
 } from 'antd';
 import {
   EditOutlined,
@@ -26,16 +26,15 @@ import {
   CopyOutlined,
   LinkOutlined,
   ReloadOutlined,
+  FileTextOutlined,
+  FileImageOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
-import type {
-  RedNoteContentRequest,
-  RedNoteContentResponse,
-  RedNoteWebhookResponse,
-} from '../types';
+import type { RedNoteContentResponse, RedNoteWebhookResponse } from '../types';
+import './RedNoteContentGenerator.css';
 
 const { TextArea } = Input;
 const { Title, Text, Paragraph } = Typography;
-const { Option } = Select;
 
 /**
  * 小红书文案生成器组件属性接口
@@ -46,1176 +45,2020 @@ interface RedNoteContentGeneratorProps {
 }
 
 /**
- * 小红书文案生成器组件
+ * 标题生成响应接口
+ */
+interface TitleGenerationResponse {
+  title?: string;
+  alternativeTitles?: string[];
+  content?: string;
+  suggestions?: string[];
+  [key: string]: any;
+}
+
+/**
+ * 内容生成响应接口
+ */
+interface ContentGenerationResponse {
+  发布内容?: {
+    标题: string;
+    正文: string;
+    完整发布文本: string;
+    标签数组: string[];
+  };
+  统计数据?: {
+    标题字数: number;
+    正文字数: number;
+    图片卡片数量: number;
+  };
+  审核状态?: {
+    风险评估: string;
+    是否通过审核: boolean;
+    违规词修改记录: string[];
+  };
+  fullReport?: string;
+  [key: string]: any;
+}
+
+/**
+ * 图片生成响应接口
+ */
+interface ImageGenerationResponse {
+  imageUrl?: string;
+  status?: string;
+  duration?: number;
+  [key: string]: any;
+}
+
+/**
+ * 小红书文案生成器组件 - 3步骤版本
  */
 const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
   onContentGenerated,
   className,
 }) => {
-  // 状态管理
-  const [inputContent, setInputContent] = useState<string>('');
-  const [contentType, setContentType] = useState<string>(
-    '教程攻略类：美妆教程（化妆步骤、护肤流程、产品测评）'
-  );
-  const [tone, setTone] = useState<string>(
-    '亲密闺蜜风：特点（像朋友聊天一样自然亲切）'
-  );
-  const [writingTechnique, setWritingTechnique] = useState<string>(
-    '标题技巧：数字型（5个技巧、3步搞定、10款推荐）'
-  );
-  const [successFactor, setSuccessFactor] = useState<string>(
-    '真实性（真实体验和感受最容易引起共鸣）'
-  );
-  const [targetAudience, setTargetAudience] = useState<string>('');
-  const [keywords, setKeywords] = useState<string[]>([]);
-  const [keywordInput, setKeywordInput] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
-  const [progress, setProgress] = useState<number>(0);
-  const [progressText, setProgressText] = useState<string>('');
-  const [generatedResponse, setGeneratedResponse] =
-    useState<RedNoteContentResponse | null>(null);
-  const [webhookResponse, setWebhookResponse] =
-    useState<RedNoteWebhookResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Step 1: 标题生成相关状态
+  const [titleInput, setTitleInput] = useState<string>('');
+  const [titleLoading, setTitleLoading] = useState<boolean>(false);
+  const [titleProgress, setTitleProgress] = useState<number>(0);
+  const [titleProgressText, setTitleProgressText] = useState<string>('');
+  const [titleResponse, setTitleResponse] =
+    useState<TitleGenerationResponse | null>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
 
-  /**
-   * 添加关键词
-   */
-  const handleAddKeyword = useCallback(() => {
-    if (keywordInput.trim() && !keywords.includes(keywordInput.trim())) {
-      setKeywords(prev => [...prev, keywordInput.trim()]);
-      setKeywordInput('');
+  // Step 2: 内容生成相关状态
+  const [contentInput, setContentInput] = useState<string>('');
+  const [contentLoading, setContentLoading] = useState<boolean>(false);
+  const [contentProgress, setContentProgress] = useState<number>(0);
+  const [contentProgressText, setContentProgressText] = useState<string>('');
+  const [contentResponse, setContentResponse] =
+    useState<ContentGenerationResponse | null>(null);
+  const [contentError, setContentError] = useState<string | null>(null);
+
+  // Step 3: 图片生成相关状态
+  const [imagePromptInput, setImagePromptInput] = useState<string>('');
+  const [imageGenerationLoading, setImageGenerationLoading] =
+    useState<boolean>(false);
+  const [imageGenerationProgress, setImageGenerationProgress] =
+    useState<number>(0);
+  const [imageGenerationProgressText, setImageGenerationProgressText] =
+    useState<string>('');
+  const [imageResponse, setImageResponse] =
+    useState<ImageGenerationResponse | null>(null);
+  const [imageGenerationError, setImageGenerationError] = useState<
+    string | null
+  >(null);
+
+  // 使用 ref 存储当前任务信息，防止被覆盖
+  const currentTaskRef = useRef<{
+    taskId: string | null;
+    statusUrl: string | null;
+    intervalId: number | null;
+  }>({
+    taskId: null,
+    statusUrl: null,
+    intervalId: null,
+  });
+
+  // 数据持久化相关的常量和工具函数
+  const STORAGE_KEYS = {
+    TITLE_RESPONSE: 'rednote_title_response',
+    CONTENT_RESPONSE: 'rednote_content_response',
+    IMAGE_RESPONSE: 'rednote_image_response',
+  };
+
+  const saveToStorage = (key: string, data: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+      console.log(
+        '💾 Saved to localStorage:',
+        key,
+        data ? 'data present' : 'empty data'
+      );
+    } catch (error) {
+      console.warn('Failed to save to localStorage:', error);
     }
-  }, [keywordInput, keywords]);
+  };
 
-  /**
-   * 移除关键词
-   */
-  const handleRemoveKeyword = useCallback((keyword: string) => {
-    setKeywords(prev => prev.filter(k => k !== keyword));
+  const loadFromStorage = (key: string) => {
+    try {
+      const data = localStorage.getItem(key);
+      const parsed = data ? JSON.parse(data) : null;
+      console.log(
+        '📂 Loaded from localStorage:',
+        key,
+        parsed ? 'data found' : 'no data'
+      );
+      return parsed;
+    } catch (error) {
+      console.warn('Failed to load from localStorage:', error);
+      return null;
+    }
+  };
+
+  // 在组件初始化时从localStorage恢复数据
+  useEffect(() => {
+    console.log('🔄 Initializing component and loading saved data...');
+
+    const savedTitleResponse = loadFromStorage(STORAGE_KEYS.TITLE_RESPONSE);
+    const savedContentResponse = loadFromStorage(STORAGE_KEYS.CONTENT_RESPONSE);
+    const savedImageResponse = loadFromStorage(STORAGE_KEYS.IMAGE_RESPONSE);
+
+    if (savedTitleResponse) {
+      setTitleResponse(savedTitleResponse);
+      console.log('🔄 Restored title response from localStorage');
+    }
+
+    if (savedContentResponse) {
+      setContentResponse(savedContentResponse);
+      console.log('🔄 Restored content response from localStorage');
+    }
+
+    if (savedImageResponse) {
+      setImageResponse(savedImageResponse);
+      console.log('🔄 Restored image response from localStorage');
+    }
   }, []);
 
   /**
-   * 模拟进度更新
+   * Step 1: 生成爆款标题（异步模式）
    */
-  const simulateProgress = useCallback(() => {
-    const steps = [
-      { progress: 20, text: '正在分析输入内容...' },
-      { progress: 40, text: '生成创意文案中...' },
-      { progress: 60, text: '优化文案结构...' },
-      { progress: 80, text: '添加标签和关键词...' },
-      { progress: 95, text: '保存到Google Sheet...' },
-      { progress: 100, text: '生成完成！' },
-    ];
-
-    let currentStep = 0;
-    const interval = setInterval(() => {
-      if (currentStep < steps.length) {
-        const step = steps[currentStep]!;
-        setProgress(step.progress);
-        setProgressText(step.text);
-        currentStep++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 800);
-
-    return interval;
-  }, []);
-
-  /**
-   * 生成文案
-   */
-  const handleGenerateContent = useCallback(async () => {
-    if (!inputContent.trim()) {
-      message.warning('请输入要生成文案的内容');
+  const handleGenerateTitle = useCallback(async () => {
+    if (!titleInput.trim()) {
+      antdMessage.warning('Please enter title input');
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    setProgress(0);
-    setProgressText('开始生成文案...');
+    // 防止重复提交
+    if (titleLoading) {
+      console.warn(
+        '⚠️ Title generation is already running, ignoring duplicate request'
+      );
+      antdMessage.warning(
+        'Title generation is already in progress. Please wait...'
+      );
+      return;
+    }
 
-    const progressInterval = simulateProgress();
+    setTitleLoading(true);
+    setTitleError(null);
+    setTitleProgress(10);
+    setTitleProgressText('Creating title task...');
 
     try {
-      // 创建请求对象
-      const request: RedNoteContentRequest = {
-        id: `rednote_${Date.now()}`,
-        inputContent: inputContent.trim(),
-        contentType,
-        tone,
-        writingTechnique,
-        successFactor,
-        ...(targetAudience.trim() && { targetAudience: targetAudience.trim() }),
-        ...(keywords.length > 0 && { keywords }),
-        createdAt: new Date().toISOString(),
-      };
+      const webhookUrl = 'https://n8n.wendealai.com/webhook/rednotesubject';
 
-      // 调用实际的webhook API
-      const webhookUrl = 'https://n8n.wendealai.com/webhook/rednote';
-      const response = await fetch(webhookUrl, {
+      console.log('📤 Submitting title generation task...');
+
+      // 步骤1: 提交任务，获取任务ID
+      const submitResponse = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          inputContent: request.inputContent,
-          contentType: request.contentType,
-          tone: request.tone,
-          writingTechnique: request.writingTechnique,
-          successFactor: request.successFactor,
-          targetAudience: request.targetAudience,
-          keywords: request.keywords,
+          subject: titleInput.trim(),
+          timestamp: new Date().toISOString(),
         }),
+        mode: 'cors',
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const responseText = await response.text();
-
-      // 清理markdown标记并解析JSON
-      let cleanedResponseText = responseText;
-      if (cleanedResponseText.startsWith('```json')) {
-        cleanedResponseText = cleanedResponseText
-          .replace(/^```json\s*/, '')
-          .replace(/\s*```$/, '');
-      }
-
-      let parsedWebhookResponse;
-      try {
-        const parsedData = JSON.parse(cleanedResponseText);
-
-        // 如果返回的是数组，取第一个元素
-        if (Array.isArray(parsedData) && parsedData.length > 0) {
-          parsedWebhookResponse = parsedData[0].json;
-        } else if (parsedData.json) {
-          // 如果是包含json属性的对象
-          parsedWebhookResponse = parsedData.json;
-        } else {
-          // 直接就是数据对象
-          parsedWebhookResponse = parsedData;
-        }
-
-        // 验证数据结构
-        if (
-          !parsedWebhookResponse.xiaohongshu ||
-          !parsedWebhookResponse.analytics
-        ) {
-          console.warn('Webhook响应数据结构不完整，使用备用格式');
-          // 如果数据结构不完整，创建一个兼容的结构
-          parsedWebhookResponse = {
-            xiaohongshu: {
-              title: parsedWebhookResponse.title || '生成的标题',
-              content: parsedWebhookResponse.content || cleanedResponseText,
-              hashtags: parsedWebhookResponse.hashtags || '#小红书 #分享',
-              publishReady:
-                parsedWebhookResponse.publishReady || cleanedResponseText,
-              shortVersion:
-                parsedWebhookResponse.shortVersion ||
-                cleanedResponseText.substring(0, 200) + '...',
-            },
-            management: {
-              alternativeTitles: parsedWebhookResponse.alternativeTitles || [],
-              engagementHooks: parsedWebhookResponse.engagementHooks || [],
-              publishTips: parsedWebhookResponse.publishTips || [],
-              visualSuggestions: parsedWebhookResponse.visualSuggestions || [],
-              optimizationNotes: parsedWebhookResponse.optimizationNotes || [],
-            },
-            analytics: {
-              titleCount: parsedWebhookResponse.titleCount || 1,
-              totalTags: parsedWebhookResponse.totalTags || 2,
-              contentLength:
-                parsedWebhookResponse.contentLength ||
-                cleanedResponseText.length,
-              engagementQuestions:
-                parsedWebhookResponse.engagementQuestions || 0,
-              generatedAt: new Date().toLocaleString('zh-CN', {
-                timeZone: 'Asia/Shanghai',
-              }),
-            },
-            apiFormat: {
-              title: parsedWebhookResponse.title || '生成的标题',
-              content: parsedWebhookResponse.content || {
-                opening: '',
-                body: cleanedResponseText,
-                conclusion: '',
-              },
-              tags: parsedWebhookResponse.tags || [],
-              metadata: {
-                visual_suggestions:
-                  parsedWebhookResponse.visualSuggestions || [],
-                engagement_strategy:
-                  parsedWebhookResponse.engagement_strategy || {
-                    comment_hooks: [],
-                    interaction_tips: [],
-                  },
-                optimization_notes:
-                  parsedWebhookResponse.optimization_notes || [],
-              },
-            },
-          };
-        }
-      } catch (error) {
+      if (!submitResponse.ok) {
         throw new Error(
-          `JSON解析失败: ${error instanceof Error ? error.message : '未知错误'}`
+          `Failed to submit title task: ${submitResponse.status}`
         );
       }
 
-      setWebhookResponse(parsedWebhookResponse);
+      let submitData = await submitResponse.json();
 
-      // 创建兼容的响应对象 - 添加安全检查
-      const apiResponse: RedNoteContentResponse = {
-        id: `response_${Date.now()}`,
-        requestId: request.id,
-        generatedContent:
-          parsedWebhookResponse.xiaohongshu?.publishReady ||
-          cleanedResponseText,
-        title: parsedWebhookResponse.xiaohongshu?.title || '生成的标题',
-        hashtags: parsedWebhookResponse.xiaohongshu?.hashtags
-          ? parsedWebhookResponse.xiaohongshu.hashtags
-              .split(' #')
-              .filter((tag: string) => tag.trim())
-          : ['#小红书', '#分享'],
-        googleSheetUrl: `https://docs.google.com/spreadsheets/d/api_sheet_id_${Date.now()}`,
-        status: 'completed',
-        createdAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
+      console.log('📥 Raw response data:', submitData);
+
+      // 处理数组响应
+      if (Array.isArray(submitData) && submitData.length > 0) {
+        console.log('⚠️ Response is an array, extracting first item');
+        submitData = submitData[0];
+      }
+
+      console.log('✅ Parsed submit data:', submitData);
+
+      // 检查是否返回了任务ID（异步模式）
+      const resolvedTaskId =
+        submitData.taskId || submitData.taskid || submitData.id;
+      const resolvedStatus = submitData.status;
+
+      console.log('🔍 Extracted taskId:', resolvedTaskId);
+      console.log('🔍 Status:', resolvedStatus);
+
+      // 检查是否需要使用轮询模式
+      if (
+        resolvedTaskId &&
+        (resolvedStatus === 'pending' || resolvedStatus === 'processing')
+      ) {
+        const taskId = resolvedTaskId;
+
+        console.log('✅ Title task created:', taskId);
+
+        // 步骤2: 构建状态查询 URL
+        const statusUrl = `https://n8n.wendealai.com/webhook/process-subject-task/task-status/${taskId}`;
+
+        console.log('🔍 Constructed statusUrl:', statusUrl);
+
+        // 存储到 ref 中
+        currentTaskRef.current = {
+          taskId: taskId,
+          statusUrl: statusUrl,
+          intervalId: null,
+        };
+        console.log('💾 Saved to ref:', currentTaskRef.current);
+
+        setTitleProgress(20);
+        setTitleProgressText(
+          `Task created (ID: ${taskId.slice(-8)}). Processing in background...`
+        );
+
+        const initialDelay = 120000; // 2 分钟
+        const pollInterval = 15000; // 15 秒
+        const maxAttempts = 80; // 20 分钟
+        let attempts = 0;
+
+        console.log(
+          `⏰ Waiting ${initialDelay / 1000}s before first status check...`
+        );
+        setTitleProgress(25);
+        setTitleProgressText(
+          `Task submitted. Waiting 2 minutes for title generation...`
+        );
+
+        // 等待初始延迟
+        await new Promise(resolve => setTimeout(resolve, initialDelay));
+        console.log('✅ Initial delay complete, starting status checks...');
+
+        setTitleProgress(30);
+        setTitleProgressText('Starting status checks...');
+
+        const checkStatus = async (): Promise<void> => {
+          return new Promise((resolve, reject) => {
+            const intervalId = setInterval(async () => {
+              attempts++;
+              console.log(`\n${'='.repeat(60)}`);
+              console.log(
+                `⏰ Interval fired! Attempt ${attempts}/${maxAttempts}`
+              );
+              console.log(`${'='.repeat(60)}\n`);
+
+              const progress = Math.min(30 + (attempts / maxAttempts) * 65, 95);
+              setTitleProgress(progress);
+
+              const totalElapsedSeconds =
+                initialDelay / 1000 + attempts * (pollInterval / 1000);
+              const elapsedMinutes = Math.floor(totalElapsedSeconds / 60);
+              const remainingSeconds = Math.floor(totalElapsedSeconds % 60);
+
+              setTitleProgressText(
+                `Processing title... (${elapsedMinutes}m ${remainingSeconds}s elapsed) - Check ${attempts}/${maxAttempts}`
+              );
+
+              try {
+                const currentTaskId = currentTaskRef.current.taskId;
+                const currentStatusUrl = currentTaskRef.current.statusUrl;
+
+                console.log(`🔄 Polling attempt ${attempts}/${maxAttempts}...`);
+                console.log(`🔍 Polling URL: ${currentStatusUrl}`);
+                console.log(`🔍 TaskId: ${currentTaskId}`);
+
+                if (!currentStatusUrl || !currentTaskId) {
+                  console.error('❌ Task info missing from ref!');
+                  throw new Error('Task information lost. Please try again.');
+                }
+
+                const statusResponse = await fetch(currentStatusUrl, {
+                  method: 'GET',
+                  mode: 'cors',
+                });
+
+                console.log(
+                  '📊 Status response status:',
+                  statusResponse.status
+                );
+                console.log('📊 Status response ok:', statusResponse.ok);
+
+                if (!statusResponse.ok) {
+                  console.error(
+                    '❌ Status check failed with status:',
+                    statusResponse.status
+                  );
+                  if (statusResponse.status === 404) {
+                    console.warn('Task not found, will retry...');
+                    return;
+                  }
+                  throw new Error(
+                    `Status check failed: ${statusResponse.status}`
+                  );
+                }
+
+                // 检查响应是否为空
+                const responseText = await statusResponse.text();
+                console.log('🔍 Raw response text:', responseText);
+
+                if (!responseText || responseText.trim() === '') {
+                  console.warn('⚠️ Empty response received, will retry...');
+                  return;
+                }
+
+                let statusData;
+                try {
+                  statusData = JSON.parse(responseText);
+                  console.log(
+                    '✅ Successfully parsed status data:',
+                    statusData
+                  );
+                } catch (parseError) {
+                  console.error(
+                    '❌ Failed to parse response as JSON:',
+                    parseError
+                  );
+                  console.error('Raw response:', responseText);
+                  console.warn('⚠️ JSON parse failed, will retry...');
+                  return;
+                }
+                console.log('📊 Task status:', statusData);
+
+                if (statusData.status === 'completed') {
+                  // ✅ 任务完成
+                  clearInterval(intervalId);
+                  setTitleProgress(100);
+                  setTitleProgressText('Title generation complete!');
+
+                  console.log('🎉 Title task completed!');
+                  console.log('📄 Result:', statusData.result);
+
+                  // 处理生成的结果
+                  const result = statusData.result;
+
+                  console.log('🎉 Task completed! Processing result:', result);
+
+                  setTitleResponse(result);
+                  saveToStorage(STORAGE_KEYS.TITLE_RESPONSE, result);
+
+                  antdMessage.success({
+                    content: `Title generated successfully! (${statusData.duration || 0}s)`,
+                    duration: 5,
+                  });
+                  setTitleLoading(false);
+                  resolve();
+                } else if (statusData.status === 'failed') {
+                  // ❌ 任务失败
+                  clearInterval(intervalId);
+                  console.error('❌ Title task failed:', statusData.error);
+
+                  const errorMessage =
+                    statusData.error || 'Title processing failed';
+                  setTitleError(errorMessage);
+                  antdMessage.error({
+                    content: `Title generation failed: ${errorMessage}`,
+                    duration: 10,
+                  });
+                  setTitleProgress(0);
+                  setTitleProgressText('');
+                  setTitleLoading(false);
+                  reject(new Error(errorMessage));
+                } else if (statusData.status === 'processing') {
+                  // 🔄 处理中
+                  console.log('⏳ Title is processing...');
+                } else if (statusData.status === 'pending') {
+                  // ⏰ 等待中
+                  console.log('⏰ Title is pending...');
+                } else if (statusData.status === 'not_found') {
+                  // 🚨 任务未找到
+                  console.warn('⚠️ Task not found in database');
+                  // 继续轮询，可能任务还在处理中
+                } else {
+                  // 🤔 未知状态
+                  console.warn('⚠️ Unknown status:', statusData.status);
+                }
+              } catch (pollError: any) {
+                console.error('Polling error:', pollError);
+
+                if (attempts > 10 && attempts % 10 === 0) {
+                  const currentTaskId = currentTaskRef.current.taskId;
+                  console.warn(`⚠️ Polling failed ${attempts} times.`);
+                  console.warn(
+                    `💡 Check n8n workflow executions for taskId: ${currentTaskId}`
+                  );
+
+                  antdMessage.warning({
+                    content: `Still waiting for title generation (attempt ${attempts}/${maxAttempts}). This may take several minutes...`,
+                    duration: 3,
+                  });
+                }
+              }
+
+              if (attempts >= maxAttempts) {
+                clearInterval(intervalId);
+                const currentTaskId = currentTaskRef.current.taskId;
+                const totalWaitTime =
+                  (initialDelay + maxAttempts * pollInterval) / 1000;
+                const totalMinutes = Math.floor(totalWaitTime / 60);
+                reject(
+                  new Error(
+                    `Title generation timeout: Exceeded maximum wait time (${totalMinutes} minutes).\n` +
+                      `Task ID: ${currentTaskId}\n` +
+                      `You can check the status manually in n8n.`
+                  )
+                );
+              }
+            }, pollInterval);
+          });
+        };
+
+        // 执行轮询
+        await checkStatus();
+        console.log('✅ Title generation checkStatus() completed!');
+      } else {
+        // ⚠️ 异常情况
+        console.warn('⚠️ Unexpected response format - missing taskId');
+        console.warn('Response:', submitData);
+        throw new Error(
+          'Invalid workflow response: Expected taskId for async processing.'
+        );
+      }
+    } catch (err: any) {
+      console.error('Title generation failed:', err);
+      const errorMessage = err.message || 'Title generation failed';
+      setTitleError(errorMessage);
+      antdMessage.error({
+        content: errorMessage,
+        duration: 10,
+      });
+      setTitleProgress(0);
+      setTitleProgressText('');
+    } finally {
+      setTitleLoading(false);
+      // 清除 ref
+      currentTaskRef.current = {
+        taskId: null,
+        statusUrl: null,
+        intervalId: null,
+      };
+      console.log('🧹 Cleared task ref');
+    }
+  }, [titleInput]);
+
+  /**
+   * Step 2: 根据标题生成内容
+   */
+  const handleGenerateContent = useCallback(async () => {
+    if (!contentInput.trim()) {
+      antdMessage.warning('Please enter content input');
+      return;
+    }
+
+    // 防止重复提交
+    if (contentLoading) {
+      console.warn(
+        '⚠️ Content generation is already running, ignoring duplicate request'
+      );
+      antdMessage.warning(
+        'Content generation is already in progress. Please wait...'
+      );
+      return;
+    }
+
+    setContentLoading(true);
+    setContentError(null);
+    setContentProgress(10);
+    setContentProgressText('Creating content task...');
+
+    try {
+      const webhookUrl = 'https://n8n.wendealai.com/webhook/rednotecontent';
+
+      console.log('📤 Submitting content generation task...');
+
+      // 步骤1: 提交任务，获取任务ID
+      const submitResponse = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: contentInput.trim(),
+          timestamp: new Date().toISOString(),
+        }),
+        mode: 'cors',
+      });
+
+      if (!submitResponse.ok) {
+        throw new Error(
+          `Failed to submit content task: ${submitResponse.status}`
+        );
+      }
+
+      let submitData = await submitResponse.json();
+
+      console.log('📥 Raw response data:', submitData);
+
+      // 处理数组响应
+      if (Array.isArray(submitData) && submitData.length > 0) {
+        console.log('⚠️ Response is an array, extracting first item');
+        submitData = submitData[0];
+      }
+
+      console.log('✅ Parsed submit data:', submitData);
+
+      // 检查是否返回了任务ID（异步模式）
+      const resolvedTaskId =
+        submitData.taskId || submitData.taskid || submitData.id;
+      const resolvedStatus = submitData.status;
+
+      console.log('🔍 Extracted taskId:', resolvedTaskId);
+      console.log('🔍 Status:', resolvedStatus);
+
+      // 检查是否需要使用轮询模式
+      if (
+        resolvedTaskId &&
+        (resolvedStatus === 'pending' || resolvedStatus === 'processing')
+      ) {
+        const taskId = resolvedTaskId;
+
+        console.log('✅ Content task created:', taskId);
+
+        // 步骤2: 构建状态查询 URL（修复：使用正确的 webhook URL）
+        const statusUrl = `https://n8n.wendealai.com/webhook/dd799957-2702-4175-999c-8febc2048cd8/task-status/${taskId}`;
+
+        console.log('🔍 Constructed statusUrl:', statusUrl);
+
+        // 存储到 ref 中
+        currentTaskRef.current = {
+          taskId: taskId,
+          statusUrl: statusUrl,
+          intervalId: null,
+        };
+        console.log('💾 Saved to ref:', currentTaskRef.current);
+
+        setContentProgress(20);
+        setContentProgressText(
+          `Task created (ID: ${taskId.slice(-8)}). Processing in background...`
+        );
+
+        const initialDelay = 120000; // 2 分钟
+        const pollInterval = 15000; // 15 秒
+        const maxAttempts = 80; // 20 分钟
+        let attempts = 0;
+
+        console.log(
+          `⏰ Waiting ${initialDelay / 1000}s before first status check...`
+        );
+        setContentProgress(25);
+        setContentProgressText(
+          `Task submitted. Waiting 2 minutes for content generation...`
+        );
+
+        // 等待初始延迟
+        await new Promise(resolve => setTimeout(resolve, initialDelay));
+        console.log('✅ Initial delay complete, starting status checks...');
+
+        setContentProgress(30);
+        setContentProgressText('Starting status checks...');
+
+        const checkStatus = async (): Promise<void> => {
+          return new Promise((resolve, reject) => {
+            const intervalId = setInterval(async () => {
+              attempts++;
+              console.log(`\n${'='.repeat(60)}`);
+              console.log(
+                `⏰ Interval fired! Attempt ${attempts}/${maxAttempts}`
+              );
+              console.log(`${'='.repeat(60)}\n`);
+
+              const progress = Math.min(30 + (attempts / maxAttempts) * 65, 95);
+              setContentProgress(progress);
+
+              const totalElapsedSeconds =
+                initialDelay / 1000 + attempts * (pollInterval / 1000);
+              const elapsedMinutes = Math.floor(totalElapsedSeconds / 60);
+              const remainingSeconds = Math.floor(totalElapsedSeconds % 60);
+
+              setContentProgressText(
+                `Processing content... (${elapsedMinutes}m ${remainingSeconds}s elapsed) - Check ${attempts}/${maxAttempts}`
+              );
+
+              try {
+                const currentTaskId = currentTaskRef.current.taskId;
+                const currentStatusUrl = currentTaskRef.current.statusUrl;
+
+                console.log(`🔄 Polling attempt ${attempts}/${maxAttempts}...`);
+                console.log(`🔍 Polling URL: ${currentStatusUrl}`);
+                console.log(`🔍 TaskId: ${currentTaskId}`);
+
+                if (!currentStatusUrl || !currentTaskId) {
+                  console.error('❌ Task info missing from ref!');
+                  throw new Error('Task information lost. Please try again.');
+                }
+
+                const statusResponse = await fetch(currentStatusUrl, {
+                  method: 'GET',
+                  mode: 'cors',
+                });
+
+                console.log(
+                  '📊 Status response status:',
+                  statusResponse.status
+                );
+                console.log('📊 Status response ok:', statusResponse.ok);
+
+                if (!statusResponse.ok) {
+                  console.error(
+                    '❌ Status check failed with status:',
+                    statusResponse.status
+                  );
+                  if (statusResponse.status === 404) {
+                    console.warn('Task not found, will retry...');
+                    return;
+                  }
+                  throw new Error(
+                    `Status check failed: ${statusResponse.status}`
+                  );
+                }
+
+                // 检查响应是否为空
+                const responseText = await statusResponse.text();
+                console.log('🔍 Raw response text:', responseText);
+
+                if (!responseText || responseText.trim() === '') {
+                  console.warn('⚠️ Empty response received, will retry...');
+                  return;
+                }
+
+                let statusData;
+                try {
+                  statusData = JSON.parse(responseText);
+                  console.log(
+                    '✅ Successfully parsed status data:',
+                    statusData
+                  );
+                } catch (parseError) {
+                  console.error(
+                    '❌ Failed to parse response as JSON:',
+                    parseError
+                  );
+                  console.error('Raw response:', responseText);
+                  // 不要抛出错误，继续重试
+                  console.warn('⚠️ JSON parse failed, will retry...');
+                  return;
+                }
+                console.log('📊 Task status:', statusData);
+
+                if (statusData.status === 'completed') {
+                  // ✅ 任务完成
+                  clearInterval(intervalId);
+                  setContentProgress(100);
+                  setContentProgressText('Content generation complete!');
+
+                  console.log('🎉 Content task completed!');
+                  console.log('📄 Result:', statusData.result);
+
+                  // 处理生成的结果
+                  const result = statusData.result;
+
+                  console.log('🎉 Task completed! Processing result:', result);
+
+                  setContentResponse(result);
+                  saveToStorage(STORAGE_KEYS.CONTENT_RESPONSE, result);
+
+                  antdMessage.success({
+                    content: `Content generated successfully! (${statusData.duration || 0}s)`,
+                    duration: 5,
+                  });
+                  setContentLoading(false);
+                  resolve();
+                } else if (statusData.status === 'failed') {
+                  // ❌ 任务失败
+                  clearInterval(intervalId);
+                  console.error('❌ Content task failed:', statusData.error);
+
+                  const errorMessage =
+                    statusData.error || 'Content processing failed';
+                  setContentError(errorMessage);
+                  antdMessage.error({
+                    content: `Content generation failed: ${errorMessage}`,
+                    duration: 10,
+                  });
+                  setContentProgress(0);
+                  setContentProgressText('');
+                  setContentLoading(false);
+                  reject(new Error(errorMessage));
+                } else if (statusData.status === 'processing') {
+                  // 🔄 处理中
+                  console.log('⏳ Content is processing...');
+                } else if (statusData.status === 'pending') {
+                  // ⏰ 等待中
+                  console.log('⏰ Content is pending...');
+                } else if (statusData.status === 'not_found') {
+                  // 🚨 任务未找到
+                  console.warn('⚠️ Task not found in database');
+                  // 继续轮询，可能任务还在处理中
+                } else {
+                  // 🤔 未知状态
+                  console.warn('⚠️ Unknown status:', statusData.status);
+                }
+              } catch (pollError: any) {
+                console.error('Polling error:', pollError);
+
+                if (attempts > 10 && attempts % 10 === 0) {
+                  const currentTaskId = currentTaskRef.current.taskId;
+                  console.warn(`⚠️ Polling failed ${attempts} times.`);
+                  console.warn(
+                    `💡 Check n8n workflow executions for taskId: ${currentTaskId}`
+                  );
+
+                  antdMessage.warning({
+                    content: `Still waiting for content generation (attempt ${attempts}/${maxAttempts}). This may take several minutes...`,
+                    duration: 3,
+                  });
+                }
+              }
+
+              if (attempts >= maxAttempts) {
+                clearInterval(intervalId);
+                const currentTaskId = currentTaskRef.current.taskId;
+                const totalWaitTime =
+                  (initialDelay + maxAttempts * pollInterval) / 1000;
+                const totalMinutes = Math.floor(totalWaitTime / 60);
+                reject(
+                  new Error(
+                    `Content generation timeout: Exceeded maximum wait time (${totalMinutes} minutes).\n` +
+                      `Task ID: ${currentTaskId}\n` +
+                      `You can check the status manually in n8n.`
+                  )
+                );
+              }
+            }, pollInterval);
+          });
+        };
+
+        // 执行轮询
+        await checkStatus();
+        console.log('✅ Content generation checkStatus() completed!');
+      } else {
+        // ⚠️ 异常情况
+        console.warn('⚠️ Unexpected response format - missing taskId');
+        console.warn('Response:', submitData);
+        throw new Error(
+          'Invalid workflow response: Expected taskId for async processing.'
+        );
+      }
+    } catch (err: any) {
+      console.error('Content generation failed:', err);
+      const errorMessage = err.message || 'Content generation failed';
+      setContentError(errorMessage);
+      antdMessage.error({
+        content: errorMessage,
+        duration: 10,
+      });
+      setContentProgress(0);
+      setContentProgressText('');
+    } finally {
+      setContentLoading(false);
+      // 清除 ref
+      currentTaskRef.current = {
+        taskId: null,
+        statusUrl: null,
+        intervalId: null,
+      };
+      console.log('🧹 Cleared task ref');
+    }
+  }, [contentInput]);
+
+  /**
+   * Step 1: 使用生成的标题 - 将完整AI报告复制到 Step 2 输入框
+   */
+  const handleUseTitle = useCallback(() => {
+    if (!titleResponse) {
+      antdMessage.warning('No title content to use');
+      return;
+    }
+
+    // 优先使用 fullReport（最完整的AI生成内容）
+    let contentToUse = '';
+
+    if (titleResponse.fullReport) {
+      contentToUse = titleResponse.fullReport;
+      console.log(
+        '📄 Using fullReport for content generation:',
+        contentToUse.length,
+        'characters'
+      );
+    } else if (titleResponse.content) {
+      contentToUse = titleResponse.content;
+      console.log('📝 Using content (fallback)');
+    } else if (titleResponse.title) {
+      contentToUse = titleResponse.title;
+      console.log('📝 Using title (fallback)');
+    } else {
+      contentToUse = JSON.stringify(titleResponse, null, 2);
+      console.log('📝 Using JSON stringify (final fallback)');
+    }
+
+    if (!contentToUse || contentToUse.trim().length === 0) {
+      antdMessage.warning('No valid content to use');
+      return;
+    }
+
+    setContentInput(contentToUse);
+    antdMessage.success({
+      content: `AI generated content (${contentToUse.length} characters) applied to Step 2 input`,
+      duration: 3,
+    });
+
+    console.log('✅ Full AI content applied to Step 2 input field');
+  }, [titleResponse]);
+
+  /**
+   * Step 1: 重置标题生成
+   */
+  const handleResetTitle = useCallback(() => {
+    setTitleInput('');
+    setTitleResponse(null);
+    setTitleError(null);
+    setTitleProgress(0);
+    setTitleProgressText('');
+
+    // 清除本地存储的数据
+    localStorage.removeItem(STORAGE_KEYS.TITLE_RESPONSE);
+    console.log('🗑️ Cleared title response from localStorage');
+  }, []);
+
+  /**
+   * Step 2: 使用生成的内容 - 将内容复制到 Step 3 输入框
+   */
+  const handleUseContent = useCallback(() => {
+    if (!contentResponse) {
+      antdMessage.warning('No content to use');
+      return;
+    }
+
+    // 优先使用完整报告，如果没有则使用其他内容
+    let contentToUse = '';
+
+    if (contentResponse.fullReport) {
+      contentToUse = contentResponse.fullReport;
+      console.log('📄 Using fullReport, length:', contentToUse.length);
+    } else if (contentResponse.发布内容?.完整发布文本) {
+      contentToUse = contentResponse.发布内容.完整发布文本;
+      console.log('📝 Using complete publish text');
+    } else {
+      contentToUse = JSON.stringify(contentResponse, null, 2);
+      console.log('📝 Using JSON stringify (fallback)');
+    }
+
+    if (!contentToUse || contentToUse.trim().length === 0) {
+      antdMessage.warning('No valid content to use');
+      return;
+    }
+
+    setImagePromptInput(contentToUse);
+    antdMessage.success({
+      content: `Content applied to image prompt input field`,
+      duration: 3,
+    });
+
+    console.log('✅ Content applied to image prompt input field');
+  }, [contentResponse]);
+
+  /**
+   * Step 2: 重置内容生成
+   */
+  const handleResetContent = useCallback(() => {
+    setContentInput('');
+    setContentResponse(null);
+    setContentError(null);
+    setContentProgress(0);
+    setContentProgressText('');
+
+    // 清除本地存储的数据
+    localStorage.removeItem(STORAGE_KEYS.CONTENT_RESPONSE);
+    console.log('🗑️ Cleared content response from localStorage');
+  }, []);
+
+  /**
+   * Step 3: 重置图片生成
+   */
+  const handleResetImageGeneration = useCallback(() => {
+    setImagePromptInput('');
+    setImageResponse(null);
+    setImageGenerationError(null);
+    setImageGenerationProgress(0);
+    setImageGenerationProgressText('');
+
+    // 清除本地存储的数据
+    localStorage.removeItem(STORAGE_KEYS.IMAGE_RESPONSE);
+    console.log('🗑️ Cleared image response from localStorage');
+  }, []);
+
+  /**
+   * Step 3: 生成图片提示词 - 同步等待版本（100秒内直接返回结果）
+   */
+  const handleGenerateImage = useCallback(async () => {
+    if (!imagePromptInput.trim()) {
+      antdMessage.warning('Please enter image prompt input');
+      return;
+    }
+
+    // 防止重复提交
+    if (imageGenerationLoading) {
+      console.warn(
+        '⚠️ Image generation is already running, ignoring duplicate request'
+      );
+      antdMessage.warning(
+        'Image generation is already in progress. Please wait...'
+      );
+      return;
+    }
+
+    setImageGenerationLoading(true);
+    setImageGenerationError(null);
+    setImageGenerationProgress(0);
+    setImageGenerationProgressText('Preparing to generate image prompt...');
+
+    try {
+      const webhookUrl = 'https://n8n.wendealai.com/webhook/rednoteimgprompt';
+
+      const request = {
+        content: imagePromptInput.trim(),
+        timestamp: new Date().toISOString(),
       };
 
-      clearInterval(progressInterval);
-      setProgress(100);
-      setProgressText('生成完成！');
-      setGeneratedResponse(apiResponse);
-      onContentGenerated?.(apiResponse);
-      message.success('文案生成成功！');
-    } catch (err) {
-      clearInterval(progressInterval);
+      console.log('Sending image generation request to webhook:', webhookUrl);
+      console.log('Request payload:', request);
+
+      let response;
+      try {
+        // 设置合理的超时时间（120秒给足够的处理时间）
+        response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(request),
+          mode: 'cors',
+          signal: AbortSignal.timeout(120000), // 120秒超时
+        });
+
+        console.log('Image response received, status:', response.status);
+      } catch (fetchError: any) {
+        console.error('Image fetch error:', fetchError);
+
+        if (
+          fetchError.name === 'AbortError' ||
+          fetchError.message.includes('timeout')
+        ) {
+          throw new Error('⏰ 处理超时：图片提示词生成时间超过120秒限制');
+        }
+
+        throw new Error(`❌ Unexpected error: ${fetchError.message}`);
+      }
+
+      if (!response.ok) {
+        let errorText = 'No error details';
+        try {
+          errorText = await response.text();
+        } catch {
+          // 忽略错误
+        }
+        throw new Error(
+          `Request failed with status ${response.status}: ${response.statusText}\n${errorText}`
+        );
+      }
+
+      setImageGenerationProgress(50);
+      setImageGenerationProgressText('Processing image prompt response...');
+
+      const data = await response.json();
+
+      console.log('Image response data:', data);
+
+      setImageGenerationProgress(100);
+      setImageGenerationProgressText('Image prompt generation complete!');
+
+      // 处理响应数据
+      let parsedResponse: any;
+
+      if (Array.isArray(data) && data.length > 0) {
+        parsedResponse = data[0];
+      } else {
+        parsedResponse = data;
+      }
+
+      console.log('Parsed image response:', parsedResponse);
+
+      // 处理图片数据（可能是直接结果，也可能是复杂格式）
+      let imageResult: ImageGenerationResponse;
+
+      // 检查是否包含Google表格数据格式（与Step 2类似）
+      if (parsedResponse.Google表格数据) {
+        console.log('📋 Processing Google表格数据 format');
+        imageResult = {
+          status: 'completed',
+          data: parsedResponse, // 保存完整数据供显示使用
+          duration: 0, // 同步处理没有duration
+        };
+      } else {
+        // 传统格式
+        imageResult = {
+          imageUrl: parsedResponse.imageUrl || parsedResponse.result?.imageUrl,
+          status: 'completed',
+          duration: 0,
+          result: parsedResponse,
+        };
+      }
+
+      setImageResponse(imageResult);
+      saveToStorage(STORAGE_KEYS.IMAGE_RESPONSE, imageResult);
+
+      antdMessage.success({
+        content: 'Image prompt generated successfully!',
+        duration: 5,
+      });
+    } catch (err: any) {
+      console.error('Image generation failed:', err);
       const errorMessage =
-        err instanceof Error ? err.message : '生成文案时发生错误';
-      setError(errorMessage);
-      message.error(errorMessage);
+        err.message || 'Image generation failed, please try again';
+      setImageGenerationError(errorMessage);
+      antdMessage.error(errorMessage);
+      setImageGenerationProgress(0);
+      setImageGenerationProgressText('');
     } finally {
-      setLoading(false);
+      setImageGenerationLoading(false);
     }
-  }, [
-    inputContent,
-    contentType,
-    tone,
-    writingTechnique,
-    successFactor,
-    targetAudience,
-    keywords,
-    simulateProgress,
-    onContentGenerated,
-  ]);
+  }, [imagePromptInput]);
 
   /**
-   * 生成模拟标题
+   * 显示内容结果的辅助函数（增强版：支持图片提示词数据）
    */
-  const generateMockTitle = (input: string, type: string): string => {
-    // 根据新的内容类型格式生成标题前缀
-    let prefix = '📝 内容分享';
+  const renderContentResult = () => {
+    if (contentResponse && !contentLoading) {
+      return (
+        <div style={{ marginTop: 16 }}>
+          <Card
+            size='small'
+            title='Generated Content Result'
+            style={{ backgroundColor: '#f6ffed' }}
+          >
+            <Space direction='vertical' style={{ width: '100%' }} size='small'>
+              {/* 检查是否为图片提示词数据格式 */}
+              {Array.isArray(contentResponse) &&
+              contentResponse[0]?.Google表格数据 ? (
+                <ImagePromptDisplay data={contentResponse[0]} />
+              ) : (
+                <>
+                  {/* 传统内容格式显示 */}
+                  {/* 标题 */}
+                  {(contentResponse as ContentGenerationResponse).发布内容
+                    ?.标题 && (
+                    <div>
+                      <Text strong style={{ fontSize: 16, color: '#52c41a' }}>
+                        🎯 标题：
+                      </Text>
+                      <Card
+                        size='small'
+                        style={{
+                          marginTop: 8,
+                          backgroundColor: '#fff',
+                          borderLeft: '3px solid #52c41a',
+                        }}
+                      >
+                        <Text strong style={{ fontSize: 15 }}>
+                          {
+                            (contentResponse as ContentGenerationResponse)
+                              .发布内容?.标题
+                          }
+                        </Text>
+                      </Card>
+                    </div>
+                  )}
 
-    if (type.includes('教程攻略类')) {
-      if (type.includes('美妆教程')) prefix = '💄 美妆教程';
-      else if (type.includes('穿搭攻略')) prefix = '👗 穿搭攻略';
-      else if (type.includes('生活技能')) prefix = '🏠 生活技能';
-      else if (type.includes('旅行攻略')) prefix = '✈️ 旅行攻略';
-    } else if (type.includes('分享种草类')) {
-      if (type.includes('好物推荐')) prefix = '🛍️ 好物推荐';
-      else if (type.includes('体验分享')) prefix = '⭐ 体验分享';
-      else if (type.includes('避雷指南')) prefix = '⚠️ 避雷指南';
-    } else if (type.includes('情感共鸣类')) {
-      if (type.includes('生活感悟')) prefix = '💭 生活感悟';
-      else if (type.includes('情感故事')) prefix = '💕 情感故事';
-      else if (type.includes('励志鸡汤')) prefix = '✨ 励志鸡汤';
-    } else if (type.includes('热点话题类')) {
-      if (type.includes('流行趋势')) prefix = '🔥 流行趋势';
-      else if (type.includes('节日相关')) prefix = '🎉 节日相关';
-      else if (type.includes('季节性内容')) prefix = '🌸 季节性内容';
+                  {/* 正文 */}
+                  {(contentResponse as ContentGenerationResponse).发布内容
+                    ?.完整发布文本 && (
+                    <div>
+                      <Text strong style={{ fontSize: 14 }}>
+                        📝 正文：
+                      </Text>
+                      <Card
+                        size='small'
+                        style={{ marginTop: 8, backgroundColor: '#fff' }}
+                      >
+                        <Paragraph
+                          style={{
+                            whiteSpace: 'pre-wrap',
+                            margin: 0,
+                            lineHeight: 1.8,
+                          }}
+                          copyable={{
+                            text:
+                              (contentResponse as ContentGenerationResponse)
+                                .发布内容?.完整发布文本 || '',
+                          }}
+                        >
+                          {
+                            (contentResponse as ContentGenerationResponse)
+                              .发布内容?.完整发布文本
+                          }
+                        </Paragraph>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* 标签 */}
+                  {((contentResponse as ContentGenerationResponse).发布内容
+                    ?.标签数组?.length ?? 0) > 0 && (
+                    <div>
+                      <Text strong style={{ fontSize: 14 }}>
+                        🏷️ 标签：
+                      </Text>
+                      <div style={{ marginTop: 8 }}>
+                        {(
+                          contentResponse as ContentGenerationResponse
+                        ).发布内容?.标签数组?.map(
+                          (tag: string, index: number) => (
+                            <Tag
+                              key={index}
+                              color='orange'
+                              style={{ marginBottom: 4, marginRight: 4 }}
+                            >
+                              {tag}
+                            </Tag>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 完整报告 */}
+                  {(contentResponse as any).fullReport && (
+                    <div>
+                      <Card
+                        size='small'
+                        title='📄 完整AI生成报告'
+                        style={{ marginTop: 8, backgroundColor: '#fafafa' }}
+                        extra={
+                          <Button
+                            size='small'
+                            icon={<CopyOutlined />}
+                            onClick={() => {
+                              navigator.clipboard.writeText(
+                                (contentResponse as any).fullReport || ''
+                              );
+                              antdMessage.success('完整报告已复制到剪贴板');
+                            }}
+                          >
+                            复制完整报告
+                          </Button>
+                        }
+                      >
+                        <Paragraph
+                          style={{
+                            whiteSpace: 'pre-wrap',
+                            margin: 0,
+                            maxHeight: 300,
+                            overflowY: 'auto',
+                            fontSize: 12,
+                            lineHeight: 1.6,
+                          }}
+                          ellipsis={{
+                            rows: 10,
+                            expandable: true,
+                            symbol: '展开完整报告',
+                          }}
+                        >
+                          {(contentResponse as any).fullReport}
+                        </Paragraph>
+                      </Card>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* 使用内容按钮 */}
+              <div style={{ marginTop: 12 }}>
+                <Button
+                  type='primary'
+                  icon={<SendOutlined />}
+                  onClick={handleUseContent}
+                  size='small'
+                >
+                  Use for Image Generation
+                </Button>
+              </div>
+            </Space>
+          </Card>
+        </div>
+      );
     }
-
-    return `${prefix} | ${input?.slice(0, 20)}${input?.length > 20 ? '...' : ''}`;
+    return null;
   };
 
   /**
-   * 生成模拟标签
+   * 图片提示词显示组件
    */
-  const generateMockHashtags = (
-    userKeywords: string[],
-    type: string
-  ): string[] => {
-    // 根据新的内容类型格式生成默认标签
-    let defaultTags: string[] = ['小红书', '分享'];
+  const ImagePromptDisplay: React.FC<{ data: any }> = ({ data }) => {
+    const handleCopyPrompt = (prompt: string) => {
+      navigator.clipboard.writeText(prompt);
+      antdMessage.success('提示词已复制到剪贴板');
+    };
 
-    if (type.includes('教程攻略类')) {
-      if (type.includes('美妆教程'))
-        defaultTags = ['美妆教程', '化妆技巧', '护肤心得'];
-      else if (type.includes('穿搭攻略'))
-        defaultTags = ['穿搭分享', '搭配技巧', '时尚'];
-      else if (type.includes('生活技能'))
-        defaultTags = ['生活技巧', '实用技能', '干货分享'];
-      else if (type.includes('旅行攻略'))
-        defaultTags = ['旅行攻略', '出行指南', '旅游分享'];
-    } else if (type.includes('分享种草类')) {
-      if (type.includes('好物推荐'))
-        defaultTags = ['好物推荐', '种草清单', '购物分享'];
-      else if (type.includes('体验分享'))
-        defaultTags = ['使用体验', '真实测评', '效果分享'];
-      else if (type.includes('避雷指南'))
-        defaultTags = ['避雷指南', '踩雷分享', '选择建议'];
-    } else if (type.includes('情感共鸣类')) {
-      if (type.includes('生活感悟'))
-        defaultTags = ['生活感悟', '人生思考', '成长心得'];
-      else if (type.includes('情感故事'))
-        defaultTags = ['情感故事', '真实经历', '心情分享'];
-      else if (type.includes('励志鸡汤'))
-        defaultTags = ['正能量', '励志', '心灵鸡汤'];
-    } else if (type.includes('热点话题类')) {
-      if (type.includes('流行趋势'))
-        defaultTags = ['流行趋势', '时尚潮流', '热门话题'];
-      else if (type.includes('节日相关'))
-        defaultTags = ['节日分享', '节日攻略', '节庆'];
-      else if (type.includes('季节性内容'))
-        defaultTags = ['季节分享', '应季推荐', '时令'];
-    }
+    const handleCopyAllPrompts = () => {
+      const allPrompts = data.Google表格数据.map(
+        (card: any) =>
+          `【${card.卡片类型}】${card.核心文字}\n${card.完整提示词}`
+      ).join('\n\n');
 
-    return [...(userKeywords || []), ...defaultTags].slice(0, 8);
+      navigator.clipboard.writeText(allPrompts);
+      antdMessage.success(
+        `所有提示词（共${data.Google表格数据.length}张）已复制到剪贴板`
+      );
+    };
+
+    const handleCopyGoogleSheetData = () => {
+      const sheetData = JSON.stringify(data, null, 2);
+      navigator.clipboard.writeText(sheetData);
+      antdMessage.success('Google表格数据已复制到剪贴板');
+    };
+
+    return (
+      <div>
+        {/* 统计信息和色彩方案 - 两列布局 */}
+        <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
+          <Col span={12}>
+            <Card
+              size='small'
+              title='📊 生成统计'
+              style={{ backgroundColor: '#e6f7ff' }}
+            >
+              <Space
+                direction='vertical'
+                size='small'
+                style={{ width: '100%' }}
+              >
+                <div>
+                  <Text strong>主题风格：</Text>
+                  <Text>{data.统计信息?.主题}</Text>
+                </div>
+                <div>
+                  <Text strong>总卡片数：</Text>
+                  <Tag color='blue'>{data.统计信息?.总卡片数} 张</Tag>
+                </div>
+                <div>
+                  <Text strong>生成时间：</Text>
+                  <Text type='secondary'>{data.统计信息?.生成时间}</Text>
+                </div>
+                <div>
+                  <Text strong>解析状态：</Text>
+                  <Tag color={data.统计信息?.解析成功 ? 'green' : 'red'}>
+                    {data.统计信息?.解析成功 ? '解析成功' : '解析失败'}
+                  </Tag>
+                </div>
+              </Space>
+            </Card>
+          </Col>
+
+          <Col span={12}>
+            {data.原始数据?.色彩方案 && (
+              <Card size='small' title='🎨 色彩方案'>
+                <Space
+                  direction='vertical'
+                  size='small'
+                  style={{ width: '100%' }}
+                >
+                  <div>
+                    <Text strong>主色调：</Text>
+                    <div style={{ marginTop: 4 }}>
+                      {data.原始数据.色彩方案.主色调?.map(
+                        (color: string, index: number) => (
+                          <Tag
+                            key={index}
+                            style={{
+                              backgroundColor: color,
+                              color: '#fff',
+                              borderColor: color,
+                            }}
+                          >
+                            {color}
+                          </Tag>
+                        )
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Text strong>辅助色：</Text>
+                    <div style={{ marginTop: 4 }}>
+                      {data.原始数据.色彩方案.辅助色?.map(
+                        (color: string, index: number) => (
+                          <Tag
+                            key={index}
+                            style={{ backgroundColor: color, color: '#333' }}
+                          >
+                            {color}
+                          </Tag>
+                        )
+                      )}
+                    </div>
+                  </div>
+                </Space>
+              </Card>
+            )}
+          </Col>
+        </Row>
+
+        {/* 快捷操作 */}
+        <div style={{ marginBottom: 12 }}>
+          <Space>
+            <Button
+              icon={<CopyOutlined />}
+              onClick={handleCopyAllPrompts}
+              size='small'
+            >
+              复制所有提示词
+            </Button>
+            <Button
+              icon={<LinkOutlined />}
+              onClick={handleCopyGoogleSheetData}
+              size='small'
+            >
+              复制JSON数据
+            </Button>
+          </Space>
+        </div>
+
+        {/* 卡片列表 - 两列布局 */}
+        <Row gutter={[12, 12]}>
+          {data.Google表格数据?.map((card: any, index: number) => (
+            <Col key={card.序号} span={12}>
+              <Card
+                size='small'
+                title={`${card.序号}. ${card.卡片类型}: ${card.核心文字}`}
+                style={{ marginBottom: 8 }}
+                extra={
+                  <Button
+                    size='small'
+                    icon={<CopyOutlined />}
+                    onClick={() => handleCopyPrompt(card.完整提示词)}
+                  >
+                    复制提示词
+                  </Button>
+                }
+              >
+                <Space
+                  direction='vertical'
+                  size='small'
+                  style={{ width: '100%' }}
+                >
+                  <div>
+                    <Text strong>完整提示词：</Text>
+                    <Paragraph
+                      style={{
+                        whiteSpace: 'pre-wrap',
+                        marginTop: 8,
+                        maxHeight: 150,
+                        overflowY: 'auto',
+                        backgroundColor: '#f5f5f5',
+                        padding: 8,
+                        borderRadius: 4,
+                        fontSize: 12,
+                      }}
+                      copyable={{ text: card.完整提示词 }}
+                    >
+                      {card.完整提示词}
+                    </Paragraph>
+                  </div>
+                </Space>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </div>
+    );
   };
 
   /**
-   * 复制内容到剪贴板
+   * Step 2: 复制内容到剪贴板
    */
   const handleCopyContent = useCallback(async () => {
     let contentToCopy = '';
 
-    if (webhookResponse?.xiaohongshu?.publishReady) {
-      contentToCopy = webhookResponse.xiaohongshu.publishReady;
-    } else if (webhookResponse?.xiaohongshu?.content) {
-      contentToCopy = webhookResponse.xiaohongshu.content;
-    } else if (generatedResponse?.generatedContent) {
-      contentToCopy = generatedResponse.generatedContent;
+    if (contentResponse?.发布内容?.完整发布文本) {
+      contentToCopy = contentResponse.发布内容.完整发布文本;
+    } else if (contentResponse?.fullReport) {
+      contentToCopy = contentResponse.fullReport;
     }
 
     if (contentToCopy) {
       try {
         await navigator.clipboard.writeText(contentToCopy);
-        message.success('内容已复制到剪贴板');
+        antdMessage.success('Content copied to clipboard');
       } catch (err) {
-        message.error('复制失败，请手动复制');
+        antdMessage.error('Copy failed, please copy manually');
       }
     }
-  }, [generatedResponse, webhookResponse]);
-
-  /**
-   * 重新生成
-   */
-  const handleRegenerate = useCallback(() => {
-    setGeneratedResponse(null);
-    setWebhookResponse(null);
-    setError(null);
-    setProgress(0);
-    setProgressText('');
-  }, []);
+  }, [contentResponse]);
 
   return (
-    <>
-      <style>
-        {`
-          .rednote-textarea.ant-input {
-            height: auto !important;
-            min-height: 200px !important;
-          }
-          .rednote-textarea textarea {
-            min-height: 200px !important;
-            resize: vertical !important;
-          }
-          .rednote-textarea .ant-input-data-count {
-            text-align: right !important;
-            position: absolute !important;
-            bottom: 8px !important;
-            right: 8px !important;
-            background: transparent !important;
-            color: #666 !important;
-            font-size: 12px !important;
-          }
-          .rednote-textarea.ant-input-affix-wrapper {
-            position: relative !important;
-            padding-bottom: 24px !important;
-          }
-        `}
-      </style>
-      <div className={`rednote-content-generator ${className || ''}`}>
-        <Row gutter={[16, 16]}>
-          {/* 输入区域 */}
-          <Col xs={24} lg={12}>
+    <div className={`rednote-content-generator ${className || ''}`}>
+      {/* Step 1: Title Generation Error Alert */}
+      {titleError && (
+        <Alert
+          message='Title Generation Failed'
+          description={titleError}
+          type='error'
+          closable
+          onClose={() => setTitleError(null)}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      {/* Step 1: Title Generation Module */}
+      <Card
+        title={
+          <Space>
+            <FileTextOutlined />
+            <span>Step 1: Generate Title</span>
+          </Space>
+        }
+        extra={
+          <Space>
+            <Button
+              type='primary'
+              icon={<SendOutlined />}
+              onClick={handleGenerateTitle}
+              loading={titleLoading}
+              disabled={!titleInput.trim() || titleLoading}
+            >
+              {titleLoading
+                ? 'Generating'
+                : titleResponse
+                  ? 'Regenerate'
+                  : 'Generate'}
+            </Button>
+            {titleResponse && (
+              <Button
+                type='default'
+                icon={<CopyOutlined />}
+                onClick={handleUseTitle}
+                disabled={titleLoading}
+              >
+                Use
+              </Button>
+            )}
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={handleResetTitle}
+              disabled={titleLoading}
+            >
+              Reset
+            </Button>
+          </Space>
+        }
+        style={{ marginBottom: 16 }}
+      >
+        <div>
+          <Text strong style={{ marginBottom: 8, display: 'block' }}>
+            Title Input <Text type='danger'>*</Text>
+          </Text>
+          <TextArea
+            value={titleInput}
+            onChange={e => setTitleInput(e.target.value)}
+            placeholder='Enter a subject or topic to generate title ideas...'
+            rows={4}
+            maxLength={10000}
+            showCount
+            disabled={titleLoading}
+          />
+        </div>
+
+        {/* Title Progress Display */}
+        {titleLoading && (
+          <div style={{ marginTop: 16 }}>
+            <Progress percent={titleProgress} status='active' />
+            <Text type='secondary' style={{ marginTop: 8, display: 'block' }}>
+              {titleProgressText}
+            </Text>
+          </div>
+        )}
+
+        {/* Title Result Display */}
+        {titleResponse && !titleLoading && (
+          <div style={{ marginTop: 16 }}>
             <Card
-              title={
-                <Space>
-                  <EditOutlined />
-                  <span>内容输入</span>
-                </Space>
-              }
               size='small'
+              title='Generated Title'
+              style={{ backgroundColor: '#f6ffed' }}
             >
               <Space
                 direction='vertical'
                 style={{ width: '100%' }}
-                size='middle'
+                size='small'
               >
-                {/* 主要内容输入 */}
-                <div>
-                  <Text strong>输入内容 *</Text>
-                  <TextArea
-                    value={inputContent}
-                    onChange={e => setInputContent(e.target.value)}
-                    placeholder='请输入您想要生成小红书文案的内容，可以是一篇文章、一些想法、产品描述等...'
-                    rows={12}
-                    maxLength={10000}
-                    showCount
-                    style={{
-                      marginTop: 8,
-                      height: 'auto',
-                      minHeight: '200px',
-                      resize: 'vertical',
-                    }}
-                    className='rednote-textarea'
-                  />
-                </div>
-
-                {/* 内容类型选择 */}
-                <div>
-                  <Text strong>内容类型</Text>
-                  <Select
-                    value={contentType}
-                    onChange={setContentType}
-                    style={{ width: '100%', marginTop: 8 }}
-                    placeholder='请选择内容类型'
-                  >
-                    <Option value='教程攻略类：美妆教程（化妆步骤、护肤流程、产品测评）'>
-                      💄 教程攻略类：美妆教程（化妆步骤、护肤流程、产品测评）
-                    </Option>
-                    <Option value='教程攻略类：穿搭攻略（搭配技巧、身材优化、场合穿搭）'>
-                      👗 教程攻略类：穿搭攻略（搭配技巧、身材优化、场合穿搭）
-                    </Option>
-                    <Option value='教程攻略类：生活技能（收纳整理、料理制作、学习方法）'>
-                      🏠 教程攻略类：生活技能（收纳整理、料理制作、学习方法）
-                    </Option>
-                    <Option value='教程攻略类：旅行攻略（景点推荐、路线规划、省钱技巧）'>
-                      ✈️ 教程攻略类：旅行攻略（景点推荐、路线规划、省钱技巧）
-                    </Option>
-                    <Option value='分享种草类：好物推荐（实用好物、性价比产品、新品试用）'>
-                      🛍️ 分享种草类：好物推荐（实用好物、性价比产品、新品试用）
-                    </Option>
-                    <Option value='分享种草类：体验分享（购物体验、使用感受、效果对比）'>
-                      ⭐ 分享种草类：体验分享（购物体验、使用感受、效果对比）
-                    </Option>
-                    <Option value='分享种草类：避雷指南（产品踩雷、消费陷阱、选择建议）'>
-                      ⚠️ 分享种草类：避雷指南（产品踩雷、消费陷阱、选择建议）
-                    </Option>
-                    <Option value='情感共鸣类：生活感悟（职场心得、人生思考、成长感悟）'>
-                      💭 情感共鸣类：生活感悟（职场心得、人生思考、成长感悟）
-                    </Option>
-                    <Option value='情感共鸣类：情感故事（恋爱经历、友情故事、家庭关系）'>
-                      💕 情感共鸣类：情感故事（恋爱经历、友情故事、家庭关系）
-                    </Option>
-                    <Option value='情感共鸣类：励志鸡汤（正能量分享、motivational内容）'>
-                      ✨ 情感共鸣类：励志鸡汤（正能量分享、motivational内容）
-                    </Option>
-                    <Option value='热点话题类：流行趋势（时尚潮流、网红产品、热门话题）'>
-                      🔥 热点话题类：流行趋势（时尚潮流、网红产品、热门话题）
-                    </Option>
-                    <Option value='热点话题类：节日相关（节日穿搭、礼物推荐、节日攻略）'>
-                      🎉 热点话题类：节日相关（节日穿搭、礼物推荐、节日攻略）
-                    </Option>
-                    <Option value='热点话题类：季节性内容（换季护肤、季节穿搭、应季美食）'>
-                      🌸 热点话题类：季节性内容（换季护肤、季节穿搭、应季美食）
-                    </Option>
-                  </Select>
-                </div>
-
-                {/* 语调选择 */}
-                <div>
-                  <Text strong>语调风格</Text>
-                  <Select
-                    value={tone}
-                    onChange={setTone}
-                    style={{ width: '100%', marginTop: 8 }}
-                    placeholder='请选择语调风格'
-                  >
-                    <Option value='亲密闺蜜风：特点（像朋友聊天一样自然亲切）'>
-                      👭 亲密闺蜜风：特点（像朋友聊天一样自然亲切）
-                    </Option>
-                    <Option value='专业科普风：特点（知识性强，权威可信）'>
-                      🎓 专业科普风：特点（知识性强，权威可信）
-                    </Option>
-                    <Option value='可爱萌系风：特点（语言活泼，多用表情符号）'>
-                      🥰 可爱萌系风：特点（语言活泼，多用表情符号）
-                    </Option>
-                    <Option value='直率真实风：特点（说话直接，不加修饰）'>
-                      💯 直率真实风：特点（说话直接，不加修饰）
-                    </Option>
-                    <Option value='精致优雅风：特点（文字优美，格调较高）'>
-                      🌹 精致优雅风：特点（文字优美，格调较高）
-                    </Option>
-                  </Select>
-                </div>
-
-                {/* 爆款文案常用技巧 */}
-                <div>
-                  <Text strong>爆款文案常用技巧</Text>
-                  <Select
-                    value={writingTechnique}
-                    onChange={setWritingTechnique}
-                    placeholder='选择文案技巧'
-                    style={{ width: '100%', marginTop: 8 }}
-                  >
-                    {/* 标题技巧 */}
-                    <Option value='标题技巧：数字型（5个技巧、3步搞定、10款推荐）'>
-                      📊 标题技巧：数字型（5个技巧、3步搞定、10款推荐）
-                    </Option>
-                    <Option value='标题技巧：疑问型（你还在用XX吗？为什么XX这么火？）'>
-                      ❓ 标题技巧：疑问型（你还在用XX吗？为什么XX这么火？）
-                    </Option>
-                    <Option value='标题技巧：惊叹型（太绝了！竟然有这种操作！）'>
-                      😱 标题技巧：惊叹型（太绝了！竟然有这种操作！）
-                    </Option>
-                    <Option value='标题技巧：对比型（XX vs XX，哪个更值得买？）'>
-                      ⚖️ 标题技巧：对比型（XX vs XX，哪个更值得买？）
-                    </Option>
-                    {/* 开头技巧 */}
-                    <Option value='开头技巧：抛出问题（你们有没有遇到过...）'>
-                      🤔 开头技巧：抛出问题（你们有没有遇到过...）
-                    </Option>
-                    <Option value='开头技巧：分享心情（最近超级迷恋...）'>
-                      💕 开头技巧：分享心情（最近超级迷恋...）
-                    </Option>
-                    <Option value='开头技巧：制造悬念（发现了一个秘密...）'>
-                      🔍 开头技巧：制造悬念（发现了一个秘密...）
-                    </Option>
-                    <Option value='开头技巧：直入主题（今天分享一个超实用的...）'>
-                      🎯 开头技巧：直入主题（今天分享一个超实用的...）
-                    </Option>
-                    {/* 结尾技巧 */}
-                    <Option value='结尾技巧：互动引导（你们觉得呢？评论区聊聊）'>
-                      💬 结尾技巧：互动引导（你们觉得呢？评论区聊聊）
-                    </Option>
-                    <Option value='结尾技巧：收藏提醒（记得收藏，别刷丢了）'>
-                      ⭐ 结尾技巧：收藏提醒（记得收藏，别刷丢了）
-                    </Option>
-                    <Option value='结尾技巧：关注引导（关注我，更多好物分享）'>
-                      👥 结尾技巧：关注引导（关注我，更多好物分享）
-                    </Option>
-                    <Option value='结尾技巧：行动号召（赶紧去试试，真的很香）'>
-                      🚀 结尾技巧：行动号召（赶紧去试试，真的很香）
-                    </Option>
-                  </Select>
-                </div>
-
-                {/* 成功要素 */}
-                <div>
-                  <Text strong>成功要素</Text>
-                  <Select
-                    value={successFactor}
-                    onChange={setSuccessFactor}
-                    placeholder='选择成功要素'
-                    style={{ width: '100%', marginTop: 8 }}
-                  >
-                    <Option value='真实性（真实体验和感受最容易引起共鸣）'>
-                      ✨ 真实性（真实体验和感受最容易引起共鸣）
-                    </Option>
-                    <Option value='实用性（提供实际价值，解决用户痛点）'>
-                      🔧 实用性（提供实际价值，解决用户痛点）
-                    </Option>
-                    <Option value='视觉化（配图精美，排版清晰）'>
-                      🎨 视觉化（配图精美，排版清晰）
-                    </Option>
-                    <Option value='互动性（鼓励用户参与讨论和分享）'>
-                      🤝 互动性（鼓励用户参与讨论和分享）
-                    </Option>
-                    <Option value='时效性（抓住热点和流行趋势）'>
-                      ⏰ 时效性（抓住热点和流行趋势）
-                    </Option>
-                  </Select>
-                </div>
-
-                {/* 目标受众 */}
-                <div>
-                  <Text strong>目标受众 (可选)</Text>
-                  <Input
-                    value={targetAudience}
-                    onChange={e => setTargetAudience(e.target.value)}
-                    placeholder='例如：年轻女性、职场新人、美妆爱好者等'
-                    style={{ marginTop: 8 }}
-                  />
-                </div>
-
-                {/* 关键词标签 */}
-                <div>
-                  <Text strong>关键词标签 (可选)</Text>
-                  <div style={{ marginTop: 8 }}>
-                    <Space.Compact style={{ width: '100%' }}>
-                      <Input
-                        value={keywordInput}
-                        onChange={e => setKeywordInput(e.target.value)}
-                        placeholder='添加关键词'
-                        onPressEnter={handleAddKeyword}
-                      />
-                      <Button onClick={handleAddKeyword}>添加</Button>
-                    </Space.Compact>
-                    {keywords.length > 0 && (
-                      <div style={{ marginTop: 8 }}>
-                        {keywords.map(keyword => (
-                          <Tag
-                            key={keyword}
-                            closable
-                            onClose={() => handleRemoveKeyword(keyword)}
-                            style={{ marginBottom: 4 }}
-                          >
-                            {keyword}
-                          </Tag>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 生成按钮 */}
-                <Button
-                  type='primary'
-                  icon={<SendOutlined />}
-                  onClick={handleGenerateContent}
-                  loading={loading}
-                  disabled={!inputContent.trim()}
-                  size='large'
-                  style={{ width: '100%' }}
-                >
-                  {loading ? '生成中...' : '生成小红书文案'}
-                </Button>
-              </Space>
-            </Card>
-          </Col>
-
-          {/* 结果展示区域 */}
-          <Col xs={24} lg={12}>
-            <Card
-              title={
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Space>
-                    <LinkOutlined />
-                    <span>生成结果</span>
-                  </Space>
-                  {generatedResponse && (
-                    <Button
-                      type='link'
-                      icon={<LinkOutlined />}
-                      onClick={() =>
-                        window.open(
-                          'https://docs.google.com/spreadsheets/d/1KdeZ31PaL2p8Uswj2ILo2ewPmkQ_xag56Db0yq3v6qE/edit?usp=sharing',
-                          '_blank'
-                        )
-                      }
-                      style={{ padding: 0 }}
-                    >
-                      查看Google Sheet
-                    </Button>
-                  )}
-                </div>
-              }
-              size='small'
-              style={{ height: 'calc(100vh - 400px)', overflow: 'auto' }}
-              extra={
-                generatedResponse && (
-                  <Space>
-                    <Button
-                      type='text'
-                      icon={<CopyOutlined />}
-                      onClick={handleCopyContent}
-                      size='small'
-                    >
-                      复制
-                    </Button>
-                    <Button
-                      type='text'
-                      icon={<ReloadOutlined />}
-                      onClick={handleRegenerate}
-                      size='small'
-                    >
-                      重新生成
-                    </Button>
-                  </Space>
-                )
-              }
-            >
-              {loading && (
-                <div style={{ textAlign: 'center', padding: '20px' }}>
-                  <Spin size='large' />
-                  <div style={{ marginTop: 16 }}>
-                    <Progress percent={progress} size='small' />
-                    <Text
-                      type='secondary'
-                      style={{ display: 'block', marginTop: 8 }}
-                    >
-                      {progressText}
+                {/* 显示标题 */}
+                {titleResponse.title && (
+                  <div>
+                    <Text strong style={{ fontSize: 16, color: '#52c41a' }}>
+                      🎯 Generated Title：
                     </Text>
-                  </div>
-                </div>
-              )}
-
-              {error && (
-                <Alert
-                  message='生成失败'
-                  description={error}
-                  type='error'
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
-              )}
-
-              {webhookResponse && !loading && (
-                <Space
-                  direction='vertical'
-                  style={{ width: '100%' }}
-                  size='middle'
-                >
-                  {/* 统计分析卡片 */}
-                  <Card
-                    size='small'
-                    title='📊 数据统计'
-                    style={{ backgroundColor: '#f0f9ff' }}
-                  >
-                    <Row gutter={[16, 8]}>
-                      <Col span={8}>
-                        <Text type='secondary'>标题数量</Text>
-                        <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                          {webhookResponse.analytics?.titleCount || 1}
-                        </div>
-                      </Col>
-                      <Col span={8}>
-                        <Text type='secondary'>标签数量</Text>
-                        <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                          {webhookResponse.analytics?.totalTags || 2}
-                        </div>
-                      </Col>
-                      <Col span={8}>
-                        <Text type='secondary'>内容长度</Text>
-                        <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                          {webhookResponse.analytics?.contentLength || 0}
-                        </div>
-                      </Col>
-                    </Row>
-                    <div
-                      style={{
-                        marginTop: '8px',
-                        fontSize: '12px',
-                        color: '#666',
-                      }}
-                    >
-                      生成时间：
-                      {webhookResponse.analytics?.generatedAt ||
-                        new Date().toLocaleString()}
-                    </div>
-                  </Card>
-
-                  {/* 主要发布内容 */}
-                  <Card
-                    size='small'
-                    title='📱 小红书发布专用格式'
-                    style={{ backgroundColor: '#fff7ed' }}
-                  >
-                    {/* 完整发布版本 */}
-                    <div style={{ marginBottom: '16px' }}>
-                      <Text strong style={{ color: '#ea580c' }}>
-                        完整发布版本（推荐）：
-                      </Text>
-                      <Card
-                        size='small'
-                        style={{ marginTop: 8, backgroundColor: '#fef3c7' }}
-                        styles={{ body: { padding: '12px' } }}
-                      >
-                        <Paragraph
-                          style={{
-                            whiteSpace: 'pre-wrap',
-                            margin: 0,
-                            fontSize: '14px',
-                            lineHeight: '1.6',
-                          }}
-                          copyable={{
-                            text:
-                              webhookResponse.xiaohongshu?.publishReady ||
-                              webhookResponse.xiaohongshu?.content ||
-                              '',
-                          }}
-                        >
-                          {webhookResponse.xiaohongshu?.publishReady ||
-                            webhookResponse.xiaohongshu?.content ||
-                            '内容生成中...'}
-                        </Paragraph>
-                      </Card>
-                    </div>
-
-                    {/* 简洁版本 */}
-                    <div>
-                      <Text strong style={{ color: '#ea580c' }}>
-                        简洁版本：
-                      </Text>
-                      <Card
-                        size='small'
-                        style={{ marginTop: 8, backgroundColor: '#f3f4f6' }}
-                        styles={{ body: { padding: '12px' } }}
-                      >
-                        <Paragraph
-                          style={{
-                            whiteSpace: 'pre-wrap',
-                            margin: 0,
-                            fontSize: '13px',
-                            color: '#666',
-                          }}
-                          copyable={{
-                            text:
-                              webhookResponse.xiaohongshu?.shortVersion ||
-                              webhookResponse.xiaohongshu?.content?.substring(
-                                0,
-                                200
-                              ) + '...' ||
-                              '',
-                          }}
-                        >
-                          {webhookResponse.xiaohongshu?.shortVersion ||
-                            webhookResponse.xiaohongshu?.content?.substring(
-                              0,
-                              200
-                            ) + '...' ||
-                            '内容生成中...'}
-                        </Paragraph>
-                      </Card>
-                    </div>
-                  </Card>
-
-                  {/* 运营管理数据 */}
-                  <Card
-                    size='small'
-                    title='🎯 运营管理数据'
-                    style={{ backgroundColor: '#f0fdf4' }}
-                  >
-                    {/* 备选标题 */}
-                    {webhookResponse.management?.alternativeTitles &&
-                      (Array.isArray(
-                        webhookResponse.management.alternativeTitles
-                      )
-                        ? webhookResponse.management.alternativeTitles.length >
-                          0
-                        : false) && (
-                        <div style={{ marginBottom: '12px' }}>
-                          <Text strong>备选标题：</Text>
-                          <div style={{ marginTop: '4px' }}>
-                            {Array.isArray(
-                              webhookResponse.management.alternativeTitles
-                            ) &&
-                              webhookResponse.management.alternativeTitles.map(
-                                (title, index) => (
-                                  <Tag
-                                    key={index}
-                                    color='purple'
-                                    style={{ marginBottom: '4px' }}
-                                  >
-                                    {title}
-                                  </Tag>
-                                )
-                              )}
-                          </div>
-                        </div>
-                      )}
-
-                    {/* 互动钩子 */}
-                    {webhookResponse.management?.engagementHooks &&
-                      (Array.isArray(webhookResponse.management.engagementHooks)
-                        ? webhookResponse.management.engagementHooks.length > 0
-                        : false) && (
-                        <div style={{ marginBottom: '12px' }}>
-                          <Text strong>互动钩子：</Text>
-                          <div style={{ marginTop: '4px' }}>
-                            {Array.isArray(
-                              webhookResponse.management.engagementHooks
-                            ) &&
-                              webhookResponse.management.engagementHooks.map(
-                                (hook, index) => (
-                                  <div
-                                    key={index}
-                                    style={{
-                                      padding: '4px 8px',
-                                      backgroundColor: '#e0e7ff',
-                                      borderRadius: '4px',
-                                      marginBottom: '4px',
-                                      fontSize: '12px',
-                                    }}
-                                  >
-                                    💬 {hook}
-                                  </div>
-                                )
-                              )}
-                          </div>
-                        </div>
-                      )}
-
-                    {/* 发布技巧 */}
-                    {webhookResponse.management?.publishTips && (
-                      <div style={{ marginBottom: '12px' }}>
-                        <Text strong>发布技巧：</Text>
-                        <div style={{ marginTop: '4px' }}>
-                          {Array.isArray(
-                            webhookResponse.management.publishTips
-                          ) ? (
-                            webhookResponse.management.publishTips.map(
-                              (tip, index) => (
-                                <div
-                                  key={index}
-                                  style={{
-                                    padding: '4px 8px',
-                                    backgroundColor: '#dcfce7',
-                                    borderRadius: '4px',
-                                    marginBottom: '4px',
-                                    fontSize: '12px',
-                                  }}
-                                >
-                                  💡 {tip}
-                                </div>
-                              )
-                            )
-                          ) : (
-                            <div
-                              style={{
-                                padding: '4px 8px',
-                                backgroundColor: '#dcfce7',
-                                borderRadius: '4px',
-                                marginBottom: '4px',
-                                fontSize: '12px',
-                              }}
-                            >
-                              💡 {webhookResponse.management.publishTips}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 视觉建议 */}
-                    {webhookResponse.management?.visualSuggestions && (
-                      <div style={{ marginBottom: '12px' }}>
-                        <Text strong>视觉建议：</Text>
-                        <div style={{ marginTop: '4px' }}>
-                          {Array.isArray(
-                            webhookResponse.management.visualSuggestions
-                          ) ? (
-                            webhookResponse.management.visualSuggestions.map(
-                              (suggestion, index) => (
-                                <div
-                                  key={index}
-                                  style={{
-                                    padding: '4px 8px',
-                                    backgroundColor: '#fef3c7',
-                                    borderRadius: '4px',
-                                    marginBottom: '4px',
-                                    fontSize: '12px',
-                                  }}
-                                >
-                                  🎨 {suggestion}
-                                </div>
-                              )
-                            )
-                          ) : typeof webhookResponse.management
-                              .visualSuggestions === 'object' ? (
-                            // 处理对象格式
-                            <>
-                              {Object.entries(
-                                webhookResponse.management.visualSuggestions
-                              ).map(([key, value]) => (
-                                <div
-                                  key={key}
-                                  style={{
-                                    padding: '4px 8px',
-                                    backgroundColor: '#fef3c7',
-                                    borderRadius: '4px',
-                                    marginBottom: '4px',
-                                    fontSize: '12px',
-                                  }}
-                                >
-                                  🎨 <strong>{key}:</strong>{' '}
-                                  {Array.isArray(value)
-                                    ? value.join(', ')
-                                    : String(value)}
-                                </div>
-                              ))}
-                            </>
-                          ) : (
-                            // 处理字符串格式
-                            <div
-                              style={{
-                                padding: '4px 8px',
-                                backgroundColor: '#fef3c7',
-                                borderRadius: '4px',
-                                marginBottom: '4px',
-                                fontSize: '12px',
-                              }}
-                            >
-                              🎨 {webhookResponse.management.visualSuggestions}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 优化建议 */}
-                    {webhookResponse.management?.optimizationNotes &&
-                      (Array.isArray(
-                        webhookResponse.management.optimizationNotes
-                      )
-                        ? webhookResponse.management.optimizationNotes.length >
-                          0
-                        : false) && (
-                        <div>
-                          <Text strong>优化建议：</Text>
-                          <div style={{ marginTop: '4px' }}>
-                            {Array.isArray(
-                              webhookResponse.management.optimizationNotes
-                            ) &&
-                              webhookResponse.management.optimizationNotes.map(
-                                (note, index) => (
-                                  <div
-                                    key={index}
-                                    style={{
-                                      padding: '4px 8px',
-                                      backgroundColor: '#fce7f3',
-                                      borderRadius: '4px',
-                                      marginBottom: '4px',
-                                      fontSize: '12px',
-                                    }}
-                                  >
-                                    ⚡ {note}
-                                  </div>
-                                )
-                              )}
-                          </div>
-                        </div>
-                      )}
-                  </Card>
-
-                  {/* 生成时间 */}
-                  <div>
-                    <Text type='secondary' style={{ fontSize: '12px' }}>
-                      生成时间：{new Date().toLocaleString()}
-                    </Text>
-                  </div>
-                </Space>
-              )}
-
-              {generatedResponse && !loading && !webhookResponse && (
-                <Space
-                  direction='vertical'
-                  style={{ width: '100%' }}
-                  size='middle'
-                >
-                  {/* 生成的标题 */}
-                  <div>
-                    <Text strong>标题：</Text>
-                    <Title level={4} style={{ margin: '8px 0' }}>
-                      {generatedResponse.title}
-                    </Title>
-                  </div>
-
-                  <Divider style={{ margin: '12px 0' }} />
-
-                  {/* 生成的内容 */}
-                  <div>
-                    <Text strong>生成的文案：</Text>
                     <Card
                       size='small'
+                      style={{
+                        marginTop: 8,
+                        backgroundColor: '#fff',
+                        borderLeft: '3px solid #52c41a',
+                      }}
+                    >
+                      <Text strong style={{ fontSize: 15 }}>
+                        {titleResponse.title}
+                      </Text>
+                    </Card>
+                  </div>
+                )}
+
+                {/* 显示备选标题 */}
+                {titleResponse.alternativeTitles &&
+                  titleResponse.alternativeTitles.length > 0 && (
+                    <div>
+                      <Text strong style={{ fontSize: 14 }}>
+                        📝 Alternative Titles：
+                      </Text>
+                      <div style={{ marginTop: 8 }}>
+                        {titleResponse.alternativeTitles.map(
+                          (altTitle: string, index: number) => (
+                            <Card
+                              key={index}
+                              size='small'
+                              style={{
+                                marginBottom: 8,
+                                backgroundColor: '#fff',
+                              }}
+                            >
+                              <Text>
+                                {index + 1}. {altTitle}
+                              </Text>
+                            </Card>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                {/* 显示建议 */}
+                {titleResponse.suggestions &&
+                  titleResponse.suggestions.length > 0 && (
+                    <div>
+                      <Text strong style={{ fontSize: 14 }}>
+                        💡 Suggestions：
+                      </Text>
+                      <div style={{ marginTop: 8 }}>
+                        {titleResponse.suggestions.map(
+                          (suggestion: string, index: number) => (
+                            <div key={index} style={{ marginBottom: 8 }}>
+                              <Tag
+                                color='green'
+                                style={{ padding: '4px 12px', fontSize: 13 }}
+                              >
+                                {index + 1}. {suggestion}
+                              </Tag>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                {/* 显示完整报告（优先显示 fullReport） */}
+                {titleResponse.fullReport && (
+                  <div>
+                    <Card
+                      size='small'
+                      title={
+                        <span>
+                          <FileTextOutlined style={{ marginRight: 8 }} />
+                          📄 Full AI Report
+                        </span>
+                      }
                       style={{ marginTop: 8, backgroundColor: '#fafafa' }}
+                      extra={
+                        <Button
+                          size='small'
+                          icon={<CopyOutlined />}
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              titleResponse.fullReport || ''
+                            );
+                            antdMessage.success(
+                              'Full report copied to clipboard'
+                            );
+                          }}
+                        >
+                          Copy Report
+                        </Button>
+                      }
                     >
                       <Paragraph
-                        style={{ whiteSpace: 'pre-wrap', margin: 0 }}
-                        copyable={{ text: generatedResponse.generatedContent }}
+                        style={{
+                          whiteSpace: 'pre-wrap',
+                          margin: 0,
+                          maxHeight: 400,
+                          overflowY: 'auto',
+                          fontSize: 12,
+                          lineHeight: 1.6,
+                        }}
+                        ellipsis={{
+                          rows: 15,
+                          expandable: true,
+                          symbol: 'Expand full report',
+                        }}
                       >
-                        {generatedResponse.generatedContent}
+                        {titleResponse.fullReport}
                       </Paragraph>
                     </Card>
                   </div>
+                )}
 
-                  {/* 标签 */}
-                  {generatedResponse.hashtags.length > 0 && (
-                    <div>
-                      <Text strong>推荐标签：</Text>
-                      <div style={{ marginTop: 8 }}>
-                        {generatedResponse.hashtags.map(tag => (
-                          <Tag
-                            key={tag}
-                            color='blue'
-                            style={{ marginBottom: 4 }}
-                          >
-                            #{tag}
-                          </Tag>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Google Sheet 链接 */}
-                  {generatedResponse.googleSheetUrl && (
-                    <div>
-                      <Text strong>存储链接：</Text>
-                      <div style={{ marginTop: 8 }}>
-                        <Button
-                          type='link'
-                          icon={<LinkOutlined />}
-                          href={generatedResponse.googleSheetUrl}
-                          target='_blank'
-                          rel='noopener noreferrer'
-                        >
-                          查看Google Sheet存储结果
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 生成时间 */}
+                {/* 显示标签 */}
+                {titleResponse.tags && titleResponse.tags.length > 0 && (
                   <div>
-                    <Text type='secondary' style={{ fontSize: '12px' }}>
-                      生成时间：
-                      {new Date(generatedResponse.createdAt).toLocaleString()}
+                    <Text strong style={{ fontSize: 14 }}>
+                      🏷️ Tags：
+                    </Text>
+                    <div style={{ marginTop: 8 }}>
+                      {titleResponse.tags.map((tag: string, index: number) => (
+                        <Tag
+                          key={index}
+                          color='blue'
+                          style={{ marginBottom: 4, marginRight: 4 }}
+                        >
+                          {tag}
+                        </Tag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 显示生成时间和统计信息 */}
+                {titleResponse.generatedAt && (
+                  <div>
+                    <Text
+                      type='secondary'
+                      style={{ fontSize: 12, color: '#666' }}
+                    >
+                      ⏰ Generated at:{' '}
+                      {new Date(titleResponse.generatedAt).toLocaleString()} |
+                      📊{' '}
+                      {titleResponse.wordCount
+                        ? `${titleResponse.wordCount} words`
+                        : 'Word count unavailable'}
                     </Text>
                   </div>
-                </Space>
-              )}
+                )}
 
-              {!loading && !generatedResponse && !webhookResponse && !error && (
-                <div
-                  style={{
-                    textAlign: 'center',
-                    padding: '40px',
-                    color: '#999',
-                  }}
-                >
-                  <EditOutlined
-                    style={{ fontSize: '48px', marginBottom: '16px' }}
-                  />
-                  <div>请在左侧输入内容并点击生成按钮</div>
-                </div>
-              )}
+                {/* 兼容性：显示原始 content（如果 fullReport 不存在） */}
+                {!titleResponse.fullReport && titleResponse.content && (
+                  <div>
+                    <Card
+                      size='small'
+                      title={
+                        <span>
+                          <FileTextOutlined style={{ marginRight: 8 }} />
+                          📝 Generated Content
+                        </span>
+                      }
+                      style={{ marginTop: 8, backgroundColor: '#f0f0f0' }}
+                      extra={
+                        <Button
+                          size='small'
+                          icon={<CopyOutlined />}
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              titleResponse.content || ''
+                            );
+                            antdMessage.success('Content copied to clipboard');
+                          }}
+                        >
+                          Copy Content
+                        </Button>
+                      }
+                    >
+                      <Paragraph
+                        style={{
+                          whiteSpace: 'pre-wrap',
+                          margin: 0,
+                          maxHeight: 300,
+                          overflowY: 'auto',
+                          fontSize: 12,
+                          lineHeight: 1.6,
+                        }}
+                        ellipsis={{
+                          rows: 10,
+                          expandable: true,
+                          symbol: 'Expand content',
+                        }}
+                      >
+                        {titleResponse.content}
+                      </Paragraph>
+                    </Card>
+                  </div>
+                )}
+              </Space>
             </Card>
-          </Col>
-        </Row>
-      </div>
-    </>
+          </div>
+        )}
+      </Card>
+
+      {/* Step 2: Content Generation Error Alert */}
+      {contentError && (
+        <Alert
+          message='Content Generation Failed'
+          description={contentError}
+          type='error'
+          closable
+          onClose={() => setContentError(null)}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      {/* Step 2: Content Generation Module */}
+      <Card
+        title={
+          <Space>
+            <EditOutlined />
+            <span>Step 2: Generate Content</span>
+          </Space>
+        }
+        extra={
+          <Space>
+            <Button
+              type='primary'
+              icon={<SendOutlined />}
+              onClick={handleGenerateContent}
+              loading={contentLoading}
+              disabled={!contentInput.trim() || contentLoading}
+            >
+              {contentLoading ? 'Generating' : 'Generate Content'}
+            </Button>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={handleResetContent}
+              disabled={contentLoading}
+            >
+              Reset
+            </Button>
+          </Space>
+        }
+        style={{ marginBottom: 16 }}
+      >
+        <div>
+          <Text strong style={{ marginBottom: 8, display: 'block' }}>
+            Content Input <Text type='danger'>*</Text>
+          </Text>
+          <TextArea
+            value={contentInput}
+            onChange={e => setContentInput(e.target.value)}
+            placeholder='Enter title to generate content...'
+            rows={12}
+            maxLength={10000}
+            showCount
+            disabled={contentLoading}
+          />
+        </div>
+
+        {/* Content Progress Display */}
+        {contentLoading && (
+          <div style={{ marginTop: 16 }}>
+            <Progress percent={contentProgress} status='active' />
+            <Text type='secondary' style={{ marginTop: 8, display: 'block' }}>
+              {contentProgressText}
+            </Text>
+          </div>
+        )}
+      </Card>
+
+      {/* Step 3: Generated Content Result */}
+      <Card
+        title={
+          <Space>
+            <FileTextOutlined />
+            <span>Step 2: Generated Content Result</span>
+          </Space>
+        }
+        extra={
+          contentResponse && (
+            <Space>
+              <Button
+                type='primary'
+                icon={<SendOutlined />}
+                onClick={handleUseContent}
+              >
+                Use for Image Generation
+              </Button>
+              <Button icon={<CopyOutlined />} onClick={handleCopyContent}>
+                Copy Content
+              </Button>
+              <Button icon={<ReloadOutlined />} onClick={handleResetContent}>
+                Regenerate
+              </Button>
+            </Space>
+          )
+        }
+        style={{ marginBottom: 16 }}
+      >
+        {!contentResponse && !contentLoading && !contentError && (
+          <div
+            style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}
+          >
+            <FileTextOutlined
+              style={{ fontSize: '64px', marginBottom: '16px' }}
+            />
+            <div style={{ fontSize: '16px' }}>
+              Content generation result will appear here
+            </div>
+          </div>
+        )}
+
+        {contentLoading && (
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <Spin size='large' />
+            <div style={{ marginTop: 16 }}>
+              <Text type='secondary'>{contentProgressText}</Text>
+            </div>
+          </div>
+        )}
+
+        {renderContentResult()}
+      </Card>
+
+      {/* Step 3: Image Generation Error Alert */}
+      {imageGenerationError && (
+        <Alert
+          message='Image Generation Failed'
+          description={imageGenerationError}
+          type='error'
+          closable
+          onClose={() => setImageGenerationError(null)}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      {/* Step 3: Image Generation Module */}
+      <Card
+        title={
+          <Space>
+            <FileImageOutlined />
+            <span>Step 3: Generate Image Prompt</span>
+          </Space>
+        }
+        extra={
+          <Space>
+            <Button
+              type='primary'
+              icon={<SendOutlined />}
+              onClick={handleGenerateImage}
+              loading={imageGenerationLoading}
+              disabled={!imagePromptInput.trim() || imageGenerationLoading}
+              size='small'
+            >
+              {imageGenerationLoading ? 'Generating' : 'Generate Image'}
+            </Button>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={handleResetImageGeneration}
+              disabled={imageGenerationLoading}
+              size='small'
+            >
+              Reset
+            </Button>
+          </Space>
+        }
+        style={{ marginTop: 16 }}
+      >
+        <div>
+          <Text strong style={{ marginBottom: 8, display: 'block' }}>
+            Image Prompt Input <Text type='danger'>*</Text>
+          </Text>
+          <TextArea
+            value={imagePromptInput}
+            onChange={e => setImagePromptInput(e.target.value)}
+            placeholder='Enter content to generate image prompt...'
+            rows={8}
+            maxLength={2000}
+            showCount
+            disabled={imageGenerationLoading}
+          />
+        </div>
+
+        {/* Image Generation Progress Display */}
+        {imageGenerationLoading && (
+          <div style={{ marginTop: 16 }}>
+            <Progress percent={imageGenerationProgress} status='active' />
+            <Text type='secondary' style={{ marginTop: 8, display: 'block' }}>
+              {imageGenerationProgressText}
+            </Text>
+          </div>
+        )}
+
+        {/* Image Generation Result Display */}
+        {imageResponse && !imageGenerationLoading && (
+          <div style={{ marginTop: 16 }}>
+            <Card
+              size='small'
+              title='Generated Image Prompt Result'
+              style={{ backgroundColor: '#f6ffed' }}
+            >
+              <Space
+                direction='vertical'
+                style={{ width: '100%' }}
+                size='small'
+              >
+                {/* 检查是否为图片提示词数据格式 */}
+                {imageResponse.data?.Google表格数据 ? (
+                  <ImagePromptDisplay data={imageResponse.data} />
+                ) : (
+                  <>
+                    {/* 传统图片URL显示 */}
+                    {imageResponse.imageUrl && (
+                      <div style={{ textAlign: 'center' }}>
+                        <img
+                          src={imageResponse.imageUrl}
+                          alt='Generated'
+                          style={{
+                            maxWidth: '100%',
+                            maxHeight: '400px',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                          }}
+                        />
+                        <div style={{ marginTop: 12 }}>
+                          <Button
+                            type='primary'
+                            icon={<DownloadOutlined />}
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = imageResponse.imageUrl || '';
+                              link.download = `generated-image-${Date.now()}.png`;
+                              link.click();
+                            }}
+                          >
+                            Download Image
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 其他结果数据 */}
+                    {imageResponse.result && (
+                      <Card size='small' title='📄 Raw Response'>
+                        <Paragraph
+                          style={{
+                            whiteSpace: 'pre-wrap',
+                            margin: 0,
+                            maxHeight: 200,
+                            overflowY: 'auto',
+                            backgroundColor: '#f5f5f5',
+                            padding: 8,
+                            borderRadius: 4,
+                            fontSize: 12,
+                          }}
+                          copyable={{
+                            text: JSON.stringify(imageResponse.result, null, 2),
+                          }}
+                        >
+                          {JSON.stringify(imageResponse.result, null, 2)}
+                        </Paragraph>
+                      </Card>
+                    )}
+                  </>
+                )}
+              </Space>
+            </Card>
+          </div>
+        )}
+      </Card>
+    </div>
   );
 };
 

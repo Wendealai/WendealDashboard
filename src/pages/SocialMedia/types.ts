@@ -135,6 +135,14 @@ export interface RedNoteContentResponse {
   createdAt: string;
   completedAt?: string;
   errorMessage?: string;
+  // 扩展字段 - 支持完整的 AI 生成数据结构
+  fullReport?: string;
+  imagePrompt?: string;
+  videoPrompt?: string;
+  googleSheetData?: any;
+  imageCards?: any[];
+  statistics?: any;
+  auditStatus?: any;
 }
 
 /**
@@ -142,28 +150,28 @@ export interface RedNoteContentResponse {
  */
 export interface RedNoteWebhookResponse {
   raw: any;
-  xiaohongshu: {
+  xiaohongshu?: {
     title: string;
     content: string;
     hashtags: string;
     publishReady: string;
     shortVersion: string;
   };
-  management: {
+  management?: {
     alternativeTitles: string[];
     engagementHooks: string[];
     publishTips: string[];
     visualSuggestions: string[];
     optimizationNotes: string[];
   };
-  analytics: {
+  analytics?: {
     titleCount: number;
     totalTags: number;
     contentLength: number;
     engagementQuestions: number;
     generatedAt: string;
   };
-  apiFormat: {
+  apiFormat?: {
     title: string;
     content: {
       opening: string;
@@ -180,6 +188,39 @@ export interface RedNoteWebhookResponse {
       optimization_notes: string[];
     };
   };
+  // 中文字段支持
+  统计数据?: {
+    标题字数: number;
+    正文字数: number;
+    图片卡片数量: number;
+  };
+  发布内容?: {
+    标题: string;
+    正文: string;
+    完整发布文本: string;
+    标签数组: string[];
+  };
+  审核状态?: {
+    风险评估: string;
+    是否通过审核: boolean;
+    违规词修改记录: string[];
+  };
+  Google表格数据?: {
+    创建时间: string;
+    审核状态: string;
+    状态: string;
+    分类: string;
+    标题: string;
+    标签: string;
+    图片提示词?: string;
+    视频提示词?: string;
+    图片卡片设计?: string;
+  };
+  // 新增字段 - 支持完整的 AI 生成数据结构
+  图片卡片文案?: any[];
+  fullReport?: string;
+  imagePrompt?: string;
+  videoPrompt?: string;
 }
 
 export interface RedNoteWorkflowSettings {
@@ -613,4 +654,36 @@ export interface VideoGenerationSettings {
 export interface VideoGenerationWorkflow extends Workflow {
   settings: VideoGenerationSettings;
   lastGeneratedVideo?: string;
+}
+
+/**
+ * 小红书图片生成相关类型定义
+ */
+
+export interface RednoteImgRequest {
+  id?: string;
+  content: string;
+  webhookUrl?: string;
+  createdAt?: string;
+  timestamp?: string;
+  status?: 'pending' | 'processing' | 'completed' | 'failed';
+  [key: string]: any;
+}
+
+export interface RednoteImgResponse {
+  id?: string;
+  requestId?: string;
+  success?: boolean;
+  htmlContent?: string;
+  html?: string;
+  imageUrl?: string;
+  processingTime?: number;
+  createdAt?: string;
+  errorMessage?: string;
+  timestamp?: string;
+  metadata?: {
+    cardCount?: number;
+    format?: string;
+  };
+  [key: string]: any;
 }

@@ -18,6 +18,7 @@ import WorkflowSidebar from './components/WorkflowSidebar';
 import WorkflowPanel from './components/WorkflowPanel';
 import ResultPanel from './components/ResultPanel';
 import RedNoteContentGenerator from './components/RedNoteContentGenerator';
+import RednoteImgGenerator from './components/RednoteImgGenerator';
 import InternationalSocialMediaGenerator from './components/InternationalSocialMediaGenerator';
 import TKViralExtract from './components/TKViralExtract';
 import ImageGenerationPanel from './components/ImageGenerationPanel';
@@ -185,12 +186,14 @@ const SocialMedia: React.FC = () => {
                 <span style={{ fontSize: '16px' }}>
                   {selectedWorkflow?.id === 'rednote-content-generator'
                     ? 'Rednote Content Generator'
-                    : selectedWorkflow?.id ===
-                        'international-social-media-generator'
-                      ? 'International Social Media Generator'
-                      : selectedWorkflow?.id === 'video-generation'
-                        ? 'Video Generation'
-                        : t('socialMedia.title', 'Social Media Dashboard')}
+                    : selectedWorkflow?.id === 'rednote-img-generator'
+                      ? 'Rednote Img Generator'
+                      : selectedWorkflow?.id ===
+                          'international-social-media-generator'
+                        ? 'International Social Media Generator'
+                        : selectedWorkflow?.id === 'video-generation'
+                          ? 'Video Generation'
+                          : t('socialMedia.title', 'Social Media Dashboard')}
                 </span>
               </Space>
             }
@@ -201,6 +204,8 @@ const SocialMedia: React.FC = () => {
               <TKViralExtract />
             ) : selectedWorkflow?.id === 'rednote-content-generator' ? (
               <RedNoteContentGenerator />
+            ) : selectedWorkflow?.id === 'rednote-img-generator' ? (
+              <RednoteImgGenerator />
             ) : selectedWorkflow?.id ===
               'international-social-media-generator' ? (
               <InternationalSocialMediaGenerator />
