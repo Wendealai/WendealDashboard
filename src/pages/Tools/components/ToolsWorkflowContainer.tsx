@@ -165,12 +165,12 @@ const ToolsWorkflowContainer: React.FC<ToolsWorkflowContainerProps> = ({
             onLoad={handleLoad}
             onError={handleError}
             sandbox={sandboxAttributes}
-            referrerPolicy='strict-origin-when-cross-origin'
+            referrerPolicy='no-referrer'
             style={{
               border: '0',
               display: loading ? 'none' : 'block',
             }}
-            allow='clipboard-read; clipboard-write'
+            allow='clipboard-read; clipboard-write; fullscreen'
           />
         </div>
       )}

@@ -38,6 +38,7 @@ import {
   CalendarOutlined,
   ReadOutlined,
   FolderOutlined,
+  CheckSquareOutlined,
 } from '@ant-design/icons';
 import WhatsNewPanel from './WhatsNewPanel';
 import {
@@ -174,6 +175,8 @@ const MainLayout: React.FC = () => {
         return <TeamOutlined />;
       case 'FolderOutlined':
         return <FolderOutlined />;
+      case 'CheckSquareOutlined':
+        return <CheckSquareOutlined />;
       default:
         return null;
     }

@@ -1,10 +1,10 @@
 /**
- * Calendar Page Styles
- * Custom styles for Calendar module with Google Calendar iframe integration
+ * Todo Page Styles
+ * Custom styles for Todo module with iframe integration
  */
 
-/* Calendar Page Container */
-.calendar-page {
+/* Todo Page Container */
+.todo-page {
   height: 100vh; /* Use full viewport height for maximum iframe display */
   display: flex;
   flex-direction: column;
@@ -14,8 +14,8 @@
   overflow: hidden; /* Prevent scrolling at page level */
 }
 
-/* Override MainLayout Content styles for Calendar page */
-.calendar-page-layout-override .ant-layout-content {
+/* Override MainLayout Content styles for Todo page */
+.todo-page-layout-override .ant-layout-content {
   margin: 0 !important; /* Remove margin from MainLayout */
   padding: 0 !important; /* Remove padding from MainLayout */
   background: transparent !important; /* Remove background */
@@ -25,13 +25,13 @@
 }
 
 /* Page Header */
-.calendar-page .page-header {
+.todo-page .page-header {
   flex-shrink: 0;
   margin-bottom: 0;
 }
 
 /* Page Header Title */
-.calendar-page .page-header .ant-typography {
+.todo-page .page-header .ant-typography {
   margin: 0;
   font-size: 22px;
   font-weight: 600;
@@ -39,8 +39,8 @@
   line-height: 1.4;
 }
 
-/* Calendar Content Area */
-.calendar-content {
+/* Todo Content Area */
+.todo-content {
   flex: 1;
   min-height: 0; /* Allow flex child to shrink */
   position: relative;
@@ -48,8 +48,8 @@
   height: 100vh; /* Maximize height for iframe display - full viewport */
 }
 
-/* Calendar Container */
-.calendar-container {
+/* Todo Container */
+.todo-container {
   width: 100%;
   height: 100%; /* Maximize container height */
   position: relative;
@@ -61,8 +61,8 @@
   flex-direction: column;
 }
 
-/* Responsive container for Calendly */
-.calendly-responsive {
+/* Responsive container for Todo */
+.todo-responsive {
   position: relative;
   width: 100%;
   min-height: 700px;
@@ -71,8 +71,8 @@
   overflow: hidden;
 }
 
-/* Calendar Iframe */
-.calendar-iframe {
+/* Todo Iframe */
+.todo-iframe {
   position: absolute;
   top: 0;
   left: 0;
@@ -82,7 +82,7 @@
 }
 
 /* Loading States */
-.calendar-loading {
+.todo-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -95,11 +95,11 @@
   flex: 1;
 }
 
-.calendar-loading .ant-spin-nested-loading {
+.todo-loading .ant-spin-nested-loading {
   height: 100%;
 }
 
-.calendar-loading .ant-spin-container {
+.todo-loading .ant-spin-container {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -108,7 +108,7 @@
 }
 
 /* Error States */
-.calendar-error {
+.todo-error {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -123,7 +123,7 @@
 }
 
 /* Placeholder for development */
-.calendar-placeholder {
+.todo-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -139,32 +139,32 @@
 }
 
 /* Skeleton loading styles */
-.calendar-loading .ant-skeleton {
+.todo-loading .ant-skeleton {
   padding: 16px;
 }
 
-.calendar-loading .ant-skeleton-content {
+.todo-loading .ant-skeleton-content {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.calendar-loading .ant-skeleton-paragraph {
+.todo-loading .ant-skeleton-paragraph {
   margin: 0;
 }
 
-.calendar-loading .ant-skeleton-button {
+.todo-loading .ant-skeleton-button {
   align-self: flex-start;
   margin-top: 8px;
 }
 
 /* Performance optimization - reduce motion for users who prefer it */
 @media (prefers-reduced-motion: reduce) {
-  .calendar-loading .ant-skeleton {
+  .todo-loading .ant-skeleton {
     animation: none;
   }
 
-  .calendar-loading .ant-spin {
+  .todo-loading .ant-spin {
     animation: none;
   }
 }
@@ -173,24 +173,24 @@
 
 /* Tablet and smaller screens */
 @media (max-width: 1024px) {
-  .calendar-page {
+  .todo-page {
     /* No gap or padding for maximum display */
   }
 }
 
 /* Mobile screens */
 @media (max-width: 768px) {
-  .calendar-page {
+  .todo-page {
     /* No padding for maximum display */
   }
 
-  .calendar-loading,
-  .calendar-error {
+  .todo-loading,
+  .todo-error {
     min-height: 250px;
     padding: 16px;
   }
 
-  .calendar-placeholder {
+  .todo-placeholder {
     min-height: 300px;
     padding: 16px;
     font-size: 14px;
@@ -199,17 +199,17 @@
 
 /* Small mobile screens */
 @media (max-width: 480px) {
-  .calendar-page {
+  .todo-page {
     /* No padding for maximum display */
   }
 
-  .calendar-loading,
-  .calendar-error {
+  .todo-loading,
+  .todo-error {
     min-height: 200px;
     padding: 12px;
   }
 
-  .calendar-placeholder {
+  .todo-placeholder {
     min-height: 250px;
     padding: 12px;
     font-size: 13px;
@@ -218,18 +218,18 @@
 
 /* Large screens */
 @media (min-width: 1440px) {
-  .calendar-page .page-header .ant-typography {
+  .todo-page .page-header .ant-typography {
     font-size: 24px;
   }
 
-  .calendar-container {
+  .todo-container {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
 }
 
 /* Large screens - limit maximum width for better readability */
 @media (min-width: 1200px) {
-  .calendar-responsive {
+  .todo-responsive {
     max-width: 1000px;
     margin: 0 auto;
   }
@@ -237,22 +237,22 @@
 
 /* Print styles */
 @media print {
-  .calendar-page {
+  .todo-page {
     gap: 0;
   }
 
-  .calendar-page .page-header {
+  .todo-page .page-header {
     display: none;
   }
 
-  .calendar-container {
+  .todo-container {
     box-shadow: none;
     border: none;
   }
 }
 
 /* Loading States */
-.calendar-loading {
+.todo-loading {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -261,7 +261,7 @@
 }
 
 /* Error States */
-.calendar-error {
+.todo-error {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -271,7 +271,7 @@
 }
 
 /* Placeholder for development */
-.calendar-placeholder {
+.todo-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;

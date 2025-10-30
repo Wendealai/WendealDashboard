@@ -175,7 +175,9 @@ const Tools: React.FC = () => {
                         : selectedWorkflow?.id ===
                             'tax-invoice-receipt-workflow'
                           ? 'Tax Invoice/Receipt'
-                          : t('informationDashboard.title')}
+                          : selectedWorkflow?.id === 'invoice-shelf-workflow'
+                            ? 'InvoiceShelf'
+                            : t('informationDashboard.title')}
                 </span>
               </Space>
             }
@@ -194,6 +196,11 @@ const Tools: React.FC = () => {
               <ToolsWorkflowContainer
                 src='https://vert.wendealai.com'
                 title={t('tools.workflow.iframeTitle', 'Business Tools')}
+              />
+            ) : selectedWorkflow?.id === 'invoice-shelf-workflow' ? (
+              <ToolsWorkflowContainer
+                src='https://invoice.wendealai.com'
+                title='InvoiceShelf'
               />
             ) : (
               <>

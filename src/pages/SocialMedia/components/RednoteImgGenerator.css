@@ -1,0 +1,186 @@
+/**
+ * Rednote Image Generator Component Styles
+ */
+
+.rednote-img-generator {
+  width: 100%;
+  min-height: 600px;
+}
+
+.rednote-img-generator .ant-card {
+  height: auto;
+  /* 移除 height: 100% 限制，让Card根据内容自适应高度 */
+}
+
+.rednote-img-generator .ant-card-body {
+  padding: 20px;
+}
+
+/* 输入区域样式 */
+.rednote-img-generator .input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rednote-img-generator .content-label {
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* 输入文本框样式 - 确保12行高度正确显示 */
+.rednote-img-generator .ant-input {
+  width: 100%;
+}
+
+.rednote-img-generator textarea.ant-input {
+  min-height: 288px !important;
+  /* 12行 × 24px行高 = 288px */
+  line-height: 24px !important;
+  resize: vertical !important;
+}
+
+.rednote-img-generator .ant-input-textarea-show-count::after {
+  /* 确保字符计数正常显示 */
+  position: absolute;
+  bottom: 5px;
+  right: 11px;
+}
+
+/* 按钮样式 - 标题栏中的按钮 */
+.rednote-img-generator .ant-card-extra .ant-btn {
+  /* 标题栏按钮保持默认大小 */
+}
+
+/* 进度条样式 */
+.rednote-img-generator .progress-container {
+  margin-top: 16px;
+}
+
+.rednote-img-generator .progress-text {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  margin-top: 8px;
+  display: block;
+}
+
+/* 输出区域样式 */
+.rednote-img-generator .output-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rednote-img-generator .empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+}
+
+.rednote-img-generator .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #d9d9d9;
+}
+
+.rednote-img-generator .loading-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.rednote-img-generator .loading-text {
+  margin-top: 16px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+/* HTML预览样式 - 全宽优化 with iframe isolation */
+.rednote-img-generator .html-preview {
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  padding: 0;
+  min-height: 500px;
+  max-height: none;
+  /* 移除最大高度限制，让内容完整显示 */
+  overflow: auto;
+  /* 添加滚动条 */
+  background-color: #f5f5f5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  position: relative;
+}
+
+.rednote-img-generator .html-preview-iframe {
+  width: 100%;
+  height: 1500px;
+  /* 增加到1500px以完整显示1440px高度的内容 */
+  border: none;
+  display: block;
+  background-color: #ffffff;
+}
+
+.rednote-img-generator .html-preview-content {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+}
+
+/* HTML代码显示 */
+.rednote-img-generator .html-code-label {
+  margin-bottom: 8px;
+  display: block;
+}
+
+.rednote-img-generator .html-code-textarea {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+}
+
+/* 操作按钮样式 */
+.rednote-img-generator .action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 进度条样式 */
+.rednote-img-generator .progress-wrapper {
+  margin-top: 16px;
+}
+
+/* 输出区域全宽样式 */
+.rednote-img-generator .output-card {
+  width: 100%;
+}
+
+.rednote-img-generator .output-card .ant-card-body {
+  padding: 24px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .rednote-img-generator .ant-card-body {
+    padding: 16px;
+  }
+
+  .rednote-img-generator textarea.ant-input {
+    min-height: 240px !important;
+    /* 移动端减少到10行 */
+  }
+
+  .rednote-img-generator .html-preview {
+    min-height: 300px;
+    max-height: 600px;
+    /* 移动端限制最大高度，避免过长 */
+  }
+
+  .rednote-img-generator .html-preview-iframe {
+    height: 1200px;
+    /* 移动端也要足够高以显示完整内容 */
+  }
+
+  .rednote-img-generator .ant-card-extra {
+    /* 移动端按钮垂直排列 */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}

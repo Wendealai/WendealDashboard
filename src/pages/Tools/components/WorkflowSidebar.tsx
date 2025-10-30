@@ -493,6 +493,67 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                 />
               </Col>
 
+              {/* InvoiceShelf workflow card */}
+              <Col xs={24} sm={24} md={12} lg={8} xl={6}>
+                <WorkflowCard
+                  workflow={
+                    {
+                      id: 'invoice-shelf-workflow',
+                      name: 'InvoiceShelf',
+                      description: 'Invoice management and processing system',
+                      status: 'active' as const,
+                      type: 'invoice-shelf' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any
+                  }
+                  selected={selectedWorkflow?.id === 'invoice-shelf-workflow'}
+                  loading={false}
+                  error={null}
+                  onClick={() =>
+                    handleWorkflowSelect({
+                      id: 'invoice-shelf-workflow',
+                      name: 'InvoiceShelf',
+                      description: 'Invoice management and processing system',
+                      status: 'active' as const,
+                      type: 'invoice-shelf' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any)
+                  }
+                  onTrigger={() => {
+                    // Select InvoiceShelf workflow, display on the right side
+                    handleWorkflowSelect({
+                      id: 'invoice-shelf-workflow',
+                      name: 'InvoiceShelf',
+                      description: 'Invoice management and processing system',
+                      status: 'active' as const,
+                      type: 'invoice-shelf' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any);
+                  }}
+                  onSettings={() => {
+                    // Open settings modal
+                    handleOpenSettings(
+                      'invoice-shelf-workflow',
+                      'InvoiceShelf'
+                    );
+                  }}
+                  size='small'
+                  showActions={false} // Hide start button
+                />
+              </Col>
+
               {/* Other workflow cards */}
               {filteredWorkflows
                 .filter(w => w.name !== 'Data Sync Workflow')

@@ -57,6 +57,9 @@ const NotePage = lazy(() => import('@/pages/Note'));
 // Calendar
 const CalendarPage = lazy(() => import('@/pages/Calendar'));
 
+// Todo
+const TodoPage = lazy(() => import('@/pages/Todo'));
+
 // Files
 const FilesPage = lazy(() => import('@/pages/Files'));
 
@@ -194,6 +197,16 @@ export const routes: RouteConfig[] = [
           requiresAuth: true,
           roles: ['admin', 'user'],
           icon: 'CalendarOutlined',
+        },
+      },
+      {
+        path: 'todo',
+        element: TodoPage,
+        meta: {
+          title: 'Todo',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'CheckSquareOutlined',
         },
       },
       {

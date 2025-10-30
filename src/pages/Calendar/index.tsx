@@ -21,9 +21,8 @@ const { Title } = Typography;
 const CalendarPage: React.FC = () => {
   const { t } = useTranslation();
 
-  // Google Calendar embed URL with specific configuration
-  const calendarUrl =
-    'https://calendar.google.com/calendar/embed?height=600&wkst=1&ctz=Australia%2FBrisbane&mode=MONTH&hl=en_GB&src=d2VuZGVhbGF1QGdtYWlsLmNvbQ&src=NjhkNDA5NGFiOGQ4ODRlMTI4YTk0NzkyYzY0ODdlN2E4YzRjMzZjMTJlZDdlNGY3MzI3ZGEyMmMwYjdjNjUzYkBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&src=emguYXVzdHJhbGlhbiNob2xpZGF5QGdyb3VwLnYuY2FsZW5kYXIuZ29vZ2xlLmNvbQ&color=%23039be5&color=%234285f4&color=%230b8043';
+  // Calendly URL for scheduling
+  const calendlyUrl = 'https://calendly.com/wendealau/30min';
 
   return (
     <div className='calendar-page calendar-page-layout-override'>
@@ -37,10 +36,7 @@ const CalendarPage: React.FC = () => {
 
       <div className='calendar-content'>
         <CalendarErrorBoundary>
-          <CalendarContainer
-            src={calendarUrl}
-            title={t('calendar.iframeTitle', 'Google Calendar')}
-          />
+          <CalendarContainer url={calendlyUrl} />
         </CalendarErrorBoundary>
       </div>
     </div>

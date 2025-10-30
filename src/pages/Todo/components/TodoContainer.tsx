@@ -1,6 +1,6 @@
 /**
- * Calendar Container Component
- * Handles Calendly iframe integration
+ * Todo Container Component
+ * Handles todo.wendealai.com iframe integration
  */
 
 import React, { useState, useCallback } from 'react';
@@ -8,18 +8,18 @@ import { Spin, Result, Button } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
-interface CalendarContainerProps {
-  /** Calendly URL */
+interface TodoContainerProps {
+  /** Todo URL */
   url: string;
   /** Additional CSS class */
   className?: string;
 }
 
 /**
- * Calendar Container Component
- * Provides simple Calendly iframe integration with loading states and error handling
+ * Todo Container Component
+ * Provides simple todo iframe integration with loading states and error handling
  */
-const CalendarContainer: React.FC<CalendarContainerProps> = ({
+const TodoContainer: React.FC<TodoContainerProps> = ({
   url,
   className = '',
 }) => {
@@ -34,7 +34,7 @@ const CalendarContainer: React.FC<CalendarContainerProps> = ({
   const handleLoad = useCallback(() => {
     setLoading(false);
     setError(null);
-    console.log('Calendly iframe loaded successfully');
+    console.log('Todo iframe loaded successfully');
   }, []);
 
   /**
@@ -42,8 +42,8 @@ const CalendarContainer: React.FC<CalendarContainerProps> = ({
    */
   const handleError = useCallback(() => {
     setLoading(false);
-    setError(t('calendar.errors.loadFailed', 'Failed to load Calendar system'));
-    console.error('Calendly iframe failed to load');
+    setError(t('todo.errors.loadFailed', 'Failed to load Todo system'));
+    console.error('Todo iframe failed to load');
   }, [t]);
 
   /**
@@ -56,10 +56,10 @@ const CalendarContainer: React.FC<CalendarContainerProps> = ({
   }, []);
 
   return (
-    <div className={`calendar-container ${className}`}>
+    <div className={`todo-container ${className}`}>
       {/* Loading State */}
       {loading && !error && (
-        <div className='calendar-loading'>
+        <div className='todo-loading'>
           <Spin size='large' />
           <div
             style={{
@@ -67,17 +67,17 @@ const CalendarContainer: React.FC<CalendarContainerProps> = ({
               color: 'var(--text-color-secondary)',
             }}
           >
-            {t('calendar.loading', 'Loading Calendar system...')}
+            {t('todo.loading', 'Loading Todo system...')}
           </div>
         </div>
       )}
 
       {/* Error State */}
       {error && !loading && (
-        <div className='calendar-error'>
+        <div className='todo-error'>
           <Result
             status='error'
-            title={t('calendar.errors.title', 'Calendar Unavailable')}
+            title={t('todo.errors.title', 'Todo Unavailable')}
             subTitle={error}
             extra={
               <Button
@@ -87,34 +87,37 @@ const CalendarContainer: React.FC<CalendarContainerProps> = ({
                 disabled={retryCount >= 3}
               >
                 {retryCount >= 3
-                  ? t('calendar.errors.maxRetries', 'Max retries reached')
-                  : t('calendar.errors.retry', 'Retry')}
+                  ? t('todo.errors.maxRetries', 'Max retries reached')
+                  : t('todo.errors.retry', 'Retry')}
               </Button>
             }
           />
         </div>
       )}
 
-      {/* Calendly Iframe */}
-      <div className='calendly-responsive'>
+      {/* Todo Iframe */}
+      <div className='todo-responsive'>
         <iframe
           key={retryCount} // Force re-render on retry
           src={url}
           style={{
             width: '100%',
             minWidth: '320px',
-            height: '700px',
+            height: '100vh',
             border: '0',
             display: loading && !error ? 'none' : 'block',
           }}
           frameBorder='0'
           onLoad={handleLoad}
           onError={handleError}
-          title={t('calendar.iframeTitle', 'Calendly Scheduling')}
+          title={t('todo.iframeTitle', 'Todo System')}
+          referrerPolicy='no-referrer'
+          allow='fullscreen'
+          sandbox='allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-top-navigation'
         />
       </div>
     </div>
   );
 };
 
-export default CalendarContainer;
+export default TodoContainer;

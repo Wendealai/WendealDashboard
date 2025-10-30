@@ -1,0 +1,82 @@
+/**
+ * RedNote Content Generator Component Styles
+ * 小红书文案生成器组件样式
+ */
+
+/* 主容器样式 */
+.rednote-content-generator {
+  width: 100%;
+  height: 100%;
+}
+
+/* 输入文本框样式 - 确保至少显示4行以上 */
+.rednote-content-generator .ant-input {
+  width: 100%;
+}
+
+.rednote-content-generator textarea.ant-input {
+  min-height: 288px !important;
+  /* 12行 × 24px行高 = 288px，确保显示足够多的内容 */
+  line-height: 24px !important;
+  resize: vertical !important;
+}
+
+.rednote-content-generator .ant-input-textarea-show-count::after {
+  /* 确保字符计数正常显示 */
+  position: absolute;
+  bottom: 5px;
+  right: 11px;
+}
+
+/* 卡片样式 */
+.rednote-content-generator .ant-card {
+  margin-bottom: 16px;
+}
+
+/* 按钮样式 - 标题栏中的按钮 */
+.rednote-content-generator .ant-card-extra .ant-btn {
+  /* 标题栏按钮保持默认大小 */
+}
+
+/* 进度条样式 */
+.rednote-content-generator .progress-container {
+  margin-top: 16px;
+}
+
+.rednote-content-generator .progress-text {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  margin-top: 8px;
+  display: block;
+}
+
+/* 空状态样式 */
+.rednote-content-generator .empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.rednote-content-generator .empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  color: #d9d9d9;
+}
+
+/* 加载状态样式 */
+.rednote-content-generator .loading-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.rednote-content-generator .loading-text {
+  margin-top: 16px;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .rednote-content-generator textarea.ant-input {
+    min-height: 200px !important;
+    /* 移动端稍微减小一点高度 */
+  }
+}
