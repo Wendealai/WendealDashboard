@@ -1,0 +1,387 @@
+{
+  "name": "RedNote Content - Query Status",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "task-status/:taskid",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "e9d63c57-063f-4678-9954-3a86e82d4c2c",
+      "name": "Webhook - Query Status",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [-896, 288],
+      "webhookId": "dd799957-2702-4175-999c-8febc2048cd8"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 从 URL 路径参数中提取 taskid（修复版）\nconst inputJson = $input.first().json;\nconsole.log('📥 Full input:', JSON.stringify(inputJson, null, 2));\n\nconst params = inputJson.params || {};\nconst taskid = params.taskid || '';\n\nconsole.log('🔑 Extracted taskid:', taskid);\n\nif (!taskid || taskid.trim() === '') {\n  throw new Error('Missing taskid in URL path');\n}\n\n// n8n Code 节点必须返回数组格式\nreturn [{\n  json: {\n    taskid: taskid.trim()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-672, 288],
+      "id": "2b2a83d0-48a9-4eef-b6a7-55d482226ff4",
+      "name": "Extract Task ID"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "nH5s5LqseTNTWPxT",
+          "mode": "list",
+          "cachedResultName": "rednote_content_tasks"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "taskid",
+              "keyValue": "={{ $json.taskid }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [-448, 288],
+      "id": "609ebe9d-52db-4e9c-9d49-b06069b50570",
+      "name": "Get row(s)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 处理 Get row(s) 的返回结果（关键修复！）\nlet data = $input.first().json;\n\nconsole.log('🔍 Query result type:', typeof data);\nconsole.log('🔍 Query result:', JSON.stringify(data, null, 2));\n\n// 处理数组响应\nif (Array.isArray(data)) {\n  console.log('⚠️ Result is an array with', data.length, 'items');\n  if (data.length === 0) {\n    // 空数组 = 未找到\n    return [{\n      json: {\n        found: false,\n        taskid: $('Extract Task ID').first().json.taskid\n      }\n    }];\n  }\n  // 提取第一个元素\n  data = data[0];\n}\n\n// 检查是否有数据\nif (!data || Object.keys(data).length === 0 || !data.taskid) {\n  console.log('❌ Task not found');\n  return [{\n    json: {\n      found: false,\n      taskid: $('Extract Task ID').first().json.taskid\n    }\n  }];\n}\n\nconsole.log('✅ Task found with status:', data.status);\n\n// 返回标准化的数据\nreturn [{\n  json: {\n    found: true,\n    taskid: data.taskid,\n    status: data.status || 'unknown',\n    content: data.content,\n    result: data.result,\n    error: data.error,\n    createdAt: data.createdAt,\n    startedAt: data.startedAt,\n    completedAt: data.completedAt,\n    duration: data.duration\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-224, 288],
+      "id": "normalize-data",
+      "name": "Normalize Data"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.found }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "pending",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "processing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "completed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "failed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [0, 288],
+      "id": "2bd4f6c3-74d6-44ef-bcfc-f83ec1f6845a",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 格式化\"未找到\"响应\nconst data = $input.first().json;\n\nreturn [{\n  json: {\n    taskid: data.taskid || 'unknown',\n    status: 'not_found',\n    error: 'Task not found in database',\n    message: 'The task may not exist or was deleted'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 0],
+      "id": "format-not-found",
+      "name": "Format Response - Not Found"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 格式化 pending 状态响应\nconst taskData = $input.first().json;\n\nreturn [{\n  json: {\n    taskid: taskData.taskid,\n    status: 'pending',\n    message: 'Task is waiting to be processed',\n    createdAt: taskData.createdAt\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 144],
+      "id": "ba1619aa-c475-44e6-a4e4-1306ae4c9147",
+      "name": "Format Response - Pending"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 格式化 processing 状态响应\nconst taskData = $input.first().json;\n\nconst startTime = new Date(taskData.startedAt || taskData.createdAt).getTime();\nconst elapsed = Math.floor((Date.now() - startTime) / 1000);\n\nreturn [{\n  json: {\n    taskid: taskData.taskid,\n    status: 'processing',\n    message: 'Task is being processed by AI',\n    elapsedTime: `${elapsed}s`,\n    createdAt: taskData.createdAt\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 288],
+      "id": "d30b560c-746c-4ea8-9620-947ae463126f",
+      "name": "Format Response - Processing"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 格式化 completed 状态响应（增强错误处理）\nconst taskData = $input.first().json;\n\nconsole.log('📊 Task data keys:', Object.keys(taskData));\nconsole.log('📄 Result type:', typeof taskData.result);\n\nlet result = taskData.result;\n\n// 处理 JSON 字符串\nif (typeof result === 'string' && result.trim()) {\n  try {\n    result = JSON.parse(result);\n    console.log('✅ Successfully parsed result JSON');\n  } catch (e) {\n    console.error('❌ JSON parse error:', e.message);\n    console.error('Raw result (first 200 chars):', result.substring(0, 200));\n    // 解析失败，包装原始字符串\n    result = { \n      parseError: true,\n      fullReport: result,\n      message: 'Result JSON parse failed, showing raw content'\n    };\n  }\n}\n\n// 处理空结果\nif (!result) {\n  console.warn('⚠️ Result is empty or undefined');\n  result = { \n    empty: true,\n    message: 'Task completed but result is empty'\n  };\n}\n\nreturn [{\n  json: {\n    taskid: taskData.taskid,\n    status: 'completed',\n    result: result,\n    completedAt: taskData.completedAt || new Date().toISOString(),\n    duration: taskData.duration || 0\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 432],
+      "id": "bab1abdf-fc89-4e35-9a73-016b1e381e00",
+      "name": "Format Response - Completed"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 格式化 failed 状态响应\nconst taskData = $input.first().json;\n\nreturn [{\n  json: {\n    taskid: taskData.taskid,\n    status: 'failed',\n    error: taskData.error || 'Unknown error',\n    completedAt: taskData.completedAt || new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 576],
+      "id": "eaaba74f-ea54-440b-9380-21e5bd61a832",
+      "name": "Format Response - Failed"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [448, 320],
+      "id": "73a67a30-6fc2-4dc8-9de5-4d683cc141a7",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook - Query Status": {
+      "main": [
+        [
+          {
+            "node": "Extract Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Task ID": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Data": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Format Response - Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response - Pending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response - Processing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response - Completed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response - Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response - Not Found": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response - Pending": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response - Processing": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response - Completed": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response - Failed": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "2bef10a6877eccddfb34ab2a571a01234149aab42309ac3983ab7adfa59bd76b"
+  }
+}

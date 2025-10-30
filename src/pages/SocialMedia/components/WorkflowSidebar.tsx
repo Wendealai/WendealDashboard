@@ -254,6 +254,61 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
             />
           </Col>
 
+          {/* Rednote Img Generator workflow card */}
+          <Col xs={24} sm={12} md={8} lg={6} xl={6}>
+            <WorkflowCard
+              workflow={{
+                id: 'rednote-img-generator',
+                name: 'Rednote Img Generator',
+                description: '输入文案生成小红书图片HTML',
+                status: 'active' as WorkflowStatus,
+                nodeCount: 2,
+                lastExecution: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                type: 'manual' as const,
+                executionCount: 0,
+                successRate: 0,
+                author: { id: 'system', name: 'System' },
+              }}
+              selected={selectedWorkflow?.id === 'rednote-img-generator'}
+              loading={false}
+              error={null}
+              onClick={() =>
+                handleWorkflowSelect({
+                  id: 'rednote-img-generator',
+                  name: 'Rednote Img Generator',
+                  description: '输入文案生成小红书图片HTML',
+                  status: 'active' as WorkflowStatus,
+                  nodeCount: 2,
+                  lastExecution: new Date().toISOString(),
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                })
+              }
+              onTrigger={() => {
+                handleWorkflowSelect({
+                  id: 'rednote-img-generator',
+                  name: 'Rednote Img Generator',
+                  description: '输入文案生成小红书图片HTML',
+                  status: 'active' as WorkflowStatus,
+                  nodeCount: 2,
+                  lastExecution: new Date().toISOString(),
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }}
+              onSettings={() => {
+                handleOpenSettings(
+                  'rednote-img-generator',
+                  'Rednote Img Generator'
+                );
+              }}
+              size='small'
+              showActions={false} // Hide start button
+            />
+          </Col>
+
           {/* Image Generation workflow card */}
           <Col xs={24} sm={12} md={8} lg={6} xl={6}>
             <WorkflowCard

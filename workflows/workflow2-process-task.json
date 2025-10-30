@@ -1,0 +1,290 @@
+{
+  "name": "RedNote Subject - Process Task",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "workflow-trigger",
+      "name": "When Called by Another Workflow"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "nH5s5LqseTNTWPxT",
+          "mode": "list",
+          "cachedResultName": "rednote_subject_tasks"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "taskId",
+              "keyValue": "={{ $json.taskId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "processing",
+            "startedAt": "={{ $now.toISO() }}"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "id": "update-status-processing",
+      "name": "Update Status to Processing"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=文案内容如下：{{ $json.subject }}",
+        "options": {
+          "systemMessage": "=# 角色定位\n你是一位顶级的小红书爆款选题策划师和内容分析专家，擅长通过网络搜索挖掘热点话题，并将其转化为高互动、高传播的小红书内容。你具备：\n- 敏锐的热点捕捉能力\n- 深度的用户心理洞察\n- 系统的内容框架设计能力\n- 数据驱动的选题优化思维\n\n---\n\n# 工作流程\n\n当用户输入一个想法/范围/话题时，你需要按以下步骤执行：\n\n## 第一步：话题搜索与分析\n1. **搜索当前热门相关话题**\n   - 在小红书、微博、抖音、知乎等平台搜索相关关键词\n   - 识别高互动、高讨论度的内容\n   - 分析话题的传播趋势和用户关注点\n\n2. **话题延伸与细化**\n   - 从用户输入的宽泛话题中提取3-5个细分角度\n   - 每个角度都要具备：争议性、共鸣点、实用性\n   - 找到话题的\"痛点\"\"爽点\"\"痒点\"\n\n## 第二步：爆款标题生成\n根据小红书爆款标题公式，生成3个备选标题：\n\n**标题公式模板**：\n- 【数字型】\"X个/X种/X条...让你...\"\n- 【对比型】\"花了X元/X年才发现...\"\n- 【悬念型】\"为什么XX...原来是因为...\"\n- 【情绪型】\"XX的真相，看完XX...\"\n- 【身份型】\"作为XX，我发现...\"\n\n**标题要求**：\n- 15-25字最佳\n- 包含情绪词、数字、痛点\n- 引发好奇或共鸣\n- 适合30-50岁女性用户群体（媛生密码账号定位）\n\n## 第三步：内容框架拆解\n基于搜索结果和话题分析，提供完整的内容框架：\n\n### 📊 **话题分析报告**\n【核心观点】\n\n一句话总结这个话题的核心价值主张\n【目标受众】\n\n主要受众画像\n次要受众画像\n痛点需求分析\n【传播潜力评估】\n\n情感共鸣度：⭐⭐⭐⭐⭐\n实用价值度：⭐⭐⭐⭐⭐\n话题争议度：⭐⭐⭐⭐⭐\n传播可能性：⭐⭐⭐⭐⭐\n\n### 🎯 **主要矛盾点**\n列出话题中最具争议性的3-5个矛盾点：\n- 矛盾点1：[两代人观念冲突/认知差异/行为习惯差异]\n- 矛盾点2：...\n- 矛盾点3：...\n\n每个矛盾点需说明：\n- 矛盾的具体表现\n- 双方的立场和理由\n- 为什么会引发讨论\n\n### 📝 **写作框架设计**\n\n#### **开篇（100字内）**\n- 场景化痛点切入\n- 或数据/案例震撼开场\n- 或提出引发共鸣的问题\n\n#### **主体论述结构**\n\n**分论点1：[具体分论点]**\n- 论据1：权威数据/研究（标注来源：丁香医生/春雨医生/好大夫等）\n- 论据2：真实案例/用户故事\n- 论据3：科学解释/专业分析\n- 💡 实操建议：3个可执行的具体方法\n- ❌ 常见误区：需要避免的错误做法\n- ✅ 正确做法：推荐的科学方法\n\n**分论点2：[具体分论点]**\n[同上结构]\n\n**分论点3：[具体分论点]**\n[同上结构]\n\n#### **实操工具包**\n- 清单/表格/公式\n- 可直接保存使用的工具\n- 话术模板/沟通技巧\n\n#### **情感升华（50字内）**\n- 回归人性关怀\n- 强化价值观\n- 引发情感共鸣\n\n#### **互动设计**\n- 3个引发评论的问题\n- 1个引发分享的话题\n- 1个引导收藏的理由\n\n---\n\n## 第四步：内容素材库\n为每个分论点提供：\n\n### **论据素材**\n- 【权威来源】：列出3-5个可验证的权威平台（丁香医生/春雨医生/好大夫/豆包AI/Kimi等）\n- 【数据支撑】：具体数字、研究结果、统计数据\n- 【案例故事】：2-3个真实或合理虚构的典型案例\n- 【专家观点】：可引用的医生/专家说法\n\n### **实例设计**\n每个分论点提供2个对比实例：\n- ❌ 错误做法 → 导致的后果 → 成本计算\n- ✅ 正确做法 → 带来的好处 → 收益计算\n\n---\n\n## 第五步：优化建议\n提供以下维度的优化建议：\n\n### **平台适配**\n- 小红书图文建议：封面设计、图片数量、文案长度\n- 视频号改编建议：时长、脚本、钩子设计\n- 抖音改编建议：节奏、配乐、文案呈现\n\n### **SEO优化**\n- 推荐5-8个小红书热门标签\n- 关键词布局建议\n- 搜索优化技巧\n\n### **传播策略**\n- 最佳发布时间\n- 预期互动率\n- 后续系列化方向\n\n---\n\n# 输出格式\n\n请严格按照以下格式输出：\n\n🔥 [话题名称]\n📊 话题分析报告\n[按模板填写]\n\n💡 爆款标题（3选1）\n[标题1]\n[标题2]\n[标题3]\n🎯 主要矛盾点\n[列出3-5个矛盾点及分析]\n\n📝 小红书文章写作框架\n【开篇】\n[100字内场景化开场]\n\n【主体】\n分论点1：[标题]\n核心观点：\n论据1 - 权威数据：\n来源：[平台名称]\n数据：[具体数字]\n论据2 - 真实案例：\n案例描述：\n成本计算：\n论据3 - 科学解释：\n原理说明：\n验证方式：\n💡 实操建议：\n[具体方法1]\n[具体方法2]\n[具体方法3]\n对比实例：\n❌ 错误做法：[描述] → 后果：[计算]\n✅ 正确做法：[描述] → 好处：[计算]\n[分论点2-3同上结构]\n\n【实操工具包】\n[清单/表格/话术模板]\n\n【情感收尾】\n[50字升华]\n\n【互动设计】\n💬 问题1：\n💬 问题2：\n💬 问题3：\n📌 分享话题：\n⭐ 收藏理由：\n\n🎨 发布建议\n配图建议\n封面：\n图2-5：\n标签推荐\n[5-8个话题标签]\n\n最佳发布时间\n[具体时间段及理由]\n\n预期效果\n预估阅读量：\n预估互动率：\n系列化潜力：\n\n---\n\n# 重要原则\n\n1. **真实性**：所有数据、案例必须可验证或合理虚构但符合实际\n2. **实用性**：每个建议都要可操作、可落地\n3. **情感温度**：避免冰冷说教，体现人文关怀\n4. **科学严谨**：医疗健康类内容必须标注来源，避免绝对化表述\n5. **用户导向**：始终站在30-50岁子女群体视角，关注父母健康\n\n---"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [680, 300],
+      "id": "ai-agent",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "ep-20251028102013-zkdnz",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [680, 500],
+      "id": "openai-model",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "QFg3VYrs7B2pV4ya",
+          "name": "Doubao"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "deepseek-reasoner",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [820, 500],
+      "id": "deepseek-model",
+      "name": "DeepSeek Chat Model",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "LhOKS0oO3S7nnDFp",
+          "name": "DeepSeek account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "query": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Query', ``, 'string') }}",
+        "options": {
+          "max_results": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Max_Results', ``, 'number') }}"
+        }
+      },
+      "type": "@tavily/n8n-nodes-tavily.tavilyTool",
+      "typeVersion": 1,
+      "position": [960, 500],
+      "id": "tavily-search",
+      "name": "Search in Tavily",
+      "credentials": {
+        "tavilyApi": {
+          "id": "1D8zmwbMULfnU6Xn",
+          "name": "Tavily account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n// 处理 AI Agent 输出并格式化为结构化数据\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n// 获取输入数据\nconst inputData = $input.first().json;\n\n// 从输入中获取 AI 返回的原始输出\nlet aiOutput = '';\n\n// 处理不同的输入格式\nif (Array.isArray(inputData)) {\n  aiOutput = inputData[0]?.output || '';\n} else if (inputData.output) {\n  aiOutput = inputData.output;\n} else if (inputData.message?.content) {\n  aiOutput = inputData.message.content;\n} else if (inputData.text) {\n  aiOutput = inputData.text;\n} else if (inputData.content) {\n  aiOutput = inputData.content;\n}\n\nconsole.log('AI Output length:', aiOutput.length);\n\n// 获取 taskId（从 workflow 的静态数据）\nconst workflowData = $input.all();\nconst taskId = workflowData[0]?.json?.taskId || `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\nconst createdAt = workflowData[0]?.json?.createdAt || new Date().toISOString();\n\nconsole.log('Task ID:', taskId);\nconsole.log('Created At:', createdAt);\n\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n// 提取标题（从3个候选标题中提取）\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nlet titles = [];\nconst titleMatch = aiOutput.match(/💡 爆款标题（3选1）\\n([\\s\\S]*?)(?=\\n\\n|$)/);\nif (titleMatch) {\n  const titleSection = titleMatch[1];\n  const titleLines = titleSection.split('\\n').filter(line => line.match(/^\\d+\\./));\n  titles = titleLines.map(line => line.replace(/^\\d+\\.\\s*/, '').trim());\n}\n\nif (titles.length === 0) {\n  const firstLineMatch = aiOutput.match(/^🔥\\s*(.*?)$/m);\n  if (firstLineMatch) {\n    titles.push(firstLineMatch[1].trim());\n  }\n}\n\nconst mainTitle = titles[0] || '生成的内容';\n\nconsole.log('Extracted titles:', titles);\n\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n// 提取内容大纲\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nlet content = '';\n\nconst coreViewMatch = aiOutput.match(/【核心观点】\\n(.*?)(?=\\n\\n|【)/s);\nconst coreView = coreViewMatch ? coreViewMatch[1].trim() : '';\n\nconst conflictsMatch = aiOutput.match(/🎯 主要矛盾点\\n([\\s\\S]*?)(?=\\n\\n📝|$)/);\nlet conflicts = [];\nif (conflictsMatch) {\n  const conflictSection = conflictsMatch[1];\n  const conflictLines = conflictSection.split('\\n').filter(line => line.match(/^\\d+\\./));\n  conflicts = conflictLines.map(line => line.replace(/^\\d+\\.\\s*/, '').trim());\n}\n\nconst mainPoints = [];\nconst pointsRegex = /分论点\\d+：(.*?)\\n核心观点：(.*?)(?=\\n|$)/g;\nlet match;\nwhile ((match = pointsRegex.exec(aiOutput)) !== null) {\n  mainPoints.push({\n    title: match[1].trim(),\n    core: match[2].trim()\n  });\n}\n\nif (coreView) {\n  content = `${coreView}\\n\\n`;\n}\nif (conflicts.length > 0) {\n  content += `主要矛盾点：\\n${conflicts.map((c, i) => `${i + 1}. ${c}`).join('\\n')}\\n\\n`;\n}\nif (mainPoints.length > 0) {\n  content += `解决方案：\\n${mainPoints.map((p, i) => `${i + 1}. ${p.title}：${p.core}`).join('\\n')}`;\n}\n\nif (!content || content.trim().length < 50) {\n  content = aiOutput.substring(0, 500).trim() + '...';\n}\n\nconsole.log('Content length:', content.length);\n\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n// 提取建议\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nlet suggestions = [];\n\nconst suggestionsRegex = /💡 实操建议：\\n([\\s\\S]*?)(?=\\n对比实例|分论点|【|$)/g;\nwhile ((match = suggestionsRegex.exec(aiOutput)) !== null) {\n  const suggestionSection = match[1];\n  const suggestionLines = suggestionSection.split('\\n').filter(line => line.match(/^\\d+\\./));\n  suggestions.push(...suggestionLines.map(line => line.replace(/^\\d+\\.\\s*/, '').trim()));\n}\n\nif (suggestions.length === 0) {\n  const toolkitMatch = aiOutput.match(/【实操工具包】([\\s\\S]*?)(?=【|$)/);\n  if (toolkitMatch) {\n    const toolkitLines = toolkitMatch[1].split('\\n').filter(line => line.includes('✅'));\n    suggestions = toolkitLines.map(line => line.replace(/✅\\s*/, '').trim()).slice(0, 5);\n  }\n}\n\nif (suggestions.length === 0) {\n  suggestions = [\n    \"根据生成的内容进行调整和优化\",\n    \"添加个人特色和真实案例\",\n    \"使用吸引眼球的配图\"\n  ];\n}\n\nsuggestions = suggestions.slice(0, 5);\n\nconsole.log('Extracted suggestions count:', suggestions.length);\n\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n// 提取标签\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nlet tags = [];\nconst tagsMatch = aiOutput.match(/标签推荐：\\n(.*?)(?=\\n\\n|$)/s);\nif (tagsMatch) {\n  const tagsText = tagsMatch[1].replace(/#/g, '');\n  tags = tagsText.split(/\\s+/).filter(t => t.trim()).slice(0, 10);\n}\n\nconsole.log('Extracted tags:', tags);\n\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n// 构建结构化结果\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nconst result = {\n  title: mainTitle,\n  alternativeTitles: titles.slice(1),\n  content: content,\n  suggestions: suggestions,\n  tags: tags,\n  fullReport: aiOutput,\n  generatedAt: new Date().toISOString(),\n  wordCount: aiOutput.length\n};\n\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n// 计算处理时长\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nconst startTime = new Date(createdAt).getTime();\nconst duration = Math.floor((Date.now() - startTime) / 1000);\n\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n// 返回数据\n// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nreturn {\n  taskId: taskId,\n  status: 'completed',\n  result: result,\n  completedAt: new Date().toISOString(),\n  duration: duration\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "id": "parse-ai-output",
+      "name": "Parse AI Output"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "nH5s5LqseTNTWPxT",
+          "mode": "list",
+          "cachedResultName": "rednote_subject_tasks"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "taskId",
+              "keyValue": "={{ $json.taskId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "completed",
+            "result": "={{ JSON.stringify($json.result) }}",
+            "completedAt": "={{ $json.completedAt }}",
+            "duration": "={{ $json.duration }}"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [1120, 200],
+      "id": "update-status-completed",
+      "name": "Update Status to Completed"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "nH5s5LqseTNTWPxT",
+          "mode": "list",
+          "cachedResultName": "rednote_subject_tasks"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "taskId",
+              "keyValue": "={{ $('When Called by Another Workflow').item.json.taskId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "failed",
+            "error": "={{ $json.error || 'AI processing failed' }}",
+            "completedAt": "={{ $now.toISO() }}"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [1120, 400],
+      "id": "update-status-failed",
+      "name": "Update Status to Failed"
+    }
+  ],
+  "connections": {
+    "When Called by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Update Status to Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status to Processing": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Status to Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Search in Tavily": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Output": {
+      "main": [
+        [
+          {
+            "node": "Update Status to Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "rednote",
+      "name": "RedNote"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-30T00:00:00.000Z",
+  "versionId": "1"
+}

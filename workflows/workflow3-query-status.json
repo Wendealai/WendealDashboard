@@ -1,0 +1,321 @@
+{
+  "name": "RedNote Subject - Query Status",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "task-status/:taskId",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 300],
+      "id": "webhook-query",
+      "name": "Webhook - Query Status",
+      "webhookId": "rednote-task-status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 从 URL 路径参数中提取 taskId\nconst params = $input.first().json.params || {};\nconst taskId = params.taskId || '';\n\nconsole.log('Extracted taskId:', taskId);\n\nif (!taskId) {\n  throw new Error('Missing taskId in URL path');\n}\n\nreturn {\n  taskId: taskId\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "extract-taskid",
+      "name": "Extract Task ID"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "nH5s5LqseTNTWPxT",
+          "mode": "list",
+          "cachedResultName": "rednote_subject_tasks"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "taskId",
+              "keyValue": "={{ $json.taskId }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "get-task",
+      "name": "Get Task from Database"
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "options": {
+                  "combineOperation": "all"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "pending",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combineOperation": "all"
+              },
+              "renameOutput": false
+            },
+            {
+              "conditions": {
+                "options": {
+                  "combineOperation": "all"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "processing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combineOperation": "all"
+              },
+              "renameOutput": false
+            },
+            {
+              "conditions": {
+                "options": {
+                  "combineOperation": "all"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "completed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combineOperation": "all"
+              },
+              "renameOutput": false
+            },
+            {
+              "conditions": {
+                "options": {
+                  "combineOperation": "all"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "failed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combineOperation": "all"
+              },
+              "renameOutput": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [900, 300],
+      "id": "switch-status",
+      "name": "Switch by Status"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 格式化 pending 状态响应\nconst taskData = $input.first().json;\n\nreturn {\n  taskId: taskData.taskId,\n  status: 'pending',\n  message: 'Task is waiting to be processed',\n  createdAt: taskData.createdAt\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 100],
+      "id": "format-pending",
+      "name": "Format Response - Pending"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 格式化 processing 状态响应\nconst taskData = $input.first().json;\n\nconst startTime = new Date(taskData.startedAt || taskData.createdAt).getTime();\nconst elapsed = Math.floor((Date.now() - startTime) / 1000);\n\nreturn {\n  taskId: taskData.taskId,\n  status: 'processing',\n  message: 'Task is being processed by AI',\n  elapsedTime: `${elapsed}s`,\n  createdAt: taskData.createdAt\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 220],
+      "id": "format-processing",
+      "name": "Format Response - Processing"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 格式化 completed 状态响应\nconst taskData = $input.first().json;\n\nlet result = taskData.result;\n\n// 如果 result 是 JSON 字符串，解析它\nif (typeof result === 'string') {\n  try {\n    result = JSON.parse(result);\n  } catch (e) {\n    result = { fullReport: result };\n  }\n}\n\nreturn {\n  taskId: taskData.taskId,\n  status: 'completed',\n  result: result,\n  completedAt: taskData.completedAt,\n  duration: taskData.duration || 0\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 340],
+      "id": "format-completed",
+      "name": "Format Response - Completed"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 格式化 failed 状态响应\nconst taskData = $input.first().json;\n\nreturn {\n  taskId: taskData.taskId,\n  status: 'failed',\n  error: taskData.error || 'Unknown error',\n  completedAt: taskData.completedAt\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 460],
+      "id": "format-failed",
+      "name": "Format Response - Failed"
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [1340, 300],
+      "id": "respond-webhook",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook - Query Status": {
+      "main": [
+        [
+          {
+            "node": "Extract Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Task ID": {
+      "main": [
+        [
+          {
+            "node": "Get Task from Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Task from Database": {
+      "main": [
+        [
+          {
+            "node": "Switch by Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch by Status": {
+      "main": [
+        [
+          {
+            "node": "Format Response - Pending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response - Processing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response - Completed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response - Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response - Pending": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response - Processing": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response - Completed": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response - Failed": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "rednote",
+      "name": "RedNote"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-30T00:00:00.000Z",
+  "versionId": "1"
+}

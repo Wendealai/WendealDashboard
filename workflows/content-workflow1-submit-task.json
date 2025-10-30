@@ -1,0 +1,133 @@
+{
+  "name": "RedNote Content - Submit Task",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rednotecontent",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 300],
+      "id": "webhook-submit",
+      "name": "Webhook - Submit Task",
+      "webhookId": "rednote-content-submit"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 生成唯一任务ID\nconst taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\nconst content = $json.body.content || '';\nconst timestamp = $json.body.timestamp || new Date().toISOString();\n\nreturn {\n  taskId: taskId,\n  content: content,\n  status: 'pending',\n  createdAt: new Date().toISOString(),\n  timestamp: timestamp\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "generate-task-id",
+      "name": "Generate Task ID"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "nH5s5LqseTNTWPxT",
+          "mode": "list",
+          "cachedResultName": "rednote_content_tasks"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "taskid": "={{ $json.taskId }}",
+            "content": "={{ $json.content }}",
+            "status": "pending",
+            "createdAt": "={{ $json.createdAt }}"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "insert-task",
+      "name": "Insert Task to Database"
+    },
+    {
+      "parameters": {
+        "workflowId": "REPLACE_WITH_CONTENT_WORKFLOW2_ID",
+        "source": "database",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [900, 300],
+      "id": "trigger-processing",
+      "name": "Trigger Processing Workflow"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [900, 480],
+      "id": "respond-webhook",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook - Submit Task": {
+      "main": [
+        [
+          {
+            "node": "Generate Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Task ID": {
+      "main": [
+        [
+          {
+            "node": "Insert Task to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Task to Database": {
+      "main": [
+        [
+          {
+            "node": "Trigger Processing Workflow",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "rednote",
+      "name": "RedNote"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-30T00:00:00.000Z",
+  "versionId": "1"
+}
