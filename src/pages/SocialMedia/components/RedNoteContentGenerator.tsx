@@ -122,9 +122,27 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
     useState<number>(0);
   const [imageGenerationProgressText, setImageGenerationProgressText] =
     useState<string>('');
+
+  // Step 3: 封面图生成相关状态
+  const [coverImageInput, setCoverImageInput] = useState<string>('');
+  const [coverImageGenerationLoading, setCoverImageGenerationLoading] =
+    useState<boolean>(false);
+  const [coverImageGenerationProgress, setCoverImageGenerationProgress] =
+    useState<number>(0);
+  const [
+    coverImageGenerationProgressText,
+    setCoverImageGenerationProgressText,
+  ] = useState<string>('');
+
   const [imageResponse, setImageResponse] =
     useState<ImageGenerationResponse | null>(null);
+  const [coverImageResponse, setCoverImageResponse] = useState<any[] | null>(
+    null
+  );
   const [imageGenerationError, setImageGenerationError] = useState<
+    string | null
+  >(null);
+  const [coverImageGenerationError, setCoverImageGenerationError] = useState<
     string | null
   >(null);
 
@@ -144,6 +162,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
     TITLE_RESPONSE: 'rednote_title_response',
     CONTENT_RESPONSE: 'rednote_content_response',
     IMAGE_RESPONSE: 'rednote_image_response',
+    COVER_IMAGE_RESPONSE: 'rednote_cover_image_response',
   };
 
   const saveToStorage = (key: string, data: any) => {
@@ -182,6 +201,9 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
     const savedTitleResponse = loadFromStorage(STORAGE_KEYS.TITLE_RESPONSE);
     const savedContentResponse = loadFromStorage(STORAGE_KEYS.CONTENT_RESPONSE);
     const savedImageResponse = loadFromStorage(STORAGE_KEYS.IMAGE_RESPONSE);
+    const savedCoverImageResponse = loadFromStorage(
+      STORAGE_KEYS.COVER_IMAGE_RESPONSE
+    );
 
     if (savedTitleResponse) {
       setTitleResponse(savedTitleResponse);
@@ -196,6 +218,11 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
     if (savedImageResponse) {
       setImageResponse(savedImageResponse);
       console.log('🔄 Restored image response from localStorage');
+    }
+
+    if (savedCoverImageResponse) {
+      setCoverImageResponse(savedCoverImageResponse);
+      console.log('🔄 Restored cover image response from localStorage');
     }
   }, []);
 
@@ -295,7 +322,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
           `Task created (ID: ${taskId.slice(-8)}). Processing in background...`
         );
 
-        const initialDelay = 120000; // 2 分钟
+        const initialDelay = 270000; // 4.5 分钟
         const pollInterval = 15000; // 15 秒
         const maxAttempts = 80; // 20 分钟
         let attempts = 0;
@@ -305,7 +332,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
         );
         setTitleProgress(25);
         setTitleProgressText(
-          `Task submitted. Waiting 2 minutes for title generation...`
+          `Task submitted. Waiting 4.5 minutes for title generation...`
         );
 
         // 等待初始延迟
@@ -493,12 +520,54 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
         // 执行轮询
         await checkStatus();
         console.log('✅ Title generation checkStatus() completed!');
+      } else if (
+        resolvedStatus === 'completed' &&
+        (submitData.result || submitData.content || submitData.title)
+      ) {
+        // ✅ 同步响应模式：后端直接返回了完整结果
+        console.log(
+          '✅ Synchronous response detected - processing result directly'
+        );
+
+        setTitleProgress(80);
+        setTitleProgressText('Processing direct response...');
+
+        const result =
+          submitData.result ||
+          submitData.content ||
+          submitData.title ||
+          submitData;
+        console.log('🎉 Direct result received:', result);
+
+        setTitleResponse(result);
+        saveToStorage(STORAGE_KEYS.TITLE_RESPONSE, result);
+
+        setTitleProgress(100);
+        setTitleProgressText('Title generation complete!');
+
+        antdMessage.success({
+          content: `Title generated successfully! (Direct response)`,
+          duration: 5,
+        });
+        setTitleLoading(false);
+
+        console.log('✅ Direct title processing completed!');
       } else {
-        // ⚠️ 异常情况
-        console.warn('⚠️ Unexpected response format - missing taskId');
+        // ⚠️ 异常情况：既不是异步也不是完整的同步响应
+        console.warn(
+          '⚠️ Unexpected response format - missing taskId and result'
+        );
         console.warn('Response:', submitData);
+
+        // 改进错误提示，显示后端返回的具体内容
+        const errorDetail =
+          submitData && typeof submitData === 'object'
+            ? JSON.stringify(submitData, null, 2)
+            : String(submitData);
+
         throw new Error(
-          'Invalid workflow response: Expected taskId for async processing.'
+          `Invalid workflow response: Expected taskId for async processing or result for direct processing.\n\n` +
+            `Backend returned: ${errorDetail.substring(0, 500)}${errorDetail.length > 500 ? '...' : ''}`
         );
       }
     } catch (err: any) {
@@ -619,7 +688,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
           `Task created (ID: ${taskId.slice(-8)}). Processing in background...`
         );
 
-        const initialDelay = 120000; // 2 分钟
+        const initialDelay = 270000; // 4.5 分钟
         const pollInterval = 15000; // 15 秒
         const maxAttempts = 80; // 20 分钟
         let attempts = 0;
@@ -629,7 +698,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
         );
         setContentProgress(25);
         setContentProgressText(
-          `Task submitted. Waiting 2 minutes for content generation...`
+          `Task submitted. Waiting 4.5 minutes for content generation...`
         );
 
         // 等待初始延迟
@@ -818,12 +887,47 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
         // 执行轮询
         await checkStatus();
         console.log('✅ Content generation checkStatus() completed!');
+      } else if (resolvedStatus === 'completed' && submitData.result) {
+        // ✅ 同步响应模式：后端直接返回了完整结果
+        console.log(
+          '✅ Synchronous response detected - processing result directly'
+        );
+
+        setContentProgress(80);
+        setContentProgressText('Processing direct response...');
+
+        const result = submitData.result;
+        console.log('🎉 Direct result received:', result);
+
+        setContentResponse(result);
+        saveToStorage(STORAGE_KEYS.CONTENT_RESPONSE, result);
+
+        setContentProgress(100);
+        setContentProgressText('Content generation complete!');
+
+        antdMessage.success({
+          content: `Content generated successfully! (Direct response)`,
+          duration: 5,
+        });
+        setContentLoading(false);
+
+        console.log('✅ Direct content processing completed!');
       } else {
-        // ⚠️ 异常情况
-        console.warn('⚠️ Unexpected response format - missing taskId');
+        // ⚠️ 异常情况：既不是异步也不是完整的同步响应
+        console.warn(
+          '⚠️ Unexpected response format - missing taskId and result'
+        );
         console.warn('Response:', submitData);
+
+        // 改进错误提示，显示后端返回的具体内容
+        const errorDetail =
+          submitData && typeof submitData === 'object'
+            ? JSON.stringify(submitData, null, 2)
+            : String(submitData);
+
         throw new Error(
-          'Invalid workflow response: Expected taskId for async processing.'
+          `Invalid workflow response: Expected taskId for async processing or result for direct processing.\n\n` +
+            `Backend returned: ${errorDetail.substring(0, 500)}${errorDetail.length > 500 ? '...' : ''}`
         );
       }
     } catch (err: any) {
@@ -975,6 +1079,21 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
   }, []);
 
   /**
+   * Step 3: 重置封面图生成
+   */
+  const handleResetCoverImageGeneration = useCallback(() => {
+    setCoverImageInput('');
+    setCoverImageResponse(null);
+    setCoverImageGenerationError(null);
+    setCoverImageGenerationProgress(0);
+    setCoverImageGenerationProgressText('');
+
+    // 清除本地存储的数据
+    localStorage.removeItem(STORAGE_KEYS.COVER_IMAGE_RESPONSE);
+    console.log('🗑️ Cleared cover image response from localStorage');
+  }, []);
+
+  /**
    * Step 3: 生成图片提示词 - 同步等待版本（100秒内直接返回结果）
    */
   const handleGenerateImage = useCallback(async () => {
@@ -1110,6 +1229,128 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
       setImageGenerationLoading(false);
     }
   }, [imagePromptInput]);
+
+  /**
+   * Step 3: 生成封面图 - 同步等待版本（120秒内直接返回结果）
+   */
+  const handleGenerateCoverImage = useCallback(async () => {
+    if (!coverImageInput.trim()) {
+      antdMessage.warning('Please enter cover image input');
+      return;
+    }
+
+    // 防止重复提交
+    if (coverImageGenerationLoading) {
+      console.warn(
+        '⚠️ Cover image generation is already running, ignoring duplicate request'
+      );
+      antdMessage.warning(
+        'Cover image generation is already in progress. Please wait...'
+      );
+      return;
+    }
+
+    setCoverImageGenerationLoading(true);
+    setCoverImageGenerationError(null);
+    setCoverImageGenerationProgress(0);
+    setCoverImageGenerationProgressText('Preparing to generate cover image...');
+
+    try {
+      const webhookUrl = 'https://n8n.wendealai.com/webhook/RednoteMainImg';
+
+      const request = {
+        content: coverImageInput.trim(),
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log(
+        'Sending cover image generation request to webhook:',
+        webhookUrl
+      );
+      console.log('Request payload:', request);
+
+      let response;
+      try {
+        // 设置合理的超时时间（120秒给足够的处理时间）
+        response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(request),
+          mode: 'cors',
+          signal: AbortSignal.timeout(120000), // 120秒超时
+        });
+
+        console.log('Cover image response received, status:', response.status);
+      } catch (fetchError: any) {
+        console.error('Cover image fetch error:', fetchError);
+
+        if (
+          fetchError.name === 'AbortError' ||
+          fetchError.message.includes('timeout')
+        ) {
+          throw new Error('⏰ 处理超时：封面图生成时间超过120秒限制');
+        }
+
+        throw new Error(`❌ Unexpected error: ${fetchError.message}`);
+      }
+
+      if (!response.ok) {
+        let errorText = 'No error details';
+        try {
+          errorText = await response.text();
+        } catch {
+          // 忽略错误
+        }
+        throw new Error(
+          `Request failed with status ${response.status}: ${response.statusText}\n${errorText}`
+        );
+      }
+
+      setCoverImageGenerationProgress(50);
+      setCoverImageGenerationProgressText('Processing cover image response...');
+
+      const data = await response.json();
+
+      console.log('Cover image response data:', data);
+
+      setCoverImageGenerationProgress(100);
+      setCoverImageGenerationProgressText('Cover image generation complete!');
+
+      // 处理响应数据 - 数组格式
+      let parsedResponse: any[];
+
+      if (Array.isArray(data) && data.length > 0) {
+        parsedResponse = data;
+      } else if (Array.isArray(data)) {
+        parsedResponse = data;
+      } else {
+        // 如果不是数组，包装成数组
+        parsedResponse = [data];
+      }
+
+      console.log('Parsed cover image response:', parsedResponse);
+
+      setCoverImageResponse(parsedResponse);
+      saveToStorage(STORAGE_KEYS.COVER_IMAGE_RESPONSE, parsedResponse);
+
+      antdMessage.success({
+        content: 'Cover image generated successfully!',
+        duration: 5,
+      });
+    } catch (err: any) {
+      console.error('Cover image generation failed:', err);
+      const errorMessage =
+        err.message || 'Cover image generation failed, please try again';
+      setCoverImageGenerationError(errorMessage);
+      antdMessage.error(errorMessage);
+      setCoverImageGenerationProgress(0);
+      setCoverImageGenerationProgressText('');
+    } finally {
+      setCoverImageGenerationLoading(false);
+    }
+  }, [coverImageInput]);
 
   /**
    * 显示内容结果的辅助函数（增强版：支持图片提示词数据）
@@ -1460,6 +1701,217 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
   };
 
   /**
+   * 封面图显示组件
+   */
+  const CoverImageDisplay: React.FC<{ data: any[] }> = ({ data }) => {
+    const handleCopyPrompt = (prompt: string) => {
+      navigator.clipboard.writeText(prompt);
+      antdMessage.success('提示词已复制到剪贴板');
+    };
+
+    const handleCopyAllPrompts = () => {
+      const allPrompts = data
+        .map(
+          (item, index) =>
+            `【封面图 ${index + 1}】\n${item.imagePrompt || item.生图Prompt || ''}`
+        )
+        .join('\n\n');
+
+      navigator.clipboard.writeText(allPrompts);
+      antdMessage.success(
+        `所有封面图提示词（共${data.length}张）已复制到剪贴板`
+      );
+    };
+
+    const handleCopyFullData = () => {
+      const fullData = JSON.stringify(data, null, 2);
+      navigator.clipboard.writeText(fullData);
+      antdMessage.success('完整封面图数据已复制到剪贴板');
+    };
+
+    return (
+      <div>
+        {/* 快捷操作 */}
+        <div style={{ marginBottom: 12 }}>
+          <Space>
+            <Button
+              icon={<CopyOutlined />}
+              onClick={handleCopyAllPrompts}
+              size='small'
+            >
+              复制所有提示词
+            </Button>
+            <Button
+              icon={<LinkOutlined />}
+              onClick={handleCopyFullData}
+              size='small'
+            >
+              复制JSON数据
+            </Button>
+          </Space>
+        </div>
+
+        {/* 封面图列表 */}
+        <Row gutter={[12, 12]}>
+          {data.map((item: any, index: number) => (
+            <Col key={index} span={24}>
+              <Card
+                size='small'
+                title={`🎨 封面图 ${index + 1}: ${item.displayTitle || item.封面标题 || item.title || `封面图 ${index + 1}`}`}
+                style={{ marginBottom: 8 }}
+                extra={
+                  <Button
+                    size='small'
+                    icon={<CopyOutlined />}
+                    onClick={() =>
+                      handleCopyPrompt(
+                        item.imagePrompt || item.生图Prompt || ''
+                      )
+                    }
+                  >
+                    复制提示词
+                  </Button>
+                }
+              >
+                <Space
+                  direction='vertical'
+                  size='small'
+                  style={{ width: '100%' }}
+                >
+                  {/* 基本信息 */}
+                  <Row gutter={[16, 8]}>
+                    <Col span={12}>
+                      <div>
+                        <Text strong>风格：</Text>
+                        <Text>
+                          {item.style || item.推荐风格 || '扁平插画风'}
+                        </Text>
+                      </div>
+                    </Col>
+                    <Col span={12}>
+                      <div>
+                        <Text strong>分辨率：</Text>
+                        <Text>
+                          {item.resolution || item.aspectRatio || '1080x1440'}
+                        </Text>
+                      </div>
+                    </Col>
+                  </Row>
+
+                  {/* 色彩方案 */}
+                  {(item.mainColor || item.主色调) && (
+                    <div>
+                      <Text strong>色彩方案：</Text>
+                      <div style={{ marginTop: 4 }}>
+                        <Space>
+                          {item.mainColor && (
+                            <Tag
+                              style={{
+                                backgroundColor: item.mainColor,
+                                color: '#fff',
+                                borderColor: item.mainColor,
+                              }}
+                            >
+                              主色: {item.mainColor}
+                            </Tag>
+                          )}
+                          {item.accentColor && (
+                            <Tag
+                              style={{
+                                backgroundColor: item.accentColor,
+                                color: '#333',
+                              }}
+                            >
+                              辅助: {item.accentColor}
+                            </Tag>
+                          )}
+                          {item.backgroundColor && (
+                            <Tag
+                              style={{
+                                backgroundColor: item.backgroundColor,
+                                color: '#333',
+                              }}
+                            >
+                              背景: {item.backgroundColor}
+                            </Tag>
+                          )}
+                        </Space>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 完整提示词 */}
+                  <div>
+                    <Text strong>完整生图Prompt：</Text>
+                    <Paragraph
+                      style={{
+                        whiteSpace: 'pre-wrap',
+                        marginTop: 8,
+                        maxHeight: 200,
+                        overflowY: 'auto',
+                        backgroundColor: '#f5f5f5',
+                        padding: 8,
+                        borderRadius: 4,
+                        fontSize: 12,
+                      }}
+                      copyable={{
+                        text: item.imagePrompt || item.生图Prompt || '',
+                      }}
+                    >
+                      {item.imagePrompt || item.生图Prompt || '暂无提示词'}
+                    </Paragraph>
+                  </div>
+
+                  {/* 设计要点 */}
+                  {item.designTips && (
+                    <div>
+                      <Text strong>设计要点：</Text>
+                      <div style={{ marginTop: 4 }}>
+                        {Array.isArray(item.designTips) ? (
+                          item.designTips.map(
+                            (tip: string, tipIndex: number) => (
+                              <div key={tipIndex} style={{ marginBottom: 4 }}>
+                                <Text
+                                  style={{
+                                    fontSize: 12,
+                                    color: tip.includes('✅')
+                                      ? '#52c41a'
+                                      : tip.includes('⚠️')
+                                        ? '#faad14'
+                                        : '#666',
+                                  }}
+                                >
+                                  {tip}
+                                </Text>
+                              </div>
+                            )
+                          )
+                        ) : (
+                          <div style={{ marginBottom: 4 }}>
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                whiteSpace: 'pre-wrap',
+                                color: '#666',
+                              }}
+                            >
+                              {item.designTips}
+                            </Text>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Space>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </div>
+    );
+  };
+
+  /**
    * Step 2: 复制内容到剪贴板
    */
   const handleCopyContent = useCallback(async () => {
@@ -1563,10 +2015,58 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
             </Text>
           </div>
         )}
+      </Card>
 
-        {/* Title Result Display */}
+      {/* Step 1: Generated Title Result */}
+      <Card
+        title={
+          <Space>
+            <FileTextOutlined />
+            <span>Step 1: Generated Title Result</span>
+          </Space>
+        }
+        extra={
+          titleResponse && (
+            <Space>
+              <Button
+                type='primary'
+                icon={<SendOutlined />}
+                onClick={handleUseTitle}
+              >
+                Use for Content Generation
+              </Button>
+              <Button icon={<ReloadOutlined />} onClick={handleResetTitle}>
+                Regenerate
+              </Button>
+            </Space>
+          )
+        }
+        style={{ marginBottom: 16 }}
+      >
+        {!titleResponse && !titleLoading && !titleError && (
+          <div
+            style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}
+          >
+            <FileTextOutlined
+              style={{ fontSize: '64px', marginBottom: '16px' }}
+            />
+            <div style={{ fontSize: '16px' }}>
+              Title generation result will appear here
+            </div>
+          </div>
+        )}
+
+        {titleLoading && (
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <Spin size='large' />
+            <div style={{ marginTop: 16 }}>
+              <Text type='secondary'>{titleProgressText}</Text>
+            </div>
+          </div>
+        )}
+
         {titleResponse && !titleLoading && (
-          <div style={{ marginTop: 16 }}>
+          <div>
             <Card
               size='small'
               title='Generated Title'
@@ -1965,7 +2465,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
             onChange={e => setImagePromptInput(e.target.value)}
             placeholder='Enter content to generate image prompt...'
             rows={8}
-            maxLength={2000}
+            maxLength={10000}
             showCount
             disabled={imageGenerationLoading}
           />
@@ -2057,6 +2557,102 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
             </Card>
           </div>
         )}
+
+        {/* Step 3: Cover Image Generation Error Alert */}
+        {coverImageGenerationError && (
+          <Alert
+            message='Cover Image Generation Failed'
+            description={coverImageGenerationError}
+            type='error'
+            closable
+            onClose={() => setCoverImageGenerationError(null)}
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
+        {/* Step 3: Cover Image Generation Module */}
+        <Card
+          title={
+            <Space>
+              <FileImageOutlined />
+              <span>Step 3: Generate Cover Image</span>
+            </Space>
+          }
+          extra={
+            <Space>
+              <Button
+                type='primary'
+                icon={<SendOutlined />}
+                onClick={handleGenerateCoverImage}
+                loading={coverImageGenerationLoading}
+                disabled={
+                  !coverImageInput.trim() || coverImageGenerationLoading
+                }
+                size='small'
+              >
+                {coverImageGenerationLoading
+                  ? 'Generating'
+                  : 'Generate Cover Image'}
+              </Button>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={handleResetCoverImageGeneration}
+                disabled={coverImageGenerationLoading}
+                size='small'
+              >
+                Reset
+              </Button>
+            </Space>
+          }
+          style={{ marginTop: 16 }}
+        >
+          <div>
+            <Text strong style={{ marginBottom: 8, display: 'block' }}>
+              Cover Image Input <Text type='danger'>*</Text>
+            </Text>
+            <TextArea
+              value={coverImageInput}
+              onChange={e => setCoverImageInput(e.target.value)}
+              placeholder='Enter content to generate cover image...'
+              rows={8}
+              maxLength={10000}
+              showCount
+              disabled={coverImageGenerationLoading}
+            />
+          </div>
+
+          {/* Cover Image Generation Progress Display */}
+          {coverImageGenerationLoading && (
+            <div style={{ marginTop: 16 }}>
+              <Progress
+                percent={coverImageGenerationProgress}
+                status='active'
+              />
+              <Text type='secondary' style={{ marginTop: 8, display: 'block' }}>
+                {coverImageGenerationProgressText}
+              </Text>
+            </div>
+          )}
+
+          {/* Cover Image Generation Result Display */}
+          {coverImageResponse && !coverImageGenerationLoading && (
+            <div style={{ marginTop: 16 }}>
+              <Card
+                size='small'
+                title='Generated Cover Image Result'
+                style={{ backgroundColor: '#f6ffed' }}
+              >
+                <Space
+                  direction='vertical'
+                  style={{ width: '100%' }}
+                  size='small'
+                >
+                  <CoverImageDisplay data={coverImageResponse} />
+                </Space>
+              </Card>
+            </div>
+          )}
+        </Card>
       </Card>
     </div>
   );
