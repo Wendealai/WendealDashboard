@@ -19,7 +19,10 @@ import {
   message as antdMessage,
   Progress,
   Statistic,
+  Tabs,
+  Select,
 } from 'antd';
+import type { TabsProps } from 'antd';
 import {
   EditOutlined,
   SendOutlined,
@@ -145,6 +148,88 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
   const [coverImageGenerationError, setCoverImageGenerationError] = useState<
     string | null
   >(null);
+
+  // Seeddance 4.0 相关状态
+  const [seeddanceActiveTab, setSeeddanceActiveTab] = useState<string>(
+    'text-to-image-single'
+  );
+
+  // 图片分辨率选择
+  const [imageSize, setImageSize] = useState<string>('2048x2048');
+
+  // 文生图-生成单张图
+  const [textToImageSingleInput, setTextToImageSingleInput] =
+    useState<string>('');
+  const [textToImageSingleLoading, setTextToImageSingleLoading] =
+    useState<boolean>(false);
+  const [textToImageSingleResponse, setTextToImageSingleResponse] =
+    useState<any>(null);
+  const [textToImageSingleError, setTextToImageSingleError] = useState<
+    string | null
+  >(null);
+
+  // 文生图-生成组图
+  const [textToImageGroupInput, setTextToImageGroupInput] =
+    useState<string>('');
+  const [textToImageGroupLoading, setTextToImageGroupLoading] =
+    useState<boolean>(false);
+  const [textToImageGroupResponse, setTextToImageGroupResponse] =
+    useState<any>(null);
+  const [textToImageGroupError, setTextToImageGroupError] = useState<
+    string | null
+  >(null);
+
+  // 图生图-单张图生成单张图
+  const [imageToImageSingleInput, setImageToImageSingleInput] =
+    useState<string>('');
+  const [imageToImageSingleImageUrl, setImageToImageSingleImageUrl] =
+    useState<string>('');
+  const [imageToImageSingleLoading, setImageToImageSingleLoading] =
+    useState<boolean>(false);
+  const [imageToImageSingleResponse, setImageToImageSingleResponse] =
+    useState<any>(null);
+  const [imageToImageSingleError, setImageToImageSingleError] = useState<
+    string | null
+  >(null);
+
+  // 图生图-单张图生成组图
+  const [imageToImageGroupInput, setImageToImageGroupInput] =
+    useState<string>('');
+  const [imageToImageGroupImageUrl, setImageToImageGroupImageUrl] =
+    useState<string>('');
+  const [imageToImageGroupLoading, setImageToImageGroupLoading] =
+    useState<boolean>(false);
+  const [imageToImageGroupResponse, setImageToImageGroupResponse] =
+    useState<any>(null);
+  const [imageToImageGroupError, setImageToImageGroupError] = useState<
+    string | null
+  >(null);
+
+  // 图生图-多张参考图生成单张图
+  const [multiImageToImageSingleInput, setMultiImageToImageSingleInput] =
+    useState<string>('');
+  const [
+    multiImageToImageSingleImageUrls,
+    setMultiImageToImageSingleImageUrls,
+  ] = useState<string[]>(['', '']);
+  const [multiImageToImageSingleLoading, setMultiImageToImageSingleLoading] =
+    useState<boolean>(false);
+  const [multiImageToImageSingleResponse, setMultiImageToImageSingleResponse] =
+    useState<any>(null);
+  const [multiImageToImageSingleError, setMultiImageToImageSingleError] =
+    useState<string | null>(null);
+
+  // 图生图-多张参考图生成组图
+  const [multiImageToImageGroupInput, setMultiImageToImageGroupInput] =
+    useState<string>('');
+  const [multiImageToImageGroupImageUrls, setMultiImageToImageGroupImageUrls] =
+    useState<string[]>(['', '']);
+  const [multiImageToImageGroupLoading, setMultiImageToImageGroupLoading] =
+    useState<boolean>(false);
+  const [multiImageToImageGroupResponse, setMultiImageToImageGroupResponse] =
+    useState<any>(null);
+  const [multiImageToImageGroupError, setMultiImageToImageGroupError] =
+    useState<string | null>(null);
 
   // 使用 ref 存储当前任务信息，防止被覆盖
   const currentTaskRef = useRef<{
@@ -1332,6 +1417,16 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
 
       console.log('Parsed cover image response:', parsedResponse);
 
+      // 如果是新的结构化数据格式，添加图片URL（如果有的话）
+      if (parsedResponse[0] && parsedResponse[0].imageUrl) {
+        // 如果已经有imageUrl，直接使用
+      } else if (parsedResponse[0] && parsedResponse[0].apiPayload) {
+        // 如果是新的结构化格式，暂时没有图片URL，等待后续生成
+        console.log(
+          'Structured cover image data received, waiting for image generation...'
+        );
+      }
+
       setCoverImageResponse(parsedResponse);
       saveToStorage(STORAGE_KEYS.COVER_IMAGE_RESPONSE, parsedResponse);
 
@@ -1351,6 +1446,497 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
       setCoverImageGenerationLoading(false);
     }
   }, [coverImageInput]);
+
+  /**
+   * Seeddance 4.0 API 调用函数 - 直接调用API
+   */
+  const callSeeddanceAPI = async (payload: any): Promise<any> => {
+    // 直接调用Seeddance API
+    const response = await fetch(
+      'https://ark.cn-beijing.volces.com/api/v3/images/generations',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer e425de80-33fd-4c91-800c-1a5eb3b88cf8',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `API call failed: ${response.status} ${response.statusText}\n${errorText}`
+      );
+    }
+
+    return await response.json();
+  };
+
+  /**
+   * 文生图-生成单张图
+   */
+  const handleTextToImageSingle = useCallback(async () => {
+    if (!textToImageSingleInput.trim()) {
+      antdMessage.warning('Please enter prompt');
+      return;
+    }
+
+    setTextToImageSingleLoading(true);
+    setTextToImageSingleError(null);
+
+    try {
+      const webhookUrl =
+        'https://n8n.wendealai.com/webhook/doubao-txtimage-gen';
+
+      const request = {
+        prompt: textToImageSingleInput.trim(),
+        size: imageSize,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log('Sending text-to-image request to webhook:', webhookUrl);
+      console.log('Request payload:', request);
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        mode: 'cors',
+      });
+
+      if (!response.ok) {
+        let errorText = 'No error details';
+        try {
+          errorText = await response.text();
+        } catch {
+          // 忽略错误
+        }
+        throw new Error(
+          `Request failed with status ${response.status}: ${response.statusText}\n${errorText}`
+        );
+      }
+
+      const result = await response.json();
+
+      // 处理n8n webhook返回的数据格式
+      let processedResult;
+      if (Array.isArray(result) && result.length > 0) {
+        // 如果返回的是数组，取第一个元素
+        processedResult = result[0];
+      } else {
+        processedResult = result;
+      }
+
+      setTextToImageSingleResponse(processedResult);
+      antdMessage.success('Image generated successfully!');
+    } catch (error: any) {
+      setTextToImageSingleError(error.message);
+      antdMessage.error(`Generation failed: ${error.message}`);
+    } finally {
+      setTextToImageSingleLoading(false);
+    }
+  }, [textToImageSingleInput, imageSize]);
+
+  /**
+   * 文生图-生成组图
+   */
+  const handleTextToImageGroup = useCallback(async () => {
+    if (!textToImageGroupInput.trim()) {
+      antdMessage.warning('Please enter prompt');
+      return;
+    }
+
+    setTextToImageGroupLoading(true);
+    setTextToImageGroupError(null);
+
+    try {
+      const webhookUrl = 'https://n8n.wendealai.com/webhook/seedream4txt2imgs';
+
+      const request = {
+        prompt: textToImageGroupInput.trim(),
+        size: imageSize,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log(
+        'Sending text-to-image-group request to webhook:',
+        webhookUrl
+      );
+      console.log('Request payload:', request);
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        mode: 'cors',
+      });
+
+      if (!response.ok) {
+        let errorText = 'No error details';
+        try {
+          errorText = await response.text();
+        } catch {
+          // 忽略错误
+        }
+        throw new Error(
+          `Request failed with status ${response.status}: ${response.statusText}\n${errorText}`
+        );
+      }
+
+      const result = await response.json();
+
+      // 处理n8n webhook返回的数据格式 - 支持流式响应
+      let processedResult;
+      if (Array.isArray(result) && result.length > 0) {
+        const firstItem = result[0];
+        if (firstItem.data && typeof firstItem.data === 'string') {
+          // 处理流式响应数据
+          const streamData = firstItem.data;
+          const imageUrls = [];
+
+          // 解析SSE格式的数据
+          const lines = streamData.split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+              try {
+                const jsonData = JSON.parse(line.substring(6));
+                if (
+                  jsonData.type === 'image_generation.partial_succeeded' &&
+                  jsonData.url
+                ) {
+                  imageUrls.push({
+                    url: jsonData.url,
+                    size: jsonData.size,
+                    index: jsonData.image_index,
+                  });
+                }
+              } catch (e) {
+                // 忽略解析错误
+              }
+            }
+          }
+
+          processedResult = {
+            images: imageUrls,
+            totalImages: imageUrls.length,
+            model: 'doubao-seedream-4-0-250828',
+            completed: true,
+          };
+        } else {
+          processedResult = firstItem;
+        }
+      } else {
+        processedResult = result;
+      }
+
+      setTextToImageGroupResponse(processedResult);
+      antdMessage.success(
+        `Image group generated successfully! (${processedResult?.images?.length || 0} images)`
+      );
+    } catch (error: any) {
+      setTextToImageGroupError(error.message);
+      antdMessage.error(`Generation failed: ${error.message}`);
+    } finally {
+      setTextToImageGroupLoading(false);
+    }
+  }, [textToImageGroupInput, imageSize]);
+
+  /**
+   * 图生图-单张图生成单张图
+   */
+  const handleImageToImageSingle = useCallback(async () => {
+    if (!imageToImageSingleInput.trim() || !imageToImageSingleImageUrl.trim()) {
+      antdMessage.warning('Please enter both prompt and image URL');
+      return;
+    }
+
+    setImageToImageSingleLoading(true);
+    setImageToImageSingleError(null);
+
+    try {
+      const webhookUrl = 'https://n8n.wendealai.com/webhook/seedream4img2img';
+
+      const request = {
+        prompt: imageToImageSingleInput.trim(),
+        imageUrl: imageToImageSingleImageUrl.trim(),
+        size: imageSize,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log(
+        'Sending image-to-image-single request to webhook:',
+        webhookUrl
+      );
+      console.log('Request payload:', request);
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        mode: 'cors',
+      });
+
+      if (!response.ok) {
+        let errorText = 'No error details';
+        try {
+          errorText = await response.text();
+        } catch {
+          // 忽略错误
+        }
+        throw new Error(
+          `Request failed with status ${response.status}: ${response.statusText}\n${errorText}`
+        );
+      }
+
+      const result = await response.json();
+
+      // 处理n8n webhook返回的数据格式
+      let processedResult;
+      if (Array.isArray(result) && result.length > 0) {
+        // 如果返回的是数组，取第一个元素
+        processedResult = result[0];
+      } else {
+        processedResult = result;
+      }
+
+      setImageToImageSingleResponse(processedResult);
+      antdMessage.success('Image generated successfully!');
+    } catch (error: any) {
+      setImageToImageSingleError(error.message);
+      antdMessage.error(`Generation failed: ${error.message}`);
+    } finally {
+      setImageToImageSingleLoading(false);
+    }
+  }, [imageToImageSingleInput, imageToImageSingleImageUrl, imageSize]);
+
+  /**
+   * 图生图-单张图生成组图
+   */
+  const handleImageToImageGroup = useCallback(async () => {
+    if (!imageToImageGroupInput.trim() || !imageToImageGroupImageUrl.trim()) {
+      antdMessage.warning('Please enter both prompt and image URL');
+      return;
+    }
+
+    setImageToImageGroupLoading(true);
+    setImageToImageGroupError(null);
+
+    try {
+      const webhookUrl = 'https://n8n.wendealai.com/webhook/seedream4img2imgs';
+
+      const request = {
+        prompt: imageToImageGroupInput.trim(),
+        imageUrl: imageToImageGroupImageUrl.trim(),
+        size: imageSize,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log(
+        'Sending image-to-image-group request to webhook:',
+        webhookUrl
+      );
+      console.log('Request payload:', request);
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        mode: 'cors',
+      });
+
+      if (!response.ok) {
+        let errorText = 'No error details';
+        try {
+          errorText = await response.text();
+        } catch {
+          // 忽略错误
+        }
+        throw new Error(
+          `Request failed with status ${response.status}: ${response.statusText}\n${errorText}`
+        );
+      }
+
+      const result = await response.json();
+
+      // 处理n8n webhook返回的数据格式
+      let processedResult;
+      if (Array.isArray(result) && result.length > 0) {
+        // 如果返回的是数组，取第一个元素
+        processedResult = result[0];
+      } else {
+        processedResult = result;
+      }
+
+      setImageToImageGroupResponse(processedResult);
+      antdMessage.success('Image group generated successfully!');
+    } catch (error: any) {
+      setImageToImageGroupError(error.message);
+      antdMessage.error(`Generation failed: ${error.message}`);
+    } finally {
+      setImageToImageGroupLoading(false);
+    }
+  }, [imageToImageGroupInput, imageToImageGroupImageUrl, imageSize]);
+
+  /**
+   * 图生图-多张参考图生成单张图
+   */
+  const handleMultiImageToImageSingle = useCallback(async () => {
+    if (
+      !multiImageToImageSingleInput.trim() ||
+      multiImageToImageSingleImageUrls.some(url => !url.trim())
+    ) {
+      antdMessage.warning('Please enter prompt and all image URLs');
+      return;
+    }
+
+    setMultiImageToImageSingleLoading(true);
+    setMultiImageToImageSingleError(null);
+
+    try {
+      const webhookUrl = 'https://n8n.wendealai.com/webhook/seedream4imgs2img';
+
+      const request = {
+        prompt: multiImageToImageSingleInput.trim(),
+        imageUrls: multiImageToImageSingleImageUrls.filter(url => url.trim()),
+        size: imageSize,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log(
+        'Sending multi-image-to-image-single request to webhook:',
+        webhookUrl
+      );
+      console.log('Request payload:', request);
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        mode: 'cors',
+      });
+
+      if (!response.ok) {
+        let errorText = 'No error details';
+        try {
+          errorText = await response.text();
+        } catch {
+          // 忽略错误
+        }
+        throw new Error(
+          `Request failed with status ${response.status}: ${response.statusText}\n${errorText}`
+        );
+      }
+
+      const result = await response.json();
+
+      // 处理n8n webhook返回的数据格式
+      let processedResult;
+      if (Array.isArray(result) && result.length > 0) {
+        // 如果返回的是数组，取第一个元素
+        processedResult = result[0];
+      } else {
+        processedResult = result;
+      }
+
+      setMultiImageToImageSingleResponse(processedResult);
+      antdMessage.success('Image generated successfully!');
+    } catch (error: any) {
+      setMultiImageToImageSingleError(error.message);
+      antdMessage.error(`Generation failed: ${error.message}`);
+    } finally {
+      setMultiImageToImageSingleLoading(false);
+    }
+  }, [
+    multiImageToImageSingleInput,
+    multiImageToImageSingleImageUrls,
+    imageSize,
+  ]);
+
+  /**
+   * 图生图-多张参考图生成组图
+   */
+  const handleMultiImageToImageGroup = useCallback(async () => {
+    if (
+      !multiImageToImageGroupInput.trim() ||
+      multiImageToImageGroupImageUrls.some(url => !url.trim())
+    ) {
+      antdMessage.warning('Please enter prompt and all image URLs');
+      return;
+    }
+
+    setMultiImageToImageGroupLoading(true);
+    setMultiImageToImageGroupError(null);
+
+    try {
+      const webhookUrl = 'https://n8n.wendealai.com/webhook/seedream4imgs2imgs';
+
+      const request = {
+        prompt: multiImageToImageGroupInput.trim(),
+        imageUrls: multiImageToImageGroupImageUrls.filter(url => url.trim()),
+        size: imageSize,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log(
+        'Sending multi-image-to-image-group request to webhook:',
+        webhookUrl
+      );
+      console.log('Request payload:', request);
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        mode: 'cors',
+      });
+
+      if (!response.ok) {
+        let errorText = 'No error details';
+        try {
+          errorText = await response.text();
+        } catch {
+          // 忽略错误
+        }
+        throw new Error(
+          `Request failed with status ${response.status}: ${response.statusText}\n${errorText}`
+        );
+      }
+
+      const result = await response.json();
+
+      // 处理n8n webhook返回的数据格式
+      let processedResult;
+      if (Array.isArray(result) && result.length > 0) {
+        // 如果返回的是数组，取第一个元素
+        processedResult = result[0];
+      } else {
+        processedResult = result;
+      }
+
+      setMultiImageToImageGroupResponse(processedResult);
+      antdMessage.success('Image group generated successfully!');
+    } catch (error: any) {
+      setMultiImageToImageGroupError(error.message);
+      antdMessage.error(`Generation failed: ${error.message}`);
+    } finally {
+      setMultiImageToImageGroupLoading(false);
+    }
+  }, [multiImageToImageGroupInput, multiImageToImageGroupImageUrls, imageSize]);
 
   /**
    * 显示内容结果的辅助函数（增强版：支持图片提示词数据）
@@ -1701,7 +2287,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
   };
 
   /**
-   * 封面图显示组件
+   * 封面图显示组件 - 支持新的结构化数据格式
    */
   const CoverImageDisplay: React.FC<{ data: any[] }> = ({ data }) => {
     const handleCopyPrompt = (prompt: string) => {
@@ -1713,7 +2299,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
       const allPrompts = data
         .map(
           (item, index) =>
-            `【封面图 ${index + 1}】\n${item.imagePrompt || item.生图Prompt || ''}`
+            `【封面图 ${index + 1}】\n${item.imagePrompt || item.生图Prompt || item.封面设计方案?.完整生图Prompt || ''}`
         )
         .join('\n\n');
 
@@ -1753,159 +2339,458 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
 
         {/* 封面图列表 */}
         <Row gutter={[12, 12]}>
-          {data.map((item: any, index: number) => (
-            <Col key={index} span={24}>
-              <Card
-                size='small'
-                title={`🎨 封面图 ${index + 1}: ${item.displayTitle || item.封面标题 || item.title || `封面图 ${index + 1}`}`}
-                style={{ marginBottom: 8 }}
-                extra={
-                  <Button
+          {data.map((item: any, index: number) => {
+            // 检查是否为新的结构化数据格式
+            const isStructuredData = item.封面设计方案 || item.rawDesignData;
+
+            if (isStructuredData) {
+              // 新结构化数据格式显示
+              const designData =
+                item.封面设计方案 || item.rawDesignData?.封面设计方案;
+              const colors = designData?.色彩方案;
+              const layout = designData?.画面布局;
+              const character = designData?.Q版人物设计;
+
+              return (
+                <Col key={index} span={24}>
+                  <Card
                     size='small'
-                    icon={<CopyOutlined />}
-                    onClick={() =>
-                      handleCopyPrompt(
-                        item.imagePrompt || item.生图Prompt || ''
-                      )
+                    title={`🎨 封面设计 ${index + 1}: ${designData?.精简标题 || item.displayTitle || item.封面标题 || `封面图 ${index + 1}`}`}
+                    style={{ marginBottom: 8 }}
+                    extra={
+                      <Button
+                        size='small'
+                        icon={<CopyOutlined />}
+                        onClick={() =>
+                          handleCopyPrompt(
+                            designData?.完整生图Prompt ||
+                              item.imagePrompt ||
+                              item.生图Prompt ||
+                              ''
+                          )
+                        }
+                      >
+                        复制提示词
+                      </Button>
                     }
                   >
-                    复制提示词
-                  </Button>
-                }
-              >
-                <Space
-                  direction='vertical'
-                  size='small'
-                  style={{ width: '100%' }}
-                >
-                  {/* 基本信息 */}
-                  <Row gutter={[16, 8]}>
-                    <Col span={12}>
-                      <div>
-                        <Text strong>风格：</Text>
-                        <Text>
-                          {item.style || item.推荐风格 || '扁平插画风'}
-                        </Text>
-                      </div>
-                    </Col>
-                    <Col span={12}>
-                      <div>
-                        <Text strong>分辨率：</Text>
-                        <Text>
-                          {item.resolution || item.aspectRatio || '1080x1440'}
-                        </Text>
-                      </div>
-                    </Col>
-                  </Row>
-
-                  {/* 色彩方案 */}
-                  {(item.mainColor || item.主色调) && (
-                    <div>
-                      <Text strong>色彩方案：</Text>
-                      <div style={{ marginTop: 4 }}>
-                        <Space>
-                          {item.mainColor && (
-                            <Tag
-                              style={{
-                                backgroundColor: item.mainColor,
-                                color: '#fff',
-                                borderColor: item.mainColor,
-                              }}
-                            >
-                              主色: {item.mainColor}
-                            </Tag>
-                          )}
-                          {item.accentColor && (
-                            <Tag
-                              style={{
-                                backgroundColor: item.accentColor,
-                                color: '#333',
-                              }}
-                            >
-                              辅助: {item.accentColor}
-                            </Tag>
-                          )}
-                          {item.backgroundColor && (
-                            <Tag
-                              style={{
-                                backgroundColor: item.backgroundColor,
-                                color: '#333',
-                              }}
-                            >
-                              背景: {item.backgroundColor}
-                            </Tag>
-                          )}
-                        </Space>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 完整提示词 */}
-                  <div>
-                    <Text strong>完整生图Prompt：</Text>
-                    <Paragraph
-                      style={{
-                        whiteSpace: 'pre-wrap',
-                        marginTop: 8,
-                        maxHeight: 200,
-                        overflowY: 'auto',
-                        backgroundColor: '#f5f5f5',
-                        padding: 8,
-                        borderRadius: 4,
-                        fontSize: 12,
-                      }}
-                      copyable={{
-                        text: item.imagePrompt || item.生图Prompt || '',
-                      }}
+                    <Space
+                      direction='vertical'
+                      size='small'
+                      style={{ width: '100%' }}
                     >
-                      {item.imagePrompt || item.生图Prompt || '暂无提示词'}
-                    </Paragraph>
-                  </div>
+                      {/* 基本信息 */}
+                      <Row gutter={[16, 8]}>
+                        <Col span={12}>
+                          <div>
+                            <Text strong>风格：</Text>
+                            <Text>
+                              {designData?.推荐风格 ||
+                                item.style ||
+                                item.推荐风格 ||
+                                '扁平插画风'}
+                            </Text>
+                          </div>
+                        </Col>
+                        <Col span={12}>
+                          <div>
+                            <Text strong>分辨率：</Text>
+                            <Text>
+                              {item.resolution ||
+                                item.aspectRatio ||
+                                '1080x1440'}
+                            </Text>
+                          </div>
+                        </Col>
+                      </Row>
 
-                  {/* 设计要点 */}
-                  {item.designTips && (
-                    <div>
-                      <Text strong>设计要点：</Text>
-                      <div style={{ marginTop: 4 }}>
-                        {Array.isArray(item.designTips) ? (
-                          item.designTips.map(
-                            (tip: string, tipIndex: number) => (
-                              <div key={tipIndex} style={{ marginBottom: 4 }}>
+                      {/* 色彩方案 */}
+                      {colors && (
+                        <div>
+                          <Text strong>色彩方案：</Text>
+                          <div style={{ marginTop: 4 }}>
+                            <Space>
+                              {colors.主色调 && (
+                                <Tag
+                                  style={{
+                                    backgroundColor:
+                                      colors.主色调 === '薄荷绿'
+                                        ? '#7dd3b3'
+                                        : colors.主色调 === '暖黄色'
+                                          ? '#ffd666'
+                                          : colors.主色调 === '米白'
+                                            ? '#f5f5f5'
+                                            : colors.主色调 === '深灰'
+                                              ? '#666666'
+                                              : '#7dd3b3',
+                                    color:
+                                      colors.主色调 === '米白' ||
+                                      colors.主色调 === '暖黄色'
+                                        ? '#333'
+                                        : '#fff',
+                                    borderColor:
+                                      colors.主色调 === '薄荷绿'
+                                        ? '#7dd3b3'
+                                        : colors.主色调 === '暖黄色'
+                                          ? '#ffd666'
+                                          : colors.主色调 === '米白'
+                                            ? '#f5f5f5'
+                                            : colors.主色调 === '深灰'
+                                              ? '#666666'
+                                              : '#7dd3b3',
+                                  }}
+                                >
+                                  主色: {colors.主色调}
+                                </Tag>
+                              )}
+                              {colors.辅助色 && (
+                                <Tag
+                                  style={{
+                                    backgroundColor:
+                                      colors.辅助色 === '薄荷绿'
+                                        ? '#7dd3b3'
+                                        : colors.辅助色 === '暖黄色'
+                                          ? '#ffd666'
+                                          : colors.辅助色 === '米白'
+                                            ? '#f5f5f5'
+                                            : colors.辅助色 === '深灰'
+                                              ? '#666666'
+                                              : '#ffd666',
+                                    color:
+                                      colors.辅助色 === '米白' ||
+                                      colors.辅助色 === '暖黄色'
+                                        ? '#333'
+                                        : '#fff',
+                                  }}
+                                >
+                                  辅助: {colors.辅助色}
+                                </Tag>
+                              )}
+                              {colors.背景色 && (
+                                <Tag
+                                  style={{
+                                    backgroundColor:
+                                      colors.背景色 === '薄荷绿'
+                                        ? '#7dd3b3'
+                                        : colors.背景色 === '暖黄色'
+                                          ? '#ffd666'
+                                          : colors.背景色 === '米白'
+                                            ? '#f5f5f5'
+                                            : colors.背景色 === '深灰'
+                                              ? '#666666'
+                                              : '#f5f5f5',
+                                    color:
+                                      colors.背景色 === '米白' ||
+                                      colors.背景色 === '暖黄色'
+                                        ? '#333'
+                                        : '#fff',
+                                  }}
+                                >
+                                  背景: {colors.背景色}
+                                </Tag>
+                              )}
+                            </Space>
+                          </div>
+                          <div style={{ marginTop: 4 }}>
+                            <Text type='secondary' style={{ fontSize: 12 }}>
+                              情绪: {colors.情绪 || item.色彩情绪}
+                            </Text>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 画面布局信息 */}
+                      {layout && (
+                        <div>
+                          <Text strong>画面布局：</Text>
+                          <div style={{ marginTop: 4, fontSize: 12 }}>
+                            <div>标题位置: {layout.标题位置}</div>
+                            <div>标题大小: {layout.标题大小}</div>
+                            <div>主视觉位置: {layout.主视觉位置}</div>
+                            <div>装饰元素: {layout.装饰元素}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Q版人物设计 */}
+                      {character && (
+                        <div>
+                          <Text strong>Q版人物设计：</Text>
+                          <div style={{ marginTop: 4, fontSize: 12 }}>
+                            <div>描述: {character.人物描述}</div>
+                            <div>位置: {character.人物位置}</div>
+                            <div>大小: {character.人物大小}</div>
+                            <div>姿态: {character.动作姿态}</div>
+                            <div>表情: {character.表情}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 完整提示词 */}
+                      <div>
+                        <Text strong>完整生图Prompt：</Text>
+                        <Paragraph
+                          style={{
+                            whiteSpace: 'pre-wrap',
+                            marginTop: 8,
+                            maxHeight: 200,
+                            overflowY: 'auto',
+                            backgroundColor: '#f5f5f5',
+                            padding: 8,
+                            borderRadius: 4,
+                            fontSize: 12,
+                          }}
+                          copyable={{
+                            text:
+                              designData?.完整生图Prompt ||
+                              item.imagePrompt ||
+                              item.生图Prompt ||
+                              '',
+                          }}
+                        >
+                          {designData?.完整生图Prompt ||
+                            item.imagePrompt ||
+                            item.生图Prompt ||
+                            '暂无提示词'}
+                        </Paragraph>
+                      </div>
+
+                      {/* 设计要点 */}
+                      {designData?.设计要点提示 && (
+                        <div>
+                          <Text strong>设计要点：</Text>
+                          <div style={{ marginTop: 4 }}>
+                            {Array.isArray(designData.设计要点提示) ? (
+                              designData.设计要点提示.map(
+                                (tip: string, tipIndex: number) => (
+                                  <div
+                                    key={tipIndex}
+                                    style={{ marginBottom: 4 }}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontSize: 12,
+                                        color: tip.includes('✅')
+                                          ? '#52c41a'
+                                          : tip.includes('⚠️')
+                                            ? '#faad14'
+                                            : '#666',
+                                      }}
+                                    >
+                                      {tip}
+                                    </Text>
+                                  </div>
+                                )
+                              )
+                            ) : (
+                              <div style={{ marginBottom: 4 }}>
                                 <Text
                                   style={{
                                     fontSize: 12,
-                                    color: tip.includes('✅')
-                                      ? '#52c41a'
-                                      : tip.includes('⚠️')
-                                        ? '#faad14'
-                                        : '#666',
+                                    whiteSpace: 'pre-wrap',
+                                    color: '#666',
                                   }}
                                 >
-                                  {tip}
+                                  {designData.设计要点提示}
                                 </Text>
                               </div>
-                            )
-                          )
-                        ) : (
-                          <div style={{ marginBottom: 4 }}>
-                            <Text
-                              style={{
-                                fontSize: 12,
-                                whiteSpace: 'pre-wrap',
-                                color: '#666',
-                              }}
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 验证状态 */}
+                      {item.validation && (
+                        <div>
+                          <Text strong>验证状态：</Text>
+                          <div style={{ marginTop: 4 }}>
+                            <Tag
+                              color={
+                                item.validation.allPassed ? 'green' : 'red'
+                              }
                             >
-                              {item.designTips}
+                              {item.validation.allPassed
+                                ? '验证通过'
+                                : '验证失败'}
+                            </Tag>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 创建时间 */}
+                      {item.创建时间 && (
+                        <div>
+                          <Text type='secondary' style={{ fontSize: 12 }}>
+                            创建时间: {new Date(item.创建时间).toLocaleString()}
+                          </Text>
+                        </div>
+                      )}
+                    </Space>
+                  </Card>
+                </Col>
+              );
+            } else {
+              // 旧格式数据显示
+              return (
+                <Col key={index} span={24}>
+                  <Card
+                    size='small'
+                    title={`🎨 封面图 ${index + 1}: ${item.displayTitle || item.封面标题 || item.title || `封面图 ${index + 1}`}`}
+                    style={{ marginBottom: 8 }}
+                    extra={
+                      <Button
+                        size='small'
+                        icon={<CopyOutlined />}
+                        onClick={() =>
+                          handleCopyPrompt(
+                            item.imagePrompt || item.生图Prompt || ''
+                          )
+                        }
+                      >
+                        复制提示词
+                      </Button>
+                    }
+                  >
+                    <Space
+                      direction='vertical'
+                      size='small'
+                      style={{ width: '100%' }}
+                    >
+                      {/* 基本信息 */}
+                      <Row gutter={[16, 8]}>
+                        <Col span={12}>
+                          <div>
+                            <Text strong>风格：</Text>
+                            <Text>
+                              {item.style || item.推荐风格 || '扁平插画风'}
                             </Text>
                           </div>
-                        )}
+                        </Col>
+                        <Col span={12}>
+                          <div>
+                            <Text strong>分辨率：</Text>
+                            <Text>
+                              {item.resolution ||
+                                item.aspectRatio ||
+                                '1080x1440'}
+                            </Text>
+                          </div>
+                        </Col>
+                      </Row>
+
+                      {/* 色彩方案 */}
+                      {(item.mainColor || item.主色调) && (
+                        <div>
+                          <Text strong>色彩方案：</Text>
+                          <div style={{ marginTop: 4 }}>
+                            <Space>
+                              {item.mainColor && (
+                                <Tag
+                                  style={{
+                                    backgroundColor: item.mainColor,
+                                    color: '#fff',
+                                    borderColor: item.mainColor,
+                                  }}
+                                >
+                                  主色: {item.mainColor}
+                                </Tag>
+                              )}
+                              {item.accentColor && (
+                                <Tag
+                                  style={{
+                                    backgroundColor: item.accentColor,
+                                    color: '#333',
+                                  }}
+                                >
+                                  辅助: {item.accentColor}
+                                </Tag>
+                              )}
+                              {item.backgroundColor && (
+                                <Tag
+                                  style={{
+                                    backgroundColor: item.backgroundColor,
+                                    color: '#333',
+                                  }}
+                                >
+                                  背景: {item.backgroundColor}
+                                </Tag>
+                              )}
+                            </Space>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 完整提示词 */}
+                      <div>
+                        <Text strong>完整生图Prompt：</Text>
+                        <Paragraph
+                          style={{
+                            whiteSpace: 'pre-wrap',
+                            marginTop: 8,
+                            maxHeight: 200,
+                            overflowY: 'auto',
+                            backgroundColor: '#f5f5f5',
+                            padding: 8,
+                            borderRadius: 4,
+                            fontSize: 12,
+                          }}
+                          copyable={{
+                            text: item.imagePrompt || item.生图Prompt || '',
+                          }}
+                        >
+                          {item.imagePrompt || item.生图Prompt || '暂无提示词'}
+                        </Paragraph>
                       </div>
-                    </div>
-                  )}
-                </Space>
-              </Card>
-            </Col>
-          ))}
+
+                      {/* 设计要点 */}
+                      {item.designTips && (
+                        <div>
+                          <Text strong>设计要点：</Text>
+                          <div style={{ marginTop: 4 }}>
+                            {Array.isArray(item.designTips) ? (
+                              item.designTips.map(
+                                (tip: string, tipIndex: number) => (
+                                  <div
+                                    key={tipIndex}
+                                    style={{ marginBottom: 4 }}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontSize: 12,
+                                        color: tip.includes('✅')
+                                          ? '#52c41a'
+                                          : tip.includes('⚠️')
+                                            ? '#faad14'
+                                            : '#666',
+                                      }}
+                                    >
+                                      {tip}
+                                    </Text>
+                                  </div>
+                                )
+                              )
+                            ) : (
+                              <div style={{ marginBottom: 4 }}>
+                                <Text
+                                  style={{
+                                    fontSize: 12,
+                                    whiteSpace: 'pre-wrap',
+                                    color: '#666',
+                                  }}
+                                >
+                                  {item.designTips}
+                                </Text>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </Space>
+                  </Card>
+                </Col>
+              );
+            }
+          })}
         </Row>
       </div>
     );
@@ -2647,12 +3532,786 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                   style={{ width: '100%' }}
                   size='small'
                 >
-                  <CoverImageDisplay data={coverImageResponse} />
+                  {/* 只显示完整生图Prompt */}
+                  {coverImageResponse.map((item: any, index: number) => (
+                    <div key={index}>
+                      <Text strong>完整生图Prompt：</Text>
+                      <Paragraph
+                        style={{
+                          whiteSpace: 'pre-wrap',
+                          marginTop: 8,
+                          maxHeight: 200,
+                          overflowY: 'auto',
+                          backgroundColor: '#f5f5f5',
+                          padding: 8,
+                          borderRadius: 4,
+                          fontSize: 12,
+                        }}
+                        copyable={{
+                          text: item.生图Prompt || item.imagePrompt || '',
+                        }}
+                      >
+                        {item.生图Prompt || item.imagePrompt || '暂无提示词'}
+                      </Paragraph>
+                    </div>
+                  ))}
                 </Space>
               </Card>
             </div>
           )}
         </Card>
+      </Card>
+
+      {/* Seeddance 4.0 Image Generation Section */}
+      <Card
+        title={
+          <Space>
+            <FileImageOutlined />
+            <span>Seeddance 4.0 Image Generation</span>
+          </Space>
+        }
+        style={{ marginTop: 24, marginBottom: 16 }}
+        extra={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Text strong style={{ fontSize: 14 }}>
+              分辨率:
+            </Text>
+            <Select
+              value={imageSize}
+              onChange={setImageSize}
+              style={{ width: 140 }}
+              size='small'
+            >
+              <Select.Option value='2048x2048'>
+                社交媒体 (2048x2048)
+              </Select.Option>
+              <Select.Option value='2560x1440'>
+                视频封面 (2560x1440)
+              </Select.Option>
+              <Select.Option value='1440x2560'>
+                手机故事 (1440x2560)
+              </Select.Option>
+              <Select.Option value='2304x1728'>
+                博客文章 (2304x1728)
+              </Select.Option>
+              <Select.Option value='1728x2304'>海报 (1728x2304)</Select.Option>
+              <Select.Option value='3024x1296'>横幅 (3024x1296)</Select.Option>
+              <Select.Option value='2048x2048'>通用 (2048x2048)</Select.Option>
+            </Select>
+          </div>
+        }
+      >
+        <Tabs
+          activeKey={seeddanceActiveTab}
+          onChange={setSeeddanceActiveTab}
+          type='card'
+          size='small'
+        >
+          {/* 文生图-生成单张图 */}
+          <Tabs.TabPane tab='文生图-生成单张图' key='text-to-image-single'>
+            <div style={{ padding: '16px 0' }}>
+              <Text strong style={{ marginBottom: 8, display: 'block' }}>
+                Prompt <Text type='danger'>*</Text>
+              </Text>
+              <TextArea
+                value={textToImageSingleInput}
+                onChange={e => setTextToImageSingleInput(e.target.value)}
+                placeholder='星际穿越，黑洞，黑洞里冲出一辆快支离破碎的复古列车，抢视觉冲击力，电影大片，末日既视感，动感，对比色，oc渲染，光线追踪，动态模糊，景深，超现实主义，深蓝，画面通过细腻的丰富的色彩层次塑造主体与场景，质感真实，暗黑风背景的光影效果营造出氛围，整体兼具艺术幻想感，夸张的广角透视效果，耀光，反射，极致的光影，强引力，吞噬'
+                rows={6}
+                maxLength={10000}
+                showCount
+                disabled={textToImageSingleLoading}
+              />
+              <div style={{ marginTop: 16 }}>
+                <Button
+                  type='primary'
+                  icon={<SendOutlined />}
+                  onClick={handleTextToImageSingle}
+                  loading={textToImageSingleLoading}
+                  disabled={
+                    !textToImageSingleInput.trim() || textToImageSingleLoading
+                  }
+                >
+                  {textToImageSingleLoading
+                    ? 'Generating...'
+                    : 'Generate Image'}
+                </Button>
+              </div>
+
+              {/* Error Display */}
+              {textToImageSingleError && (
+                <Alert
+                  message='Generation Failed'
+                  description={textToImageSingleError}
+                  type='error'
+                  closable
+                  onClose={() => setTextToImageSingleError(null)}
+                  style={{ marginTop: 16 }}
+                />
+              )}
+
+              {/* Result Display */}
+              {textToImageSingleResponse && !textToImageSingleLoading && (
+                <div style={{ marginTop: 16 }}>
+                  <Card
+                    size='small'
+                    title='Generated Image'
+                    style={{ backgroundColor: '#f6ffed' }}
+                  >
+                    <div style={{ textAlign: 'center' }}>
+                      <img
+                        src={
+                          textToImageSingleResponse.data?.[0]?.url ||
+                          textToImageSingleResponse.url
+                        }
+                        alt='Generated'
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '400px',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                        }}
+                      />
+                      <div style={{ marginTop: 12 }}>
+                        <Space>
+                          <Button
+                            type='primary'
+                            icon={<DownloadOutlined />}
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href =
+                                textToImageSingleResponse.data?.[0]?.url ||
+                                textToImageSingleResponse.url;
+                              link.download = `seeddance-image-${Date.now()}.png`;
+                              link.click();
+                            }}
+                          >
+                            Download Image
+                          </Button>
+                          <Button
+                            icon={<CopyOutlined />}
+                            onClick={() => {
+                              const imageUrl =
+                                textToImageSingleResponse.data?.[0]?.url ||
+                                textToImageSingleResponse.url;
+                              navigator.clipboard.writeText(imageUrl);
+                              antdMessage.success(
+                                'Image URL copied to clipboard'
+                              );
+                            }}
+                          >
+                            Copy URL
+                          </Button>
+                        </Space>
+                      </div>
+                      {/* 显示图片信息 */}
+                      <div style={{ marginTop: 12, textAlign: 'left' }}>
+                        <Text type='secondary' style={{ fontSize: 12 }}>
+                          Size:{' '}
+                          {textToImageSingleResponse.data?.[0]?.size ||
+                            'Unknown'}{' '}
+                          | Model:{' '}
+                          {textToImageSingleResponse.model || 'Unknown'} |
+                          Created:{' '}
+                          {textToImageSingleResponse.created
+                            ? new Date(
+                                textToImageSingleResponse.created * 1000
+                              ).toLocaleString()
+                            : 'Unknown'}
+                        </Text>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+            </div>
+          </Tabs.TabPane>
+
+          {/* 文生图-生成组图 */}
+          <Tabs.TabPane tab='文生图-生成组图' key='text-to-image-group'>
+            <div style={{ padding: '16px 0' }}>
+              <Text strong style={{ marginBottom: 8, display: 'block' }}>
+                Prompt <Text type='danger'>*</Text>
+              </Text>
+              <TextArea
+                value={textToImageGroupInput}
+                onChange={e => setTextToImageGroupInput(e.target.value)}
+                placeholder='生成一组共4张连贯插画，核心为同一庭院一角的四季变迁，以统一风格展现四季独特色彩、元素与氛围'
+                rows={6}
+                maxLength={10000}
+                showCount
+                disabled={textToImageGroupLoading}
+              />
+              <div style={{ marginTop: 16 }}>
+                <Button
+                  type='primary'
+                  icon={<SendOutlined />}
+                  onClick={handleTextToImageGroup}
+                  loading={textToImageGroupLoading}
+                  disabled={
+                    !textToImageGroupInput.trim() || textToImageGroupLoading
+                  }
+                >
+                  {textToImageGroupLoading
+                    ? 'Generating...'
+                    : 'Generate Image Group'}
+                </Button>
+              </div>
+
+              {/* Error Display */}
+              {textToImageGroupError && (
+                <Alert
+                  message='Generation Failed'
+                  description={textToImageGroupError}
+                  type='error'
+                  closable
+                  onClose={() => setTextToImageGroupError(null)}
+                  style={{ marginTop: 16 }}
+                />
+              )}
+
+              {/* Result Display */}
+              {textToImageGroupResponse && !textToImageGroupLoading && (
+                <div style={{ marginTop: 16 }}>
+                  <Card
+                    size='small'
+                    title={`Generated Image Group (${textToImageGroupResponse?.images?.length || 0} images)`}
+                    style={{ backgroundColor: '#f6ffed' }}
+                  >
+                    <Row gutter={[16, 16]}>
+                      {textToImageGroupResponse.images?.map(
+                        (item: any, index: number) => (
+                          <Col key={item.index || index} span={12}>
+                            <div style={{ textAlign: 'center' }}>
+                              <img
+                                src={item.url}
+                                alt={`Generated ${item.index || index + 1}`}
+                                style={{
+                                  maxWidth: '100%',
+                                  maxHeight: '200px',
+                                  borderRadius: '8px',
+                                  boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                                }}
+                              />
+                              <div style={{ marginTop: 8 }}>
+                                <Space>
+                                  <Button
+                                    size='small'
+                                    icon={<DownloadOutlined />}
+                                    onClick={() => {
+                                      const link = document.createElement('a');
+                                      link.href = item.url;
+                                      link.download = `seeddance-txt2img-group-${item.index || index + 1}-${Date.now()}.png`;
+                                      link.click();
+                                    }}
+                                  >
+                                    Download
+                                  </Button>
+                                  <Button
+                                    size='small'
+                                    icon={<CopyOutlined />}
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(item.url);
+                                      antdMessage.success(
+                                        'Image URL copied to clipboard'
+                                      );
+                                    }}
+                                  >
+                                    Copy URL
+                                  </Button>
+                                </Space>
+                              </div>
+                              <div
+                                style={{
+                                  marginTop: 4,
+                                  fontSize: 12,
+                                  color: '#666',
+                                }}
+                              >
+                                Size: {item.size}
+                              </div>
+                            </div>
+                          </Col>
+                        )
+                      )}
+                    </Row>
+                  </Card>
+                </div>
+              )}
+            </div>
+          </Tabs.TabPane>
+
+          {/* 图生图-单张图生成单张图 */}
+          <Tabs.TabPane
+            tab='图生图-单张图生成单张图'
+            key='image-to-image-single'
+          >
+            <div style={{ padding: '16px 0' }}>
+              <Row gutter={[16, 16]}>
+                <Col span={12}>
+                  <Text strong style={{ marginBottom: 8, display: 'block' }}>
+                    Prompt <Text type='danger'>*</Text>
+                  </Text>
+                  <TextArea
+                    value={imageToImageSingleInput}
+                    onChange={e => setImageToImageSingleInput(e.target.value)}
+                    placeholder='生成狗狗趴在草地上的近景画面'
+                    rows={4}
+                    maxLength={10000}
+                    showCount
+                    disabled={imageToImageSingleLoading}
+                  />
+                </Col>
+                <Col span={12}>
+                  <Text strong style={{ marginBottom: 8, display: 'block' }}>
+                    Reference Image URL <Text type='danger'>*</Text>
+                  </Text>
+                  <Input
+                    value={imageToImageSingleImageUrl}
+                    onChange={e =>
+                      setImageToImageSingleImageUrl(e.target.value)
+                    }
+                    placeholder='https://ark-project.tos-cn-beijing.volces.com/doc_image/seedream4_imageToimage.png'
+                    disabled={imageToImageSingleLoading}
+                  />
+                </Col>
+              </Row>
+              <div style={{ marginTop: 16 }}>
+                <Button
+                  type='primary'
+                  icon={<SendOutlined />}
+                  onClick={handleImageToImageSingle}
+                  loading={imageToImageSingleLoading}
+                  disabled={
+                    !imageToImageSingleInput.trim() ||
+                    !imageToImageSingleImageUrl.trim() ||
+                    imageToImageSingleLoading
+                  }
+                >
+                  {imageToImageSingleLoading
+                    ? 'Generating...'
+                    : 'Generate Image'}
+                </Button>
+              </div>
+
+              {/* Error Display */}
+              {imageToImageSingleError && (
+                <Alert
+                  message='Generation Failed'
+                  description={imageToImageSingleError}
+                  type='error'
+                  closable
+                  onClose={() => setImageToImageSingleError(null)}
+                  style={{ marginTop: 16 }}
+                />
+              )}
+
+              {/* Result Display */}
+              {imageToImageSingleResponse && !imageToImageSingleLoading && (
+                <div style={{ marginTop: 16 }}>
+                  <Card
+                    size='small'
+                    title='Generated Image'
+                    style={{ backgroundColor: '#f6ffed' }}
+                  >
+                    <div style={{ textAlign: 'center' }}>
+                      <img
+                        src={
+                          imageToImageSingleResponse.data?.[0]?.url ||
+                          imageToImageSingleResponse.url
+                        }
+                        alt='Generated'
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '400px',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                        }}
+                      />
+                      <div style={{ marginTop: 12 }}>
+                        <Button
+                          type='primary'
+                          icon={<DownloadOutlined />}
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href =
+                              imageToImageSingleResponse.data?.[0]?.url ||
+                              imageToImageSingleResponse.url;
+                            link.download = `seeddance-image-to-image-${Date.now()}.png`;
+                            link.click();
+                          }}
+                        >
+                          Download Image
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+            </div>
+          </Tabs.TabPane>
+
+          {/* 图生图-单张图生成组图 */}
+          <Tabs.TabPane tab='图生图-单张图生成组图' key='image-to-image-group'>
+            <div style={{ padding: '16px 0' }}>
+              <Row gutter={[16, 16]}>
+                <Col span={12}>
+                  <Text strong style={{ marginBottom: 8, display: 'block' }}>
+                    Prompt <Text type='danger'>*</Text>
+                  </Text>
+                  <TextArea
+                    value={imageToImageGroupInput}
+                    onChange={e => setImageToImageGroupInput(e.target.value)}
+                    placeholder='参考这个LOGO，做一套户外运动品牌视觉设计，品牌名称为GREEN，包括包装袋、帽子、纸盒、手环、挂绳等。绿色视觉主色调，趣味、简约现代风格'
+                    rows={4}
+                    maxLength={10000}
+                    showCount
+                    disabled={imageToImageGroupLoading}
+                  />
+                </Col>
+                <Col span={12}>
+                  <Text strong style={{ marginBottom: 8, display: 'block' }}>
+                    Reference Image URL <Text type='danger'>*</Text>
+                  </Text>
+                  <Input
+                    value={imageToImageGroupImageUrl}
+                    onChange={e => setImageToImageGroupImageUrl(e.target.value)}
+                    placeholder='https://ark-project.tos-cn-beijing.volces.com/doc_image/seedream4_imageToimages.png'
+                    disabled={imageToImageGroupLoading}
+                  />
+                </Col>
+              </Row>
+              <div style={{ marginTop: 16 }}>
+                <Button
+                  type='primary'
+                  icon={<SendOutlined />}
+                  onClick={handleImageToImageGroup}
+                  loading={imageToImageGroupLoading}
+                  disabled={
+                    !imageToImageGroupInput.trim() ||
+                    !imageToImageGroupImageUrl.trim() ||
+                    imageToImageGroupLoading
+                  }
+                >
+                  {imageToImageGroupLoading
+                    ? 'Generating...'
+                    : 'Generate Image Group'}
+                </Button>
+              </div>
+
+              {/* Error Display */}
+              {imageToImageGroupError && (
+                <Alert
+                  message='Generation Failed'
+                  description={imageToImageGroupError}
+                  type='error'
+                  closable
+                  onClose={() => setImageToImageGroupError(null)}
+                  style={{ marginTop: 16 }}
+                />
+              )}
+
+              {/* Result Display */}
+              {imageToImageGroupResponse && !imageToImageGroupLoading && (
+                <div style={{ marginTop: 16 }}>
+                  <Card
+                    size='small'
+                    title='Generated Image Group'
+                    style={{ backgroundColor: '#f6ffed' }}
+                  >
+                    <Row gutter={[16, 16]}>
+                      {imageToImageGroupResponse.data?.map(
+                        (item: any, index: number) => (
+                          <Col key={index} span={12}>
+                            <div style={{ textAlign: 'center' }}>
+                              <img
+                                src={item.url}
+                                alt={`Generated ${index + 1}`}
+                                style={{
+                                  maxWidth: '100%',
+                                  maxHeight: '200px',
+                                  borderRadius: '8px',
+                                  boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                                }}
+                              />
+                              <div style={{ marginTop: 8 }}>
+                                <Button
+                                  size='small'
+                                  icon={<DownloadOutlined />}
+                                  onClick={() => {
+                                    const link = document.createElement('a');
+                                    link.href = item.url;
+                                    link.download = `seeddance-image-to-group-${index + 1}-${Date.now()}.png`;
+                                    link.click();
+                                  }}
+                                >
+                                  Download
+                                </Button>
+                              </div>
+                            </div>
+                          </Col>
+                        )
+                      )}
+                    </Row>
+                  </Card>
+                </div>
+              )}
+            </div>
+          </Tabs.TabPane>
+
+          {/* 图生图-多张参考图生成单张图 */}
+          <Tabs.TabPane
+            tab='图生图-多张参考图生成单张图'
+            key='multi-image-to-image-single'
+          >
+            <div style={{ padding: '16px 0' }}>
+              <Text strong style={{ marginBottom: 8, display: 'block' }}>
+                Prompt <Text type='danger'>*</Text>
+              </Text>
+              <TextArea
+                value={multiImageToImageSingleInput}
+                onChange={e => setMultiImageToImageSingleInput(e.target.value)}
+                placeholder='将图1的服装换为图2的服装'
+                rows={4}
+                maxLength={10000}
+                showCount
+                disabled={multiImageToImageSingleLoading}
+              />
+              <div style={{ marginTop: 16 }}>
+                <Text strong style={{ marginBottom: 8, display: 'block' }}>
+                  Reference Image URLs <Text type='danger'>*</Text>
+                </Text>
+                <Row gutter={[16, 16]}>
+                  <Col span={12}>
+                    <Input
+                      value={multiImageToImageSingleImageUrls[0]}
+                      onChange={e => {
+                        const newUrls = [...multiImageToImageSingleImageUrls];
+                        newUrls[0] = e.target.value;
+                        setMultiImageToImageSingleImageUrls(newUrls);
+                      }}
+                      placeholder='https://ark-project.tos-cn-beijing.volces.com/doc_image/seedream4_imagesToimage_1.png'
+                      disabled={multiImageToImageSingleLoading}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Input
+                      value={multiImageToImageSingleImageUrls[1]}
+                      onChange={e => {
+                        const newUrls = [...multiImageToImageSingleImageUrls];
+                        newUrls[1] = e.target.value;
+                        setMultiImageToImageSingleImageUrls(newUrls);
+                      }}
+                      placeholder='https://ark-project.tos-cn-beijing.volces.com/doc_image/seedream4_imagesToimage_2.png'
+                      disabled={multiImageToImageSingleLoading}
+                    />
+                  </Col>
+                </Row>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <Button
+                  type='primary'
+                  icon={<SendOutlined />}
+                  onClick={handleMultiImageToImageSingle}
+                  loading={multiImageToImageSingleLoading}
+                  disabled={
+                    !multiImageToImageSingleInput.trim() ||
+                    multiImageToImageSingleImageUrls.some(url => !url.trim()) ||
+                    multiImageToImageSingleLoading
+                  }
+                >
+                  {multiImageToImageSingleLoading
+                    ? 'Generating...'
+                    : 'Generate Image'}
+                </Button>
+              </div>
+
+              {/* Error Display */}
+              {multiImageToImageSingleError && (
+                <Alert
+                  message='Generation Failed'
+                  description={multiImageToImageSingleError}
+                  type='error'
+                  closable
+                  onClose={() => setMultiImageToImageSingleError(null)}
+                  style={{ marginTop: 16 }}
+                />
+              )}
+
+              {/* Result Display */}
+              {multiImageToImageSingleResponse &&
+                !multiImageToImageSingleLoading && (
+                  <div style={{ marginTop: 16 }}>
+                    <Card
+                      size='small'
+                      title='Generated Image'
+                      style={{ backgroundColor: '#f6ffed' }}
+                    >
+                      <div style={{ textAlign: 'center' }}>
+                        <img
+                          src={
+                            multiImageToImageSingleResponse.data?.[0]?.url ||
+                            multiImageToImageSingleResponse.url
+                          }
+                          alt='Generated'
+                          style={{
+                            maxWidth: '100%',
+                            maxHeight: '400px',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                          }}
+                        />
+                        <div style={{ marginTop: 12 }}>
+                          <Button
+                            type='primary'
+                            icon={<DownloadOutlined />}
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href =
+                                multiImageToImageSingleResponse.data?.[0]
+                                  ?.url || multiImageToImageSingleResponse.url;
+                              link.download = `seeddance-multi-image-single-${Date.now()}.png`;
+                              link.click();
+                            }}
+                          >
+                            Download Image
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+            </div>
+          </Tabs.TabPane>
+
+          {/* 图生图-多张参考图生成组图 */}
+          <Tabs.TabPane
+            tab='图生图-多张参考图生成组图'
+            key='multi-image-to-image-group'
+          >
+            <div style={{ padding: '16px 0' }}>
+              <Text strong style={{ marginBottom: 8, display: 'block' }}>
+                Prompt <Text type='danger'>*</Text>
+              </Text>
+              <TextArea
+                value={multiImageToImageGroupInput}
+                onChange={e => setMultiImageToImageGroupInput(e.target.value)}
+                placeholder='生成3张女孩和奶牛玩偶在游乐园开心地坐过山车的图片，涵盖早晨、中午、晚上'
+                rows={4}
+                maxLength={10000}
+                showCount
+                disabled={multiImageToImageGroupLoading}
+              />
+              <div style={{ marginTop: 16 }}>
+                <Text strong style={{ marginBottom: 8, display: 'block' }}>
+                  Reference Image URLs <Text type='danger'>*</Text>
+                </Text>
+                <Row gutter={[16, 16]}>
+                  <Col span={12}>
+                    <Input
+                      value={multiImageToImageGroupImageUrls[0]}
+                      onChange={e => {
+                        const newUrls = [...multiImageToImageGroupImageUrls];
+                        newUrls[0] = e.target.value;
+                        setMultiImageToImageGroupImageUrls(newUrls);
+                      }}
+                      placeholder='https://ark-project.tos-cn-beijing.volces.com/doc_image/seedream4_imagesToimages_1.png'
+                      disabled={multiImageToImageGroupLoading}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Input
+                      value={multiImageToImageGroupImageUrls[1]}
+                      onChange={e => {
+                        const newUrls = [...multiImageToImageGroupImageUrls];
+                        newUrls[1] = e.target.value;
+                        setMultiImageToImageGroupImageUrls(newUrls);
+                      }}
+                      placeholder='https://ark-project.tos-cn-beijing.volces.com/doc_image/seedream4_imagesToimages_2.png'
+                      disabled={multiImageToImageGroupLoading}
+                    />
+                  </Col>
+                </Row>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <Button
+                  type='primary'
+                  icon={<SendOutlined />}
+                  onClick={handleMultiImageToImageGroup}
+                  loading={multiImageToImageGroupLoading}
+                  disabled={
+                    !multiImageToImageGroupInput.trim() ||
+                    multiImageToImageGroupImageUrls.some(url => !url.trim()) ||
+                    multiImageToImageGroupLoading
+                  }
+                >
+                  {multiImageToImageGroupLoading
+                    ? 'Generating...'
+                    : 'Generate Image Group'}
+                </Button>
+              </div>
+
+              {/* Error Display */}
+              {multiImageToImageGroupError && (
+                <Alert
+                  message='Generation Failed'
+                  description={multiImageToImageGroupError}
+                  type='error'
+                  closable
+                  onClose={() => setMultiImageToImageGroupError(null)}
+                  style={{ marginTop: 16 }}
+                />
+              )}
+
+              {/* Result Display */}
+              {multiImageToImageGroupResponse &&
+                !multiImageToImageGroupLoading && (
+                  <div style={{ marginTop: 16 }}>
+                    <Card
+                      size='small'
+                      title='Generated Image Group'
+                      style={{ backgroundColor: '#f6ffed' }}
+                    >
+                      <Row gutter={[16, 16]}>
+                        {multiImageToImageGroupResponse.data?.map(
+                          (item: any, index: number) => (
+                            <Col key={index} span={12}>
+                              <div style={{ textAlign: 'center' }}>
+                                <img
+                                  src={item.url}
+                                  alt={`Generated ${index + 1}`}
+                                  style={{
+                                    maxWidth: '100%',
+                                    maxHeight: '200px',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                                  }}
+                                />
+                                <div style={{ marginTop: 8 }}>
+                                  <Button
+                                    size='small'
+                                    icon={<DownloadOutlined />}
+                                    onClick={() => {
+                                      const link = document.createElement('a');
+                                      link.href = item.url;
+                                      link.download = `seeddance-multi-image-group-${index + 1}-${Date.now()}.png`;
+                                      link.click();
+                                    }}
+                                  >
+                                    Download
+                                  </Button>
+                                </div>
+                              </div>
+                            </Col>
+                          )
+                        )}
+                      </Row>
+                    </Card>
+                  </div>
+                )}
+            </div>
+          </Tabs.TabPane>
+        </Tabs>
       </Card>
     </div>
   );
