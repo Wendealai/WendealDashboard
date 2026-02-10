@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Form,
   Input,
@@ -71,6 +71,14 @@ const BondCleanQuoteForm: React.FC = () => {
   const [showCustomRoomType, setShowCustomRoomType] = useState(false);
   const [showRubbishNotes, setShowRubbishNotes] = useState(false);
   const [propertyType, setPropertyType] = useState<string>('apartment');
+
+  // Set page title
+  useEffect(() => {
+    document.title = 'Bond Clean Quote Request - Sparkery';
+    return () => {
+      document.title = 'Wendeal Dashboard';
+    };
+  }, []);
 
   const roomTypes = [
     { id: 'studio', name: 'Studio', maxCarpet: 1 },
@@ -194,11 +202,11 @@ const BondCleanQuoteForm: React.FC = () => {
         background: 'linear-gradient(135deg, #f5f7f0 0%, #e8f5e9 100%)',
       }}
     >
-      {/* Header */}
+      {/* Header - Simplified for mobile */}
       <div
         style={{
           background: '#005901',
-          padding: '20px 0',
+          padding: '12px 0',
           boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
         }}
       >
@@ -206,28 +214,20 @@ const BondCleanQuoteForm: React.FC = () => {
           style={{
             maxWidth: 900,
             margin: '0 auto',
-            padding: '0 24px',
+            padding: '0 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '8px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <img
-              src='https://sparkery.com.au/wp-content/uploads/2025/11/logo.png'
-              alt='Sparkery Logo'
-              style={{ height: 50 }}
-            />
-            <div>
-              <Title level={3} style={{ color: '#fff', margin: 0 }}>
-                Sparkery
-              </Title>
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>
-                Making Brisbane Sparkle!
-              </Text>
-            </div>
-          </div>
-          <div style={{ textAlign: 'right', color: '#fff' }}>
+          <img
+            src='https://sparkery.com.au/wp-content/uploads/2025/11/logo.png'
+            alt='Sparkery Logo'
+            style={{ height: 40 }}
+          />
+          <div style={{ textAlign: 'right', color: '#fff', fontSize: 12 }}>
             <div>
               <PhoneOutlined /> 0478 540 915
             </div>
@@ -239,7 +239,7 @@ const BondCleanQuoteForm: React.FC = () => {
       </div>
 
       {/* Form Content */}
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 24px' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
         {/* Copy URL Button */}
         <div style={{ marginBottom: 16, textAlign: 'right' }}>
           <Button

@@ -810,11 +810,12 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         }
 
         // 生成HTML行 - 使用占位符，稍后根据语言替换
+        // Note: item-detail with Chinese will be handled in generateQuoteHTML based on language
         rows += `
           <tr>
             <td class="col-desc">
               <span class="item-name">${addon.name}${quantityText}</span>
-              <span class="item-detail">${addon.nameCN}</span>
+              <span class="item-detail" data-cn="${addon.nameCN}"></span>
             </td>
             <td class="col-type">__ADDON_TYPE__</td>
             <td class="col-hours">${hours.toFixed(1)} hrs</td>
@@ -1174,7 +1175,12 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             }
 
             <!-- 附加服务 -->
-            ${(quote.htmlRows || '').replace(/__ADDON_TYPE__/g, lang === 'cn' ? '附加服务' : 'Add-on')}
+            ${(quote.htmlRows || '')
+              .replace(/__ADDON_TYPE__/g, lang === 'cn' ? '附加服务' : 'Add-on')
+              .replace(
+                /<span class="item-detail" data-cn="([^"]*)"><\/span>/g,
+                lang === 'cn' ? '<span class="item-detail">$1</span>' : ''
+              )}
         </tbody>
     </table>
     <div class="total-section">
