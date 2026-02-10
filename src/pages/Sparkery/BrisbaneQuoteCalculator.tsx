@@ -499,8 +499,20 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #fff; }
             ${getPageStyles(language)}
             @media print {
+              @page {
+                margin: 15mm 10mm;
+                size: A4;
+              }
               body { padding: 0; }
               .no-print { display: none !important; }
+              .quote-container { page-break-inside: auto; }
+              .quote-header { page-break-inside: avoid; page-break-after: avoid; }
+              .quote-info { page-break-inside: avoid; page-break-after: avoid; }
+              .quote-table { page-break-inside: auto; }
+              .quote-table tr { page-break-inside: avoid; page-break-after: auto; }
+              .quote-total { page-break-inside: avoid; page-break-before: avoid; }
+              .quote-footer { page-break-inside: avoid; page-break-before: avoid; }
+              .quote-notes { page-break-inside: avoid; }
             }
           </style>
         </head>
