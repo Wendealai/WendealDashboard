@@ -26,9 +26,12 @@ import {
   ReloadOutlined,
   FileTextOutlined,
   GlobalOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import { useQuoteDraft } from './index';
+import type { QuoteDraftData } from './index';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -60,6 +63,7 @@ interface QuoteSubmission {
   rubbishRemovalNotes?: string;
   preferredDate: string;
   additionalNotes: string;
+  isSparkeryNewCustomer?: boolean;
   status:
     | 'new'
     | 'contacted'
@@ -70,6 +74,7 @@ interface QuoteSubmission {
 }
 
 const BondCleanQuoteSubmissions: React.FC = () => {
+  const { setDraftData, setActiveTab } = useQuoteDraft();
   const [submissions, setSubmissions] = useState<QuoteSubmission[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedSubmission, setSelectedSubmission] =
@@ -120,6 +125,38 @@ const BondCleanQuoteSubmissions: React.FC = () => {
     setSubmissions(filtered);
     localStorage.setItem('bondCleanQuoteRequests', JSON.stringify(filtered));
     message.success('Submission deleted');
+  };
+
+  // Generate quote draft - pass data to calculator
+  const generateQuoteDraft = (record: QuoteSubmission) => {
+    const draft: QuoteDraftData = {
+      customerName: record.customerName,
+      email: record.email,
+      phone: record.phone,
+      propertyAddress: record.propertyAddress,
+      propertyType: record.propertyType as 'apartment' | 'townhouse' | 'house',
+      roomType: record.roomType,
+      customRoomType: record.customRoomType || '',
+      hasCarpet: record.hasCarpet,
+      carpetRooms: record.carpetRooms,
+      garage: record.garage,
+      glassDoorWindowCount: record.glassDoorWindowCount,
+      oven: record.oven,
+      fridge: record.fridge,
+      wallStainsCount: record.wallStainsCount,
+      acFilterCount: record.acFilterCount,
+      blindsCount: record.blindsCount,
+      moldCount: record.moldCount,
+      heavySoiling: record.heavySoiling,
+      rubbishRemoval: record.rubbishRemoval,
+      rubbishRemovalNotes: record.rubbishRemovalNotes || '',
+      preferredDate: record.preferredDate,
+      additionalNotes: record.additionalNotes,
+      isSparkeryNewCustomer: record.isSparkeryNewCustomer || false,
+    };
+    setDraftData(draft);
+    setActiveTab('quote-calculator');
+    message.success('已将客户数据填充到报价工具，请审核后生成报价');
   };
 
   // Export to CSV
@@ -300,9 +337,17 @@ const BondCleanQuoteSubmissions: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 150,
+      width: 220,
       render: (_, record) => (
         <Space>
+          <Button
+            size='small'
+            icon={<EditOutlined />}
+            type='primary'
+            onClick={() => generateQuoteDraft(record)}
+          >
+            生成报价
+          </Button>
           <Button
             size='small'
             icon={<EyeOutlined />}

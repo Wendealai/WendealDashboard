@@ -35,6 +35,7 @@ interface BondCleanFormData {
   email: string;
   phone: string;
   propertyAddress: string;
+  isSparkeryNewCustomer: boolean;
 
   // Property Details
   propertyType: 'apartment' | 'townhouse' | 'house';
@@ -285,6 +286,7 @@ const BondCleanQuoteForm: React.FC = () => {
                 moldCount: 0,
                 heavySoiling: false,
                 rubbishRemoval: false,
+                isSparkeryNewCustomer: false,
               }}
             >
               {/* Customer Information */}
@@ -356,6 +358,25 @@ const BondCleanQuoteForm: React.FC = () => {
                       size='large'
                       placeholder='123 Main St, Brisbane QLD 4000'
                     />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={16}>
+                <Col xs={24}>
+                  <Form.Item
+                    name='isSparkeryNewCustomer'
+                    valuePropName='checked'
+                  >
+                    <Checkbox>
+                      <strong>I am a new Sparkery customer</strong>
+                      <Text
+                        type='success'
+                        style={{ marginLeft: 8, fontSize: 12 }}
+                      >
+                        (New customers can enjoy a discount!)
+                      </Text>
+                    </Checkbox>
                   </Form.Item>
                 </Col>
               </Row>

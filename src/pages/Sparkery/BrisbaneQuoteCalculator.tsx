@@ -32,6 +32,7 @@ import {
   FileTextOutlined,
   EyeOutlined,
 } from '@ant-design/icons';
+import { useQuoteDraft } from './index';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -496,6 +497,85 @@ const BrisbaneQuoteCalculator: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('brisbane-quote-config', JSON.stringify(config));
   }, [config]);
+
+  // Handle draft data from quote submissions
+  const { draftData, setDraftData } = useQuoteDraft();
+
+  // Auto-fill form when draftData changes
+  useEffect(() => {
+    if (draftData) {
+      // Set work type to bond cleaning for quote requests
+      setSelectedWorkType('bond');
+
+      // Fill customer info
+      setCustomerName(draftData.customerName);
+      setCustomerAddress(draftData.propertyAddress);
+      setNotes(
+        draftData.additionalNotes +
+          (draftData.preferredDate
+            ? `\nPreferred Date: ${draftData.preferredDate}`
+            : '') +
+          (draftData.rubbishRemovalNotes
+            ? `\nRubbish Removal: ${draftData.rubbishRemovalNotes}`
+            : '')
+      );
+
+      // Set property type
+      setSelectedPropertyType(draftData.propertyType);
+
+      // Map room type from form to calculator
+      const roomTypeMap: Record<string, string> = {
+        studio: 'studio',
+        '1_bed': '1_bed_1b',
+        '2_bed_1b': '2_bed_1b',
+        '2_bed_2b': '2_bed_2b',
+        '3_bed_1b': '3_bed_1b',
+        '3_bed_2b': '3_bed_2b',
+        '4_bed_2b': '4_bed_2b',
+        other: 'custom',
+      };
+      const mappedRoomType = roomTypeMap[draftData.roomType] || 'custom';
+      setSelectedRoomType(mappedRoomType);
+      if (mappedRoomType === 'custom' && draftData.customRoomType) {
+        setCustomRoomType(draftData.customRoomType);
+      }
+
+      // Set carpet options
+      setIncludeSteamCarpet(draftData.hasCarpet);
+      setSteamCarpetRoomCount(draftData.carpetRooms);
+
+      // Set addon counts
+      setGlassDoorWindowCount(draftData.glassDoorWindowCount);
+      setWallStainsCount(draftData.wallStainsCount);
+      setAcFilterCount(draftData.acFilterCount);
+      setBlindsCount(draftData.blindsCount);
+      setMoldCount(draftData.moldCount);
+
+      // Set addons based on boolean flags
+      const addons: string[] = [];
+      if (draftData.garage) addons.push('garage');
+      if (draftData.oven) addons.push('oven');
+      if (draftData.fridge) addons.push('fridge');
+      if (draftData.heavySoiling) addons.push('heavySoiling');
+      if (draftData.rubbishRemoval) addons.push('rubbishRemoval');
+      if (draftData.glassDoorWindowCount > 0) addons.push('glassDoorWindow');
+      if (draftData.wallStainsCount > 0) addons.push('wallStains');
+      if (draftData.acFilterCount > 0) addons.push('acFilter');
+      if (draftData.blindsCount > 0) addons.push('blinds');
+      if (draftData.moldCount > 0) addons.push('mold');
+      setSelectedAddons(addons);
+
+      // Set discount for new customers
+      if (draftData.isSparkeryNewCustomer) {
+        setDiscountEnabled(true);
+        setDiscountType('new');
+      }
+
+      // Clear draft data after applying
+      message.success('已从报价申请自动填充表单数据，请审核后生成报价');
+      setDraftData(null);
+    }
+  }, [draftData, setDraftData]);
 
   // 计算报价
   const calculateQuote = () => {
