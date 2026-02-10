@@ -486,11 +486,71 @@ const BrisbaneQuoteCalculator: React.FC = () => {
   );
 
   const generateQuotePDF = (language: 'en' | 'cn' | 'both') => {
-    message.info(
-      language === 'cn'
-        ? 'PDF 生成功能开发中...'
-        : 'PDF generation coming soon...'
-    );
+    // Open print dialog to print the HTML report as PDF
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Quote - ${quoteId}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #fff; }
+            ${getPageStyles(language)}
+            @media print {
+              body { padding: 0; }
+              .no-print { display: none !important; }
+            }
+          </style>
+        </head>
+        <body>
+          ${livePreviewHTML}
+          <script>
+            window.onload = function() {
+              window.print();
+              window.onafterprint = function() {
+                window.close();
+              };
+            };
+          </script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    } else {
+      message.error(
+        language === 'cn'
+          ? '无法打开打印窗口，请检查弹窗阻止设置'
+          : 'Cannot open print window. Please check popup blocker settings.'
+      );
+    }
+  };
+
+  // Get page styles based on language
+  const getPageStyles = (language: 'en' | 'cn' | 'both'): string => {
+    return `
+      .quote-container { max-width: 800px; margin: 0 auto; }
+      .quote-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #005901; padding-bottom: 20px; }
+      .quote-logo { max-height: 60px; margin-bottom: 10px; }
+      .quote-title { font-size: 24px; color: #005901; margin: 10px 0; }
+      .quote-id { font-size: 14px; color: #666; }
+      .quote-info { display: flex; justify-content: space-between; margin-bottom: 20px; }
+      .quote-info-item { font-size: 12px; color: #333; }
+      .quote-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+      .quote-table th, .quote-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+      .quote-table th { background: #f5f5f5; }
+      .col-desc { width: 50%; }
+      .col-type, .col-hours, .col-amount { width: 16.66%; text-align: right; }
+      .item-name { font-weight: 500; }
+      .item-detail { display: block; font-size: 11px; color: #888; margin-top: 2px; }
+      .quote-total { text-align: right; margin-top: 20px; }
+      .quote-total-row { display: flex; justify-content: flex-end; gap: 20px; margin: 5px 0; font-size: 14px; }
+      .quote-total-row.total { font-size: 18px; font-weight: bold; color: #005901; border-top: 2px solid #005901; padding-top: 10px; margin-top: 10px; }
+      .quote-footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 11px; color: #666; }
+      .quote-notes { margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 4px; }
+      .quote-notes-title { font-weight: bold; margin-bottom: 10px; }
+    `;
   };
 
   // 保存配置到localStorage
@@ -2098,7 +2158,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
 
             <div style={{ marginBottom: '8px' }}>
               <Text strong style={{ display: 'block', marginBottom: '4px' }}>
-                PDF Language
+                Report Language
               </Text>
               <Select
                 value={pdfLanguage}
@@ -2117,7 +2177,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 icon={<FileTextOutlined />}
                 onClick={() => generateQuotePDF(pdfLanguage)}
               >
-                {pdfLanguage === 'cn' ? '生成报价单' : 'Generate Quote'}
+                {pdfLanguage === 'cn' ? '打印报价单' : 'Print Quote'}
               </Button>
             </div>
 
