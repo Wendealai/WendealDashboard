@@ -39,6 +39,7 @@ interface BondCleanFormData {
 
   // Property Details
   propertyType: 'apartment' | 'townhouse' | 'house';
+  houseLevel?: 'single' | 'double';
   roomType: string;
   customRoomType?: string;
   hasCarpet: boolean;
@@ -69,6 +70,7 @@ const BondCleanQuoteForm: React.FC = () => {
   const [hasCarpet, setHasCarpet] = useState(false);
   const [showCustomRoomType, setShowCustomRoomType] = useState(false);
   const [showRubbishNotes, setShowRubbishNotes] = useState(false);
+  const [propertyType, setPropertyType] = useState<string>('apartment');
 
   const roomTypes = [
     { id: 'studio', name: 'Studio', maxCarpet: 1 },
@@ -409,7 +411,12 @@ const BondCleanQuoteForm: React.FC = () => {
                       },
                     ]}
                   >
-                    <Select size='large'>
+                    <Select
+                      size='large'
+                      onChange={value => {
+                        setPropertyType(value);
+                      }}
+                    >
                       <Option value='apartment'>Apartment / Unit</Option>
                       <Option value='townhouse'>Townhouse</Option>
                       <Option value='house'>House</Option>
@@ -439,6 +446,29 @@ const BondCleanQuoteForm: React.FC = () => {
                   </Form.Item>
                 </Col>
               </Row>
+
+              {/* House Level Selection - only show when House is selected */}
+              {propertyType === 'house' && (
+                <Row gutter={16}>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      name='houseLevel'
+                      label='House Level'
+                      rules={[
+                        {
+                          required: propertyType === 'house',
+                          message: 'Please select house level',
+                        },
+                      ]}
+                    >
+                      <Select size='large'>
+                        <Option value='single'>Single Story (一层)</Option>
+                        <Option value='double'>Double Story (两层)</Option>
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                </Row>
+              )}
 
               {/* Custom Room Type Input */}
               {showCustomRoomType && (

@@ -46,6 +46,7 @@ interface QuoteSubmission {
   phone: string;
   propertyAddress: string;
   propertyType: string;
+  houseLevel?: 'single' | 'double';
   roomType: string;
   customRoomType?: string;
   hasCarpet: boolean;
@@ -154,6 +155,10 @@ const BondCleanQuoteSubmissions: React.FC = () => {
       additionalNotes: record.additionalNotes,
       isSparkeryNewCustomer: record.isSparkeryNewCustomer || false,
     };
+    // Only add houseLevel if it exists
+    if (record.houseLevel) {
+      draft.houseLevel = record.houseLevel;
+    }
     setDraftData(draft);
     setActiveTab('quote-calculator');
     message.success('已将客户数据填充到报价工具，请审核后生成报价');

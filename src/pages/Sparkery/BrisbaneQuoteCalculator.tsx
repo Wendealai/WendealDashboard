@@ -523,6 +523,11 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       // Set property type
       setSelectedPropertyType(draftData.propertyType);
 
+      // Set house level if provided
+      if (draftData.houseLevel) {
+        setSelectedHouseLevel(draftData.houseLevel);
+      }
+
       // Map room type from form to calculator
       const roomTypeMap: Record<string, string> = {
         studio: 'studio',
@@ -666,11 +671,9 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         // Bond清洁：所有房产类型都使用bondMultiplier系数
         // 地毯勾选后加到基础价，然后应用系数
         if (selectedWorkType === 'bond' && propertyType) {
-          // 地毯勾选后加到基础价
+          // 地毯勾选后加到基础价（steamCarpetPrice is total for room type, not per-room）
           if (includeSteamCarpet && roomType) {
-            const quantity =
-              steamCarpetRoomCount > 0 ? steamCarpetRoomCount : 1;
-            basePrice += roomType.steamCarpetPrice * quantity;
+            basePrice += roomType.steamCarpetPrice;
           }
           // Townhouse/House应用系数
           if (selectedPropertyType !== 'apartment') {
@@ -776,12 +779,10 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     }
     const extraBedroomHours = extraBedrooms * 0.5;
     const extraBathroomHours = extraBathrooms * 0.3;
-    // 地毯工时 - 勾选地毯时计算
+    // 地毯工时 - 基于卧室数量计算 (Number of Bedrooms * 1 hour)
+    // steamCarpetHours in config already represents the number of bedrooms
     const steamCarpetHours =
-      includeSteamCarpet && roomType
-        ? roomType.steamCarpetHours *
-          (steamCarpetRoomCount > 0 ? steamCarpetRoomCount : 1)
-        : 0;
+      includeSteamCarpet && roomType ? roomType.steamCarpetHours : 0;
 
     const totalHours =
       baseHours +

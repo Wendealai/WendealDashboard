@@ -28,6 +28,7 @@ export interface QuoteDraftData {
   phone: string;
   propertyAddress: string;
   propertyType: 'apartment' | 'townhouse' | 'house';
+  houseLevel?: 'single' | 'double';
   roomType: string;
   customRoomType?: string;
   hasCarpet: boolean;
@@ -72,6 +73,16 @@ const SparkeryPage: React.FC = () => {
 
   const tabItems = [
     {
+      key: 'quote-calculator',
+      label: (
+        <span>
+          <CalculatorOutlined />
+          报价工具
+        </span>
+      ),
+      children: <BrisbaneQuoteCalculator />,
+    },
+    {
       key: 'cleaning-inspection',
       label: (
         <span>
@@ -90,16 +101,6 @@ const SparkeryPage: React.FC = () => {
         </span>
       ),
       children: <ChinaProcurementReport />,
-    },
-    {
-      key: 'quote-calculator',
-      label: (
-        <span>
-          <CalculatorOutlined />
-          报价工具
-        </span>
-      ),
-      children: <BrisbaneQuoteCalculator />,
     },
     {
       key: 'quote-form-en',
