@@ -35,6 +35,24 @@ const RNDReport = lazy(() => import('@/pages/RNDReport/RNDReport'));
 // Tools
 const Tools = lazy(() => import('@/pages/Tools/Tools'));
 
+// Sparkery
+const SparkeryPage = lazy(() => import('@/pages/Sparkery/index'));
+
+// Bond Clean Quote Form (standalone public page)
+const BondCleanQuoteForm = lazy(
+  () => import('@/pages/Sparkery/BondCleanQuoteForm')
+);
+
+// Bond Clean Quote Form Chinese Version
+const BondCleanQuoteFormCN = lazy(
+  () => import('@/pages/Sparkery/BondCleanQuoteFormCN')
+);
+
+// Bond Clean Quote Submissions Admin
+const BondCleanQuoteSubmissions = lazy(
+  () => import('@/pages/Sparkery/BondCleanQuoteSubmissions')
+);
+
 // Tools Workflow Container
 const ToolsWorkflowContainer = lazy(
   () => import('@/pages/Tools/components/ToolsWorkflowContainer')
@@ -79,6 +97,26 @@ export const routes: RouteConfig[] = [
     element: RegisterPage,
     meta: {
       title: 'navigation.register',
+      requiresAuth: false,
+      hideInMenu: true,
+    },
+  },
+  // Bond Clean Quote Form - standalone public page
+  {
+    path: '/bond-clean-quote',
+    element: BondCleanQuoteForm,
+    meta: {
+      title: 'Bond Cleaning Quote Request',
+      requiresAuth: false,
+      hideInMenu: true,
+    },
+  },
+  // Bond Clean Quote Form Chinese Version
+  {
+    path: '/bond-clean-quote-cn',
+    element: BondCleanQuoteFormCN,
+    meta: {
+      title: '退租清洁报价申请表',
       requiresAuth: false,
       hideInMenu: true,
     },
@@ -146,6 +184,16 @@ export const routes: RouteConfig[] = [
           requiresAuth: true,
           roles: ['admin', 'user'],
           icon: 'ToolOutlined',
+        },
+      },
+      {
+        path: 'sparkery',
+        element: SparkeryPage,
+        meta: {
+          title: 'Sparkery',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'HomeOutlined',
         },
       },
       {
@@ -217,6 +265,16 @@ export const routes: RouteConfig[] = [
           requiresAuth: true,
           roles: ['admin', 'user'],
           icon: 'FolderOutlined',
+        },
+      },
+      {
+        path: 'quote-submissions',
+        element: BondCleanQuoteSubmissions,
+        meta: {
+          title: 'Quote Submissions',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'FileTextOutlined',
         },
       },
       {

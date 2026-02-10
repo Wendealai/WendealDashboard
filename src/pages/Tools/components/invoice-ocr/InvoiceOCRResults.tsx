@@ -56,12 +56,13 @@ import {
   Tabs,
 } from 'antd';
 
-const { Panel } = Collapse;
-const { TabPane } = Tabs;
 import { useMessage } from '@/hooks';
 import { useErrorModal } from '@/hooks/useErrorModal';
 import { useTranslation } from 'react-i18next';
 import ErrorModal from '@/components/common/ErrorModal';
+
+const { Panel } = Collapse;
+const { TabPane } = Tabs;
 import {
   FileTextOutlined,
   FilePdfOutlined,

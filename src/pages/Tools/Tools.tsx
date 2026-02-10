@@ -13,6 +13,7 @@ import {
   Divider,
   Popover,
   Breadcrumb,
+  Tabs,
 } from 'antd';
 import {
   ToolOutlined,
