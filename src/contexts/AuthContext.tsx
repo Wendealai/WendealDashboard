@@ -106,14 +106,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     }
   };
 
-  // 初始化认证服务
-  useEffect(() => {
-    dispatch(initializeAuth(useClerk ? 'clerk' : 'local'));
-  }, [dispatch, useClerk]);
-
-  // 检查本地存储的认证状态
+  // 初始化认证服务 - 合并为单个 useEffect 避免竞态条件
   useEffect(() => {
     const initializeAuthState = async () => {
+      // 首先初始化认证服务
+      await dispatch(initializeAuth(useClerk ? 'clerk' : 'local'));
+
+      // 然后检查本地存储的认证状态
       const token = localStorage.getItem('auth_token');
       const userData = localStorage.getItem('auth_user');
 
@@ -137,12 +136,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
           localStorage.removeItem('auth_token');
           localStorage.removeItem('auth_user');
           localStorage.removeItem('auth_refresh_token');
+          dispatch(clearAuthState());
         }
+      } else {
+        // 没有存储的认证数据，确保状态是清除的
+        dispatch(clearAuthState());
       }
     };
 
     initializeAuthState();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, useClerk]);
 
   // 包装异步操作
   const handleLogin = async (credentials: LoginRequest) => {

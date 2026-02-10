@@ -42,9 +42,7 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
   const location = useLocation();
   const { t } = useTranslation();
 
-  // 注意：加载状态判断需要在 useAuth 解构之后再执行，避免引用未初始化变量
-
-  // 公共路由不需要认证，避免不必要的 useAuth 调用
+  // 公共路由不需要认证，直接渲染
   if (!requiresAuth) {
     return <AppContext>{children}</AppContext>;
   }
@@ -73,18 +71,13 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
     );
   }
 
-  // 检查是否需要认证
-  if (requiresAuth && !isAuthenticated) {
-    return <Navigate to={redirectTo} state={{ from: location }} replace />;
-  }
-
-  // 如果需要认证但用户信息不存在
-  if (requiresAuth && isAuthenticated && !user) {
-    return <Navigate to={redirectTo} state={{ from: location }} replace />;
-  }
-
-  // 以下逻辑需要用户已认证且用户信息存在
-  if (!user) {
+  // 严格的认证检查：必须同时满足 isAuthenticated=true 且 user 存在
+  // 这防止了 token 存在但用户信息缺失的情况
+  if (!isAuthenticated || !user) {
+    // 清除可能存在的无效认证数据
+    console.warn(
+      'RouteGuard: Authentication check failed, redirecting to login'
+    );
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 

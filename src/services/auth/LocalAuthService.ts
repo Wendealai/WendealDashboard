@@ -94,18 +94,32 @@ export class LocalAuthService implements IAuthService {
 
     if (storedToken && storedUser) {
       try {
-        this.token = storedToken;
-        this.currentUser = JSON.parse(storedUser);
+        // 先解析用户数据
+        const parsedUser = JSON.parse(storedUser);
 
-        // 验证令牌是否仍然有效
-        const isValid = await this.validateToken(storedToken);
-        if (!isValid) {
+        // 验证令牌是否仍然有效（在设置状态之前）
+        const isValid = await this.validateTokenWithoutState(storedToken);
+
+        if (isValid) {
+          this.token = storedToken;
+          this.currentUser = parsedUser;
+          this.refreshTokenValue =
+            localStorage.getItem('auth_refresh_token') ||
+            sessionStorage.getItem('auth_refresh_token');
+        } else {
+          // 令牌无效，清除所有状态
+          console.warn(
+            'Token validation failed during initialization, clearing auth state'
+          );
           this.clearAuthState();
         }
       } catch (error) {
         console.error('Failed to restore auth state:', error);
         this.clearAuthState();
       }
+    } else {
+      // 没有存储的认证数据，确保状态是清除的
+      this.clearAuthState();
     }
   }
 
@@ -346,12 +360,39 @@ export class LocalAuthService implements IAuthService {
   }
 
   async validateToken(token: string): Promise<boolean> {
-    if (!token || token !== this.token) return false;
+    if (!token) return false;
 
     // 简单的令牌验证（实际应用中应该验证签名和过期时间）
     try {
       const payload = this.parseToken(token);
-      return payload && payload.exp > Date.now();
+      if (!payload || !payload.exp) return false;
+
+      // 检查令牌是否过期
+      const isValid = payload.exp > Date.now();
+
+      // 如果令牌无效但状态显示已认证，清除状态
+      if (!isValid && this.token === token) {
+        this.clearAuthState();
+      }
+
+      return isValid;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 验证令牌但不依赖内部状态（用于初始化时验证）
+   */
+  private async validateTokenWithoutState(token: string): Promise<boolean> {
+    if (!token) return false;
+
+    try {
+      const payload = this.parseToken(token);
+      if (!payload || !payload.exp) return false;
+
+      // 检查令牌是否过期
+      return payload.exp > Date.now();
     } catch {
       return false;
     }
