@@ -10,12 +10,14 @@ import {
   CalculatorOutlined,
   FileTextOutlined,
   GlobalOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons';
 import CleaningInspectionAdmin from './CleaningInspectionAdmin';
 import ChinaProcurementReport from './ChinaProcurementReport';
 import BrisbaneQuoteCalculator from './BrisbaneQuoteCalculator';
 import BondCleanQuoteForm from './BondCleanQuoteForm';
 import BondCleanQuoteFormCN from './BondCleanQuoteFormCN';
+import BondCleanQuoteSubmissions from './BondCleanQuoteSubmissions';
 
 const { Title } = Typography;
 
@@ -73,6 +75,16 @@ const SparkeryPage: React.FC = () => {
         </span>
       ),
       children: <BondCleanQuoteFormCN />,
+    },
+    {
+      key: 'quote-submissions',
+      label: (
+        <span>
+          <UnorderedListOutlined />
+          已提交报价记录
+        </span>
+      ),
+      children: <BondCleanQuoteSubmissions />,
     },
   ];
 
