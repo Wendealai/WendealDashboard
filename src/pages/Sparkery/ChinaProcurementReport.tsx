@@ -5,12 +5,13 @@
  * Features:
  * - 10 standardized documentation sections
  * - Multi-image upload for each section
- * - PDF generation with proper ordering
+ * - PDF generation with proper ordering (HTML-based + jsPDF fallback)
  * - ATO audit-compliant format
  * - File naming convention: CN_Purchase_YYYYMMDD_Complete_Package.pdf
+ * - Professional HTML template with one-image-per-page layout
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Card,
   Typography,
@@ -29,6 +30,11 @@ import {
   Alert,
   InputNumber,
   Tag,
+  Tooltip,
+  Drawer,
+  Empty,
+  Badge,
+  Popconfirm,
 } from 'antd';
 import type { UploadFile, RcFile } from 'antd/es/upload/interface';
 import {
@@ -39,9 +45,31 @@ import {
   ShoppingCartOutlined,
   FolderOutlined,
   DownloadOutlined,
+  PrinterOutlined,
+  FileImageOutlined,
+  ScanOutlined,
+  SaveOutlined,
+  FolderOpenOutlined,
+  FileAddOutlined,
+  EditOutlined,
+  ClockCircleOutlined,
+  CloudOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import jsPDF from 'jspdf';
+import {
+  generatePdfHtml,
+  openPrintWindow,
+  getDailySequence,
+  generateFilename,
+  type PurchaseRecord as PdfPurchaseRecord,
+  type PdfPurchaseItem,
+} from '@/utils/chinaProcurementPdfTemplate';
+import {
+  recognizeOrderItems,
+  parseDataUrl,
+} from '@/services/geminiVisionService';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -88,6 +116,106 @@ interface PurchaseItem {
   productName: string;
   unitPrice: number;
   quantity: number;
+}
+
+// ──────────────────────── Draft System ──────────────────────────────
+
+/** 草稿元数据（保存在索引列表中） */
+interface DraftMeta {
+  id: string;
+  name: string;
+  supplierName: string;
+  productName: string;
+  createdAt: string;
+  updatedAt: string;
+  /** 图片总数 */
+  imageCount: number;
+  /** 采购明细条数 */
+  itemCount: number;
+  /** 进度百分比 0-100 */
+  progress: number;
+}
+
+/** 完整草稿数据（保存在单独的 localStorage key 中） */
+interface DraftData {
+  meta: DraftMeta;
+  currentRecord: Partial<PurchaseRecord>;
+  purchaseItems: PurchaseItem[];
+  gstEnabled: boolean;
+}
+
+const DRAFT_INDEX_KEY = 'procurement_drafts_index';
+const DRAFT_DATA_PREFIX = 'procurement_draft_';
+
+/**
+ * 获取所有草稿的元数据索引列表
+ */
+function loadDraftIndex(): DraftMeta[] {
+  try {
+    const raw = localStorage.getItem(DRAFT_INDEX_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 保存草稿索引到 localStorage
+ */
+function saveDraftIndex(index: DraftMeta[]): void {
+  localStorage.setItem(DRAFT_INDEX_KEY, JSON.stringify(index));
+}
+
+/**
+ * 加载单个草稿的完整数据
+ */
+function loadDraftData(draftId: string): DraftData | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_DATA_PREFIX + draftId);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 保存单个草稿的完整数据到 localStorage
+ * @returns true 如果成功，false 如果存储空间不足
+ */
+function saveDraftData(draft: DraftData): boolean {
+  try {
+    const json = JSON.stringify(draft);
+    localStorage.setItem(DRAFT_DATA_PREFIX + draft.meta.id, json);
+    return true;
+  } catch (e) {
+    // 通常是 QuotaExceededError
+    console.error('[Draft] Save failed (storage full?):', e);
+    return false;
+  }
+}
+
+/**
+ * 删除单个草稿
+ */
+function deleteDraftData(draftId: string): void {
+  localStorage.removeItem(DRAFT_DATA_PREFIX + draftId);
+  const index = loadDraftIndex().filter(d => d.id !== draftId);
+  saveDraftIndex(index);
+}
+
+/**
+ * 估算 localStorage 已用空间（近似值）
+ */
+function estimateStorageUsage(): { usedKB: number; totalKB: number } {
+  let total = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key) {
+      total += key.length + (localStorage.getItem(key)?.length || 0);
+    }
+  }
+  // localStorage 一般 5~10 MB，按 5MB 估算
+  return { usedKB: Math.round((total * 2) / 1024), totalKB: 5120 };
 }
 
 // 10 Documentation sections based on folder structure
@@ -219,6 +347,23 @@ ${sectionsStr}
 const ChinaProcurementReport: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage();
 
+  // ──────────────── Draft State ────────────────
+  /** 当前正在编辑的草稿 ID（null = 全新报告） */
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  /** 草稿列表 Drawer 是否可见 */
+  const [draftDrawerOpen, setDraftDrawerOpen] = useState(false);
+  /** 草稿索引列表 */
+  const [draftIndex, setDraftIndex] = useState<DraftMeta[]>(() =>
+    loadDraftIndex()
+  );
+  /** 自上次保存后是否有未保存的修改 */
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  /** 自动保存定时器 */
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 草稿重命名弹窗 */
+  const [renamingDraftId, setRenamingDraftId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
   // Current form state
   const [currentRecord, setCurrentRecord] = useState<Partial<PurchaseRecord>>({
     purchaseDate: dayjs().format('YYYY-MM-DD'),
@@ -234,6 +379,9 @@ const ChinaProcurementReport: React.FC = () => {
   });
 
   const [pdfGenerating, setPdfGenerating] = useState(false);
+
+  /** 订单截图识别中的 loading 状态 */
+  const [recognizing, setRecognizing] = useState(false);
 
   // Purchase items state
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>(() => {
@@ -313,6 +461,287 @@ const ChinaProcurementReport: React.FC = () => {
     return Number((cny * rate).toFixed(2));
   };
 
+  // ═══════════════════════════════════════════════
+  //   DRAFT MANAGEMENT
+  // ═══════════════════════════════════════════════
+
+  /**
+   * 计算当前报告的进度百分比（基于图片数量）
+   */
+  const calculateDraftProgress = useCallback(() => {
+    const totalImages = (currentRecord.sections || []).reduce(
+      (sum, s) => sum + s.images.length,
+      0
+    );
+    const minRequired = 30;
+    return Math.min(100, Math.round((totalImages / minRequired) * 100));
+  }, [currentRecord.sections]);
+
+  /**
+   * 生成草稿名称（自动根据内容命名）
+   */
+  const generateDraftName = useCallback((): string => {
+    const supplier = currentRecord.supplierName?.trim();
+    const product = currentRecord.productName?.trim();
+    const date = currentRecord.purchaseDate || dayjs().format('YYYY-MM-DD');
+    if (supplier && product) return `${supplier} - ${product}`;
+    if (supplier) return `${supplier} (${date})`;
+    if (product) return `${product} (${date})`;
+    return `Draft ${date} ${dayjs().format('HH:mm')}`;
+  }, [
+    currentRecord.supplierName,
+    currentRecord.productName,
+    currentRecord.purchaseDate,
+  ]);
+
+  /**
+   * 构建 DraftData 对象
+   */
+  const buildDraftData = useCallback(
+    (draftId: string, existingName?: string): DraftData => {
+      const imageCount = (currentRecord.sections || []).reduce(
+        (sum, s) => sum + s.images.length,
+        0
+      );
+      const validItemCount = purchaseItems.filter(
+        i => i.productName.trim() !== '' || i.unitPrice > 0
+      ).length;
+
+      return {
+        meta: {
+          id: draftId,
+          name: existingName || generateDraftName(),
+          supplierName: currentRecord.supplierName || '',
+          productName: currentRecord.productName || '',
+          createdAt:
+            draftIndex.find(d => d.id === draftId)?.createdAt ||
+            dayjs().format('YYYY-MM-DD HH:mm:ss'),
+          updatedAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+          imageCount,
+          itemCount: validItemCount,
+          progress: calculateDraftProgress(),
+        },
+        currentRecord,
+        purchaseItems,
+        gstEnabled,
+      };
+    },
+    [
+      currentRecord,
+      purchaseItems,
+      gstEnabled,
+      draftIndex,
+      generateDraftName,
+      calculateDraftProgress,
+    ]
+  );
+
+  /**
+   * 保存当前表单为草稿
+   * @param silent 是否静默（不显示 message）
+   */
+  const handleSaveDraft = useCallback(
+    (silent = false) => {
+      const draftId = currentDraftId || generateId();
+      const existingMeta = draftIndex.find(d => d.id === draftId);
+      const draft = buildDraftData(draftId, existingMeta?.name);
+
+      const success = saveDraftData(draft);
+      if (!success) {
+        messageApi.error(
+          'Storage full! Unable to save draft. Please delete old drafts to free space.'
+        );
+        return;
+      }
+
+      // 更新索引
+      const newIndex = draftIndex.filter(d => d.id !== draftId);
+      newIndex.unshift(draft.meta); // 最新的排在前面
+      saveDraftIndex(newIndex);
+      setDraftIndex(newIndex);
+
+      if (!currentDraftId) setCurrentDraftId(draftId);
+      setHasUnsavedChanges(false);
+
+      if (!silent) {
+        messageApi.success('Draft saved successfully / 草稿已保存');
+      }
+    },
+    [currentDraftId, draftIndex, buildDraftData, messageApi]
+  );
+
+  /**
+   * 加载草稿到当前表单
+   */
+  const handleLoadDraft = useCallback(
+    (draftId: string) => {
+      const draft = loadDraftData(draftId);
+      if (!draft) {
+        messageApi.error('Draft not found or data corrupted');
+        return;
+      }
+
+      // 确保 sections 包含所有默认 section（兼容旧草稿）
+      const savedSections = draft.currentRecord.sections || [];
+      const mergedSections = DEFAULT_SECTIONS.map(def => {
+        const saved = savedSections.find(s => s.id === def.id);
+        return saved || { ...def, images: [] };
+      });
+
+      setCurrentRecord({ ...draft.currentRecord, sections: mergedSections });
+      setPurchaseItems(
+        draft.purchaseItems?.length > 0
+          ? draft.purchaseItems
+          : [{ id: generateId(), productName: '', unitPrice: 0, quantity: 1 }]
+      );
+      setGstEnabled(draft.gstEnabled ?? true);
+      setCurrentDraftId(draftId);
+      setHasUnsavedChanges(false);
+      setDraftDrawerOpen(false);
+
+      messageApi.success(`Draft loaded: ${draft.meta.name} / 草稿已加载`);
+    },
+    [messageApi]
+  );
+
+  /**
+   * 删除指定草稿
+   */
+  const handleDeleteDraft = useCallback(
+    (draftId: string) => {
+      deleteDraftData(draftId);
+      const newIndex = draftIndex.filter(d => d.id !== draftId);
+      setDraftIndex(newIndex);
+
+      // 如果删除的是当前正在编辑的草稿，断开关联
+      if (currentDraftId === draftId) {
+        setCurrentDraftId(null);
+        setHasUnsavedChanges(true);
+      }
+
+      messageApi.success('Draft deleted / 草稿已删除');
+    },
+    [draftIndex, currentDraftId, messageApi]
+  );
+
+  /**
+   * 重命名草稿
+   */
+  const handleRenameDraft = useCallback(
+    (draftId: string, newName: string) => {
+      const newIndex = draftIndex.map(d =>
+        d.id === draftId ? { ...d, name: newName.trim() || d.name } : d
+      );
+      saveDraftIndex(newIndex);
+      setDraftIndex(newIndex);
+
+      // 同步更新 localStorage 中的完整数据
+      const draft = loadDraftData(draftId);
+      if (draft) {
+        draft.meta.name = newName.trim() || draft.meta.name;
+        saveDraftData(draft);
+      }
+
+      setRenamingDraftId(null);
+      setRenameValue('');
+      messageApi.success('Draft renamed / 草稿已重命名');
+    },
+    [draftIndex, messageApi]
+  );
+
+  /**
+   * 新建空白报告（清空当前表单）
+   */
+  const handleNewReport = useCallback(() => {
+    // 如果有未保存的更改，先提示
+    if (hasUnsavedChanges) {
+      Modal.confirm({
+        title: 'Unsaved changes / 有未保存的更改',
+        icon: <ExclamationCircleOutlined />,
+        content:
+          'You have unsaved changes. Do you want to save before creating a new report? / 是否在新建前保存当前草稿？',
+        okText: 'Save & New / 保存后新建',
+        cancelText: 'Discard / 直接新建',
+        onOk: () => {
+          handleSaveDraft(true);
+          resetToBlank();
+        },
+        onCancel: () => {
+          resetToBlank();
+        },
+      });
+    } else {
+      resetToBlank();
+    }
+  }, [hasUnsavedChanges, handleSaveDraft]);
+
+  /**
+   * 重置所有表单状态为空白
+   */
+  const resetToBlank = () => {
+    setCurrentRecord({
+      purchaseDate: dayjs().format('YYYY-MM-DD'),
+      supplierName: '',
+      supplierPlatform: 'pinduoduo',
+      productName: '',
+      category: 'cleaning',
+      amountCNY: 0,
+      exchangeRate: 0.21,
+      amountAUD: 0,
+      notes: '',
+      sections: DEFAULT_SECTIONS.map(s => ({ ...s, images: [] })),
+    });
+    setPurchaseItems([
+      { id: generateId(), productName: '', unitPrice: 0, quantity: 1 },
+      { id: generateId(), productName: '', unitPrice: 0, quantity: 1 },
+      { id: generateId(), productName: '', unitPrice: 0, quantity: 1 },
+    ]);
+    setGstEnabled(true);
+    setCurrentDraftId(null);
+    setHasUnsavedChanges(false);
+  };
+
+  // ── 自动保存：表单变化时标记为未保存，debounce 60 秒后自动保存 ──
+  useEffect(() => {
+    setHasUnsavedChanges(true);
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // 仅在有实际内容时自动保存（避免空表单创建草稿）
+    const hasContent =
+      (currentRecord.supplierName?.trim() || '') !== '' ||
+      (currentRecord.productName?.trim() || '') !== '' ||
+      (currentRecord.sections || []).some(s => s.images.length > 0) ||
+      purchaseItems.some(i => i.productName.trim() !== '');
+
+    if (hasContent) {
+      autoSaveTimerRef.current = setTimeout(() => {
+        handleSaveDraft(true); // silent auto-save
+      }, 60000); // 60 秒自动保存
+    }
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRecord, purchaseItems, gstEnabled]);
+
+  // ── 页面离开前提醒 ──
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   // Handle image upload for a section
   const handleImageUpload = (sectionId: string, file: RcFile) => {
     const reader = new FileReader();
@@ -380,6 +809,71 @@ const ChinaProcurementReport: React.FC = () => {
         ) || [],
     }));
   };
+
+  /**
+   * 识别 Platform Orders 截图中的商品信息，自动填充到采购明细
+   * 调用 Gemini Vision API，支持多 Key 自动轮询
+   */
+  const handleRecognizeOrders = useCallback(async () => {
+    // 找到 platform-orders section
+    const platformSection = currentRecord.sections?.find(
+      s => s.id === 'platform-orders'
+    );
+    if (!platformSection || platformSection.images.length === 0) {
+      messageApi.warning('请先在 Platform Orders 中上传订单截图');
+      return;
+    }
+
+    setRecognizing(true);
+    try {
+      // 将所有图片转换为 Gemini API 需要的格式
+      const images = platformSection.images.map(img => parseDataUrl(img.file));
+
+      // 调用 Gemini Vision 识别
+      const recognizedItems = await recognizeOrderItems(images);
+
+      if (recognizedItems.length === 0) {
+        messageApi.warning(
+          '未从截图中识别到商品信息，请检查图片是否为订单截图'
+        );
+        return;
+      }
+
+      // 将识别结果填充到 purchaseItems
+      setPurchaseItems(prev => {
+        // 检查现有列表是否全部为空行（productName 为空且价格为 0）
+        const hasOnlyEmptyRows = prev.every(
+          item => !item.productName && item.unitPrice === 0
+        );
+
+        // 将识别结果映射为 PurchaseItem
+        const newItems = recognizedItems.map(item => ({
+          id: generateId(),
+          productName: item.productName,
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+        }));
+
+        if (hasOnlyEmptyRows) {
+          // 全部为空行时直接替换
+          return newItems;
+        } else {
+          // 否则追加到末尾
+          return [...prev, ...newItems];
+        }
+      });
+
+      messageApi.success(
+        `成功识别 ${recognizedItems.length} 个商品，已填充到采购明细`
+      );
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('[RecognizeOrders] Failed:', error);
+      messageApi.error(`订单识别失败: ${error.message}`);
+    } finally {
+      setRecognizing(false);
+    }
+  }, [currentRecord.sections, messageApi]);
 
   // Check if required fields are filled
   const checkRequiredFields = () => {
@@ -735,6 +1229,105 @@ const ChinaProcurementReport: React.FC = () => {
     }
   };
 
+  // Generate PDF using HTML template (new professional layout)
+  const generatePDFViaHTML = () => {
+    setPdfGenerating(true);
+
+    try {
+      // Build record from current state
+      const record: PurchaseRecord = {
+        id: generateId(),
+        purchaseDate:
+          currentRecord.purchaseDate || dayjs().format('YYYY-MM-DD'),
+        supplierName: currentRecord.supplierName || '',
+        supplierPlatform: currentRecord.supplierPlatform || 'pinduoduo',
+        productName: currentRecord.productName || '',
+        category: currentRecord.category || 'cleaning',
+        amountCNY: currentRecord.amountCNY || 0,
+        amountAUD: calculateAUD(
+          currentRecord.amountCNY || 0,
+          currentRecord.exchangeRate || 0.21
+        ),
+        exchangeRate: currentRecord.exchangeRate || 0.21,
+        notes: currentRecord.notes || '',
+        sections:
+          currentRecord.sections ||
+          DEFAULT_SECTIONS.map(s => ({ ...s, images: [] })),
+        createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+      };
+
+      // Get daily sequence number
+      const dailySeq = getDailySequence();
+
+      // Generate HTML content (pass purchaseItems for details table)
+      const htmlContent = generatePdfHtml(
+        record,
+        dailySeq,
+        purchaseItems as PdfPurchaseItem[]
+      );
+
+      // Open in new window for printing
+      const printWindow = openPrintWindow(htmlContent);
+
+      if (printWindow) {
+        const fileName = generateFilename(record, dailySeq);
+        messageApi.success(
+          `PDF preview opened. Use Ctrl+P (Cmd+P on Mac) to save as PDF: ${fileName}`
+        );
+      } else {
+        messageApi.error(
+          'Unable to open print window. Please check popup blocker settings.'
+        );
+      }
+    } catch (error) {
+      console.error('HTML PDF generation error:', error);
+      messageApi.error('PDF generation failed');
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
+  // Handle HTML-based PDF generation with validation
+  const handleGeneratePDFViaHTML = () => {
+    const { hasMissingFields, missingFields, missingRequiredSections } =
+      checkRequiredFields();
+
+    if (hasMissingFields) {
+      const missingFieldsText =
+        missingFields.length > 0
+          ? `Missing required fields: ${missingFields.join(', ')}`
+          : '';
+      const missingSectionsText =
+        missingRequiredSections.length > 0
+          ? `Missing required images: ${missingRequiredSections.map(s => s.title).join(', ')}`
+          : '';
+
+      Modal.confirm({
+        title: 'Some information is missing. Continue generating PDF?',
+        content: (
+          <div>
+            {missingFieldsText && (
+              <p style={{ color: '#ff4d4f' }}>{missingFieldsText}</p>
+            )}
+            {missingSectionsText && (
+              <p style={{ color: '#ff4d4f' }}>{missingSectionsText}</p>
+            )}
+            <p style={{ marginTop: '12px' }}>
+              Do you want to continue generating PDF?
+            </p>
+          </div>
+        ),
+        okText: 'Continue',
+        cancelText: 'Go Back',
+        onOk: () => {
+          generatePDFViaHTML();
+        },
+      });
+    } else {
+      generatePDFViaHTML();
+    }
+  };
+
   // Calculate progress for current record
   const calculateProgress = () => {
     if (!currentRecord.sections) return 0;
@@ -746,9 +1339,321 @@ const ChinaProcurementReport: React.FC = () => {
     return Math.min(100, Math.round((totalImages / minRequired) * 100));
   };
 
+  /** 当前编辑的草稿名称 */
+  const currentDraftName = currentDraftId
+    ? draftIndex.find(d => d.id === currentDraftId)?.name || 'Untitled Draft'
+    : null;
+
+  /** 存储空间信息 */
+  const storageInfo = estimateStorageUsage();
+  const storagePercent = Math.round(
+    (storageInfo.usedKB / storageInfo.totalKB) * 100
+  );
+
   return (
     <div style={{ padding: '12px' }}>
       {contextHolder}
+
+      {/* ═══════════ Draft Management Toolbar ═══════════ */}
+      <Card
+        size='small'
+        style={{
+          marginBottom: '16px',
+          background: currentDraftId ? '#f6ffed' : '#fafafa',
+          borderColor: currentDraftId ? '#b7eb8f' : '#d9d9d9',
+        }}
+        bodyStyle={{ padding: '10px 16px' }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px',
+          }}
+        >
+          {/* Left: Status */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              flexWrap: 'wrap',
+            }}
+          >
+            {currentDraftId ? (
+              <>
+                <Tag icon={<EditOutlined />} color='green'>
+                  Editing Draft
+                </Tag>
+                <Text strong style={{ fontSize: '13px' }}>
+                  {currentDraftName}
+                </Text>
+                {hasUnsavedChanges && (
+                  <Tag color='orange' style={{ margin: 0 }}>
+                    Unsaved Changes
+                  </Tag>
+                )}
+              </>
+            ) : (
+              <>
+                <Tag icon={<FileAddOutlined />} color='blue'>
+                  New Report
+                </Tag>
+                <Text type='secondary' style={{ fontSize: '13px' }}>
+                  Not saved as draft yet
+                </Text>
+              </>
+            )}
+          </div>
+
+          {/* Right: Actions */}
+          <Space size='small' wrap>
+            <Tooltip title='Save current form as draft / 保存为草稿'>
+              <Button
+                icon={<SaveOutlined />}
+                type={hasUnsavedChanges ? 'primary' : 'default'}
+                onClick={() => handleSaveDraft(false)}
+                style={
+                  hasUnsavedChanges
+                    ? { background: '#52c41a', borderColor: '#52c41a' }
+                    : {}
+                }
+              >
+                Save Draft
+              </Button>
+            </Tooltip>
+            <Tooltip title='Open saved drafts / 打开已保存草稿'>
+              <Badge count={draftIndex.length} size='small' offset={[-4, 0]}>
+                <Button
+                  icon={<FolderOpenOutlined />}
+                  onClick={() => setDraftDrawerOpen(true)}
+                >
+                  My Drafts
+                </Button>
+              </Badge>
+            </Tooltip>
+            <Tooltip title='Start a blank new report / 新建空白报告'>
+              <Button icon={<FileAddOutlined />} onClick={handleNewReport}>
+                New Report
+              </Button>
+            </Tooltip>
+          </Space>
+        </div>
+      </Card>
+
+      {/* ═══════════ Drafts Drawer ═══════════ */}
+      <Drawer
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FolderOpenOutlined />
+            <span>Saved Drafts / 已保存的草稿</span>
+            <Tag>{draftIndex.length}</Tag>
+          </div>
+        }
+        placement='right'
+        width={480}
+        open={draftDrawerOpen}
+        onClose={() => setDraftDrawerOpen(false)}
+        footer={
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Text type='secondary' style={{ fontSize: '12px' }}>
+              <CloudOutlined style={{ marginRight: '4px' }} />
+              Storage: {storageInfo.usedKB}KB / {storageInfo.totalKB}KB (
+              {storagePercent}%)
+            </Text>
+            {storagePercent > 80 && (
+              <Text type='danger' style={{ fontSize: '12px' }}>
+                Storage nearly full!
+              </Text>
+            )}
+          </div>
+        }
+      >
+        {draftIndex.length === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description='No saved drafts / 暂无保存的草稿'
+          />
+        ) : (
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+          >
+            {draftIndex.map(draft => (
+              <Card
+                key={draft.id}
+                size='small'
+                style={{
+                  borderColor:
+                    currentDraftId === draft.id ? '#52c41a' : '#d9d9d9',
+                  background: currentDraftId === draft.id ? '#f6ffed' : '#fff',
+                  cursor: 'pointer',
+                }}
+                bodyStyle={{ padding: '12px' }}
+                onClick={() => handleLoadDraft(draft.id)}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {renamingDraftId === draft.id ? (
+                      <Input
+                        size='small'
+                        value={renameValue}
+                        onChange={e => setRenameValue(e.target.value)}
+                        onPressEnter={() =>
+                          handleRenameDraft(draft.id, renameValue)
+                        }
+                        onBlur={() => handleRenameDraft(draft.id, renameValue)}
+                        onClick={e => e.stopPropagation()}
+                        autoFocus
+                        style={{ marginBottom: '4px', maxWidth: '260px' }}
+                      />
+                    ) : (
+                      <Text
+                        strong
+                        style={{
+                          fontSize: '14px',
+                          display: 'block',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {draft.name}
+                        {currentDraftId === draft.id && (
+                          <Tag
+                            color='green'
+                            style={{
+                              marginLeft: '8px',
+                              verticalAlign: 'middle',
+                            }}
+                          >
+                            Current
+                          </Tag>
+                        )}
+                      </Text>
+                    )}
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '12px',
+                        marginTop: '4px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      {draft.supplierName && (
+                        <Text type='secondary' style={{ fontSize: '12px' }}>
+                          Supplier: {draft.supplierName}
+                        </Text>
+                      )}
+                      {draft.productName && (
+                        <Text type='secondary' style={{ fontSize: '12px' }}>
+                          Product: {draft.productName}
+                        </Text>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '10px',
+                        marginTop: '6px',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Tag style={{ margin: 0 }}>
+                        <FileImageOutlined style={{ marginRight: '4px' }} />
+                        {draft.imageCount} images
+                      </Tag>
+                      <Tag style={{ margin: 0 }}>
+                        <ShoppingCartOutlined style={{ marginRight: '4px' }} />
+                        {draft.itemCount} items
+                      </Tag>
+                      <Progress
+                        percent={draft.progress}
+                        size='small'
+                        style={{ width: '80px', margin: 0 }}
+                        strokeColor='#52c41a'
+                      />
+                    </div>
+
+                    <Text
+                      type='secondary'
+                      style={{
+                        fontSize: '11px',
+                        marginTop: '4px',
+                        display: 'block',
+                      }}
+                    >
+                      <ClockCircleOutlined style={{ marginRight: '4px' }} />
+                      Updated: {draft.updatedAt}
+                    </Text>
+                  </div>
+
+                  {/* Actions */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                      marginLeft: '8px',
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <Tooltip title='Open / 打开'>
+                      <Button
+                        type='primary'
+                        size='small'
+                        icon={<FolderOpenOutlined />}
+                        onClick={() => handleLoadDraft(draft.id)}
+                        style={{
+                          background: '#52c41a',
+                          borderColor: '#52c41a',
+                        }}
+                      />
+                    </Tooltip>
+                    <Tooltip title='Rename / 重命名'>
+                      <Button
+                        size='small'
+                        icon={<EditOutlined />}
+                        onClick={() => {
+                          setRenamingDraftId(draft.id);
+                          setRenameValue(draft.name);
+                        }}
+                      />
+                    </Tooltip>
+                    <Popconfirm
+                      title='Delete this draft? / 删除此草稿？'
+                      description='This action cannot be undone.'
+                      onConfirm={() => handleDeleteDraft(draft.id)}
+                      okText='Delete'
+                      cancelText='Cancel'
+                      okButtonProps={{ danger: true }}
+                    >
+                      <Tooltip title='Delete / 删除'>
+                        <Button size='small' danger icon={<DeleteOutlined />} />
+                      </Tooltip>
+                    </Popconfirm>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </Drawer>
 
       <Title level={3}>
         <ShoppingCartOutlined style={{ marginRight: '8px' }} />
@@ -1288,6 +2193,27 @@ const ChinaProcurementReport: React.FC = () => {
                       </Row>
                     </div>
                   )}
+
+                  {/* Platform Orders 识别按钮：上传图片后显示 */}
+                  {section.id === 'platform-orders' &&
+                    section.images.length > 0 && (
+                      <Button
+                        type='primary'
+                        icon={<ScanOutlined />}
+                        loading={recognizing}
+                        onClick={handleRecognizeOrders}
+                        style={{
+                          marginTop: '12px',
+                          width: '100%',
+                          background: '#52c41a',
+                          borderColor: '#52c41a',
+                        }}
+                      >
+                        {recognizing
+                          ? '正在识别...'
+                          : `识别订单 / Recognize Orders (${section.images.length} images)`}
+                      </Button>
+                    )}
                 </Card>
               </Col>
             ))}
@@ -1296,16 +2222,29 @@ const ChinaProcurementReport: React.FC = () => {
 
         {/* Actions */}
         <Card size='small' style={{ marginTop: '16px' }}>
-          <Space>
-            <Button
-              type='primary'
-              size='large'
-              icon={<FilePdfOutlined />}
-              onClick={handleGeneratePDFReport}
-              loading={pdfGenerating}
-            >
-              Generate PDF Report
-            </Button>
+          <Space wrap>
+            <Tooltip title='Professional HTML template with one-image-per-page layout, optimized for browser printing'>
+              <Button
+                type='primary'
+                size='large'
+                icon={<PrinterOutlined />}
+                onClick={handleGeneratePDFViaHTML}
+                loading={pdfGenerating}
+                style={{ background: '#52c41a', borderColor: '#52c41a' }}
+              >
+                Generate PDF (HTML Template)
+              </Button>
+            </Tooltip>
+            <Tooltip title='Legacy jsPDF generation - basic layout with multiple images per page'>
+              <Button
+                size='large'
+                icon={<FilePdfOutlined />}
+                onClick={handleGeneratePDFReport}
+                loading={pdfGenerating}
+              >
+                Generate PDF (Legacy)
+              </Button>
+            </Tooltip>
             <Button
               size='large'
               icon={<FolderOutlined />}
@@ -1376,6 +2315,21 @@ const ChinaProcurementReport: React.FC = () => {
               <li>Payment Receipts</li>
               <li>Delivery Photos</li>
               <li>Exchange Rate Proof</li>
+            </ul>
+            <p>
+              <strong>PDF Generation Options:</strong>
+            </p>
+            <ul>
+              <li>
+                <strong>HTML Template (Recommended):</strong> Professional
+                layout with one image per page, fixed header/footer, and
+                responsive image sizing. Opens in a new window for browser
+                printing.
+              </li>
+              <li>
+                <strong>Legacy Mode:</strong> Basic jsPDF generation with
+                multiple images per page.
+              </li>
             </ul>
             <p>
               <strong>PDF Output:</strong>{' '}

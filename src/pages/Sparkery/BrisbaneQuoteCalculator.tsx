@@ -21,8 +21,10 @@ import {
   Form,
   Input,
   Select,
+  DatePicker,
   message,
 } from 'antd';
+import type { InputNumberProps } from 'antd';
 import {
   CalculatorOutlined,
   DollarOutlined,
@@ -31,7 +33,11 @@ import {
   SettingOutlined,
   FileTextOutlined,
   EyeOutlined,
+  PlusOutlined,
+  DeleteOutlined,
+  PrinterOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { useQuoteDraft } from './index';
 
 const { Title, Text, Paragraph } = Typography;
@@ -42,7 +48,7 @@ interface WorkType {
   name: string;
   nameCN: string;
   isResidential: boolean;
-  pricingType: 'room' | 'sqm'; // room = 房型计价, sqm = 平米计价
+  pricingType: 'room' | 'sqm' | 'service'; // room = 房型计价, sqm = 平米计价, service = 服务包计价
 }
 
 // 房型
@@ -167,6 +173,13 @@ const DEFAULT_CONFIG: QuoteConfig = {
       nameCN: '其他商业清洁',
       isResidential: false,
       pricingType: 'sqm',
+    },
+    {
+      id: 'office-service',
+      name: 'Office Service Package',
+      nameCN: '办公室服务包',
+      isResidential: false,
+      pricingType: 'service',
     },
   ],
   roomTypes: [
@@ -400,6 +413,8 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         sqmDefaultPrices:
           parsed.sqmDefaultPrices || DEFAULT_CONFIG.sqmDefaultPrices,
       };
+      // 确保 workTypes 始终使用最新默认配置（包含 pricingType 等必要字段）
+      mergedConfig.workTypes = DEFAULT_CONFIG.workTypes;
       // 确保 roomTypes 有 steamCarpetPrice 字段
       if (parsed.roomTypes) {
         mergedConfig.roomTypes = DEFAULT_CONFIG.roomTypes.map(defaultRoom => {
@@ -464,6 +479,42 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     );
   });
 
+  /** Invoice 表头模式：默认 Sparkery，可选自定义（如个人名义开票） */
+  const [invoiceHeaderMode, setInvoiceHeaderMode] = useState<
+    'sparkery' | 'custom'
+  >('sparkery');
+  /** 自定义 Invoice 表头内容（当 invoiceHeaderMode === 'custom' 时使用，含银行信息） */
+  const [customInvoiceHeader, setCustomInvoiceHeader] = useState<{
+    companyName: string;
+    abn: string;
+    address: string;
+    email: string;
+    phone: string;
+    website: string;
+    accountName: string;
+    bsb: string;
+    accountNumber: string;
+  }>({
+    companyName: '',
+    abn: '',
+    address: '',
+    email: '',
+    phone: '',
+    website: '',
+    accountName: '',
+    bsb: '',
+    accountNumber: '',
+  });
+
+  /** Invoice 发票日期（可编辑），格式 YYYY-MM-DD */
+  const [invoiceDate, setInvoiceDate] = useState<string>(() =>
+    dayjs().format('YYYY-MM-DD')
+  );
+  /** Invoice 付款期限/到期日（可编辑），格式 YYYY-MM-DD */
+  const [invoiceDueDate, setInvoiceDueDate] = useState<string>(() =>
+    dayjs().add(14, 'day').format('YYYY-MM-DD')
+  );
+
   // 折扣状态
   const [discountEnabled, setDiscountEnabled] = useState<boolean>(false);
   const [discountType, setDiscountType] = useState<
@@ -476,6 +527,63 @@ const BrisbaneQuoteCalculator: React.FC = () => {
   const [sqmPrice, setSqmPrice] = useState<number>(5); // 默认$5/平米
   const [sqmMultiplier, setSqmMultiplier] = useState<number>(1.0);
   const [manualAdjustment, setManualAdjustment] = useState<number>(0);
+
+  // 服务包报价状态
+  const [serviceItems, setServiceItems] = useState<
+    Array<{
+      id: string;
+      title: string;
+      description: string;
+      amount: number;
+      unit: string;
+    }>
+  >([]);
+
+  // 单位选项定义（中英文）
+  const unitOptions = [
+    { value: '次', label: '次', labelEN: 'time' },
+    { value: '小时', label: '小时', labelEN: 'hour' },
+    { value: '间', label: '间', labelEN: 'room' },
+    { value: '月', label: '月', labelEN: 'month' },
+    { value: '平米', label: '平米', labelEN: 'sqm' },
+    { value: '小时/周', label: '小时/周', labelEN: 'hour/week' },
+    { value: '次/月', label: '次/月', labelEN: 'time/month' },
+    { value: '项', label: '项', labelEN: 'item' },
+    { value: '套', label: '套', labelEN: 'set' },
+    { value: 'visit', label: 'visit', labelEN: 'visit' },
+  ];
+
+  // 添加服务项目
+  const addServiceItem = () => {
+    setServiceItems([
+      ...serviceItems,
+      {
+        id: `service-${Date.now()}`,
+        title: '',
+        description: '',
+        amount: 0,
+        unit: '次',
+      },
+    ]);
+  };
+
+  // 移除服务项目
+  const removeServiceItem = (id: string) => {
+    setServiceItems(serviceItems.filter(item => item.id !== id));
+  };
+
+  // 更新服务项目
+  const updateServiceItem = (
+    id: string,
+    field: string,
+    value: string | number
+  ) => {
+    setServiceItems(
+      serviceItems.map(item =>
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    );
+  };
 
   // 配置管理弹窗
   const [configModalVisible, setConfigModalVisible] = useState(false);
@@ -665,7 +773,10 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       h => h.id === selectedHouseLevel
     );
 
-    if (!workType)
+    // 检查是否是服务包报价模式
+    const isServicePackage = selectedWorkType === 'office-service';
+
+    if (!workType && !isServicePackage)
       return {
         basePrice: 0,
         adjustments: 0,
@@ -684,13 +795,18 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           addons: 0,
           total: 0,
         },
+        serviceItems: [],
       };
 
     let basePrice = 0;
     let adjustments = 0;
     let addonTotal = 0;
 
-    if (workType.pricingType === 'sqm') {
+    if (isServicePackage) {
+      // 服务包报价模式 - 基础价为0，所有金额来自服务项目
+      basePrice = 0;
+      adjustments = 0;
+    } else if (workType?.pricingType === 'sqm') {
       // 平米计价
       basePrice = sqmArea * sqmPrice * sqmMultiplier;
       adjustments = manualAdjustment;
@@ -739,7 +855,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       }
 
       // 如果是住宅清洁，应用房产类型和层数加成
-      if (workType.isResidential) {
+      if (workType?.isResidential) {
         // Bond清洁：所有房产类型都使用bondMultiplier系数
         // 地毯勾选后加到基础价，然后应用系数
         if (selectedWorkType === 'bond' && propertyType) {
@@ -774,7 +890,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
 
     // 蒸洗地毯费用已在上面处理，这里不再重复计算
 
-    // 附加选项
+    // 附加选项 - 仅非服务包模式显示
     let totalAddonHours = 0;
     const addonHoursDetail: Array<{
       name: string;
@@ -783,65 +899,82 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       quantity: number;
     }> = [];
     let rows = '';
-    selectedAddons.forEach(addonId => {
-      const addon = config.addonOptions.find(a => a.id === addonId);
-      if (addon) {
-        let quantity = 1;
-        let quantityText = '';
-        if (addon.id === 'glass_door_window') {
-          quantity = glassDoorWindowCount;
-          quantityText = ` x ${quantity}`;
-        } else if (addon.id === 'wall_stains') {
-          quantity = wallStainsCount;
-          quantityText = ` x ${quantity}`;
-        } else if (addon.id === 'ac_filter') {
-          quantity = acFilterCount;
-          quantityText = ` x ${quantity}`;
-        } else if (addon.id === 'blinds') {
-          quantity = blindsCount;
-          quantityText = ` x ${quantity}`;
-        } else if (addon.id === 'mold') {
-          quantity = moldCount;
-          quantityText = ` x ${quantity}`;
+
+    if (!isServicePackage) {
+      selectedAddons.forEach(addonId => {
+        const addon = config.addonOptions.find(a => a.id === addonId);
+        if (addon) {
+          let quantity = 1;
+          let quantityText = '';
+          if (addon.id === 'glass_door_window') {
+            quantity = glassDoorWindowCount;
+            quantityText = ` x ${quantity}`;
+          } else if (addon.id === 'wall_stains') {
+            quantity = wallStainsCount;
+            quantityText = ` x ${quantity}`;
+          } else if (addon.id === 'ac_filter') {
+            quantity = acFilterCount;
+            quantityText = ` x ${quantity}`;
+          } else if (addon.id === 'blinds') {
+            quantity = blindsCount;
+            quantityText = ` x ${quantity}`;
+          } else if (addon.id === 'mold') {
+            quantity = moldCount;
+            quantityText = ` x ${quantity}`;
+          }
+
+          const hours = addon.hours * quantity;
+          totalAddonHours += hours;
+          addonHoursDetail.push({
+            name: addon.name,
+            nameCN: addon.nameCN,
+            hours: hours,
+            quantity: quantity,
+          });
+
+          // 计算附加服务费用
+          if (addon.type === 'percentage') {
+            addonTotal += subtotalBeforeAddons * addon.price;
+          } else {
+            addonTotal += addon.price * quantity;
+          }
+
+          // 生成HTML行 - 使用占位符，稍后根据语言替换
+          // Note: item-detail with Chinese will be handled in generateQuoteHTML based on language
+          rows += `
+            <tr>
+              <td class="col-desc">
+                <span class="item-name">${addon.name}${quantityText}</span>
+                <span class="item-detail" data-cn="${addon.nameCN}"></span>
+              </td>
+              <td class="col-type">__ADDON_TYPE__</td>
+              <td class="col-hours">${hours.toFixed(1)} hrs</td>
+              <td class="col-amount">$${(addon.price * quantity).toFixed(2)}</td>
+            </tr>
+          `;
         }
+      });
+    }
 
-        const hours = addon.hours * quantity;
-        totalAddonHours += hours;
-        addonHoursDetail.push({
-          name: addon.name,
-          nameCN: addon.nameCN,
-          hours: hours,
-          quantity: quantity,
-        });
-
-        // 计算附加服务费用
-        if (addon.type === 'percentage') {
-          addonTotal += subtotalBeforeAddons * addon.price;
-        } else {
-          addonTotal += addon.price * quantity;
-        }
-
-        // 生成HTML行 - 使用占位符，稍后根据语言替换
-        // Note: item-detail with Chinese will be handled in generateQuoteHTML based on language
-        rows += `
-          <tr>
-            <td class="col-desc">
-              <span class="item-name">${addon.name}${quantityText}</span>
-              <span class="item-detail" data-cn="${addon.nameCN}"></span>
-            </td>
-            <td class="col-type">__ADDON_TYPE__</td>
-            <td class="col-hours">${hours.toFixed(1)} hrs</td>
-            <td class="col-amount">$${(addon.price * quantity).toFixed(2)}</td>
-          </tr>
-        `;
-      }
-    });
+    // 计算服务包总价
+    let servicePackageTotal = 0;
+    if (isServicePackage) {
+      servicePackageTotal = serviceItems.reduce(
+        (sum, item) => sum + item.amount,
+        0
+      );
+    }
 
     let subtotal = subtotalBeforeAddons + addonTotal;
 
-    // 计算总工时
+    // 如果是服务包模式，总价来自服务项目
+    if (isServicePackage) {
+      subtotal = servicePackageTotal;
+    }
+
+    // 计算总工时 - 仅非服务包模式
     let baseHours = 0;
-    if (roomType) {
+    if (!isServicePackage && roomType) {
       if (selectedWorkType === 'airbnb') {
         baseHours = roomType.workHours.airbnb;
       } else if (selectedWorkType === 'bond') {
@@ -855,7 +988,9 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     // 地毯工时 - 基于卧室数量计算 (Number of Bedrooms * 1 hour)
     // steamCarpetHours in config already represents the number of bedrooms
     const steamCarpetHours =
-      includeSteamCarpet && roomType ? roomType.steamCarpetHours : 0;
+      !isServicePackage && includeSteamCarpet && roomType
+        ? roomType.steamCarpetHours
+        : 0;
 
     const totalHours =
       baseHours +
@@ -893,6 +1028,8 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         total: totalHours,
       },
       htmlRows: rows,
+      servicePackageTotal,
+      isServicePackage,
     };
   };
 
@@ -926,11 +1063,200 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     const propertyTypeName =
       config.propertyTypes.find(p => p.id === selectedPropertyType)?.name || '';
 
+    // 判断是否为服务包模式
+    const isServicePackage = quote.isServicePackage;
+
+    // 根据不同模式生成表格内容
+    let tableContent = '';
+    let serviceItemRows = '';
+
+    if (isServicePackage) {
+      // Service package mode - list service items
+      serviceItems.forEach(item => {
+        // Handle line breaks in description
+        const formattedDescription = (item.description || '-')
+          .replace(/\n/g, '<br>')
+          .replace(/\r\n/g, '<br>');
+        // Get English label for unit
+        const unitLabel =
+          unitOptions.find(u => u.value === item.unit)?.labelEN ||
+          item.unit ||
+          'time';
+
+        serviceItemRows += `
+          <tr>
+            <td class="col-desc">
+              <span class="item-name">${item.title || 'Service Item'}</span>
+              <span class="item-detail" style="white-space: pre-wrap; word-wrap: break-word; line-height: 1.5;">${formattedDescription}</span>
+            </td>
+            <td class="col-type">${unitLabel}</td>
+            <td class="col-hours">-</td>
+            <td class="col-amount">$${item.amount.toFixed(2)}</td>
+          </tr>
+        `;
+      });
+      tableContent = serviceItemRows;
+    } else {
+      // 标准模式 - 原有逻辑
+      // 基础服务
+      let baseServiceRow = '';
+      if (
+        selectedWorkType !== 'office' &&
+        selectedWorkType !== 'construction' &&
+        selectedWorkType !== 'commercial'
+      ) {
+        baseServiceRow = `
+          <tr>
+            <td class="col-desc">
+              <span class="item-name">${lang === 'cn' ? '退租清洁服务 (End of Lease)' : 'Bond Cleaning Service (End of Lease)'}</span>
+              <span class="item-detail">
+                ${lang === 'cn' ? '物业类型:' : 'Property Type:'} ${propertyTypeName} (${shortRoomType})<br>
+                ${lang === 'cn' ? '包含: 厨房、浴室、客厅、内部窗户及地板清洁。' : 'Includes: Kitchen, Bathrooms, Living Areas, Windows (Internal), Floors.'}
+              </span>
+            </td>
+            <td class="col-type">${lang === 'cn' ? '基础服务' : 'Base Service'}</td>
+            <td class="col-hours">${quote.workHours.base.toFixed(1)} hrs</td>
+            <td class="col-amount">$${quote.basePrice.toFixed(2)}</td>
+          </tr>
+        `;
+      } else {
+        // 平米计价模式
+        baseServiceRow = `
+          <tr>
+            <td class="col-desc">
+              <span class="item-name">${workTypeName}</span>
+              <span class="item-detail">
+                ${lang === 'cn' ? '面积:' : 'Area:'} ${sqmArea} sqm × $${sqmPrice}/${lang === 'cn' ? '平米' : 'sqm'}
+                ${sqmMultiplier !== 1 ? `<br>${lang === 'cn' ? '系数:' : 'Multiplier:'} ×${sqmMultiplier}` : ''}
+              </span>
+            </td>
+            <td class="col-type">${lang === 'cn' ? '平米计价' : 'SQM Pricing'}</td>
+            <td class="col-hours">-</td>
+            <td class="col-amount">$${quote.basePrice.toFixed(2)}</td>
+          </tr>
+        `;
+      }
+
+      // 地毯清洁
+      const steamCarpetRow =
+        quote.workHours.steamCarpet > 0
+          ? `
+        <tr>
+          <td class="col-desc">
+            <span class="item-name">${lang === 'cn' ? '地毯蒸汽清洁' : 'Carpet Steam Cleaning'}</span>
+            <span class="item-detail">${lang === 'cn' ? '专业热水抽取清洁所有地毯区域' : 'Professional hot water extraction for all carpeted areas'}</span>
+          </td>
+          <td class="col-type">${lang === 'cn' ? '附加服务' : 'Add-on'}</td>
+          <td class="col-hours">${quote.workHours.steamCarpet.toFixed(1)} hrs</td>
+          <td class="col-amount">(Included)</td>
+        </tr>
+      `
+          : '';
+
+      // 额外房间调整
+      const adjustmentRow =
+        quote.adjustments > 0
+          ? `
+        <tr>
+          <td class="col-desc">
+            <span class="item-name">${lang === 'cn' ? '额外房间调整' : 'Extra Rooms Adjustment'}</span>
+          </td>
+          <td class="col-type">${lang === 'cn' ? '调整项' : 'Adjustment'}</td>
+          <td class="col-hours">-</td>
+          <td class="col-amount">$${quote.adjustments.toFixed(2)}</td>
+        </tr>
+      `
+          : '';
+
+      // 附加服务
+      const addonRows = (quote.htmlRows || '')
+        .replace(/__ADDON_TYPE__/g, lang === 'cn' ? '附加服务' : 'Add-on')
+        .replace(
+          /<span class="item-detail" data-cn="([^"]*)"><\/span>/g,
+          lang === 'cn' ? '<span class="item-detail">$1</span>' : ''
+        );
+
+      tableContent =
+        baseServiceRow + steamCarpetRow + adjustmentRow + addonRows;
+    }
+
+    // 根据不同模式生成总计区域
+    let totalSection = '';
+    if (isServicePackage) {
+      // Service package mode total
+      totalSection = `
+        <div class="total-section">
+          <div class="total-row">
+            <span>Services Subtotal</span>
+            <span>$${quote.servicePackageTotal.toFixed(2)}</span>
+          </div>
+          ${
+            quote.discount > 0
+              ? `
+          <div class="total-row" style="color: #005901;">
+            <span>${quote.discountType === 'new' ? 'New Customer Discount' : quote.discountType === 'returning' ? 'Returning Customer Discount' : 'Referral Discount'} (${quote.discountPercent}%)</span>
+            <span>-$${quote.discount.toFixed(2)}</span>
+          </div>`
+              : ''
+          }
+          ${
+            includeGST
+              ? `
+          <div class="total-row" style="color: #666;">
+            <span>GST (10%)</span>
+            <span>$${quote.gst.toFixed(2)}</span>
+          </div>`
+              : ''
+          }
+          <div class="total-row grand-total">
+            <span>Total</span>
+            <span>$${quote.total.toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+    } else {
+      // Standard mode total
+      totalSection = `
+        <div class="total-section">
+          <div class="total-row">
+            <span>${lang === 'cn' ? '小计' : 'Subtotal'}</span>
+            <span>$${(quote.subtotal + quote.discount).toFixed(2)}</span>
+          </div>
+          ${
+            quote.discount > 0
+              ? `
+          <div class="total-row" style="color: #005901;">
+            <span>${quote.discountType === 'new' ? (lang === 'cn' ? '新客优惠' : 'New Customer Discount') : quote.discountType === 'returning' ? (lang === 'cn' ? '回头客优惠' : 'Returning Customer Discount') : lang === 'cn' ? '介绍优惠' : 'Referral Discount'} (${quote.discountPercent}%)</span>
+            <span>-$${quote.discount.toFixed(2)}</span>
+          </div>`
+              : ''
+          }
+          ${
+            includeGST
+              ? `
+          <div class="total-row" style="color: #666;">
+            <span>${lang === 'cn' ? '消费税 (10%)' : 'GST (10%)'}</span>
+            <span>$${quote.gst.toFixed(2)}</span>
+          </div>`
+              : ''
+          }
+          <div class="total-row" style="color: #005901; font-weight: 600;">
+            <span>${lang === 'cn' ? '总工时' : 'Total Hours'}</span>
+            <span>${quote.workHours.total.toFixed(1)} hrs</span>
+          </div>
+          <div class="total-row grand-total">
+            <span>${lang === 'cn' ? '合计' : 'Total'}</span>
+            <span>$${quote.total.toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+    }
+
     return `<!DOCTYPE html>
 <html lang="${lang === 'cn' ? 'zh-CN' : 'en'}">
 <head>
     <meta charset="UTF-8">
-    <title>${lang === 'cn' ? 'Sparkery 报价单' : 'Sparkery Quote'}</title>
+    <title>${isServicePackage ? 'Sparkery Service Quote' : lang === 'cn' ? 'Sparkery 报价单' : 'Sparkery Quote'}</title>
     <style>
         /* 页面基础设置：A4 尺寸 */
         @page {
@@ -938,7 +1264,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             margin: 0;
         }
         body {
-            font-family: ${lang === 'cn' ? "'Microsoft YaHei', 'PingFang SC', " : ''}'Segoe UI', Tahoma, Geneva, Verdana, sans-serif';
+            font-family: ${isServicePackage ? '' : lang === 'cn' ? "'Microsoft YaHei', 'PingFang SC', " : ''}'Segoe UI', Tahoma, Geneva, Verdana, sans-serif';
             margin: 0;
             padding: 0;
             background: #fff;
@@ -1042,7 +1368,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         .col-hours { width: 15%; text-align: center; color: #666; font-size: 12px; }
         .col-amount { width: 20%; text-align: right; font-weight: 600; }
         .item-name { font-weight: 600; display: block; }
-        .item-detail { font-size: 12px; color: #888; margin-top: 2px; }
+        .item-detail { font-size: 12px; color: #888; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; }
         .total-section {
             width: 40%;
             margin-left: auto;
@@ -1111,22 +1437,359 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     <!-- 客户信息 -->
     <div class="info-grid">
         <div class="recipient-box">
-            <h3>${lang === 'cn' ? '报价给' : 'Quote For'}</h3>
+            <h3>${isServicePackage ? 'Quote For' : lang === 'cn' ? '报价给' : 'Quote For'}</h3>
+            <div class="client-name">${customerName || (isServicePackage ? 'Customer Name' : lang === 'cn' ? '客户姓名' : 'Customer Name')}</div>
+            <div class="client-address">${customerAddress || (isServicePackage ? 'Address' : lang === 'cn' ? '客户地址' : 'Address')}</div>
+        </div>
+        <div class="quote-meta-box">
+            <div class="quote-title">${isServicePackage ? 'SERVICE QUOTE' : lang === 'cn' ? '报价单' : 'QUOTE'}</div>
+            <div class="meta-row">
+                <span class="meta-label">${isServicePackage ? 'Quote Date:' : lang === 'cn' ? '报价日期:' : 'Quote Date:'}</span>
+                <span>${currentDate}</span>
+            </div>
+            <div class="meta-row">
+                <span class="meta-label">${isServicePackage ? 'Valid Until:' : lang === 'cn' ? '有效期至:' : 'Valid Until:'}</span>
+                <span>${validDate}</span>
+            </div>
+            <div class="meta-row">
+                <span class="meta-label">${isServicePackage ? 'Reference:' : lang === 'cn' ? '报价编号:' : 'Reference:'}</span>
+                <span>#${quoteId}</span>
+            </div>
+        </div>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>${isServicePackage ? 'Description' : lang === 'cn' ? '服务项目' : 'Description'}</th>
+                <th>${isServicePackage ? 'Unit' : lang === 'cn' ? '单位' : 'Unit'}</th>
+                <th style="text-align: center;">${isServicePackage ? 'Hours' : lang === 'cn' ? '工时' : 'Hours'}</th>
+                <th style="text-align: right;">${isServicePackage ? 'Amount (AUD)' : lang === 'cn' ? '金额 (澳元)' : 'Amount (AUD)'}</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${tableContent}
+        </tbody>
+    </table>
+    ${totalSection}
+
+    <!-- Footer Notes -->
+    <div class="footer-note">
+        <strong>${isServicePackage ? 'Terms & Conditions:' : lang === 'cn' ? '条款与条件:' : 'Terms & Conditions:'}</strong>
+        <ul style="margin: 5px 0; padding-left: 20px;">
+            <li><strong>${isServicePackage ? 'Satisfaction Guarantee:' : lang === 'cn' ? '押金保障承诺:' : 'Bond Back Guarantee:'}</strong> ${isServicePackage ? 'We pride ourselves on quality. If you are dissatisfied with any aspect of our service, please notify us within 24 hours, and we will return to rectify the issue at no extra charge.' : lang === 'cn' ? '如中介验收时提出整改要求，我们将在72小时内免费上门处理。' : 'We offer a 72-hour rectification guarantee for any cleaning issues raised by your agent.'}</li>
+            <li><strong>${isServicePackage ? 'Access & Security:' : lang === 'cn' ? '进场要求:' : 'Access:'}</strong> ${isServicePackage ? 'Client to provide necessary keys/access cards and alarm codes. All keys are held securely and coded for anonymity.' : lang === 'cn' ? '请确保房屋电源及热水正常供应。' : 'Please ensure electricity and hot water are connected.'}</li>
+        </ul>
+        ${
+          includeGST
+            ? `<div class="bank-details">
+            ${isServicePackage ? 'BANK TRANSFER DETAILS:' : lang === 'cn' ? '银行转账信息:' : 'BANK TRANSFER DETAILS:'}<br>
+            ${isServicePackage ? 'Account Name: WENDEAL PTY LTD' : (lang === 'cn' ? '账户名称:' : 'Account Name:') + (lang === 'cn' ? ' WENDEAL PTY LTD' : ' WENDEAL PTY LTD')}<br>
+            ${isServicePackage ? 'BSB: 013711  | Account: 332166314' : (lang === 'cn' ? 'BSB: 013711  | ' : 'BSB: 013711  | ') + (lang === 'cn' ? '账号:' : 'Account:') + ' 332166314'}
+        </div>`
+            : ''
+        }
+    </div>
+
+    <div class="page-footer">
+        ${isServicePackage ? 'Thank you for choosing Sparkery - Making Brisbane Sparkle!' : lang === 'cn' ? '感谢您选择 Sparkery - 让布里斯班焕然一新！' : 'Thank you for choosing Sparkery - Making Brisbane Sparkle!'}
+    </div>
+</div>
+</body>
+</html>`;
+  };
+
+  /**
+   * 生成 Invoice 页面的 HTML（风格与报价单一致，表头可选 Sparkery 或自定义）
+   * @param lang 语言 'en' | 'cn'
+   * @returns 完整 Invoice HTML 字符串
+   */
+  const generateInvoiceHTML = (lang: 'en' | 'cn') => {
+    const invoiceDateFormatted = invoiceDate
+      ? dayjs(invoiceDate).format('DD MMM YYYY')
+      : dayjs().format('DD MMM YYYY');
+    const dueDateFormatted = invoiceDueDate
+      ? dayjs(invoiceDueDate).format('DD MMM YYYY')
+      : dayjs().add(14, 'day').format('DD MMM YYYY');
+
+    const workTypeName =
+      config.workTypes.find(w => w.id === selectedWorkType)?.name || '';
+    const roomTypeObj = config.roomTypes.find(r => r.id === selectedRoomType);
+    const roomTypeName =
+      selectedRoomType === 'custom' ? customRoomType : roomTypeObj?.name || '';
+    const roomTypeMatch = roomTypeName.match(/(\d+)\s*Bed.*(\d+)\s*Bath/);
+    const shortRoomType = roomTypeMatch
+      ? `${roomTypeMatch[1]}B${roomTypeMatch[2]}B`
+      : roomTypeName;
+    const propertyTypeName =
+      config.propertyTypes.find(p => p.id === selectedPropertyType)?.name || '';
+    const isServicePackage = quote.isServicePackage;
+
+    let tableContent = '';
+    let serviceItemRows = '';
+    if (isServicePackage) {
+      serviceItems.forEach(item => {
+        const formattedDescription = (item.description || '-')
+          .replace(/\n/g, '<br>')
+          .replace(/\r\n/g, '<br>');
+        const unitLabel =
+          unitOptions.find(u => u.value === item.unit)?.labelEN ||
+          item.unit ||
+          'time';
+        serviceItemRows += `
+          <tr>
+            <td class="col-desc">
+              <span class="item-name">${item.title || 'Service Item'}</span>
+              <span class="item-detail" style="white-space: pre-wrap; word-wrap: break-word; line-height: 1.5;">${formattedDescription}</span>
+            </td>
+            <td class="col-type">${unitLabel}</td>
+            <td class="col-hours">-</td>
+            <td class="col-amount">$${item.amount.toFixed(2)}</td>
+          </tr>
+        `;
+      });
+      tableContent = serviceItemRows;
+    } else {
+      let baseServiceRow = '';
+      if (
+        selectedWorkType !== 'office' &&
+        selectedWorkType !== 'construction' &&
+        selectedWorkType !== 'commercial'
+      ) {
+        baseServiceRow = `
+          <tr>
+            <td class="col-desc">
+              <span class="item-name">${lang === 'cn' ? '退租清洁服务 (End of Lease)' : 'Bond Cleaning Service (End of Lease)'}</span>
+              <span class="item-detail">
+                ${lang === 'cn' ? '物业类型:' : 'Property Type:'} ${propertyTypeName} (${shortRoomType})<br>
+                ${lang === 'cn' ? '包含: 厨房、浴室、客厅、内部窗户及地板清洁。' : 'Includes: Kitchen, Bathrooms, Living Areas, Windows (Internal), Floors.'}
+              </span>
+            </td>
+            <td class="col-type">${lang === 'cn' ? '基础服务' : 'Base Service'}</td>
+            <td class="col-hours">${quote.workHours.base.toFixed(1)} hrs</td>
+            <td class="col-amount">$${quote.basePrice.toFixed(2)}</td>
+          </tr>
+        `;
+      } else {
+        baseServiceRow = `
+          <tr>
+            <td class="col-desc">
+              <span class="item-name">${workTypeName}</span>
+              <span class="item-detail">
+                ${lang === 'cn' ? '面积:' : 'Area:'} ${sqmArea} sqm × $${sqmPrice}/${lang === 'cn' ? '平米' : 'sqm'}
+                ${sqmMultiplier !== 1 ? `<br>${lang === 'cn' ? '系数:' : 'Multiplier:'} ×${sqmMultiplier}` : ''}
+              </span>
+            </td>
+            <td class="col-type">${lang === 'cn' ? '平米计价' : 'SQM Pricing'}</td>
+            <td class="col-hours">-</td>
+            <td class="col-amount">$${quote.basePrice.toFixed(2)}</td>
+          </tr>
+        `;
+      }
+      const steamCarpetRow =
+        quote.workHours.steamCarpet > 0
+          ? `
+        <tr>
+          <td class="col-desc">
+            <span class="item-name">${lang === 'cn' ? '地毯蒸汽清洁' : 'Carpet Steam Cleaning'}</span>
+            <span class="item-detail">${lang === 'cn' ? '专业热水抽取清洁所有地毯区域' : 'Professional hot water extraction for all carpeted areas'}</span>
+          </td>
+          <td class="col-type">${lang === 'cn' ? '附加服务' : 'Add-on'}</td>
+          <td class="col-hours">${quote.workHours.steamCarpet.toFixed(1)} hrs</td>
+          <td class="col-amount">(Included)</td>
+        </tr>
+      `
+          : '';
+      const adjustmentRow =
+        quote.adjustments > 0
+          ? `
+        <tr>
+          <td class="col-desc">
+            <span class="item-name">${lang === 'cn' ? '额外房间调整' : 'Extra Rooms Adjustment'}</span>
+          </td>
+          <td class="col-type">${lang === 'cn' ? '调整项' : 'Adjustment'}</td>
+          <td class="col-hours">-</td>
+          <td class="col-amount">$${quote.adjustments.toFixed(2)}</td>
+        </tr>
+      `
+          : '';
+      const addonRows = (quote.htmlRows || '')
+        .replace(/__ADDON_TYPE__/g, lang === 'cn' ? '附加服务' : 'Add-on')
+        .replace(
+          /<span class="item-detail" data-cn="([^"]*)"><\/span>/g,
+          lang === 'cn' ? '<span class="item-detail">$1</span>' : ''
+        );
+      tableContent =
+        baseServiceRow + steamCarpetRow + adjustmentRow + addonRows;
+    }
+
+    let totalSection = '';
+    if (isServicePackage) {
+      totalSection = `
+        <div class="total-section">
+          <div class="total-row">
+            <span>Services Subtotal</span>
+            <span>$${quote.servicePackageTotal.toFixed(2)}</span>
+          </div>
+          ${
+            quote.discount > 0
+              ? `
+          <div class="total-row" style="color: #005901;">
+            <span>${quote.discountType === 'new' ? 'New Customer Discount' : quote.discountType === 'returning' ? 'Returning Customer Discount' : 'Referral Discount'} (${quote.discountPercent}%)</span>
+            <span>-$${quote.discount.toFixed(2)}</span>
+          </div>`
+              : ''
+          }
+          ${
+            includeGST
+              ? `
+          <div class="total-row" style="color: #666;">
+            <span>GST (10%)</span>
+            <span>$${quote.gst.toFixed(2)}</span>
+          </div>`
+              : ''
+          }
+          <div class="total-row grand-total">
+            <span>Total</span>
+            <span>$${quote.total.toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+    } else {
+      totalSection = `
+        <div class="total-section">
+          <div class="total-row">
+            <span>${lang === 'cn' ? '小计' : 'Subtotal'}</span>
+            <span>$${(quote.subtotal + quote.discount).toFixed(2)}</span>
+          </div>
+          ${
+            quote.discount > 0
+              ? `
+          <div class="total-row" style="color: #005901;">
+            <span>${quote.discountType === 'new' ? (lang === 'cn' ? '新客优惠' : 'New Customer Discount') : quote.discountType === 'returning' ? (lang === 'cn' ? '回头客优惠' : 'Returning Customer Discount') : lang === 'cn' ? '介绍优惠' : 'Referral Discount'} (${quote.discountPercent}%)</span>
+            <span>-$${quote.discount.toFixed(2)}</span>
+          </div>`
+              : ''
+          }
+          ${
+            includeGST
+              ? `
+          <div class="total-row" style="color: #666;">
+            <span>${lang === 'cn' ? '消费税 (10%)' : 'GST (10%)'}</span>
+            <span>$${quote.gst.toFixed(2)}</span>
+          </div>`
+              : ''
+          }
+          <div class="total-row" style="color: #005901; font-weight: 600;">
+            <span>${lang === 'cn' ? '总工时' : 'Total Hours'}</span>
+            <span>${quote.workHours.total.toFixed(1)} hrs</span>
+          </div>
+          <div class="total-row grand-total">
+            <span>${lang === 'cn' ? '合计' : 'Total'}</span>
+            <span>$${quote.total.toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    const invoiceHeaderHTML =
+      invoiceHeaderMode === 'sparkery'
+        ? `
+    <header>
+        <div class="logo-section">
+            <img src="https://sparkery.com.au/wp-content/uploads/2025/11/logo.png" alt="Sparkery Logo">
+        </div>
+        <div class="company-details">
+            <div class="company-name">Sparkery (Wendeal Pty Ltd)</div>
+            <div>ABN: 23632257535</div>
+            <div>52 Wecker Road, Mansfield QLD 4122</div>
+            <div>E: info@sparkery.com.au</div>
+            <div>P: 0478 540 915</div>
+            <div>W: www.sparkery.com.au</div>
+        </div>
+    </header>`
+        : `
+    <header>
+        <div class="company-details" style="width: 100%;">
+            ${customInvoiceHeader.companyName ? `<div class="company-name">${customInvoiceHeader.companyName}</div>` : ''}
+            ${customInvoiceHeader.abn ? `<div>ABN: ${customInvoiceHeader.abn}</div>` : ''}
+            ${customInvoiceHeader.address ? `<div>${customInvoiceHeader.address}</div>` : ''}
+            ${customInvoiceHeader.email ? `<div>E: ${customInvoiceHeader.email}</div>` : ''}
+            ${customInvoiceHeader.phone ? `<div>P: ${customInvoiceHeader.phone}</div>` : ''}
+            ${customInvoiceHeader.website ? `<div>W: ${customInvoiceHeader.website}</div>` : ''}
+        </div>
+    </header>`;
+
+    return `<!DOCTYPE html>
+<html lang="${lang === 'cn' ? 'zh-CN' : 'en'}">
+<head>
+    <meta charset="UTF-8">
+    <title>${lang === 'cn' ? 'Sparkery 发票' : 'Sparkery Invoice'}</title>
+    <style>
+        @page { size: A4; margin: 0; }
+        body {
+            font-family: ${lang === 'cn' ? "'Microsoft YaHei', 'PingFang SC', " : ''}'Segoe UI', Tahoma, Geneva, Verdana, sans-serif';
+            margin: 0; padding: 0; background: #fff; color: #333;
+            -webkit-print-color-adjust: exact;
+        }
+        .page-container {
+            width: 210mm; min-height: 297mm; margin: 0 auto; padding: 15mm 20mm; box-sizing: border-box; position: relative;
+        }
+        header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            margin-bottom: 40px; border-bottom: 2px solid #005901; padding-bottom: 5px;
+        }
+        .logo-section img { height: 80px; width: auto; }
+        .company-details { text-align: right; font-size: 13px; line-height: 1.5; color: #555; }
+        .company-name { font-size: 18px; font-weight: 700; color: #005901; margin-bottom: 5px; }
+        .info-grid { display: flex; justify-content: space-between; margin-bottom: 40px; }
+        .recipient-box, .quote-meta-box { width: 48%; }
+        h3 { font-size: 12px; text-transform: uppercase; color: #888; letter-spacing: 1px; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .client-name { font-size: 18px; font-weight: 600; margin-bottom: 5px; }
+        .client-address { font-size: 14px; color: #555; }
+        .meta-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
+        .meta-label { font-weight: 600; color: #555; }
+        .quote-title { font-size: 28px; color: #005901; font-weight: 300; text-align: right; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        thead th {
+            background-color: #f4f8f4; color: #005901; padding: 12px 10px; text-align: left; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #005901;
+        }
+        tbody td { padding: 12px 10px; border-bottom: 1px solid #eee; font-size: 14px; vertical-align: top; }
+        .col-desc { width: 50%; }
+        .col-type { width: 15%; color: #666; font-size: 12px; }
+        .col-hours { width: 15%; text-align: center; color: #666; font-size: 12px; }
+        .col-amount { width: 20%; text-align: right; font-weight: 600; }
+        .item-name { font-weight: 600; display: block; }
+        .item-detail { font-size: 12px; color: #888; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; }
+        .total-section { width: 40%; margin-left: auto; border-top: 2px solid #005901; padding-top: 10px; }
+        .total-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .grand-total { font-size: 20px; font-weight: 700; color: #005901; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
+        .footer-note { margin-top: 50px; padding: 20px; background-color: #f9f9f9; border-radius: 5px; font-size: 12px; color: #666; line-height: 1.6; }
+        .bank-details { margin-top: 10px; font-weight: 600; color: #333; }
+        .page-footer { position: absolute; bottom: 15mm; left: 20mm; right: 20mm; text-align: center; font-size: 11px; color: #aaa; border-top: 1px solid #eee; padding-top: 10px; }
+    </style>
+</head>
+<body>
+<div class="page-container">
+    ${invoiceHeaderHTML}
+
+    <div class="info-grid">
+        <div class="recipient-box">
+            <h3>${lang === 'cn' ? '发票给' : 'Invoice To'}</h3>
             <div class="client-name">${customerName || (lang === 'cn' ? '客户姓名' : 'Customer Name')}</div>
             <div class="client-address">${customerAddress || (lang === 'cn' ? '客户地址' : 'Address')}</div>
         </div>
         <div class="quote-meta-box">
-            <div class="quote-title">${lang === 'cn' ? '报价单' : 'QUOTE'}</div>
+            <div class="quote-title">${lang === 'cn' ? '发票' : 'INVOICE'}</div>
             <div class="meta-row">
-                <span class="meta-label">${lang === 'cn' ? '报价日期:' : 'Quote Date:'}</span>
-                <span>${currentDate}</span>
+                <span class="meta-label">${lang === 'cn' ? '发票日期:' : 'Invoice Date:'}</span>
+                <span>${invoiceDateFormatted}</span>
             </div>
             <div class="meta-row">
-                <span class="meta-label">${lang === 'cn' ? '有效期至:' : 'Valid Until:'}</span>
-                <span>${validDate}</span>
+                <span class="meta-label">${lang === 'cn' ? '付款期限:' : 'Due Date:'}</span>
+                <span>${dueDateFormatted}</span>
             </div>
             <div class="meta-row">
-                <span class="meta-label">${lang === 'cn' ? '报价编号:' : 'Reference:'}</span>
+                <span class="meta-label">${lang === 'cn' ? '发票编号:' : 'Reference:'}</span>
                 <span>#${quoteId}</span>
             </div>
         </div>
@@ -1135,136 +1798,111 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         <thead>
             <tr>
                 <th>${lang === 'cn' ? '服务项目' : 'Description'}</th>
-                <th>${lang === 'cn' ? '类型' : 'Type'}</th>
+                <th>${lang === 'cn' ? '单位' : 'Unit'}</th>
                 <th style="text-align: center;">${lang === 'cn' ? '工时' : 'Hours'}</th>
                 <th style="text-align: right;">${lang === 'cn' ? '金额 (澳元)' : 'Amount (AUD)'}</th>
             </tr>
         </thead>
-        <tbody>
-            <!-- 基础服务 -->
-            <tr>
-                <td class="col-desc">
-                    <span class="item-name">${lang === 'cn' ? '退租清洁服务 (End of Lease)' : 'Bond Cleaning Service (End of Lease)'}</span>
-                    <span class="item-detail">
-                        ${lang === 'cn' ? '物业类型:' : 'Property Type:'} ${propertyTypeName} (${shortRoomType})<br>
-                        ${lang === 'cn' ? '包含: 厨房、浴室、客厅、内部窗户及地板清洁。' : 'Includes: Kitchen, Bathrooms, Living Areas, Windows (Internal), Floors.'}
-                    </span>
-                </td>
-                <td class="col-type">${lang === 'cn' ? '基础服务' : 'Base Service'}</td>
-                <td class="col-hours">${quote.workHours.base.toFixed(1)} hrs</td>
-                <td class="col-amount">$${quote.basePrice.toFixed(2)}</td>
-            </tr>
-
-            <!-- 地毯清洁 -->
-            ${
-              quote.workHours.steamCarpet > 0
-                ? `
-            <tr>
-                <td class="col-desc">
-                    <span class="item-name">${lang === 'cn' ? '地毯蒸汽清洁' : 'Carpet Steam Cleaning'}</span>
-                    <span class="item-detail">${lang === 'cn' ? '专业热水抽取清洁所有地毯区域' : 'Professional hot water extraction for all carpeted areas'}</span>
-                </td>
-                <td class="col-type">${lang === 'cn' ? '附加服务' : 'Add-on'}</td>
-                <td class="col-hours">${quote.workHours.steamCarpet.toFixed(1)} hrs</td>
-                <td class="col-amount">(Included)</td>
-            </tr>`
-                : ''
-            }
-
-            <!-- 额外房间调整 -->
-            ${
-              quote.adjustments > 0
-                ? `
-            <tr>
-                <td class="col-desc">
-                    <span class="item-name">${lang === 'cn' ? '额外房间调整' : 'Extra Rooms Adjustment'}</span>
-                </td>
-                <td class="col-type">${lang === 'cn' ? '调整项' : 'Adjustment'}</td>
-                <td class="col-hours">-</td>
-                <td class="col-amount">$${quote.adjustments.toFixed(2)}</td>
-            </tr>`
-                : ''
-            }
-
-            <!-- 附加服务 -->
-            ${(quote.htmlRows || '')
-              .replace(/__ADDON_TYPE__/g, lang === 'cn' ? '附加服务' : 'Add-on')
-              .replace(
-                /<span class="item-detail" data-cn="([^"]*)"><\/span>/g,
-                lang === 'cn' ? '<span class="item-detail">$1</span>' : ''
-              )}
-        </tbody>
+        <tbody>${tableContent}</tbody>
     </table>
-    <div class="total-section">
-        <div class="total-row">
-            <span>${lang === 'cn' ? '小计' : 'Subtotal'}</span>
-            <span>$${(quote.subtotal + quote.discount).toFixed(2)}</span>
-        </div>
-        ${
-          quote.discount > 0
-            ? `
-        <div class="total-row" style="color: #005901;">
-            <span>${
-              quote.discountType === 'new'
-                ? lang === 'cn'
-                  ? '新客优惠'
-                  : 'New Customer Discount'
-                : quote.discountType === 'returning'
-                  ? lang === 'cn'
-                    ? '回头客优惠'
-                    : 'Returning Customer Discount'
-                  : lang === 'cn'
-                    ? '介绍优惠'
-                    : 'Referral Discount'
-            } (${quote.discountPercent}%)</span>
-            <span>-$${quote.discount.toFixed(2)}</span>
-        </div>`
-            : ''
-        }
-        ${
-          includeGST
-            ? `
-        <div class="total-row" style="color: #666;">
-            <span>${lang === 'cn' ? '消费税 (10%)' : 'GST (10%)'}</span>
-            <span>$${quote.gst.toFixed(2)}</span>
-        </div>`
-            : ''
-        }
-        <div class="total-row" style="color: #005901; font-weight: 600;">
-            <span><ClockCircleOutlined style="margin-right: 4px;" /> ${lang === 'cn' ? '总工时' : 'Total Hours'}</span>
-            <span>${quote.workHours.total.toFixed(1)} hrs</span>
-        </div>
-        <div class="total-row grand-total">
-            <span>${lang === 'cn' ? '合计' : 'Total'}</span>
-            <span>$${quote.total.toFixed(2)}</span>
-        </div>
-    </div>
+    ${totalSection}
 
-    <!-- Footer Notes -->
     <div class="footer-note">
-        <strong>${lang === 'cn' ? '条款与条件:' : 'Terms & Conditions:'}</strong>
+        <strong>${lang === 'cn' ? '付款方式:' : 'Payment Terms:'}</strong>
         <ul style="margin: 5px 0; padding-left: 20px;">
-            <li><strong>${lang === 'cn' ? '押金保障承诺:' : 'Bond Back Guarantee:'}</strong> ${lang === 'cn' ? '如中介验收时提出整改要求，我们将在72小时内免费上门处理。' : 'We offer a 72-hour rectification guarantee for any cleaning issues raised by your agent.'}</li>
-            <li><strong>${lang === 'cn' ? '付款条款:' : 'Payment Terms:'}</strong> ${lang === 'cn' ? '预订时支付50%定金，进场前付清尾款。' : '50% deposit upon booking, balance due before work commences.'}</li>
-            <li><strong>${lang === 'cn' ? '进场要求:' : 'Access:'}</strong> ${lang === 'cn' ? '请确保房屋电源及热水正常供应。' : 'Please ensure electricity and hot water are connected.'}</li>
+            <li>${lang === 'cn' ? '请于付款期限内完成付款。' : 'Please pay by the due date.'}</li>
         </ul>
         ${
           includeGST
             ? `<div class="bank-details">
             ${lang === 'cn' ? '银行转账信息:' : 'BANK TRANSFER DETAILS:'}<br>
-            ${lang === 'cn' ? '账户名称:' : 'Account Name:'} WENDEAL PTY LTD<br>
-            BSB: 013711  |  ${lang === 'cn' ? '账号:' : 'Account:'} 332166314
+            ${
+              invoiceHeaderMode === 'custom' &&
+              (customInvoiceHeader.accountName ||
+                customInvoiceHeader.bsb ||
+                customInvoiceHeader.accountNumber)
+                ? (customInvoiceHeader.accountName
+                    ? (lang === 'cn' ? '账户名称: ' : 'Account Name: ') +
+                      customInvoiceHeader.accountName +
+                      '<br>'
+                    : '') +
+                  (customInvoiceHeader.bsb || customInvoiceHeader.accountNumber
+                    ? 'BSB: ' +
+                      (customInvoiceHeader.bsb || '-') +
+                      '  | ' +
+                      (lang === 'cn' ? '账号: ' : 'Account: ') +
+                      (customInvoiceHeader.accountNumber || '-')
+                    : '')
+                : (lang === 'cn' ? '账户名称: ' : 'Account Name: ') +
+                  'WENDEAL PTY LTD<br>BSB: 013711  | ' +
+                  (lang === 'cn' ? '账号: ' : 'Account: ') +
+                  '332166314'
+            }
         </div>`
             : ''
         }
     </div>
 
     <div class="page-footer">
-        ${lang === 'cn' ? '感谢您选择 Sparkery - 让布里斯班焕然一新！' : 'Thank you for choosing Sparkery - Making Brisbane Sparkle!'}
+        ${lang === 'cn' ? '感谢您的惠顾。' : 'Thank you for your business.'}
     </div>
 </div>
 </body>
 </html>`;
+  };
+
+  /**
+   * 打开打印窗口输出 Invoice PDF（与报价单相同的呈现方式）
+   */
+  const generateInvoicePDF = (language: 'en' | 'cn' | 'both') => {
+    let html = '';
+    if (language === 'both') {
+      html =
+        generateInvoiceHTML('cn') +
+        '<div style="page-break-after: always;"></div>' +
+        generateInvoiceHTML('en');
+    } else if (language === 'cn') {
+      html = generateInvoiceHTML('cn');
+    } else {
+      html = generateInvoiceHTML('en');
+    }
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Invoice - ${quoteId}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #fff; }
+            ${getPageStyles(language)}
+            @media print {
+              @page { margin: 15mm 10mm; size: A4; }
+              body { padding: 0; }
+              .no-print { display: none !important; }
+            }
+          </style>
+        </head>
+        <body>
+          ${html}
+          <script>
+            window.onload = function() {
+              window.print();
+              window.onafterprint = function() { window.close(); };
+            };
+          </script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    } else {
+      message.error(
+        language === 'cn'
+          ? '无法打开打印窗口，请检查弹窗阻止设置'
+          : 'Cannot open print window. Please check popup blocker settings.'
+      );
+    }
   };
 
   // 生成实时HTML预览
@@ -1298,6 +1936,10 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     includeGST,
     notes,
     pdfLanguage,
+    serviceItems,
+    sqmArea,
+    sqmPrice,
+    sqmMultiplier,
   ]);
 
   return (
@@ -1649,6 +2291,160 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   <Text type='secondary' style={{ fontSize: '12px' }}>
                     Positive or negative adjustment to the calculated price
                   </Text>
+                </div>
+              </>
+            )}
+
+            {/* Service Package Pricing Options */}
+            {currentWorkType?.pricingType === 'service' && (
+              <>
+                <Divider />
+
+                <div style={{ marginBottom: '16px' }}>
+                  <Text
+                    strong
+                    style={{
+                      fontSize: '16px',
+                      display: 'block',
+                      marginBottom: '12px',
+                    }}
+                  >
+                    📋 Service Items List
+                  </Text>
+                  <Text
+                    type='secondary'
+                    style={{ display: 'block', marginBottom: '12px' }}
+                  >
+                    Add service items, each with independent title, description,
+                    amount, and unit
+                  </Text>
+
+                  {/* Service items list */}
+                  {serviceItems.map((item, index) => (
+                    <Card
+                      key={item.id}
+                      size='small'
+                      title={`Service Item ${index + 1}`}
+                      extra={
+                        <Button
+                          type='text'
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={() => removeServiceItem(item.id)}
+                        >
+                          Delete
+                        </Button>
+                      }
+                      style={{ marginBottom: '12px', borderRadius: '8px' }}
+                    >
+                      <Row gutter={12}>
+                        <Col span={24} style={{ marginBottom: '8px' }}>
+                          <Text>Service Title</Text>
+                          <Input
+                            placeholder='e.g., Regular Cleaning Service'
+                            value={item.title}
+                            onChange={e =>
+                              updateServiceItem(
+                                item.id,
+                                'title',
+                                e.target.value
+                              )
+                            }
+                          />
+                        </Col>
+                        <Col span={24} style={{ marginBottom: '8px' }}>
+                          <Text>Service Description</Text>
+                          <Input.TextArea
+                            rows={10}
+                            placeholder='Detailed description of service content...'
+                            value={item.description}
+                            onChange={e =>
+                              updateServiceItem(
+                                item.id,
+                                'description',
+                                e.target.value
+                              )
+                            }
+                          />
+                        </Col>
+                        <Col xs={24} sm={12} style={{ marginBottom: '8px' }}>
+                          <Text>Amount (AUD)</Text>
+                          <InputNumber
+                            min={0}
+                            style={{ width: '100%' }}
+                            addonBefore='$'
+                            value={item.amount}
+                            onChange={value =>
+                              updateServiceItem(item.id, 'amount', value || 0)
+                            }
+                          />
+                        </Col>
+                        <Col xs={24} sm={12} style={{ marginBottom: '8px' }}>
+                          <Text>Unit</Text>
+                          <Select
+                            value={item.unit}
+                            onChange={value =>
+                              updateServiceItem(item.id, 'unit', value)
+                            }
+                            style={{ width: '100%' }}
+                            options={unitOptions.map(u => ({
+                              value: u.value,
+                              label: u.labelEN,
+                            }))}
+                          />
+                        </Col>
+                      </Row>
+                      <div style={{ marginTop: '8px', textAlign: 'right' }}>
+                        <Text strong>
+                          Subtotal: ${item.amount.toFixed(2)}{' '}
+                          {unitOptions.find(u => u.value === item.unit)
+                            ?.labelEN || item.unit}
+                        </Text>
+                      </div>
+                    </Card>
+                  ))}
+
+                  {/* Add service item button */}
+                  <Button
+                    type='dashed'
+                    onClick={addServiceItem}
+                    block
+                    icon={<PlusOutlined />}
+                  >
+                    Add Service Item
+                  </Button>
+
+                  {/* Service items total */}
+                  {serviceItems.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: '16px',
+                        padding: '16px',
+                        background: '#f6ffed',
+                        borderRadius: '8px',
+                        border: '1px solid #b7eb8f',
+                      }}
+                    >
+                      <Row justify='space-between' align='middle'>
+                        <Col>
+                          <Text strong style={{ fontSize: '16px' }}>
+                            Service Items Total:
+                          </Text>
+                        </Col>
+                        <Col>
+                          <Text
+                            strong
+                            style={{ fontSize: '24px', color: '#52c41a' }}
+                          >
+                            $
+                            {serviceItems
+                              .reduce((sum, item) => sum + item.amount, 0)
+                              .toFixed(2)}
+                          </Text>
+                        </Col>
+                      </Row>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -2199,6 +2995,204 @@ const BrisbaneQuoteCalculator: React.FC = () => {
               </Button>
             </div>
 
+            <Divider />
+
+            <div style={{ marginBottom: '8px' }}>
+              <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+                Invoice / 发票
+              </Text>
+              <Text
+                type='secondary'
+                style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '12px',
+                }}
+              >
+                Invoice Date / 发票日期
+              </Text>
+              <DatePicker
+                value={invoiceDate ? dayjs(invoiceDate) : null}
+                onChange={(_, dateStr) =>
+                  setInvoiceDate(
+                    (typeof dateStr === 'string' ? dateStr : dateStr?.[0]) ||
+                      dayjs().format('YYYY-MM-DD')
+                  )
+                }
+                format='YYYY-MM-DD'
+                style={{ width: '100%', marginBottom: '8px' }}
+              />
+              <Text
+                type='secondary'
+                style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '12px',
+                }}
+              >
+                Due Date / 付款期限
+              </Text>
+              <DatePicker
+                value={invoiceDueDate ? dayjs(invoiceDueDate) : null}
+                onChange={(_, dateStr) =>
+                  setInvoiceDueDate(
+                    (typeof dateStr === 'string' ? dateStr : dateStr?.[0]) ||
+                      dayjs().add(14, 'day').format('YYYY-MM-DD')
+                  )
+                }
+                format='YYYY-MM-DD'
+                style={{ width: '100%', marginBottom: '8px' }}
+              />
+              <Text
+                type='secondary'
+                style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '12px',
+                }}
+              >
+                Invoice header
+              </Text>
+              <Radio.Group
+                value={invoiceHeaderMode}
+                onChange={e => setInvoiceHeaderMode(e.target.value)}
+                style={{ display: 'block', marginBottom: '8px' }}
+              >
+                <Radio value='sparkery'>Sparkery (default)</Radio>
+                <Radio value='custom'>Custom / 自定义（如个人名义）</Radio>
+              </Radio.Group>
+              {invoiceHeaderMode === 'custom' && (
+                <div
+                  style={{
+                    marginTop: '8px',
+                    padding: '8px',
+                    background: '#fafafa',
+                    borderRadius: '4px',
+                  }}
+                >
+                  <Input
+                    placeholder='Company / Name'
+                    value={customInvoiceHeader.companyName}
+                    onChange={e =>
+                      setCustomInvoiceHeader({
+                        ...customInvoiceHeader,
+                        companyName: e.target.value,
+                      })
+                    }
+                    style={{ marginBottom: '6px' }}
+                  />
+                  <Input
+                    placeholder='ABN (optional)'
+                    value={customInvoiceHeader.abn}
+                    onChange={e =>
+                      setCustomInvoiceHeader({
+                        ...customInvoiceHeader,
+                        abn: e.target.value,
+                      })
+                    }
+                    style={{ marginBottom: '6px' }}
+                  />
+                  <Input
+                    placeholder='Address'
+                    value={customInvoiceHeader.address}
+                    onChange={e =>
+                      setCustomInvoiceHeader({
+                        ...customInvoiceHeader,
+                        address: e.target.value,
+                      })
+                    }
+                    style={{ marginBottom: '6px' }}
+                  />
+                  <Input
+                    placeholder='Email'
+                    value={customInvoiceHeader.email}
+                    onChange={e =>
+                      setCustomInvoiceHeader({
+                        ...customInvoiceHeader,
+                        email: e.target.value,
+                      })
+                    }
+                    style={{ marginBottom: '6px' }}
+                  />
+                  <Input
+                    placeholder='Phone'
+                    value={customInvoiceHeader.phone}
+                    onChange={e =>
+                      setCustomInvoiceHeader({
+                        ...customInvoiceHeader,
+                        phone: e.target.value,
+                      })
+                    }
+                    style={{ marginBottom: '6px' }}
+                  />
+                  <Input
+                    placeholder='Website'
+                    value={customInvoiceHeader.website}
+                    onChange={e =>
+                      setCustomInvoiceHeader({
+                        ...customInvoiceHeader,
+                        website: e.target.value,
+                      })
+                    }
+                    style={{ marginBottom: '6px' }}
+                  />
+                  <Divider style={{ margin: '8px 0' }} />
+                  <Text
+                    type='secondary'
+                    style={{
+                      fontSize: '12px',
+                      display: 'block',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Bank transfer details (个人时可修改)
+                  </Text>
+                  <Input
+                    placeholder='Account Name'
+                    value={customInvoiceHeader.accountName}
+                    onChange={e =>
+                      setCustomInvoiceHeader({
+                        ...customInvoiceHeader,
+                        accountName: e.target.value,
+                      })
+                    }
+                    style={{ marginBottom: '6px' }}
+                  />
+                  <Input
+                    placeholder='BSB'
+                    value={customInvoiceHeader.bsb}
+                    onChange={e =>
+                      setCustomInvoiceHeader({
+                        ...customInvoiceHeader,
+                        bsb: e.target.value,
+                      })
+                    }
+                    style={{ marginBottom: '6px' }}
+                  />
+                  <Input
+                    placeholder='Account Number'
+                    value={customInvoiceHeader.accountNumber}
+                    onChange={e =>
+                      setCustomInvoiceHeader({
+                        ...customInvoiceHeader,
+                        accountNumber: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              )}
+              <Button
+                type='default'
+                size='large'
+                block
+                icon={<PrinterOutlined />}
+                onClick={() => generateInvoicePDF(pdfLanguage)}
+                style={{ marginTop: '8px' }}
+              >
+                {pdfLanguage === 'cn' ? '打印发票' : 'Print Invoice'}
+              </Button>
+            </div>
+
             <Button
               size='large'
               block
@@ -2226,6 +3220,21 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 setSqmPrice(5);
                 setSqmMultiplier(1.0);
                 setManualAdjustment(0);
+                setServiceItems([]);
+                setInvoiceHeaderMode('sparkery');
+                setCustomInvoiceHeader({
+                  companyName: '',
+                  abn: '',
+                  address: '',
+                  email: '',
+                  phone: '',
+                  website: '',
+                  accountName: '',
+                  bsb: '',
+                  accountNumber: '',
+                });
+                setInvoiceDate(dayjs().format('YYYY-MM-DD'));
+                setInvoiceDueDate(dayjs().add(14, 'day').format('YYYY-MM-DD'));
               }}
             >
               Reset Form

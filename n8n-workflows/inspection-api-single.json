@@ -1,0 +1,64 @@
+{
+  "name": "Cleaning Inspection API (Single Endpoint)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "inspection-api",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "wh-api",
+      "name": "Webhook - API",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "webhookId": "inspection-api"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === Cleaning Inspection API - Single Endpoint Router ===\n// Actions: submit, load, list, delete\n\nconst body = $input.first().json.body || {};\nconst action = body.action || 'submit'; // Default to submit for backward compat\n\n// Shared storage\nconst store = $getWorkflowStaticData('global');\nif (!store.inspections) store.inspections = {};\nif (!store.inspectionIds) store.inspectionIds = [];\n\n// ── SUBMIT ──\nif (action === 'submit') {\n  const data = body.data || body;\n  if (!data.id) {\n    return [{ json: { success: false, error: 'Missing inspection ID' } }];\n  }\n\n  // Store with server metadata\n  store.inspections[data.id] = {\n    ...data,\n    _serverReceivedAt: new Date().toISOString()\n  };\n\n  // Update index (most recent first, max 500)\n  const ids = store.inspectionIds;\n  const idx = ids.indexOf(data.id);\n  if (idx >= 0) ids.splice(idx, 1);\n  ids.unshift(data.id);\n  if (ids.length > 500) {\n    const old = ids.pop();\n    delete store.inspections[old];\n  }\n\n  return [{ json: {\n    success: true,\n    action: 'submit',\n    id: data.id,\n    storedAt: new Date().toISOString(),\n    totalStored: ids.length\n  } }];\n}\n\n// ── LOAD ──\nif (action === 'load') {\n  const id = body.id;\n  if (!id) {\n    return [{ json: { success: false, error: 'Missing id parameter' } }];\n  }\n  const inspection = store.inspections[id];\n  if (!inspection) {\n    return [{ json: { success: false, error: 'Inspection not found', id } }];\n  }\n  return [{ json: { success: true, action: 'load', data: inspection } }];\n}\n\n// ── LIST ──\nif (action === 'list') {\n  const limit = body.limit || 50;\n  const ids = store.inspectionIds.slice(0, limit);\n  const items = ids.map(id => {\n    const ins = store.inspections[id];\n    return ins ? { id: ins.id, propertyId: ins.propertyId, status: ins.status, submittedAt: ins.submittedAt } : null;\n  }).filter(Boolean);\n  return [{ json: { success: true, action: 'list', total: store.inspectionIds.length, items } }];\n}\n\n// ── DELETE ──\nif (action === 'delete') {\n  const id = body.id;\n  if (!id) {\n    return [{ json: { success: false, error: 'Missing id parameter' } }];\n  }\n  delete store.inspections[id];\n  store.inspectionIds = store.inspectionIds.filter(i => i !== id);\n  return [{ json: { success: true, action: 'delete', id } }];\n}\n\nreturn [{ json: { success: false, error: 'Unknown action: ' + action } }];"
+      },
+      "id": "code-router",
+      "name": "API Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": "={{ $json.success ? 200 : 400 }}",
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [740, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - API": {
+      "main": [[{ "node": "API Router", "type": "main", "index": 0 }]]
+    },
+    "API Router": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "Sparkery" }, { "name": "Cleaning Inspection" }]
+}

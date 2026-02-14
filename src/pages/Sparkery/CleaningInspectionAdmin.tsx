@@ -1,5 +1,5 @@
 /**
- * Cleaning Inspection Admin Panel - Enhanced with Dynamic Sections & Multi-Image Support
+ * Cleaning Inspection Admin Panel - Enhanced with Checklist Templates & Dynamic Sections
  */
 
 import React, { useState } from 'react';
@@ -18,8 +18,12 @@ import {
   message,
   Select,
   Empty,
+  Checkbox,
+  Collapse,
+  Divider,
+  Tooltip,
 } from 'antd';
-import type { UploadFile, RcFile } from 'antd/es/upload/interface';
+import type { RcFile } from 'antd/es/upload/interface';
 import {
   HomeOutlined,
   PlusOutlined,
@@ -27,11 +31,23 @@ import {
   DeleteOutlined,
   EyeOutlined,
   SettingOutlined,
-  UploadOutlined,
   CloseOutlined,
   PlusCircleOutlined,
+  CheckSquareOutlined,
+  CameraOutlined,
+  UnorderedListOutlined,
+  RocketOutlined,
+  FormOutlined,
+  EditOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import {
+  BASE_ROOM_SECTIONS,
+  OPTIONAL_SECTIONS,
+  getActiveSections as getActiveSectionDefs,
+  DEFAULT_CHECKLISTS,
+} from '@/pages/CleaningInspection/types';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -40,53 +56,9 @@ const { Option } = Select;
 const generateId = () =>
   `${dayjs().format('YYYYMMDD')}-${Math.random().toString(36).substr(2, 9)}`;
 
-/** Base room sections that are always included */
-const BASE_ROOM_SECTIONS = [
-  {
-    id: 'kitchen',
-    name: 'Kitchen',
-    description: 'Kitchen cleaning: countertops, stove, sink, cabinets, floor',
-  },
-  {
-    id: 'living-room',
-    name: 'Living Room',
-    description: 'Living room: sofa, coffee table, floor, windows',
-  },
-  {
-    id: 'bedroom-1',
-    name: 'Bedroom 1',
-    description: 'Master bedroom: bed, sheets, nightstands, floor, wardrobe',
-  },
-  {
-    id: 'bathroom-1',
-    name: 'Bathroom 1',
-    description: 'Main bathroom: toilet, shower, sink, mirror, floor',
-  },
-  {
-    id: 'balcony',
-    name: 'Balcony',
-    description: 'Balcony: floor, railings, outdoor furniture',
-  },
-];
-
-/** Available optional sections that can be added */
-const OPTIONAL_SECTIONS = [
-  { id: 'bedroom-2', name: 'Bedroom 2', description: 'Second bedroom' },
-  { id: 'bathroom-2', name: 'Bathroom 2', description: 'Second bathroom' },
-  { id: 'bedroom-3', name: 'Bedroom 3', description: 'Third bedroom' },
-  { id: 'bathroom-3', name: 'Bathroom 3', description: 'Third bathroom' },
-  { id: 'toilet', name: 'Toilet', description: 'Separate toilet' },
-  { id: 'laundry', name: 'Laundry', description: 'Laundry room' },
-  { id: 'garage', name: 'Garage', description: 'Garage' },
-  { id: 'garden', name: 'Garden', description: 'Garden' },
-];
-
 /** Get all available sections (base + optional) */
 const getAllSections = (activeSectionIds: string[]) => {
-  const activeIds = new Set(activeSectionIds);
-  return BASE_ROOM_SECTIONS.filter(s => activeIds.has(s.id)).concat(
-    OPTIONAL_SECTIONS.filter(s => activeIds.has(s.id))
-  );
+  return getActiveSectionDefs(activeSectionIds);
 };
 
 /** Main Component */
@@ -204,6 +176,7 @@ const CleaningInspectionAdmin: React.FC = () => {
       id: inspectionId,
       propertyId: property.name,
       propertyAddress: property.address,
+      propertyNotes: property.notes || '',
       checkOutDate,
       submittedAt: new Date().toISOString(),
       status: 'draft',
@@ -214,6 +187,9 @@ const CleaningInspectionAdmin: React.FC = () => {
     saveArchivesToStorage(newArchives);
     navigator.clipboard.writeText(url);
     window.open(url, '_blank');
+    messageApi.success(
+      'Inspection link copied to clipboard! You can send it to the cleaner.'
+    );
   };
 
   const handleDelete = (id: string) => {
@@ -241,6 +217,15 @@ const CleaningInspectionAdmin: React.FC = () => {
     return matchesSearch;
   });
 
+  /** 快速打开 Wizard：必须先选择房产和日期，生成唯一链接后新窗口打开 */
+  const handleQuickStartWithProperty = () => {
+    if (!selectedPropertyId) {
+      messageApi.warning('Please select a property first (below)');
+      return;
+    }
+    handleGenerateLink();
+  };
+
   return (
     <div style={{ padding: '12px' }}>
       {contextHolder}
@@ -259,14 +244,49 @@ const CleaningInspectionAdmin: React.FC = () => {
         </Space>
       </div>
 
-      <Card size='small' style={{ marginBottom: '16px' }}>
-        <Title level={5}>Generate New Inspection Link</Title>
-        <Row gutter={16} align='middle'>
+      {/* ── 新 Wizard 快捷入口：选择房产 + 日期 → Start Inspection ── */}
+      <Card
+        size='small'
+        style={{
+          marginBottom: '16px',
+          background: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)',
+          border: 'none',
+          borderRadius: '12px',
+        }}
+      >
+        <div style={{ marginBottom: '12px' }}>
+          <Text
+            strong
+            style={{
+              color: '#fff',
+              fontSize: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <FormOutlined /> Cleaning Inspection Wizard
+          </Text>
+          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: '13px' }}>
+            Select a property and date, then click "Start Inspection" to
+            generate a unique link. The wizard will open in a new window &mdash;
+            share the link with the cleaner.
+          </Text>
+        </div>
+
+        <Row gutter={[12, 12]} align='bottom'>
           <Col xs={24} sm={10}>
-            <Text strong>Select Property *</Text>
+            <Text
+              strong
+              style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
+            >
+              Select Property *
+            </Text>
             <div style={{ marginTop: '4px' }}>
               {properties.length === 0 ? (
-                <Text type='warning'>
+                <Text
+                  style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}
+                >
                   No properties. Click "Property Templates" to add one.
                 </Text>
               ) : (
@@ -285,8 +305,13 @@ const CleaningInspectionAdmin: React.FC = () => {
               )}
             </div>
           </Col>
-          <Col xs={24} sm={5}>
-            <Text strong>Check-out Date</Text>
+          <Col xs={24} sm={6}>
+            <Text
+              strong
+              style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
+            >
+              Check-out Date
+            </Text>
             <Input
               type='date'
               value={checkOutDate}
@@ -294,14 +319,25 @@ const CleaningInspectionAdmin: React.FC = () => {
               style={{ marginTop: '4px' }}
             />
           </Col>
-          <Col xs={24} sm={9} style={{ textAlign: 'right' }}>
+          <Col xs={24} sm={8}>
             <Button
-              type='primary'
-              icon={<LinkOutlined />}
-              onClick={handleGenerateLink}
+              type='default'
+              size='large'
+              icon={<RocketOutlined />}
+              onClick={handleQuickStartWithProperty}
               disabled={!selectedPropertyId || properties.length === 0}
+              style={{
+                width: '100%',
+                fontWeight: 600,
+                height: '44px',
+                borderRadius: '8px',
+                background: '#fff',
+                color: '#389e0d',
+                border: 'none',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              }}
             >
-              Generate Link & Open
+              <RocketOutlined /> Start Inspection
             </Button>
           </Col>
         </Row>
@@ -393,48 +429,97 @@ const PropertySettingsModal: React.FC<{
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newAddress, setNewAddress] = useState('');
+  const [newNotes, setNewNotes] = useState('');
   const [previewImage, setPreviewImage] = useState<{
     src: string;
     desc: string;
   } | null>(null);
   const [editingProperty, setEditingProperty] = useState<any>(null);
 
+  /** 添加新房产 */
   const handleAdd = () => {
     if (!newName) {
       messageApi.warning('Enter property name');
       return;
     }
+    const defaultSectionIds = BASE_ROOM_SECTIONS.map(s => s.id);
+    // Pre-populate default checklists for each section
+    const defaultChecklists: Record<string, any[]> = {};
+    defaultSectionIds.forEach(sId => {
+      if (DEFAULT_CHECKLISTS[sId]) {
+        defaultChecklists[sId] = DEFAULT_CHECKLISTS[sId].map(item => ({
+          label: item.label,
+          requiredPhoto: item.requiredPhoto,
+        }));
+      }
+    });
+
     const newProp = {
       id: `prop-${generateId()}`,
       name: newName,
       address: newAddress,
-      sections: BASE_ROOM_SECTIONS.map(s => s.id),
+      notes: newNotes,
+      sections: defaultSectionIds,
       referenceImages: {},
+      checklists: defaultChecklists,
     };
     onSave([...properties, newProp]);
     setIsAddOpen(false);
     setNewName('');
     setNewAddress('');
+    setNewNotes('');
     messageApi.success('Property added');
+  };
+
+  /** 更新房产基本信息（名称、地址、备注） */
+  const handleUpdateProperty = (
+    propertyId: string,
+    field: 'name' | 'address' | 'notes',
+    value: string
+  ) => {
+    const newProps = properties.map(p => {
+      if (p.id === propertyId) {
+        return { ...p, [field]: value };
+      }
+      return p;
+    });
+    onSave(newProps);
+    // Keep editingProperty in sync
+    const updated = newProps.find(p => p.id === propertyId);
+    if (updated) setEditingProperty(updated);
   };
 
   const handleAddSection = (propertyId: string, sectionId: string) => {
     const newProps = properties.map(p => {
       if (p.id === propertyId) {
         const sections = p.sections || BASE_ROOM_SECTIONS.map(s => s.id);
-        if (!sections.includes(sectionId))
-          return { ...p, sections: [...sections, sectionId] };
+        if (!sections.includes(sectionId)) {
+          // Also pre-populate default checklist for the new section
+          const defaultItems = DEFAULT_CHECKLISTS[sectionId] || [];
+          const checklists = { ...(p.checklists || {}) };
+          if (defaultItems.length > 0) {
+            checklists[sectionId] = defaultItems.map(d => ({
+              label: d.label,
+              requiredPhoto: d.requiredPhoto,
+            }));
+          }
+          return { ...p, sections: [...sections, sectionId], checklists };
+        }
       }
       return p;
     });
     onSave(newProps);
+    // Refresh editingProperty
+    const updated = newProps.find(p => p.id === propertyId);
+    if (updated) setEditingProperty(updated);
     messageApi.success('Section added');
   };
 
   const handleRemoveSection = (propertyId: string, sectionId: string) => {
     Modal.confirm({
       title: 'Remove Section',
-      content: 'This will also delete all reference images. Continue?',
+      content:
+        'This will also delete reference images and checklist. Continue?',
       onOk: () => {
         const newProps = properties.map(p => {
           if (p.id === propertyId) {
@@ -443,11 +528,16 @@ const PropertySettingsModal: React.FC<{
             );
             const referenceImages = { ...p.referenceImages };
             delete referenceImages[sectionId];
-            return { ...p, sections, referenceImages };
+            const checklists = { ...(p.checklists || {}) };
+            delete checklists[sectionId];
+            return { ...p, sections, referenceImages, checklists };
           }
           return p;
         });
         onSave(newProps);
+        // Refresh editingProperty
+        const updated = newProps.find(p => p.id === propertyId);
+        if (updated) setEditingProperty(updated);
         messageApi.success('Section removed');
       },
     });
@@ -501,6 +591,30 @@ const PropertySettingsModal: React.FC<{
     });
     onSave(newProps);
     messageApi.success('Image deleted');
+  };
+
+  /** Update checklist template for a property section */
+  const handleUpdateChecklist = (
+    propertyId: string,
+    sectionId: string,
+    items: { label: string; requiredPhoto: boolean }[]
+  ) => {
+    const newProps = properties.map(p => {
+      if (p.id === propertyId) {
+        return {
+          ...p,
+          checklists: {
+            ...(p.checklists || {}),
+            [sectionId]: items,
+          },
+        };
+      }
+      return p;
+    });
+    onSave(newProps);
+    // Also refresh editingProperty to keep UI in sync
+    const updatedProp = newProps.find(p => p.id === propertyId);
+    if (updatedProp) setEditingProperty(updatedProp);
   };
 
   const handleDelete = (id: string) => {
@@ -560,8 +674,12 @@ const PropertySettingsModal: React.FC<{
               }
               extra={
                 <Space>
-                  <Button size='small' onClick={() => setEditingProperty(prop)}>
-                    Edit Sections
+                  <Button
+                    size='small'
+                    icon={<EditOutlined />}
+                    onClick={() => setEditingProperty(prop)}
+                  >
+                    Edit
                   </Button>
                   <Popconfirm
                     title='Delete?'
@@ -574,6 +692,19 @@ const PropertySettingsModal: React.FC<{
                 </Space>
               }
             >
+              {/* 备注信息 */}
+              {prop.notes && (
+                <div style={{ marginBottom: '10px' }}>
+                  <Text strong style={{ fontSize: '12px' }}>
+                    <InfoCircleOutlined style={{ marginRight: '4px' }} />
+                    Notes:{' '}
+                  </Text>
+                  <Text style={{ fontSize: '12px', color: '#595959' }}>
+                    {prop.notes}
+                  </Text>
+                </div>
+              )}
+
               <Text strong style={{ fontSize: '12px' }}>
                 Active Sections:{' '}
               </Text>
@@ -698,10 +829,15 @@ const PropertySettingsModal: React.FC<{
         <Modal
           title='Add Property'
           open={isAddOpen}
-          onCancel={() => setIsAddOpen(false)}
+          onCancel={() => {
+            setIsAddOpen(false);
+            setNewName('');
+            setNewAddress('');
+            setNewNotes('');
+          }}
           onOk={handleAdd}
         >
-          <Space direction='vertical' style={{ width: '100%' }}>
+          <Space direction='vertical' style={{ width: '100%' }} size={12}>
             <div>
               <Text strong>Name *</Text>
               <Input
@@ -720,18 +856,111 @@ const PropertySettingsModal: React.FC<{
                 style={{ marginTop: '4px' }}
               />
             </div>
+            <div>
+              <Text strong>
+                <InfoCircleOutlined style={{ marginRight: '4px' }} />
+                Notes / Remarks
+              </Text>
+              <Input.TextArea
+                value={newNotes}
+                onChange={e => setNewNotes(e.target.value)}
+                placeholder='e.g., Key in lockbox #1234 at front door; Alarm code: 5678; Contact manager before entering...'
+                rows={3}
+                style={{ marginTop: '4px' }}
+              />
+              <Text type='secondary' style={{ fontSize: '11px' }}>
+                Add instructions for key pickup, alarm codes, access notes, etc.
+                This will be shown to the cleaner.
+              </Text>
+            </div>
           </Space>
         </Modal>
 
         <Modal
-          title={`Edit Sections: ${editingProperty?.name || ''}`}
+          title={`Edit Property: ${editingProperty?.name || ''}`}
           open={!!editingProperty}
           onCancel={() => setEditingProperty(null)}
           footer={null}
-          width={700}
+          width={800}
         >
           {editingProperty && (
             <div>
+              {/* ── Property Info Editing ── */}
+              <Card
+                size='small'
+                style={{
+                  marginBottom: '16px',
+                  background: '#fafafa',
+                  borderRadius: '8px',
+                }}
+              >
+                <Title level={5} style={{ marginTop: 0 }}>
+                  <EditOutlined style={{ marginRight: '6px' }} />
+                  Property Info
+                </Title>
+                <Row gutter={[12, 12]}>
+                  <Col xs={24} sm={12}>
+                    <Text strong style={{ fontSize: '12px' }}>
+                      Name *
+                    </Text>
+                    <Input
+                      value={editingProperty.name}
+                      onChange={e =>
+                        handleUpdateProperty(
+                          editingProperty.id,
+                          'name',
+                          e.target.value
+                        )
+                      }
+                      placeholder='e.g., UNIT-101'
+                      style={{ marginTop: '4px' }}
+                    />
+                  </Col>
+                  <Col xs={24} sm={12}>
+                    <Text strong style={{ fontSize: '12px' }}>
+                      Address
+                    </Text>
+                    <Input
+                      value={editingProperty.address || ''}
+                      onChange={e =>
+                        handleUpdateProperty(
+                          editingProperty.id,
+                          'address',
+                          e.target.value
+                        )
+                      }
+                      placeholder='e.g., 123 Main St'
+                      style={{ marginTop: '4px' }}
+                    />
+                  </Col>
+                  <Col xs={24}>
+                    <Text strong style={{ fontSize: '12px' }}>
+                      <InfoCircleOutlined style={{ marginRight: '4px' }} />
+                      Notes / Remarks
+                    </Text>
+                    <Input.TextArea
+                      value={editingProperty.notes || ''}
+                      onChange={e =>
+                        handleUpdateProperty(
+                          editingProperty.id,
+                          'notes',
+                          e.target.value
+                        )
+                      }
+                      placeholder='e.g., Key in lockbox #1234 at front door; Alarm code: 5678; Contact manager before entering...'
+                      rows={3}
+                      style={{ marginTop: '4px' }}
+                    />
+                    <Text type='secondary' style={{ fontSize: '11px' }}>
+                      Instructions for key pickup, alarm codes, access notes,
+                      etc. Shown to the cleaner in the wizard.
+                    </Text>
+                  </Col>
+                </Row>
+              </Card>
+
+              <Divider style={{ margin: '12px 0' }} />
+
               <Title level={5}>Active Sections</Title>
               <div
                 style={{
@@ -756,7 +985,14 @@ const PropertySettingsModal: React.FC<{
                 ))}
               </div>
               <Title level={5}>Available Optional Sections</Title>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  marginBottom: '16px',
+                }}
+              >
                 {getAvailableOptionalSections(editingProperty).map(section => (
                   <Tag
                     key={section.id}
@@ -780,6 +1016,169 @@ const PropertySettingsModal: React.FC<{
                   </Text>
                 )}
               </div>
+
+              <Divider />
+
+              {/* Checklist Template Editor */}
+              <Title level={5}>
+                <CheckSquareOutlined style={{ marginRight: '8px' }} />
+                Checklist Templates
+              </Title>
+              <Text
+                type='secondary'
+                style={{
+                  display: 'block',
+                  marginBottom: '12px',
+                  fontSize: '12px',
+                }}
+              >
+                Customize the checklist items for each room. Items marked with a
+                camera icon require the cleaner to attach a photo.
+              </Text>
+
+              <Collapse
+                accordion
+                items={getActiveSections(editingProperty).map(section => {
+                  const checklistItems =
+                    editingProperty.checklists?.[section.id] || [];
+                  const defaultItems = DEFAULT_CHECKLISTS[section.id] || [];
+                  const hasCustom = checklistItems.length > 0;
+
+                  return {
+                    key: section.id,
+                    label: (
+                      <Space>
+                        <UnorderedListOutlined />
+                        {section.name}
+                        <Tag
+                          color={hasCustom ? 'green' : 'default'}
+                          style={{ fontSize: '11px' }}
+                        >
+                          {hasCustom
+                            ? `${checklistItems.length} items`
+                            : 'Using defaults'}
+                        </Tag>
+                      </Space>
+                    ),
+                    children: (
+                      <div>
+                        {/* Load defaults button */}
+                        {!hasCustom && defaultItems.length > 0 && (
+                          <Button
+                            size='small'
+                            type='dashed'
+                            icon={<PlusOutlined />}
+                            onClick={() => {
+                              const items = defaultItems.map(d => ({
+                                label: d.label,
+                                requiredPhoto: d.requiredPhoto,
+                              }));
+                              handleUpdateChecklist(
+                                editingProperty.id,
+                                section.id,
+                                items
+                              );
+                            }}
+                            style={{ marginBottom: '12px' }}
+                          >
+                            Load Default Items ({defaultItems.length})
+                          </Button>
+                        )}
+
+                        {/* Checklist items */}
+                        {checklistItems.map((item: any, idx: number) => (
+                          <div
+                            key={idx}
+                            style={{
+                              display: 'flex',
+                              gap: '8px',
+                              alignItems: 'center',
+                              marginBottom: '6px',
+                              padding: '4px 8px',
+                              background: '#fafafa',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            <Input
+                              size='small'
+                              value={item.label}
+                              onChange={e => {
+                                const updated = [...checklistItems];
+                                updated[idx] = {
+                                  ...updated[idx],
+                                  label: e.target.value,
+                                };
+                                handleUpdateChecklist(
+                                  editingProperty.id,
+                                  section.id,
+                                  updated
+                                );
+                              }}
+                              style={{ flex: 1 }}
+                            />
+                            <Tooltip title='Require photo'>
+                              <Checkbox
+                                checked={item.requiredPhoto}
+                                onChange={e => {
+                                  const updated = [...checklistItems];
+                                  updated[idx] = {
+                                    ...updated[idx],
+                                    requiredPhoto: e.target.checked,
+                                  };
+                                  handleUpdateChecklist(
+                                    editingProperty.id,
+                                    section.id,
+                                    updated
+                                  );
+                                }}
+                              >
+                                <CameraOutlined />
+                              </Checkbox>
+                            </Tooltip>
+                            <Button
+                              type='text'
+                              danger
+                              size='small'
+                              icon={<DeleteOutlined />}
+                              onClick={() => {
+                                const updated = checklistItems.filter(
+                                  (_: any, i: number) => i !== idx
+                                );
+                                handleUpdateChecklist(
+                                  editingProperty.id,
+                                  section.id,
+                                  updated
+                                );
+                              }}
+                            />
+                          </div>
+                        ))}
+
+                        {/* Add item button */}
+                        <Button
+                          type='dashed'
+                          size='small'
+                          icon={<PlusOutlined />}
+                          onClick={() => {
+                            const updated = [
+                              ...checklistItems,
+                              { label: '', requiredPhoto: false },
+                            ];
+                            handleUpdateChecklist(
+                              editingProperty.id,
+                              section.id,
+                              updated
+                            );
+                          }}
+                          style={{ width: '100%', marginTop: '4px' }}
+                        >
+                          Add Checklist Item
+                        </Button>
+                      </div>
+                    ),
+                  };
+                })}
+              />
             </div>
           )}
         </Modal>

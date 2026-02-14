@@ -1,0 +1,205 @@
+{
+  "name": "Cleaning Inspection API",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "inspection-submit",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Webhook - Submit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 200],
+      "webhookId": "inspection-submit"
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "inspection-load",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000002",
+      "name": "Webhook - Load",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 500],
+      "webhookId": "inspection-load"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === WRITE: Validate and store inspection data ===\nconst body = $input.first().json.body;\n\nif (!body || !body.id) {\n  return [{ json: { _error: true, error: 'Missing inspection data or ID', status: 400 } }];\n}\n\n// Get shared static data storage\nconst store = $getWorkflowStaticData('global');\n\n// Initialize storage if needed\nif (!store.inspections) {\n  store.inspections = {};\n}\nif (!store.inspectionIds) {\n  store.inspectionIds = [];\n}\n\n// Add server metadata\nconst enriched = {\n  ...body,\n  _serverReceivedAt: new Date().toISOString(),\n  _serverVersion: '1.0'\n};\n\n// Store by ID\nstore.inspections[body.id] = enriched;\n\n// Update ID index (most recent first, max 500)\nconst ids = store.inspectionIds;\nconst existingIdx = ids.indexOf(body.id);\nif (existingIdx >= 0) ids.splice(existingIdx, 1);\nids.unshift(body.id);\nif (ids.length > 500) {\n  const removedId = ids.pop();\n  delete store.inspections[removedId];\n}\n\nreturn [{ json: {\n  success: true,\n  id: body.id,\n  storedAt: new Date().toISOString(),\n  totalStored: ids.length\n} }];"
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000003",
+      "name": "Store Inspection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-write-error",
+              "leftValue": "={{ $json._error }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000004",
+      "name": "Write Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [720, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.error }) }}",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [{ "name": "Access-Control-Allow-Origin", "value": "*" }]
+          }
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000005",
+      "name": "Respond Write Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [940, 100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, id: $json.id, storedAt: $json.storedAt, totalStored: $json.totalStored }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [{ "name": "Access-Control-Allow-Origin", "value": "*" }]
+          }
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000006",
+      "name": "Respond Write OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// === READ: Load inspection by ID from shared static data ===\nconst query = $input.first().json.query;\nconst id = query?.id;\n\nif (!id) {\n  return [{ json: { _error: true, _status: 400, error: 'Missing id query parameter' } }];\n}\n\n// Access the same shared static data\nconst store = $getWorkflowStaticData('global');\nconst inspection = store.inspections?.[id];\n\nif (!inspection) {\n  return [{ json: { _error: true, _status: 404, error: 'Inspection not found', id: id } }];\n}\n\nreturn [{ json: { _found: true, _data: inspection } }];"
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000007",
+      "name": "Load Inspection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-read-error",
+              "leftValue": "={{ $json._error }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000008",
+      "name": "Read Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [720, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.error, id: $json.id }) }}",
+        "options": {
+          "responseCode": "={{ $json._status || 400 }}",
+          "responseHeaders": {
+            "entries": [{ "name": "Access-Control-Allow-Origin", "value": "*" }]
+          }
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000009",
+      "name": "Respond Read Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [940, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json._data) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [{ "name": "Access-Control-Allow-Origin", "value": "*" }]
+          }
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000010",
+      "name": "Respond Read OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [940, 600]
+    }
+  ],
+  "connections": {
+    "Webhook - Submit": {
+      "main": [[{ "node": "Store Inspection", "type": "main", "index": 0 }]]
+    },
+    "Store Inspection": {
+      "main": [[{ "node": "Write Error?", "type": "main", "index": 0 }]]
+    },
+    "Write Error?": {
+      "main": [
+        [{ "node": "Respond Write Error", "type": "main", "index": 0 }],
+        [{ "node": "Respond Write OK", "type": "main", "index": 0 }]
+      ]
+    },
+    "Webhook - Load": {
+      "main": [[{ "node": "Load Inspection", "type": "main", "index": 0 }]]
+    },
+    "Load Inspection": {
+      "main": [[{ "node": "Read Error?", "type": "main", "index": 0 }]]
+    },
+    "Read Error?": {
+      "main": [
+        [{ "node": "Respond Read Error", "type": "main", "index": 0 }],
+        [{ "node": "Respond Read OK", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "Sparkery" }, { "name": "Cleaning Inspection" }]
+}

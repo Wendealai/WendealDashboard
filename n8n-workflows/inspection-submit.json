@@ -1,0 +1,195 @@
+{
+  "name": "Cleaning Inspection - Submit",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "inspection-submit",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "webhook-submit",
+      "name": "Webhook - Submit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "webhookId": "inspection-submit"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and validate inspection data from webhook body\nconst body = $input.first().json.body;\n\nif (!body || !body.id) {\n  return [{ json: { error: 'Missing inspection data or ID', status: 400 } }];\n}\n\n// Add server-side metadata\nconst enriched = {\n  ...body,\n  _serverReceivedAt: new Date().toISOString(),\n  _serverVersion: '1.0'\n};\n\nreturn [{ json: enriched }];"
+      },
+      "id": "code-validate",
+      "name": "Validate & Enrich",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-error",
+      "name": "Has Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.error }) }}",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [920, 200]
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "={{ 'inspection:' + $json.id }}",
+        "value": "={{ JSON.stringify($json) }}",
+        "expireAfterSeconds": 7776000
+      },
+      "id": "redis-save",
+      "name": "Save to Storage",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [920, 400],
+      "disabled": true,
+      "notesInFlow": true,
+      "notes": "Enable this if you have Redis configured. Otherwise the Code node below handles file-based storage."
+    },
+    {
+      "parameters": {
+        "jsCode": "// File-based storage fallback using n8n's built-in static data\n// This persists data in n8n's workflow static data (SQLite/Postgres)\nconst inspection = $input.first().json;\nconst id = inspection.id;\n\n// Use workflow static data as a simple key-value store\nconst staticData = $getWorkflowStaticData('global');\n\n// Initialize storage array if needed\nif (!staticData.inspections) {\n  staticData.inspections = {};\n}\n\n// Store the inspection by ID\nstaticData.inspections[id] = inspection;\n\n// Also maintain a list of IDs for quick lookup (max 500 recent)\nif (!staticData.inspectionIds) {\n  staticData.inspectionIds = [];\n}\nconst ids = staticData.inspectionIds;\nconst existingIdx = ids.indexOf(id);\nif (existingIdx >= 0) {\n  ids.splice(existingIdx, 1);\n}\nids.unshift(id);\nif (ids.length > 500) {\n  const removedId = ids.pop();\n  delete staticData.inspections[removedId];\n}\n\nreturn [{ json: { success: true, id: id, storedAt: new Date().toISOString(), totalStored: ids.length } }];"
+      },
+      "id": "code-store",
+      "name": "Store Inspection",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, id: $json.id, storedAt: $json.storedAt, totalStored: $json.totalStored }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1140, 500]
+    }
+  ],
+  "connections": {
+    "Webhook - Submit": {
+      "main": [
+        [
+          {
+            "node": "Validate & Enrich",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Enrich": {
+      "main": [
+        [
+          {
+            "node": "Has Error?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Error?": {
+      "main": [
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store Inspection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Inspection": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "Sparkery"
+    },
+    {
+      "name": "Cleaning Inspection"
+    }
+  ]
+}
