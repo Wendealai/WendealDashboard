@@ -138,45 +138,45 @@ export interface SectionDefinition {
   description: string;
 }
 
-/** Base room sections (always included) */
+/** Base room sections (always included) - Chinese primary */
 export const BASE_ROOM_SECTIONS: SectionDefinition[] = [
   {
     id: 'kitchen',
-    name: 'Kitchen',
-    description: 'Kitchen cleaning: countertops, stove, sink, cabinets, floor',
+    name: '厨房 Kitchen',
+    description: '厨房清洁：灶台、水槽、台面、橱柜、地板',
   },
   {
     id: 'living-room',
-    name: 'Living Room',
-    description: 'Living room: sofa, coffee table, floor, windows',
+    name: '客厅 Living Room',
+    description: '客厅清洁：沙发、茶几、地板、窗户',
   },
   {
     id: 'bedroom-1',
-    name: 'Bedroom 1',
-    description: 'Master bedroom: bed, sheets, nightstands, floor, wardrobe',
+    name: '卧室1 Bedroom 1',
+    description: '主卧：床铺、床单、床头柜、地板、衣柜',
   },
   {
     id: 'bathroom-1',
-    name: 'Bathroom 1',
-    description: 'Main bathroom: toilet, shower, sink, mirror, floor',
+    name: '卫生间1 Bathroom 1',
+    description: '主卫：马桶、淋浴、洗手台、镜子、地板',
   },
   {
     id: 'balcony',
-    name: 'Balcony',
-    description: 'Balcony: floor, railings, outdoor furniture',
+    name: '阳台 Balcony',
+    description: '阳台：地板、栏杆、户外家具',
   },
 ];
 
-/** Optional sections that can be added per property */
+/** Optional sections that can be added per property - Chinese primary */
 export const OPTIONAL_SECTIONS: SectionDefinition[] = [
-  { id: 'bedroom-2', name: 'Bedroom 2', description: 'Second bedroom' },
-  { id: 'bathroom-2', name: 'Bathroom 2', description: 'Second bathroom' },
-  { id: 'bedroom-3', name: 'Bedroom 3', description: 'Third bedroom' },
-  { id: 'bathroom-3', name: 'Bathroom 3', description: 'Third bathroom' },
-  { id: 'toilet', name: 'Toilet', description: 'Separate toilet' },
-  { id: 'laundry', name: 'Laundry', description: 'Laundry room' },
-  { id: 'garage', name: 'Garage', description: 'Garage' },
-  { id: 'garden', name: 'Garden', description: 'Garden' },
+  { id: 'bedroom-2', name: '卧室2 Bedroom 2', description: '第二卧室' },
+  { id: 'bathroom-2', name: '卫生间2 Bathroom 2', description: '第二卫生间' },
+  { id: 'bedroom-3', name: '卧室3 Bedroom 3', description: '第三卧室' },
+  { id: 'bathroom-3', name: '卫生间3 Bathroom 3', description: '第三卫生间' },
+  { id: 'toilet', name: '独立厕所 Toilet', description: '独立厕所' },
+  { id: 'laundry', name: '洗衣房 Laundry', description: '洗衣房' },
+  { id: 'garage', name: '车库 Garage', description: '车库' },
+  { id: 'garden', name: '花园 Garden', description: '花园/户外区域' },
 ];
 
 /** Get active sections from IDs list */
