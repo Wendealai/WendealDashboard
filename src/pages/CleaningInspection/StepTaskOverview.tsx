@@ -32,6 +32,16 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
   const { t } = useLang();
   const roomCount = inspection.sections.length;
 
+  /**
+   * Pre-filled inspection: when property info comes from admin-generated link.
+   * These fields should be read-only (not editable by cleaner).
+   */
+  const isPreFilled = !!(
+    inspection.propertyId &&
+    inspection.propertyAddress &&
+    inspection.propertyAddress.length > 0
+  );
+
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
       {/* Welcome Banner */}
@@ -74,12 +84,18 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
             >
               {t('overview.propertyId')}
             </Text>
-            <Input
-              value={inspection.propertyId}
-              onChange={e => onUpdate({ propertyId: e.target.value })}
-              placeholder={t('overview.propertyIdPlaceholder')}
-              size='small'
-            />
+            {isPreFilled ? (
+              <Text strong style={{ fontSize: '15px' }}>
+                {inspection.propertyId || '—'}
+              </Text>
+            ) : (
+              <Input
+                value={inspection.propertyId}
+                onChange={e => onUpdate({ propertyId: e.target.value })}
+                placeholder={t('overview.propertyIdPlaceholder')}
+                size='small'
+              />
+            )}
           </Col>
           <Col span={12}>
             <Text
@@ -89,12 +105,18 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
               <CalendarOutlined style={{ marginRight: '4px' }} />
               {t('overview.checkOutDate')}
             </Text>
-            <Input
-              type='date'
-              value={inspection.checkOutDate}
-              onChange={e => onUpdate({ checkOutDate: e.target.value })}
-              size='small'
-            />
+            {isPreFilled ? (
+              <Text strong style={{ fontSize: '15px' }}>
+                {inspection.checkOutDate || '—'}
+              </Text>
+            ) : (
+              <Input
+                type='date'
+                value={inspection.checkOutDate}
+                onChange={e => onUpdate({ checkOutDate: e.target.value })}
+                size='small'
+              />
+            )}
           </Col>
           <Col span={24}>
             <Text
@@ -104,12 +126,18 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
               <EnvironmentOutlined style={{ marginRight: '4px' }} />
               {t('overview.propertyAddress')}
             </Text>
-            <Input
-              value={inspection.propertyAddress}
-              onChange={e => onUpdate({ propertyAddress: e.target.value })}
-              placeholder={t('overview.propertyAddressPlaceholder')}
-              size='small'
-            />
+            {isPreFilled ? (
+              <Text strong style={{ fontSize: '15px' }}>
+                {inspection.propertyAddress || '—'}
+              </Text>
+            ) : (
+              <Input
+                value={inspection.propertyAddress}
+                onChange={e => onUpdate({ propertyAddress: e.target.value })}
+                placeholder={t('overview.propertyAddressPlaceholder')}
+                size='small'
+              />
+            )}
           </Col>
         </Row>
       </Card>

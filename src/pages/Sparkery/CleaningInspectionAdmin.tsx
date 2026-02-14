@@ -47,8 +47,10 @@ import {
   OPTIONAL_SECTIONS,
   getActiveSections as getActiveSectionDefs,
   DEFAULT_CHECKLISTS,
+  getDefaultChecklistForSection,
 } from '@/pages/CleaningInspection/types';
 import type { Employee } from '@/pages/CleaningInspection/types';
+import { submitInspection } from '@/services/inspectionService';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -199,12 +201,27 @@ const CleaningInspectionAdmin: React.FC = () => {
 
     const activeSections =
       property.sections || BASE_ROOM_SECTIONS.map(s => s.id);
-    const sections = getAllSections(activeSections).map(s => ({
-      ...s,
-      referenceImages: property.referenceImages?.[s.id] || [],
-      photos: [],
-      notes: '',
-    }));
+    const sections = getAllSections(activeSections).map(s => {
+      // Build checklists: use property template checklists or defaults
+      let checklist: any[] = [];
+      if (property.checklists?.[s.id]) {
+        checklist = property.checklists[s.id].map((t: any, idx: number) => ({
+          id: `${s.id}-item-${idx}`,
+          label: t.label,
+          checked: false,
+          requiredPhoto: t.requiredPhoto || false,
+        }));
+      } else {
+        checklist = getDefaultChecklistForSection(s.id);
+      }
+      return {
+        ...s,
+        referenceImages: property.referenceImages?.[s.id] || [],
+        photos: [],
+        notes: '',
+        checklist,
+      };
+    });
 
     const newInspection: any = {
       id: inspectionId,
@@ -212,9 +229,12 @@ const CleaningInspectionAdmin: React.FC = () => {
       propertyAddress: property.address,
       propertyNotes: property.notes || '',
       checkOutDate,
-      submittedAt: new Date().toISOString(),
-      status: 'draft',
+      submittedAt: '',
+      status: 'pending',
       sections,
+      checkIn: null,
+      checkOut: null,
+      damageReports: [],
     };
     if (selectedEmployee) {
       newInspection.assignedEmployee = selectedEmployee;
@@ -222,6 +242,12 @@ const CleaningInspectionAdmin: React.FC = () => {
 
     const newArchives = [newInspection, ...archives];
     saveArchivesToStorage(newArchives);
+
+    // Submit to n8n server so the cleaner's device can load it
+    submitInspection(newInspection).catch(() => {
+      console.warn('[Admin] Failed to sync inspection to server');
+    });
+
     navigator.clipboard.writeText(url);
     window.open(url, '_blank');
     messageApi.success(

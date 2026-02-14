@@ -238,21 +238,27 @@ const CleaningInspectionPage: React.FC = () => {
       const existing = archives.find((a: any) => a.id === urlInspectionId);
 
       if (existing) {
-        // If local copy has real progress (in_progress or submitted), use it directly
-        if (
+        // Check if local copy has meaningful data (property address filled in = real data)
+        const hasRealData =
           existing.status === 'submitted' ||
-          existing.status === 'in_progress'
-        ) {
+          existing.status === 'in_progress' ||
+          (existing.propertyAddress && existing.propertyAddress.length > 0);
+
+        if (hasRealData) {
           setInspection(migrateInspection(existing));
-          setIsArchivedView(true);
           setServerLoadAttempted(true);
           if (existing.status === 'submitted') {
+            setIsArchivedView(true);
             setCurrentStep(999);
+          } else if (existing.status === 'in_progress') {
+            setIsArchivedView(true);
+          } else {
+            setIsArchivedView(false);
           }
           return;
         }
-        // Local copy is "draft" or "pending" (blank stub from admin panel)
-        // → still check the server for a newer version (e.g. cleaner submitted from phone)
+        // Local copy is truly blank (no address, no progress)
+        // → still check server for a real version
       }
     }
 
@@ -263,24 +269,26 @@ const CleaningInspectionPage: React.FC = () => {
 
       loadInspection(urlInspectionId)
         .then(serverData => {
-          if (
-            serverData &&
-            (serverData.status === 'submitted' ||
-              serverData.status === 'in_progress')
-          ) {
-            // Server has a newer/active version → use it and update localStorage
+          if (serverData) {
+            // Server has this inspection → use it (any status: pending/in_progress/submitted)
             saveArchivedInspection(serverData);
             setInspection(migrateInspection(serverData));
-            setIsArchivedView(true);
             if (serverData.status === 'submitted') {
+              setIsArchivedView(true);
               setCurrentStep(999);
+            } else if (serverData.status === 'in_progress') {
+              setIsArchivedView(true);
+            } else {
+              setIsArchivedView(false);
             }
             console.log(
-              '[Init] Loaded active inspection from server:',
-              urlInspectionId
+              '[Init] Loaded inspection from server:',
+              urlInspectionId,
+              'status:',
+              serverData.status
             );
           } else {
-            // Server has nothing better → use local copy (if any) or create new
+            // Server has nothing → use local copy (if any) or create new
             const archives = loadArchivedInspections();
             const localCopy = archives.find(
               (a: any) => a.id === urlInspectionId
