@@ -240,7 +240,7 @@ const CleaningInspectionPage: React.FC = () => {
       checkIn: null,
       checkOut: null,
       damageReports: [],
-      assignedEmployee,
+      ...(assignedEmployee ? { assignedEmployee } : {}),
     };
 
     setInspection(newInspection);
