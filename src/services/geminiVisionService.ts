@@ -28,6 +28,7 @@ export interface ImageData {
 }
 
 // ==================== Provider 配置 ====================
+// API Keys 从环境变量加载，不硬编码在代码中
 
 /**
  * Doubao (Volcengine ARK) 配置
@@ -35,7 +36,7 @@ export interface ImageData {
  * 然后用 endpoint ID 作为 model 参数。这里尝试多个模型名变体。
  */
 const DOUBAO_CONFIG = {
-  apiKey: 'e425de80-33fd-4c91-800c-1a5eb3b88cf8',
+  apiKey: import.meta.env.VITE_DOUBAO_API_KEY || '',
   baseUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
   /** 支持视觉的豆包模型（doubao-seed 支持多模态） */
   model: 'doubao-seed-1-8-251228',
@@ -45,13 +46,13 @@ const DOUBAO_CONFIG = {
 /**
  * Gemini 配置
  * 尝试多个模型（不同模型有独立的限额池）+ 多个 Key
+ * Keys 从 VITE_GEMINI_API_KEYS 环境变量加载（逗号分隔）
  */
 const GEMINI_CONFIG = {
-  apiKeys: [
-    'AIzaSyAxN9RHz-2fTZelqpQvfOokLXRWHB_s2Y0',
-    'AIzaSyD3TvyE_U285K8_Wmd5DB2r0zDgrRrT3Zo',
-    'AIzaSyBXkCb87xQTY7oyTVMT72UZt_VprvMrG8U',
-  ],
+  apiKeys: (import.meta.env.VITE_GEMINI_API_KEYS || '')
+    .split(',')
+    .map((k: string) => k.trim())
+    .filter(Boolean),
   /** 按优先顺序尝试的模型（不同模型有不同限额池） */
   modelVariants: [
     'gemini-2.0-flash-lite', // 轻量版，可能有独立额度
