@@ -30,7 +30,7 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
   inspection,
   onUpdate,
 }) => {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const roomCount = inspection.sections.length;
 
   /**
@@ -143,8 +143,9 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
         </Row>
       </Card>
 
-      {/* Property Notes / Key Instructions */}
+      {/* Property Notes / Key Instructions — display Chinese or English based on current language */}
       {(inspection.propertyNotes ||
+        inspection.propertyNotesZh ||
         (inspection.propertyNoteImages &&
           inspection.propertyNoteImages.length > 0)) && (
         <Card
@@ -171,20 +172,27 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
               {t('overview.importantNotes')}
             </Text>
           </div>
-          {inspection.propertyNotes && (
-            <Text
-              style={{
-                fontSize: '13px',
-                whiteSpace: 'pre-wrap',
-                display: 'block',
-                marginBottom: inspection.propertyNoteImages?.length
-                  ? '12px'
-                  : '0',
-              }}
-            >
-              {inspection.propertyNotes}
-            </Text>
-          )}
+          {/* Show Chinese notes when lang=zh (fallback to English); show English when lang=en (fallback to Chinese) */}
+          {(() => {
+            const notesText =
+              lang === 'zh'
+                ? inspection.propertyNotesZh || inspection.propertyNotes
+                : inspection.propertyNotes || inspection.propertyNotesZh;
+            return notesText ? (
+              <Text
+                style={{
+                  fontSize: '13px',
+                  whiteSpace: 'pre-wrap',
+                  display: 'block',
+                  marginBottom: inspection.propertyNoteImages?.length
+                    ? '12px'
+                    : '0',
+                }}
+              >
+                {notesText}
+              </Text>
+            ) : null;
+          })()}
           {inspection.propertyNoteImages &&
             inspection.propertyNoteImages.length > 0 && (
               <div>

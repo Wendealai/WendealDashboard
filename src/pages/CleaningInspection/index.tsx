@@ -40,6 +40,7 @@ import {
   getActiveSections,
   getDefaultChecklistForSection,
   generateId,
+  migrateChecklistItemLabel,
 } from './types';
 import {
   loadArchivedInspections,
@@ -132,7 +133,8 @@ function migrateInspection(raw: any): CleaningInspection {
         ? [{ image: s.referenceImage, description: '' }]
         : s.referenceImages || [],
       referenceImage: undefined,
-      checklist: s.checklist || [],
+      // Migrate old-format checklist labels (bilingual/English-only → split zh/en)
+      checklist: (s.checklist || []).map(migrateChecklistItemLabel),
       photos: s.photos || [],
       notes: s.notes || '',
     })),

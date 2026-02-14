@@ -48,6 +48,7 @@ import {
   getActiveSections as getActiveSectionDefs,
   DEFAULT_CHECKLISTS,
   getDefaultChecklistForSection,
+  migratePropertyChecklists,
 } from '@/pages/CleaningInspection/types';
 import type { Employee } from '@/pages/CleaningInspection/types';
 import { submitInspection } from '@/services/inspectionService';
@@ -93,13 +94,19 @@ const CleaningInspectionAdmin: React.FC = () => {
         }
         return p;
       });
-      if (JSON.stringify(migrated) !== data) {
-        localStorage.setItem(
-          'cleaning-inspection-properties',
-          JSON.stringify(migrated)
-        );
+      // Also migrate checklist labels to new zh/en format
+      const withChecklists = migrated.map(migratePropertyChecklists);
+      if (JSON.stringify(withChecklists) !== data) {
+        try {
+          localStorage.setItem(
+            'cleaning-inspection-properties',
+            JSON.stringify(withChecklists)
+          );
+        } catch {
+          /* quota exceeded, skip write */
+        }
       }
-      return migrated;
+      return withChecklists;
     } catch {
       return [];
     }
@@ -257,6 +264,7 @@ const CleaningInspectionAdmin: React.FC = () => {
       propertyId: property.name,
       propertyAddress: property.address,
       propertyNotes: property.notes || '',
+      ...(property.notesZh ? { propertyNotesZh: property.notesZh } : {}),
       checkOutDate,
       submittedAt: '',
       status: 'pending',
@@ -562,6 +570,7 @@ const PropertySettingsModal: React.FC<{
   const [newName, setNewName] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [newNotes, setNewNotes] = useState('');
+  const [newNotesZh, setNewNotesZh] = useState('');
   const [newNoteImages, setNewNoteImages] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<{
     src: string;
@@ -582,6 +591,7 @@ const PropertySettingsModal: React.FC<{
       if (DEFAULT_CHECKLISTS[sId]) {
         defaultChecklists[sId] = DEFAULT_CHECKLISTS[sId].map(item => ({
           label: item.label,
+          ...(item.labelEn ? { labelEn: item.labelEn } : {}),
           requiredPhoto: item.requiredPhoto,
         }));
       }
@@ -596,6 +606,7 @@ const PropertySettingsModal: React.FC<{
       referenceImages: {},
       checklists: defaultChecklists,
     };
+    if (newNotesZh.trim()) newProp.notesZh = newNotesZh;
     if (newNoteImages.length > 0) {
       newProp.noteImages = [...newNoteImages];
     }
@@ -604,14 +615,15 @@ const PropertySettingsModal: React.FC<{
     setNewName('');
     setNewAddress('');
     setNewNotes('');
+    setNewNotesZh('');
     setNewNoteImages([]);
     messageApi.success('房产已添加');
   };
 
-  /** 更新房产基本信息（名称、地址、备注） */
+  /** 更新房产基本信息（名称、地址、备注等） */
   const handleUpdateProperty = (
     propertyId: string,
-    field: 'name' | 'address' | 'notes',
+    field: 'name' | 'address' | 'notes' | 'notesZh',
     value: string
   ) => {
     const newProps = properties.map(p => {
@@ -868,15 +880,32 @@ const PropertySettingsModal: React.FC<{
             >
               {/* 备注信息 */}
               {(prop.notes ||
+                prop.notesZh ||
                 (prop.noteImages && prop.noteImages.length > 0)) && (
                 <div style={{ marginBottom: '10px' }}>
                   <Text strong style={{ fontSize: '12px' }}>
                     <InfoCircleOutlined style={{ marginRight: '4px' }} />
                     备注：{' '}
                   </Text>
-                  {prop.notes && (
+                  {prop.notesZh && (
+                    <Text
+                      style={{
+                        fontSize: '12px',
+                        color: '#595959',
+                        display: 'block',
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      {prop.notesZh.length > 60
+                        ? prop.notesZh.substring(0, 60) + '...'
+                        : prop.notesZh}
+                    </Text>
+                  )}
+                  {prop.notes && !prop.notesZh && (
                     <Text style={{ fontSize: '12px', color: '#595959' }}>
-                      {prop.notes}
+                      {prop.notes.length > 60
+                        ? prop.notes.substring(0, 60) + '...'
+                        : prop.notes}
                     </Text>
                   )}
                   {prop.noteImages && prop.noteImages.length > 0 && (
@@ -1043,6 +1072,7 @@ const PropertySettingsModal: React.FC<{
             setNewName('');
             setNewAddress('');
             setNewNotes('');
+            setNewNotesZh('');
             setNewNoteImages([]);
           }}
           onOk={handleAdd}
@@ -1069,18 +1099,45 @@ const PropertySettingsModal: React.FC<{
             <div>
               <Text strong>
                 <InfoCircleOutlined style={{ marginRight: '4px' }} />
-                备注说明
+                备注说明（中文版）
               </Text>
               <Input.TextArea
-                value={newNotes}
-                onChange={e => setNewNotes(e.target.value)}
-                placeholder='例如：钥匙在前台领取；Mail room穿过大堂走到底；门禁密码1234#；联系管理员后再进入...'
-                rows={3}
+                value={newNotesZh}
+                onChange={e => setNewNotesZh(e.target.value)}
+                placeholder='例如：🔑 取钥匙说明：&#10;1. 前往信箱室（穿过大堂走到底）&#10;2. 密码锁密码：3091&#10;3. 取出钥匙&#10;&#10;🚪 进入方式：&#10;1. 进入大堂（8 Margaret St）...'
+                rows={4}
                 style={{ marginTop: '4px' }}
               />
               <Text type='secondary' style={{ fontSize: '11px' }}>
-                填写取钥匙方式、门禁密码、mail
-                room位置等信息，清洁工在开始工作前会看到这些提示。
+                填写中文版取钥匙方式、门禁密码、位置信息等，中文模式下清洁工看到此版本。
+              </Text>
+              <div style={{ marginTop: '8px' }}>
+                <Text strong>
+                  <InfoCircleOutlined style={{ marginRight: '4px' }} />
+                  备注说明（English版）
+                </Text>
+                <Input.TextArea
+                  value={newNotes}
+                  onChange={e => setNewNotes(e.target.value)}
+                  placeholder='e.g. 🔑 Key Access:&#10;1. Go to the lockbox at the mailroom.&#10;2. Code: 3091&#10;&#10;🚪 Entry:&#10;1. Enter the building lobby (8 Margaret St)...'
+                  rows={4}
+                  style={{ marginTop: '4px' }}
+                />
+                <Text type='secondary' style={{ fontSize: '11px' }}>
+                  English version of key pickup, access code, etc. Shown when
+                  cleaner switches to English.
+                </Text>
+              </div>
+              <Text
+                type='secondary'
+                style={{
+                  fontSize: '11px',
+                  display: 'block',
+                  marginTop: '4px',
+                  color: '#fa8c16',
+                }}
+              >
+                💡 中英文各填一份，清洁工界面会根据语言自动切换显示对应版本。
               </Text>
               {/* 备注说明图片 */}
               <div style={{ marginTop: '8px' }}>
@@ -1251,24 +1308,56 @@ const PropertySettingsModal: React.FC<{
                   <Col xs={24}>
                     <Text strong style={{ fontSize: '12px' }}>
                       <InfoCircleOutlined style={{ marginRight: '4px' }} />
-                      备注说明
+                      备注说明（中文版）
                     </Text>
                     <Input.TextArea
-                      value={editingProperty.notes || ''}
+                      value={editingProperty.notesZh || ''}
                       onChange={e =>
                         handleUpdateProperty(
                           editingProperty.id,
-                          'notes',
+                          'notesZh',
                           e.target.value
                         )
                       }
-                      placeholder='例如：钥匙在前台领取；Mail room穿过大堂走到底；门禁密码1234#；联系管理员后再进入...'
-                      rows={3}
+                      placeholder='例如：🔑 取钥匙说明：&#10;1. 前往信箱室（穿过大堂走到底）&#10;2. 密码锁密码：3091&#10;3. 取出钥匙'
+                      rows={4}
                       style={{ marginTop: '4px' }}
                     />
                     <Text type='secondary' style={{ fontSize: '11px' }}>
-                      填写取钥匙方式、门禁密码、mail
-                      room位置等信息，清洁工在开始工作前会看到这些提示。
+                      中文版取钥匙方式、门禁密码、位置信息等，中文模式下清洁工看到此版本。
+                    </Text>
+                    <div style={{ marginTop: '8px' }}>
+                      <Text strong style={{ fontSize: '12px' }}>
+                        <InfoCircleOutlined style={{ marginRight: '4px' }} />
+                        备注说明（English版）
+                      </Text>
+                      <Input.TextArea
+                        value={editingProperty.notes || ''}
+                        onChange={e =>
+                          handleUpdateProperty(
+                            editingProperty.id,
+                            'notes',
+                            e.target.value
+                          )
+                        }
+                        placeholder='e.g. 🔑 Key Access:&#10;1. Go to the lockbox at the mailroom.&#10;2. Code: 3091'
+                        rows={4}
+                        style={{ marginTop: '4px' }}
+                      />
+                      <Text type='secondary' style={{ fontSize: '11px' }}>
+                        English version shown when language is set to English.
+                      </Text>
+                    </div>
+                    <Text
+                      type='secondary'
+                      style={{
+                        fontSize: '11px',
+                        display: 'block',
+                        marginTop: '4px',
+                        color: '#fa8c16',
+                      }}
+                    >
+                      💡 中英文各填一份，清洁工界面会根据语言自动切换显示。
                     </Text>
                     {/* 备注说明图片（编辑模式） */}
                     <div style={{ marginTop: '8px' }}>

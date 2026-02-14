@@ -97,8 +97,10 @@ export interface CleaningInspection {
   id: string;
   propertyId: string;
   propertyAddress: string;
-  /** Notes / remarks for cleaner (key pickup, alarm codes, access instructions, etc.) */
+  /** Notes / remarks for cleaner — English version (key pickup, alarm codes, access instructions, etc.) */
   propertyNotes?: string;
+  /** Notes / remarks for cleaner — Chinese version */
+  propertyNotesZh?: string;
   /** Images attached to property notes (base64 data URLs) for location guidance */
   propertyNoteImages?: string[];
   checkOutDate: string;
@@ -124,8 +126,10 @@ export interface PropertyTemplate {
   id: string;
   name: string;
   address: string;
-  /** Notes / remarks for cleaner (key pickup, alarm codes, access instructions, etc.) */
+  /** Notes / remarks for cleaner — English version (key pickup, alarm codes, access instructions, etc.) */
   notes?: string;
+  /** Notes / remarks for cleaner — Chinese version */
+  notesZh?: string;
   /** Images attached to notes (base64 data URLs) for location guidance (e.g. key pickup, mail room) */
   noteImages?: string[];
   /** IDs of active sections for this property */
@@ -435,6 +439,239 @@ export function getDefaultChecklistForSection(
     if (t.labelEn) item.labelEn = t.labelEn;
     return item;
   });
+}
+
+// ──────────────────────── Checklist Label Migration ─────────────
+
+/**
+ * Build a lookup map to migrate old-format checklist labels.
+ * Maps various old formats (English-only, bilingual "中文 (English)") → { label, labelEn }.
+ * Built from DEFAULT_CHECKLISTS so it stays in sync automatically.
+ */
+/** Legacy English labels from older default checklists → current section+index mapping */
+const LEGACY_ENGLISH_LABELS: Record<
+  string,
+  { label: string; labelEn: string }
+> = {
+  'gas stove / cooktop has no grease stains': {
+    label: '煤气灶/灶台无油渍',
+    labelEn: 'No grease stains on stove',
+  },
+  'oven interior clean, no carbon buildup': {
+    label: '烤箱内部清洁，无积碳',
+    labelEn: 'Oven clean, no carbon buildup',
+  },
+  'sink clean, no water stains': {
+    label: '水槽清洁，无水渍',
+    labelEn: 'Sink clean, no water stains',
+  },
+  'kettle emptied and placed back': {
+    label: '水壶倒空并归位',
+    labelEn: 'Kettle emptied and placed back',
+  },
+  'dishwasher cleaned and dried': {
+    label: '洗碗机清洁并擦干',
+    labelEn: 'Dishwasher cleaned and dried',
+  },
+  'fridge interior clean': {
+    label: '冰箱内部清洁',
+    labelEn: 'Fridge interior clean',
+  },
+  'microwave interior clean': {
+    label: '微波炉内部清洁',
+    labelEn: 'Microwave interior clean',
+  },
+  'countertops wiped down': {
+    label: '台面擦拭干净',
+    labelEn: 'Countertops wiped down',
+  },
+  'floor mopped and clean': {
+    label: '地板拖干净',
+    labelEn: 'Floor mopped and clean',
+  },
+  'sofa cushions neatly arranged': {
+    label: '沙发靠垫整齐摆放',
+    labelEn: 'Sofa cushions arranged',
+  },
+  'coffee table wiped down': {
+    label: '茶几擦拭干净',
+    labelEn: 'Coffee table wiped down',
+  },
+  'floor vacuumed / mopped': {
+    label: '地板吸尘/拖干净',
+    labelEn: 'Floor vacuumed/mopped',
+  },
+  'windows and glass clean': {
+    label: '窗户和玻璃干净',
+    labelEn: 'Windows and glass clean',
+  },
+  'tv screen wiped': { label: '电视屏幕擦拭', labelEn: 'TV screen wiped' },
+  'bed linen changed / made': {
+    label: '床单更换/铺好',
+    labelEn: 'Bed linen changed/made',
+  },
+  'wardrobe interior wiped': {
+    label: '衣柜内部擦拭',
+    labelEn: 'Wardrobe interior wiped',
+  },
+  'floor vacuumed': { label: '地板吸尘', labelEn: 'Floor vacuumed' },
+  'windows wiped': { label: '窗户擦拭', labelEn: 'Windows wiped' },
+  'curtains / blinds dust-free': {
+    label: '窗帘/百叶窗无灰尘',
+    labelEn: 'Curtains/blinds dust-free',
+  },
+  'toilet interior and exterior clean': {
+    label: '马桶内外清洁',
+    labelEn: 'Toilet interior and exterior clean',
+  },
+  'shower glass no water marks': {
+    label: '淋浴玻璃无水渍',
+    labelEn: 'Shower glass no water marks',
+  },
+  'sink and mirror clean': {
+    label: '洗手台和镜子清洁',
+    labelEn: 'Sink and mirror clean',
+  },
+  'floor mopped': { label: '地板拖干净', labelEn: 'Floor mopped' },
+  'drain clear and clean': {
+    label: '排水口通畅清洁',
+    labelEn: 'Drain clear and clean',
+  },
+  'towel rack wiped': { label: '毛巾架擦拭', labelEn: 'Towel rack wiped' },
+  'shower / bath clean': {
+    label: '淋浴/浴缸清洁',
+    labelEn: 'Shower/bath clean',
+  },
+  'sink clean': { label: '洗手台清洁', labelEn: 'Sink clean' },
+  'floor swept': { label: '地板扫干净', labelEn: 'Floor swept' },
+  'railings wiped': { label: '栏杆擦拭', labelEn: 'Railings wiped' },
+  'outdoor furniture wiped': {
+    label: '户外家具擦拭',
+    labelEn: 'Outdoor furniture wiped',
+  },
+  'washing machine cleaned': {
+    label: '洗衣机清洁并擦干',
+    labelEn: 'Washing machine cleaned',
+  },
+  'dryer lint filter cleared': {
+    label: '烘干机滤网清理',
+    labelEn: 'Dryer lint filter cleared',
+  },
+  'shelves wiped': { label: '架子擦拭', labelEn: 'Shelves wiped' },
+  'outdoor area tidy': { label: '户外区域整洁', labelEn: 'Outdoor area tidy' },
+  'bins emptied': { label: '垃圾桶清空', labelEn: 'Bins emptied' },
+  'bed linen changed/made': {
+    label: '床单更换/铺好',
+    labelEn: 'Bed linen changed/made',
+  },
+  'curtains/blinds dust-free': {
+    label: '窗帘/百叶窗无灰尘',
+    labelEn: 'Curtains/blinds dust-free',
+  },
+  'floor vacuumed/mopped': {
+    label: '地板吸尘/拖干净',
+    labelEn: 'Floor vacuumed/mopped',
+  },
+  'shower/bath clean': { label: '淋浴/浴缸清洁', labelEn: 'Shower/bath clean' },
+};
+
+function buildLabelLookup(): Map<string, { label: string; labelEn: string }> {
+  const map = new Map<string, { label: string; labelEn: string }>();
+
+  // Add legacy English labels first (lower priority, overridden by defaults)
+  for (const [key, pair] of Object.entries(LEGACY_ENGLISH_LABELS)) {
+    map.set(key.toLowerCase(), pair);
+  }
+
+  // Add from DEFAULT_CHECKLISTS (higher priority)
+  for (const items of Object.values(DEFAULT_CHECKLISTS)) {
+    for (const item of items) {
+      const zh = item.label;
+      const en = item.labelEn || '';
+      if (!en) continue;
+      const pair = { label: zh, labelEn: en };
+      // Key by English (lowercased)
+      map.set(en.toLowerCase(), pair);
+      // Key by old bilingual format: "中文 (English)"
+      map.set(`${zh} (${en})`.toLowerCase(), pair);
+      // Key by Chinese
+      map.set(zh, pair);
+    }
+  }
+  return map;
+}
+
+const _labelLookup = buildLabelLookup();
+
+/**
+ * Migrate a single checklist item's labels from old format to new { label (zh), labelEn }.
+ * Handles:
+ *  - Old bilingual: "煤气灶/灶台无油渍 (No grease stains on stove)" → split
+ *  - Pure English (from old templates): "No grease stains on stove" → lookup Chinese
+ *  - Already correct (has labelEn): no change
+ */
+export function migrateChecklistItemLabel(item: any): any {
+  // Already has labelEn → already migrated
+  if (item.labelEn) return item;
+
+  const label: string = item.label || '';
+
+  // Try bilingual pattern: "中文内容 (English content)"
+  const bilingualMatch = label.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (bilingualMatch) {
+    const zh = bilingualMatch[1].trim();
+    const en = bilingualMatch[2].trim();
+    return { ...item, label: zh, labelEn: en };
+  }
+
+  // Try exact lookup (case-insensitive for English labels)
+  const lookupKey = label.toLowerCase();
+  const found = _labelLookup.get(lookupKey) || _labelLookup.get(label);
+  if (found) {
+    return { ...item, label: found.label, labelEn: found.labelEn };
+  }
+
+  // Check if label has Chinese characters → it's already Chinese, just missing labelEn
+  if (/[\u4e00-\u9fff]/.test(label)) {
+    return item; // Keep as-is, no English version available
+  }
+
+  // Pure English label not found in lookup → keep as label, duplicate as labelEn
+  return { ...item, labelEn: label };
+}
+
+/**
+ * Migrate all checklist items in an inspection's sections.
+ * Call this when loading old inspection data.
+ */
+export function migrateInspectionChecklists(inspection: any): any {
+  if (!inspection?.sections) return inspection;
+  const migrated = { ...inspection };
+  migrated.sections = migrated.sections.map((section: any) => {
+    if (!section.checklist) return section;
+    return {
+      ...section,
+      checklist: section.checklist.map(migrateChecklistItemLabel),
+    };
+  });
+  return migrated;
+}
+
+/**
+ * Migrate property template checklists to new format.
+ * Call this when loading property templates from localStorage.
+ */
+export function migratePropertyChecklists(property: any): any {
+  if (!property?.checklists) return property;
+  const migrated = { ...property };
+  const newChecklists: Record<string, any[]> = {};
+  for (const [sectionId, items] of Object.entries(migrated.checklists)) {
+    if (Array.isArray(items)) {
+      newChecklists[sectionId] = items.map(migrateChecklistItemLabel);
+    }
+  }
+  migrated.checklists = newChecklists;
+  return migrated;
 }
 
 // ──────────────────────── Key Return Methods ────────────────────
