@@ -3,7 +3,7 @@
  * Checklist + photos + reference images for a single room.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   Card,
   Typography,
@@ -26,6 +26,8 @@ import {
 import type { RoomSection, ChecklistItem } from './types';
 import PhotoCapture from './components/PhotoCapture';
 import ChecklistCard from './components/ChecklistCard';
+import { useLang } from './i18n';
+import { addWatermarkToImage } from './utils';
 
 const { Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -50,6 +52,7 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
   onUpdate,
   disabled = false,
 }) => {
+  const { t } = useLang();
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImage, setPreviewImage] = useState<{
     src: string;
@@ -63,6 +66,10 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
   const [photoTargetItemId, setPhotoTargetItemId] = useState<string | null>(
     null
   );
+
+  /** Hidden file input ref for checklist file picker */
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileTargetItemIdRef = useRef<string | null>(null);
 
   /** Checklist progress */
   const totalItems = section.checklist.length;
@@ -83,7 +90,7 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
     [section, onUpdate]
   );
 
-  /** Handle photo capture for a checklist item */
+  /** Handle photo capture for a checklist item (camera) */
   const handleItemPhotoCapture = useCallback(
     (dataUrl: string) => {
       if (!photoTargetItemId) return;
@@ -96,6 +103,52 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
       setPhotoTargetItemId(null);
     },
     [section, onUpdate, photoTargetItemId]
+  );
+
+  /** Handle file picker for a checklist item */
+  const handleFileSelect = useCallback((itemId: string) => {
+    fileTargetItemIdRef.current = itemId;
+    fileInputRef.current?.click();
+  }, []);
+
+  /** Process the selected file and apply watermark */
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      const targetId = fileTargetItemIdRef.current;
+      if (!file || !targetId) return;
+
+      // Read file as data URL
+      const reader = new FileReader();
+      reader.onload = async ev => {
+        const dataUrl = ev.target?.result as string;
+        if (!dataUrl) return;
+        try {
+          const watermarked = await addWatermarkToImage(dataUrl, {
+            address: propertyAddress,
+          });
+          onUpdate({
+            ...section,
+            checklist: section.checklist.map(i =>
+              i.id === targetId ? { ...i, photo: watermarked } : i
+            ),
+          });
+        } catch {
+          // Fallback: use without watermark
+          onUpdate({
+            ...section,
+            checklist: section.checklist.map(i =>
+              i.id === targetId ? { ...i, photo: dataUrl } : i
+            ),
+          });
+        }
+        fileTargetItemIdRef.current = null;
+      };
+      reader.readAsDataURL(file);
+      // Reset input so the same file can be re-selected
+      e.target.value = '';
+    },
+    [section, onUpdate, propertyAddress]
   );
 
   /** Handle additional room photo capture */
@@ -135,6 +188,15 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
 
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+      {/* Hidden file input for checklist item file picker */}
+      <input
+        ref={fileInputRef}
+        type='file'
+        accept='image/*'
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
+
       {/* Room Header */}
       <div
         style={{
@@ -146,7 +208,7 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
       >
         <div>
           <Tag color='green' style={{ marginRight: '8px' }}>
-            Room {sectionIndex + 1} / {totalSections}
+            {t('room.title', { index: sectionIndex + 1, total: totalSections })}
           </Tag>
           <Text strong style={{ fontSize: '16px' }}>
             {section.name}
@@ -181,7 +243,7 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
           title={
             <span style={{ fontSize: '13px' }}>
               <PictureOutlined style={{ marginRight: '6px' }} />
-              Reference Photos ({section.referenceImages.length})
+              {t('room.referenceImages')} ({section.referenceImages.length})
             </span>
           }
         >
@@ -219,7 +281,10 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
               <CheckCircleFilled
                 style={{ marginRight: '6px', color: '#52c41a' }}
               />
-              Checklist ({checkedItems}/{totalItems})
+              {t('room.checklistProgress', {
+                checked: checkedItems,
+                total: totalItems,
+              })}
             </span>
           }
         >
@@ -228,7 +293,8 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
               key={item.id}
               item={item}
               onToggle={checked => handleToggleItem(item.id, checked)}
-              onPhotoRequest={() => setPhotoTargetItemId(item.id)}
+              onCameraRequest={() => setPhotoTargetItemId(item.id)}
+              onFileRequest={() => handleFileSelect(item.id)}
               disabled={disabled}
             />
           ))}
@@ -248,21 +314,21 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
           title={
             <Text strong style={{ fontSize: '13px' }}>
               <CameraOutlined style={{ marginRight: '6px' }} />
-              Take photo for:{' '}
+              {t('room.photoForItem')}
               {section.checklist.find(i => i.id === photoTargetItemId)?.label}
             </Text>
           }
           extra={
             <Button size='small' onClick={() => setPhotoTargetItemId(null)}>
-              Cancel
+              {t('photo.cancel')}
             </Button>
           }
         >
           <PhotoCapture
             onCapture={handleItemPhotoCapture}
             address={propertyAddress}
-            cameraText='Take Evidence Photo'
-            uploadText='Upload Evidence'
+            cameraText={t('photo.takePhoto')}
+            uploadText={t('photo.uploadPhoto')}
           />
         </Card>
       )}
@@ -276,7 +342,7 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
         title={
           <span style={{ fontSize: '13px' }}>
             <CameraOutlined style={{ marginRight: '6px' }} />
-            Additional Photos ({section.photos.length})
+            {t('room.additionalPhotos', { count: section.photos.length })}
           </span>
         }
         extra={
@@ -346,7 +412,7 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
               type='secondary'
               style={{ margin: '4px 0 0', fontSize: '12px' }}
             >
-              No additional photos yet
+              {t('room.noPhotos')}
             </Paragraph>
           </div>
         )}
@@ -355,12 +421,12 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
       {/* Notes */}
       <div>
         <Text strong style={{ fontSize: '13px' }}>
-          Notes
+          {t('room.notes')}
         </Text>
         <TextArea
           value={section.notes}
           onChange={e => onUpdate({ ...section, notes: e.target.value })}
-          placeholder='Add any notes about this room...'
+          placeholder={t('room.notesPlaceholder')}
           rows={2}
           style={{ marginTop: '4px' }}
           disabled={disabled}

@@ -26,6 +26,7 @@ import {
 import type { DamageReport, RoomSection } from './types';
 import { generateId } from './types';
 import PhotoCapture from './components/PhotoCapture';
+import { useLang } from './i18n';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -46,6 +47,7 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
   propertyAddress,
   onUpdate,
 }) => {
+  const { t } = useLang();
   const [noDamageConfirmed, setNoDamageConfirmed] = useState(
     damageReports.length === 0
   );
@@ -104,14 +106,12 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
             style={{ fontSize: '24px', color: '#fa8c16', marginTop: '2px' }}
           />
           <div>
-            <Text strong>Pre-Clean Damage Check</Text>
+            <Text strong>{t('damage.title')}</Text>
             <Paragraph
               type='secondary'
               style={{ margin: '4px 0 0', fontSize: '13px' }}
             >
-              Before you start cleaning, document any existing damage you find
-              (stains, holes, broken items, etc.). This protects you from being
-              blamed for pre-existing issues.
+              {t('damage.desc')}
             </Paragraph>
           </div>
         </div>
@@ -136,15 +136,14 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
               <SafetyCertificateOutlined
                 style={{ marginRight: '6px', color: '#52c41a' }}
               />
-              No pre-existing damage found
+              {t('damage.noDamage')}
             </Text>
           </Checkbox>
           <Paragraph
             type='secondary'
             style={{ margin: '4px 0 0 24px', fontSize: '12px' }}
           >
-            Check this box to confirm you have inspected the property and found
-            no existing damage.
+            {t('damage.noDamageDesc')}
           </Paragraph>
         </Card>
       )}
@@ -163,7 +162,7 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
                 alignItems: 'center',
               }}
             >
-              <Text strong>Damage #{index + 1}</Text>
+              <Text strong>{t('damage.entry', { index: index + 1 })}</Text>
               <Button
                 type='text'
                 danger
@@ -171,7 +170,7 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
                 icon={<DeleteOutlined />}
                 onClick={() => handleDeleteDamage(report.id)}
               >
-                Remove
+                {t('damage.remove')}
               </Button>
             </div>
           }
@@ -180,7 +179,7 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
             {/* Location */}
             <Col span={24}>
               <Text type='secondary' style={{ fontSize: '12px' }}>
-                Location
+                {t('damage.location')}
               </Text>
               <Select
                 value={report.location}
@@ -189,9 +188,9 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
                 }
                 options={[
                   ...locationOptions,
-                  { value: 'Entrance', label: 'Entrance' },
-                  { value: 'Hallway', label: 'Hallway' },
-                  { value: 'Other', label: 'Other' },
+                  { value: 'Entrance', label: t('damage.entrance') },
+                  { value: 'Hallway', label: t('damage.hallway') },
+                  { value: 'Other', label: t('damage.other') },
                 ]}
                 style={{ width: '100%' }}
                 size='small'
@@ -201,14 +200,14 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
             {/* Description */}
             <Col span={24}>
               <Text type='secondary' style={{ fontSize: '12px' }}>
-                Description
+                {t('damage.description')}
               </Text>
               <TextArea
                 value={report.description}
                 onChange={e =>
                   handleUpdateDamage(report.id, { description: e.target.value })
                 }
-                placeholder='Describe the damage (e.g. carpet stain near window, wall scratch)'
+                placeholder={t('damage.descPlaceholder')}
                 rows={2}
                 size='small'
               />
@@ -224,7 +223,7 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
                   marginBottom: '4px',
                 }}
               >
-                Photo (required)
+                {t('damage.photoRequired')}
               </Text>
               {report.photo ? (
                 <div
@@ -250,8 +249,8 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
                       handleUpdateDamage(report.id, { photo: url })
                     }
                     address={propertyAddress}
-                    cameraText='Retake'
-                    uploadText='Replace'
+                    cameraText={t('photo.retake')}
+                    uploadText={t('photo.replace')}
                   />
                 </div>
               ) : (
@@ -260,8 +259,8 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
                     handleUpdateDamage(report.id, { photo: url })
                   }
                   address={propertyAddress}
-                  cameraText='Take Photo'
-                  uploadText='Upload Photo'
+                  cameraText={t('photo.takePhoto')}
+                  uploadText={t('photo.uploadPhoto')}
                 />
               )}
             </Col>
@@ -277,7 +276,7 @@ const StepPreCleanDamage: React.FC<StepPreCleanDamageProps> = ({
         onClick={handleAddDamage}
         style={{ borderRadius: '8px', height: '44px' }}
       >
-        Add Damage Report
+        {t('damage.addButton')}
       </Button>
     </div>
   );

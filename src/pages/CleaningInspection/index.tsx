@@ -22,6 +22,7 @@ import {
   CheckSquareOutlined,
   LockOutlined,
   LinkOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -31,6 +32,7 @@ import type {
   CheckInOut,
   DamageReport,
   ChecklistItem,
+  Employee,
 } from './types';
 import {
   BASE_ROOM_SECTIONS,
@@ -44,6 +46,7 @@ import {
   saveArchivedInspection,
   loadPropertyTemplates,
 } from './utils';
+import { LangContext, createT, type Lang } from './i18n';
 
 import StepTaskOverview from './StepTaskOverview';
 import StepCheckIn from './StepCheckIn';
@@ -141,6 +144,11 @@ function migrateInspection(raw: any): CleaningInspection {
 const CleaningInspectionPage: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage();
 
+  // ── Language State ──
+  const [lang, setLang] = useState<Lang>('zh');
+  const t = useMemo(() => createT(lang), [lang]);
+  const langContextValue = useMemo(() => ({ lang, setLang, t }), [lang, t]);
+
   // Parse URL params
   const searchParams = useMemo(
     () => new URLSearchParams(window.location.search),
@@ -149,6 +157,7 @@ const CleaningInspectionPage: React.FC = () => {
   const urlInspectionId = searchParams.get('id');
   const urlPropertyName = searchParams.get('property') || '';
   const urlDate = searchParams.get('date') || dayjs().format('YYYY-MM-DD');
+  const urlEmployeeId = searchParams.get('employee') || '';
 
   // ── Core State ──
   const [inspection, setInspection] = useState<CleaningInspection | null>(null);
@@ -197,6 +206,26 @@ const CleaningInspectionPage: React.FC = () => {
       sections = buildDefaultSections();
     }
 
+    // Load assigned employee from localStorage if employee ID is in URL
+    let assignedEmployee: Employee | undefined;
+    if (urlEmployeeId) {
+      try {
+        const empData = localStorage.getItem('cleaning-inspection-employees');
+        const empList: Employee[] = empData ? JSON.parse(empData) : [];
+        assignedEmployee = empList.find(e => e.id === urlEmployeeId);
+      } catch {
+        // Ignore parse errors
+      }
+      // Also check archived inspection for employee data (in case localStorage is on a different device)
+      if (!assignedEmployee) {
+        const archives = loadArchivedInspections();
+        const archivedInsp = archives.find((a: any) => a.id === id);
+        if (archivedInsp?.assignedEmployee) {
+          assignedEmployee = archivedInsp.assignedEmployee;
+        }
+      }
+    }
+
     const newInspection: CleaningInspection = {
       id,
       propertyId: urlPropertyName,
@@ -211,11 +240,12 @@ const CleaningInspectionPage: React.FC = () => {
       checkIn: null,
       checkOut: null,
       damageReports: [],
+      assignedEmployee,
     };
 
     setInspection(newInspection);
     setIsArchivedView(false);
-  }, [urlInspectionId, urlPropertyName, urlDate, inspection]);
+  }, [urlInspectionId, urlPropertyName, urlDate, urlEmployeeId, inspection]);
 
   // ── Step Definitions ──
   // Steps: [Overview, Check-in, Damage, ...Rooms..., Check-out]
@@ -226,16 +256,16 @@ const CleaningInspectionPage: React.FC = () => {
   const stepItems = useMemo(() => {
     if (!inspection) return [];
     return [
-      { title: 'Overview', icon: <HomeOutlined /> },
-      { title: 'Check-in', icon: <PlayCircleOutlined /> },
-      { title: 'Damage Check', icon: <WarningOutlined /> },
-      ...inspection.sections.map((s, idx) => ({
+      { title: t('step.overview'), icon: <HomeOutlined /> },
+      { title: t('step.checkIn'), icon: <PlayCircleOutlined /> },
+      { title: t('step.damageCheck'), icon: <WarningOutlined /> },
+      ...inspection.sections.map(s => ({
         title: s.name,
         icon: <CheckSquareOutlined />,
       })),
-      { title: 'Check-out', icon: <LockOutlined /> },
+      { title: t('step.checkOut'), icon: <LockOutlined /> },
     ];
-  }, [inspection]);
+  }, [inspection, t]);
 
   // Clamp currentStep to valid range
   const clampedStep = Math.min(currentStep, maxStep);
@@ -413,112 +443,25 @@ const CleaningInspectionPage: React.FC = () => {
   const isFirstStep = clampedStep === 0;
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#f5f5f5',
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      }}
-    >
-      {contextHolder}
-
-      {/* ── Top Bar ── */}
+    <LangContext.Provider value={langContextValue}>
       <div
         style={{
-          background: '#fff',
-          borderBottom: '1px solid #e8e8e8',
-          padding: '8px 16px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
+          minHeight: '100vh',
+          background: '#f5f5f5',
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         }}
       >
+        {contextHolder}
+
+        {/* ── Top Bar ── */}
         <div
           style={{
-            maxWidth: '800px',
-            margin: '0 auto',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <Space>
-            <Tag
-              color={
-                inspection.status === 'submitted'
-                  ? 'green'
-                  : inspection.status === 'in_progress'
-                    ? 'blue'
-                    : 'default'
-              }
-            >
-              {inspection.status === 'submitted'
-                ? 'SUBMITTED'
-                : inspection.status === 'in_progress'
-                  ? 'IN PROGRESS'
-                  : 'PENDING'}
-            </Tag>
-            <Text
-              type='secondary'
-              style={{ fontSize: '11px', fontFamily: 'monospace' }}
-            >
-              {inspection.id}
-            </Text>
-          </Space>
-          <Button size='small' icon={<LinkOutlined />} onClick={handleCopyLink}>
-            Copy Link
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Steps Progress ── */}
-      <div
-        style={{
-          background: '#fff',
-          padding: '12px 16px',
-          borderBottom: '1px solid #f0f0f0',
-          overflowX: 'auto',
-        }}
-      >
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <Steps
-            current={clampedStep}
-            size='small'
-            items={stepItems}
-            onChange={step => {
-              // Only allow going to completed steps or current+1
-              if (step <= clampedStep + 1) {
-                setCurrentStep(step);
-              }
-            }}
-            style={{ minWidth: `${totalSteps * 100}px` }}
-          />
-        </div>
-      </div>
-
-      {/* ── Step Content ── */}
-      <div
-        style={{
-          maxWidth: '800px',
-          margin: '0 auto',
-          padding: '16px 12px 100px',
-        }}
-      >
-        {renderStepContent()}
-      </div>
-
-      {/* ── Bottom Navigation Bar ── */}
-      {inspection.status !== 'submitted' && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
             background: '#fff',
-            borderTop: '1px solid #e8e8e8',
-            padding: '12px 16px',
+            borderBottom: '1px solid #e8e8e8',
+            padding: '8px 16px',
+            position: 'sticky',
+            top: 0,
             zIndex: 100,
           }}
         >
@@ -531,37 +474,142 @@ const CleaningInspectionPage: React.FC = () => {
               alignItems: 'center',
             }}
           >
-            <Button
-              icon={<ArrowLeftOutlined />}
-              onClick={handlePrev}
-              disabled={isFirstStep}
-              size='large'
-            >
-              Back
-            </Button>
-
-            <Text type='secondary' style={{ fontSize: '12px' }}>
-              Step {clampedStep + 1} of {totalSteps}
-            </Text>
-
-            {!isLastStep && (
-              <Button
-                type='primary'
-                onClick={handleNext}
-                size='large'
-                style={{ background: '#52c41a', borderColor: '#52c41a' }}
+            <Space>
+              <Tag
+                color={
+                  inspection.status === 'submitted'
+                    ? 'green'
+                    : inspection.status === 'in_progress'
+                      ? 'blue'
+                      : 'default'
+                }
               >
-                Next <ArrowRightOutlined />
+                {inspection.status === 'submitted'
+                  ? t('topbar.submitted')
+                  : inspection.status === 'in_progress'
+                    ? t('topbar.inProgress')
+                    : t('topbar.pending')}
+              </Tag>
+              <Text
+                type='secondary'
+                style={{ fontSize: '11px', fontFamily: 'monospace' }}
+              >
+                {inspection.id}
+              </Text>
+            </Space>
+            <Space>
+              <Button
+                size='small'
+                icon={<GlobalOutlined />}
+                onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+              >
+                {t('lang.toggle')}
               </Button>
-            )}
-
-            {isLastStep && (
-              <div style={{ width: '100px' }} /> // Spacer; submit is in step content
-            )}
+              <Button
+                size='small'
+                icon={<LinkOutlined />}
+                onClick={handleCopyLink}
+              >
+                {t('topbar.copyLink')}
+              </Button>
+            </Space>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* ── Steps Progress ── */}
+        <div
+          style={{
+            background: '#fff',
+            padding: '12px 16px',
+            borderBottom: '1px solid #f0f0f0',
+            overflowX: 'auto',
+          }}
+        >
+          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <Steps
+              current={clampedStep}
+              size='small'
+              items={stepItems}
+              onChange={step => {
+                // Only allow going to completed steps or current+1
+                if (step <= clampedStep + 1) {
+                  setCurrentStep(step);
+                }
+              }}
+              style={{ minWidth: `${totalSteps * 100}px` }}
+            />
+          </div>
+        </div>
+
+        {/* ── Step Content ── */}
+        <div
+          style={{
+            maxWidth: '800px',
+            margin: '0 auto',
+            padding: '16px 12px 100px',
+          }}
+        >
+          {renderStepContent()}
+        </div>
+
+        {/* ── Bottom Navigation Bar ── */}
+        {inspection.status !== 'submitted' && (
+          <div
+            style={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: '#fff',
+              borderTop: '1px solid #e8e8e8',
+              padding: '12px 16px',
+              zIndex: 100,
+            }}
+          >
+            <div
+              style={{
+                maxWidth: '800px',
+                margin: '0 auto',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <Button
+                icon={<ArrowLeftOutlined />}
+                onClick={handlePrev}
+                disabled={isFirstStep}
+                size='large'
+              >
+                {t('nav.back')}
+              </Button>
+
+              <Text type='secondary' style={{ fontSize: '12px' }}>
+                {t('nav.stepOf', {
+                  current: String(clampedStep + 1),
+                  total: String(totalSteps),
+                })}
+              </Text>
+
+              {!isLastStep && (
+                <Button
+                  type='primary'
+                  onClick={handleNext}
+                  size='large'
+                  style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                >
+                  {t('nav.next')} <ArrowRightOutlined />
+                </Button>
+              )}
+
+              {isLastStep && (
+                <div style={{ width: '100px' }} /> // Spacer; submit is in step content
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </LangContext.Provider>
   );
 };
 

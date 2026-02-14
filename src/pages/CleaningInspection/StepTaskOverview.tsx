@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Card, Typography, Input, Row, Col, Tag, Divider, Alert } from 'antd';
+import { Card, Typography, Input, Row, Col, Tag, Alert } from 'antd';
 import {
   HomeOutlined,
   CalendarOutlined,
@@ -13,6 +13,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import type { CleaningInspection } from './types';
+import { useLang } from './i18n';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -28,6 +29,7 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
   inspection,
   onUpdate,
 }) => {
+  const { t } = useLang();
   const roomCount = inspection.sections.length;
 
   return (
@@ -44,12 +46,12 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
         }}
       >
         <Title level={3} style={{ color: '#fff', margin: 0 }}>
-          Cleaning Inspection
+          {t('overview.title')}
         </Title>
         <Paragraph
           style={{ color: 'rgba(255,255,255,0.85)', margin: '8px 0 0' }}
         >
-          Follow the steps to complete your cleaning inspection
+          {t('overview.subtitle')}
         </Paragraph>
       </div>
 
@@ -60,7 +62,7 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
         title={
           <span>
             <HomeOutlined style={{ marginRight: '8px' }} />
-            Property Details
+            {t('overview.propertyDetails')}
           </span>
         }
       >
@@ -70,12 +72,12 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
               type='secondary'
               style={{ fontSize: '12px', display: 'block' }}
             >
-              Property ID
+              {t('overview.propertyId')}
             </Text>
             <Input
               value={inspection.propertyId}
               onChange={e => onUpdate({ propertyId: e.target.value })}
-              placeholder='e.g. UNIT-101'
+              placeholder={t('overview.propertyIdPlaceholder')}
               size='small'
             />
           </Col>
@@ -85,7 +87,7 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
               style={{ fontSize: '12px', display: 'block' }}
             >
               <CalendarOutlined style={{ marginRight: '4px' }} />
-              Check-out Date
+              {t('overview.checkOutDate')}
             </Text>
             <Input
               type='date'
@@ -100,12 +102,12 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
               style={{ fontSize: '12px', display: 'block' }}
             >
               <EnvironmentOutlined style={{ marginRight: '4px' }} />
-              Property Address
+              {t('overview.propertyAddress')}
             </Text>
             <Input
               value={inspection.propertyAddress}
               onChange={e => onUpdate({ propertyAddress: e.target.value })}
-              placeholder='e.g. 52 Wecker Road, Mansfield QLD 4122'
+              placeholder={t('overview.propertyAddressPlaceholder')}
               size='small'
             />
           </Col>
@@ -121,7 +123,7 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
           style={{ marginBottom: '16px', borderRadius: '8px' }}
           message={
             <Text strong style={{ fontSize: '13px' }}>
-              Important Notes
+              {t('overview.importantNotes')}
             </Text>
           }
           description={
@@ -136,7 +138,7 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
       <Card
         size='small'
         style={{ marginBottom: '16px', borderRadius: '8px' }}
-        title='Task Summary'
+        title={t('overview.taskSummary')}
       >
         <div
           style={{
@@ -146,35 +148,65 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
             marginBottom: '12px',
           }}
         >
-          <Tag color='green'>{roomCount} rooms to inspect</Tag>
+          <Tag color='green'>
+            {t('overview.roomsToInspect', { count: roomCount })}
+          </Tag>
           {inspection.templateName && (
-            <Tag color='blue'>Template: {inspection.templateName}</Tag>
+            <Tag color='blue'>
+              {t('overview.template', { name: inspection.templateName })}
+            </Tag>
           )}
         </div>
         <Text type='secondary' style={{ fontSize: '12px' }}>
-          Rooms: {inspection.sections.map(s => s.name).join(' → ')}
+          {t('overview.rooms')}
+          {inspection.sections.map(s => s.name).join(' → ')}
         </Text>
       </Card>
 
-      {/* Cleaner Name */}
-      <Card
-        size='small'
-        style={{ borderRadius: '8px' }}
-        title={
-          <span>
-            <UserOutlined style={{ marginRight: '8px' }} />
-            Your Name
-          </span>
-        }
-      >
-        <Input
-          value={inspection.submitterName || ''}
-          onChange={e => onUpdate({ submitterName: e.target.value })}
-          placeholder='Enter your name'
-          size='large'
-          style={{ fontSize: '16px' }}
-        />
-      </Card>
+      {/* Assigned Employee (read-only) or Cleaner Name Input */}
+      {inspection.assignedEmployee ? (
+        <Card
+          size='small'
+          style={{ borderRadius: '8px' }}
+          title={
+            <span>
+              <UserOutlined style={{ marginRight: '8px' }} />
+              {t('overview.assignedEmployee')}
+            </span>
+          }
+        >
+          <Text strong style={{ fontSize: '16px' }}>
+            {inspection.assignedEmployee.name}
+          </Text>
+          {inspection.assignedEmployee.phone && (
+            <Text
+              type='secondary'
+              style={{ display: 'block', fontSize: '13px', marginTop: '4px' }}
+            >
+              {inspection.assignedEmployee.phone}
+            </Text>
+          )}
+        </Card>
+      ) : (
+        <Card
+          size='small'
+          style={{ borderRadius: '8px' }}
+          title={
+            <span>
+              <UserOutlined style={{ marginRight: '8px' }} />
+              {t('overview.yourName')}
+            </span>
+          }
+        >
+          <Input
+            value={inspection.submitterName || ''}
+            onChange={e => onUpdate({ submitterName: e.target.value })}
+            placeholder={t('overview.namePlaceholder')}
+            size='large'
+            style={{ fontSize: '16px' }}
+          />
+        </Card>
+      )}
     </div>
   );
 };

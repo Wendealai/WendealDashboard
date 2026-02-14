@@ -48,6 +48,7 @@ import {
   getActiveSections as getActiveSectionDefs,
   DEFAULT_CHECKLISTS,
 } from '@/pages/CleaningInspection/types';
+import type { Employee } from '@/pages/CleaningInspection/types';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -112,10 +113,35 @@ const CleaningInspectionAdmin: React.FC = () => {
 
   const [searchText, setSearchText] = useState('');
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [checkOutDate, setCheckOutDate] = useState(
     dayjs().format('YYYY-MM-DD')
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isEmployeesOpen, setIsEmployeesOpen] = useState(false);
+
+  // ── Employee Management ──
+  const [employees, setEmployees] = useState<Employee[]>(() => {
+    try {
+      const data = localStorage.getItem('cleaning-inspection-employees');
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  /** Save employees to localStorage */
+  const saveEmployeesToStorage = (emps: Employee[]) => {
+    try {
+      localStorage.setItem(
+        'cleaning-inspection-employees',
+        JSON.stringify(emps)
+      );
+      setEmployees(emps);
+    } catch {
+      messageApi.error('Storage full');
+    }
+  };
 
   const savePropertiesToStorage = (props: any[]) => {
     try {
@@ -161,7 +187,15 @@ const CleaningInspectionAdmin: React.FC = () => {
 
     const inspectionId = `insp-${generateId()}`;
     const baseUrl = window.location.origin;
-    const url = `${baseUrl}/cleaning-inspection?id=${inspectionId}&property=${encodeURIComponent(property.name)}`;
+
+    // Build URL with optional employee param
+    let url = `${baseUrl}/cleaning-inspection?id=${inspectionId}&property=${encodeURIComponent(property.name)}`;
+    const selectedEmployee = selectedEmployeeId
+      ? employees.find(e => e.id === selectedEmployeeId)
+      : undefined;
+    if (selectedEmployee) {
+      url += `&employee=${encodeURIComponent(selectedEmployee.id)}`;
+    }
 
     const activeSections =
       property.sections || BASE_ROOM_SECTIONS.map(s => s.id);
@@ -172,7 +206,7 @@ const CleaningInspectionAdmin: React.FC = () => {
       notes: '',
     }));
 
-    const newInspection = {
+    const newInspection: any = {
       id: inspectionId,
       propertyId: property.name,
       propertyAddress: property.address,
@@ -182,6 +216,9 @@ const CleaningInspectionAdmin: React.FC = () => {
       status: 'draft',
       sections,
     };
+    if (selectedEmployee) {
+      newInspection.assignedEmployee = selectedEmployee;
+    }
 
     const newArchives = [newInspection, ...archives];
     saveArchivesToStorage(newArchives);
@@ -240,6 +277,12 @@ const CleaningInspectionAdmin: React.FC = () => {
             onClick={() => setIsSettingsOpen(true)}
           >
             Property Templates
+          </Button>
+          <Button
+            icon={<EditOutlined />}
+            onClick={() => setIsEmployeesOpen(true)}
+          >
+            Employees ({employees.length})
           </Button>
         </Space>
       </div>
@@ -305,7 +348,7 @@ const CleaningInspectionAdmin: React.FC = () => {
               )}
             </div>
           </Col>
-          <Col xs={24} sm={6}>
+          <Col xs={24} sm={5}>
             <Text
               strong
               style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
@@ -319,7 +362,31 @@ const CleaningInspectionAdmin: React.FC = () => {
               style={{ marginTop: '4px' }}
             />
           </Col>
-          <Col xs={24} sm={8}>
+          <Col xs={24} sm={5}>
+            <Text
+              strong
+              style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
+            >
+              Assign Employee
+            </Text>
+            <div style={{ marginTop: '4px' }}>
+              <Select
+                style={{ width: '100%' }}
+                placeholder='Optional'
+                value={selectedEmployeeId || null}
+                onChange={(val: string) => setSelectedEmployeeId(val || '')}
+                allowClear
+              >
+                {employees.map(emp => (
+                  <Option key={emp.id} value={emp.id}>
+                    {emp.name}
+                    {emp.nameEn ? ` (${emp.nameEn})` : ''}
+                  </Option>
+                ))}
+              </Select>
+            </div>
+          </Col>
+          <Col xs={24} sm={4}>
             <Button
               type='default'
               size='large'
@@ -413,6 +480,12 @@ const CleaningInspectionAdmin: React.FC = () => {
         onClose={() => setIsSettingsOpen(false)}
         properties={properties}
         onSave={savePropertiesToStorage}
+      />
+      <EmployeesModal
+        open={isEmployeesOpen}
+        onClose={() => setIsEmployeesOpen(false)}
+        employees={employees}
+        onSave={saveEmployeesToStorage}
       />
     </div>
   );
@@ -1236,6 +1309,271 @@ const PropertySettingsModal: React.FC<{
             </>
           )}
         </div>
+      </Modal>
+    </>
+  );
+};
+
+// ──────────────────────── Employee Management Modal ────────────────────────
+
+/** EmployeesModal - CRUD for cleaning employees */
+const EmployeesModal: React.FC<{
+  open: boolean;
+  onClose: () => void;
+  employees: Employee[];
+  onSave: (emps: Employee[]) => void;
+}> = ({ open, onClose, employees, onSave }) => {
+  const [messageApi, contextHolder] = message.useMessage();
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [formName, setFormName] = useState('');
+  const [formNameEn, setFormNameEn] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formNotes, setFormNotes] = useState('');
+
+  /** Reset form fields */
+  const resetForm = () => {
+    setFormName('');
+    setFormNameEn('');
+    setFormPhone('');
+    setFormNotes('');
+  };
+
+  /** Open add modal */
+  const handleOpenAdd = () => {
+    resetForm();
+    setIsAddOpen(true);
+  };
+
+  /** Open edit modal */
+  const handleOpenEdit = (emp: Employee) => {
+    setFormName(emp.name);
+    setFormNameEn(emp.nameEn || '');
+    setFormPhone(emp.phone || '');
+    setFormNotes(emp.notes || '');
+    setEditingEmployee(emp);
+  };
+
+  /** Build employee object from form, only including non-empty optional fields */
+  const buildEmployeeFromForm = (id: string): Employee => {
+    const emp: Employee = { id, name: formName.trim() };
+    if (formNameEn.trim()) emp.nameEn = formNameEn.trim();
+    if (formPhone.trim()) emp.phone = formPhone.trim();
+    if (formNotes.trim()) emp.notes = formNotes.trim();
+    return emp;
+  };
+
+  /** Save new employee */
+  const handleAdd = () => {
+    if (!formName.trim()) {
+      messageApi.warning('请输入员工姓名');
+      return;
+    }
+    const newEmp = buildEmployeeFromForm(`emp-${generateId()}`);
+    onSave([...employees, newEmp]);
+    setIsAddOpen(false);
+    resetForm();
+    messageApi.success('员工已添加');
+  };
+
+  /** Save edited employee */
+  const handleSaveEdit = () => {
+    if (!editingEmployee || !formName.trim()) return;
+    const updatedEmp = buildEmployeeFromForm(editingEmployee.id);
+    const updated = employees.map(e =>
+      e.id === editingEmployee.id ? updatedEmp : e
+    );
+    onSave(updated);
+    setEditingEmployee(null);
+    resetForm();
+    messageApi.success('已更新');
+  };
+
+  /** Delete an employee */
+  const handleDelete = (id: string) => {
+    Modal.confirm({
+      title: '确认删除',
+      content: '确定要删除这位员工吗？',
+      onOk: () => {
+        onSave(employees.filter(e => e.id !== id));
+        messageApi.success('已删除');
+      },
+    });
+  };
+
+  return (
+    <>
+      <Modal
+        title='员工管理 / Employee Management'
+        open={open}
+        onCancel={onClose}
+        footer={null}
+        width={700}
+      >
+        {contextHolder}
+        <Button
+          type='primary'
+          icon={<PlusOutlined />}
+          onClick={handleOpenAdd}
+          style={{ marginBottom: '16px' }}
+        >
+          添加员工
+        </Button>
+
+        {employees.length === 0 ? (
+          <Empty description='暂无员工' />
+        ) : (
+          employees.map(emp => (
+            <Card
+              key={emp.id}
+              size='small'
+              style={{ marginBottom: '10px' }}
+              title={
+                <Space>
+                  <Text strong>{emp.name}</Text>
+                  {emp.nameEn && <Text type='secondary'>({emp.nameEn})</Text>}
+                </Space>
+              }
+              extra={
+                <Space>
+                  <Button
+                    size='small'
+                    icon={<EditOutlined />}
+                    onClick={() => handleOpenEdit(emp)}
+                  >
+                    编辑
+                  </Button>
+                  <Button
+                    type='text'
+                    danger
+                    size='small'
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDelete(emp.id)}
+                  />
+                </Space>
+              }
+            >
+              {emp.phone && (
+                <Text
+                  type='secondary'
+                  style={{ fontSize: '12px', display: 'block' }}
+                >
+                  📱 {emp.phone}
+                </Text>
+              )}
+              {emp.notes && (
+                <Text
+                  type='secondary'
+                  style={{ fontSize: '12px', display: 'block' }}
+                >
+                  📝 {emp.notes}
+                </Text>
+              )}
+            </Card>
+          ))
+        )}
+
+        {/* Add Employee Modal */}
+        <Modal
+          title='添加员工 / Add Employee'
+          open={isAddOpen}
+          onCancel={() => {
+            setIsAddOpen(false);
+            resetForm();
+          }}
+          onOk={handleAdd}
+        >
+          <Space direction='vertical' style={{ width: '100%' }} size={12}>
+            <div>
+              <Text strong>姓名 (中文) *</Text>
+              <Input
+                value={formName}
+                onChange={e => setFormName(e.target.value)}
+                placeholder='例如：张三'
+                style={{ marginTop: '4px' }}
+              />
+            </div>
+            <div>
+              <Text strong>Name (English)</Text>
+              <Input
+                value={formNameEn}
+                onChange={e => setFormNameEn(e.target.value)}
+                placeholder='e.g., Zhang San'
+                style={{ marginTop: '4px' }}
+              />
+            </div>
+            <div>
+              <Text strong>电话 / Phone</Text>
+              <Input
+                value={formPhone}
+                onChange={e => setFormPhone(e.target.value)}
+                placeholder='e.g., 0412345678'
+                style={{ marginTop: '4px' }}
+              />
+            </div>
+            <div>
+              <Text strong>备注 / Notes</Text>
+              <Input.TextArea
+                value={formNotes}
+                onChange={e => setFormNotes(e.target.value)}
+                placeholder='备注信息...'
+                rows={2}
+                style={{ marginTop: '4px' }}
+              />
+            </div>
+          </Space>
+        </Modal>
+
+        {/* Edit Employee Modal */}
+        <Modal
+          title='编辑员工 / Edit Employee'
+          open={!!editingEmployee}
+          onCancel={() => {
+            setEditingEmployee(null);
+            resetForm();
+          }}
+          onOk={handleSaveEdit}
+        >
+          <Space direction='vertical' style={{ width: '100%' }} size={12}>
+            <div>
+              <Text strong>姓名 (中文) *</Text>
+              <Input
+                value={formName}
+                onChange={e => setFormName(e.target.value)}
+                placeholder='例如：张三'
+                style={{ marginTop: '4px' }}
+              />
+            </div>
+            <div>
+              <Text strong>Name (English)</Text>
+              <Input
+                value={formNameEn}
+                onChange={e => setFormNameEn(e.target.value)}
+                placeholder='e.g., Zhang San'
+                style={{ marginTop: '4px' }}
+              />
+            </div>
+            <div>
+              <Text strong>电话 / Phone</Text>
+              <Input
+                value={formPhone}
+                onChange={e => setFormPhone(e.target.value)}
+                placeholder='e.g., 0412345678'
+                style={{ marginTop: '4px' }}
+              />
+            </div>
+            <div>
+              <Text strong>备注 / Notes</Text>
+              <Input.TextArea
+                value={formNotes}
+                onChange={e => setFormNotes(e.target.value)}
+                placeholder='备注信息...'
+                rows={2}
+                style={{ marginTop: '4px' }}
+              />
+            </div>
+          </Space>
+        </Modal>
       </Modal>
     </>
   );

@@ -1,18 +1,19 @@
 /**
- * ChecklistCard - Single checklist item with optional required-photo trigger
+ * ChecklistCard - Single checklist item with icon-only camera/file buttons
  *
- * Displays a checkbox + label. If requiredPhoto is true, the item shows a
- * camera icon and cannot be checked until a photo is attached.
+ * Displays a checkbox + label. If requiredPhoto is true, shows two compact
+ * icon buttons (camera + file picker). Otherwise shows them as optional actions.
  */
 
 import React from 'react';
-import { Checkbox, Typography, Tag, Button, Tooltip } from 'antd';
+import { Checkbox, Typography, Button, Tooltip, Space } from 'antd';
 import {
   CameraOutlined,
   CheckCircleFilled,
-  PictureOutlined,
+  FolderOpenOutlined,
 } from '@ant-design/icons';
 import type { ChecklistItem } from '../types';
+import { useLang } from '../i18n';
 
 const { Text } = Typography;
 
@@ -20,21 +21,25 @@ interface ChecklistCardProps {
   item: ChecklistItem;
   /** Called when the checked state changes */
   onToggle: (checked: boolean) => void;
-  /** Called when the user wants to take/upload a photo for this item */
-  onPhotoRequest: () => void;
+  /** Called when the user wants to take a photo via camera */
+  onCameraRequest: () => void;
+  /** Called when the user wants to pick a file from gallery */
+  onFileRequest: () => void;
   /** If true, the card is read-only */
   disabled?: boolean;
 }
 
 /**
- * Renders a single checklist item as a card-like row
+ * Renders a single checklist item as a card-like row with icon-only photo actions
  */
 const ChecklistCard: React.FC<ChecklistCardProps> = ({
   item,
   onToggle,
-  onPhotoRequest,
+  onCameraRequest,
+  onFileRequest,
   disabled = false,
 }) => {
+  const { t } = useLang();
   const needsPhoto = item.requiredPhoto && !item.photo;
   const canCheck = !item.requiredPhoto || !!item.photo;
 
@@ -43,7 +48,7 @@ const ChecklistCard: React.FC<ChecklistCardProps> = ({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '10px',
+        gap: '8px',
         padding: '8px 12px',
         background: item.checked ? '#f6ffed' : '#fafafa',
         border: `1px solid ${item.checked ? '#b7eb8f' : '#e8e8e8'}`,
@@ -54,11 +59,7 @@ const ChecklistCard: React.FC<ChecklistCardProps> = ({
     >
       {/* Checkbox */}
       <Tooltip
-        title={
-          needsPhoto && !disabled
-            ? 'Take a photo first before checking this item'
-            : undefined
-        }
+        title={needsPhoto && !disabled ? t('checklist.photoFirst') : undefined}
       >
         <Checkbox
           checked={item.checked}
@@ -79,35 +80,55 @@ const ChecklistCard: React.FC<ChecklistCardProps> = ({
         {item.label}
       </Text>
 
-      {/* Required photo indicator / button */}
-      {item.requiredPhoto && (
-        <>
-          {item.photo ? (
-            <Tooltip title='Photo attached'>
-              <CheckCircleFilled
-                style={{ color: '#52c41a', fontSize: '16px' }}
-              />
-            </Tooltip>
-          ) : (
-            <Tooltip title='Photo required - tap to take photo'>
-              <Button
-                type='text'
-                size='small'
-                icon={<CameraOutlined />}
-                onClick={onPhotoRequest}
-                disabled={disabled}
-                style={{
-                  color: '#fa8c16',
-                  border: '1px dashed #fa8c16',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                }}
-              >
-                Required
-              </Button>
-            </Tooltip>
-          )}
-        </>
+      {/* Photo status indicator */}
+      {item.photo && (
+        <Tooltip title={t('checklist.photoAttached')}>
+          <CheckCircleFilled style={{ color: '#52c41a', fontSize: '16px' }} />
+        </Tooltip>
+      )}
+
+      {/* Icon-only camera + file buttons */}
+      {!disabled && (
+        <Space size={4}>
+          <Tooltip title={t('checklist.cameraTooltip')}>
+            <Button
+              type='text'
+              size='small'
+              icon={<CameraOutlined />}
+              onClick={onCameraRequest}
+              style={{
+                width: '28px',
+                height: '28px',
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: needsPhoto ? '#fa8c16' : '#595959',
+                border: needsPhoto ? '1px dashed #fa8c16' : '1px solid #d9d9d9',
+                borderRadius: '4px',
+              }}
+            />
+          </Tooltip>
+          <Tooltip title={t('checklist.fileTooltip')}>
+            <Button
+              type='text'
+              size='small'
+              icon={<FolderOpenOutlined />}
+              onClick={onFileRequest}
+              style={{
+                width: '28px',
+                height: '28px',
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#595959',
+                border: '1px solid #d9d9d9',
+                borderRadius: '4px',
+              }}
+            />
+          </Tooltip>
+        </Space>
       )}
 
       {/* Photo thumbnail if exists */}

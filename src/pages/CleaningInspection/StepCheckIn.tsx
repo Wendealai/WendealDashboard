@@ -23,6 +23,7 @@ import {
 import dayjs from 'dayjs';
 import type { CheckInOut } from './types';
 import { captureGPS, formatGPS } from './utils';
+import { useLang } from './i18n';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -40,9 +41,11 @@ const StepCheckIn: React.FC<StepCheckInProps> = ({
   propertyAddress,
   onCheckIn,
 }) => {
+  const { t } = useLang();
   const [loading, setLoading] = useState(false);
   const [manualAddress, setManualAddress] = useState('');
 
+  /** Handle check-in: capture GPS and timestamp */
   const handleCheckIn = useCallback(async () => {
     setLoading(true);
     try {
@@ -65,8 +68,10 @@ const StepCheckIn: React.FC<StepCheckInProps> = ({
       <div style={{ maxWidth: '500px', margin: '0 auto' }}>
         <Result
           status='success'
-          title='Checked In!'
-          subTitle={`You started work at ${dayjs(checkIn.timestamp).format('HH:mm:ss')}`}
+          title={t('checkIn.done')}
+          subTitle={t('checkIn.doneSubtitle', {
+            time: dayjs(checkIn.timestamp).format('HH:mm:ss'),
+          })}
           style={{ padding: '24px 0' }}
         />
         <Card size='small' style={{ borderRadius: '8px' }}>
@@ -75,7 +80,7 @@ const StepCheckIn: React.FC<StepCheckInProps> = ({
               <ClockCircleOutlined
                 style={{ marginRight: '8px', color: '#52c41a' }}
               />
-              <Text strong>Time:</Text>{' '}
+              <Text strong>{t('checkIn.time')}</Text>{' '}
               <Text>
                 {dayjs(checkIn.timestamp).format('YYYY-MM-DD HH:mm:ss')}
               </Text>
@@ -84,11 +89,11 @@ const StepCheckIn: React.FC<StepCheckInProps> = ({
               <EnvironmentOutlined
                 style={{ marginRight: '8px', color: '#1890ff' }}
               />
-              <Text strong>GPS:</Text>{' '}
+              <Text strong>{t('checkIn.gps')}</Text>{' '}
               <Text>{formatGPS(checkIn.gpsLat, checkIn.gpsLng)}</Text>
               {checkIn.gpsLat === null && (
                 <Tag color='orange' style={{ marginLeft: '8px' }}>
-                  <WarningOutlined /> GPS unavailable
+                  <WarningOutlined /> {t('checkIn.gpsUnavailable')}
                 </Tag>
               )}
             </div>
@@ -97,7 +102,8 @@ const StepCheckIn: React.FC<StepCheckInProps> = ({
                 <EnvironmentOutlined
                   style={{ marginRight: '8px', color: '#722ed1' }}
                 />
-                <Text strong>Address:</Text> <Text>{checkIn.gpsAddress}</Text>
+                <Text strong>{t('checkIn.address')}</Text>{' '}
+                <Text>{checkIn.gpsAddress}</Text>
               </div>
             )}
           </div>
@@ -122,12 +128,9 @@ const StepCheckIn: React.FC<StepCheckInProps> = ({
           style={{ fontSize: '64px', color: '#52c41a', marginBottom: '16px' }}
         />
         <Title level={3} style={{ margin: '0 0 8px' }}>
-          Ready to Start?
+          {t('checkIn.readyTitle')}
         </Title>
-        <Paragraph type='secondary'>
-          Tap the button below to check in. Your GPS location and time will be
-          recorded automatically.
-        </Paragraph>
+        <Paragraph type='secondary'>{t('checkIn.readyDesc')}</Paragraph>
 
         <Button
           type='primary'
@@ -145,7 +148,7 @@ const StepCheckIn: React.FC<StepCheckInProps> = ({
             marginTop: '8px',
           }}
         >
-          Start Work / Check In
+          {t('checkIn.startButton')}
         </Button>
       </div>
 
@@ -153,11 +156,11 @@ const StepCheckIn: React.FC<StepCheckInProps> = ({
         <Alert
           type='warning'
           showIcon
-          message='No address set'
+          message={t('checkIn.noAddress')}
           description={
             <div style={{ marginTop: '8px' }}>
               <Input
-                placeholder='Enter property address manually'
+                placeholder={t('checkIn.addressPlaceholder')}
                 value={manualAddress}
                 onChange={e => setManualAddress(e.target.value)}
                 size='small'
