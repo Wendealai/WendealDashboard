@@ -232,21 +232,20 @@ const CleaningInspectionPage: React.FC = () => {
     // Already initialized with the correct ID - skip
     if (inspection && inspection.id === urlInspectionId) return;
 
-    // Step 1: Check localStorage first (instant)
+    // Step 1: Check localStorage first for instant display (photos may be stripped)
     if (urlInspectionId) {
       const archives = loadArchivedInspections();
       const existing = archives.find((a: any) => a.id === urlInspectionId);
 
       if (existing) {
-        // Check if local copy has meaningful data (property address filled in = real data)
         const hasRealData =
           existing.status === 'submitted' ||
           existing.status === 'in_progress' ||
           (existing.propertyAddress && existing.propertyAddress.length > 0);
 
         if (hasRealData) {
+          // Show local copy immediately (may lack photos due to localStorage stripping)
           setInspection(migrateInspection(existing));
-          setServerLoadAttempted(true);
           if (existing.status === 'submitted') {
             setIsArchivedView(true);
             setCurrentStep(999);
@@ -255,10 +254,31 @@ const CleaningInspectionPage: React.FC = () => {
           } else {
             setIsArchivedView(false);
           }
+          // Still fetch from server in background to get full data (with photos)
+          if (!serverLoadAttempted) {
+            setServerLoadAttempted(true);
+            loadInspection(urlInspectionId)
+              .then(serverData => {
+                if (serverData) {
+                  // Merge: use server data (has photos) but keep local progress if newer
+                  const merged =
+                    existing.status === 'in_progress' &&
+                    serverData.status === 'pending'
+                      ? existing // Local is further along, keep it
+                      : serverData;
+                  setInspection(migrateInspection(merged));
+                  console.log(
+                    '[Init] Background server refresh completed:',
+                    urlInspectionId
+                  );
+                }
+              })
+              .catch(() => {
+                /* Keep local copy */
+              });
+          }
           return;
         }
-        // Local copy is truly blank (no address, no progress)
-        // → still check server for a real version
       }
     }
 
@@ -270,7 +290,6 @@ const CleaningInspectionPage: React.FC = () => {
       loadInspection(urlInspectionId)
         .then(serverData => {
           if (serverData) {
-            // Server has this inspection → use it (any status: pending/in_progress/submitted)
             saveArchivedInspection(serverData);
             setInspection(migrateInspection(serverData));
             if (serverData.status === 'submitted') {
@@ -282,13 +301,11 @@ const CleaningInspectionPage: React.FC = () => {
               setIsArchivedView(false);
             }
             console.log(
-              '[Init] Loaded inspection from server:',
+              '[Init] Loaded from server:',
               urlInspectionId,
-              'status:',
               serverData.status
             );
           } else {
-            // Server has nothing → use local copy (if any) or create new
             const archives = loadArchivedInspections();
             const localCopy = archives.find(
               (a: any) => a.id === urlInspectionId
@@ -303,7 +320,6 @@ const CleaningInspectionPage: React.FC = () => {
           }
         })
         .catch(() => {
-          // Server error → fall back to local copy or create new
           const archives = loadArchivedInspections();
           const localCopy = archives.find((a: any) => a.id === urlInspectionId);
           if (localCopy) {

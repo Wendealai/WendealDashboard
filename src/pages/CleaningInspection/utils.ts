@@ -306,13 +306,61 @@ export function loadArchivedInspections(): any[] {
 }
 
 /**
- * Strip heavy data (propertyNoteImages, large photos) from inspection before localStorage save.
- * These images are already synced to the server; localStorage only needs lightweight metadata.
+ * Strip ALL heavy base64 image data from inspection before localStorage save.
+ * Photos are synced to the n8n server; localStorage only keeps lightweight metadata.
+ * A marker `_hasPhoto: true` replaces stripped photos so the UI knows data exists on server.
  */
 function stripHeavyDataForStorage(inspection: any): any {
   const light = { ...inspection };
-  // propertyNoteImages are static reference images from admin — no need to store per-inspection
+
+  // 1. Remove propertyNoteImages (static admin images, not per-inspection)
   delete light.propertyNoteImages;
+
+  // 2. Strip section photos and checklist photos
+  if (light.sections) {
+    light.sections = light.sections.map((section: any) => {
+      const s = { ...section };
+      // Strip room additional photos (UploadFile[] with base64 thumbUrl/url)
+      if (s.photos && s.photos.length > 0) {
+        s._photoCount = s.photos.length;
+        s.photos = [];
+      }
+      // Strip checklist item photos
+      if (s.checklist) {
+        s.checklist = s.checklist.map((item: any) => {
+          if (item.photo) {
+            return { ...item, photo: undefined, _hasPhoto: true };
+          }
+          return item;
+        });
+      }
+      // Strip reference images (admin images, can be reloaded)
+      if (s.referenceImages && s.referenceImages.length > 0) {
+        s._refImageCount = s.referenceImages.length;
+        s.referenceImages = [];
+      }
+      return s;
+    });
+  }
+
+  // 3. Strip damage report photos
+  if (light.damageReports) {
+    light.damageReports = light.damageReports.map((d: any) => {
+      if (d.photo) {
+        return { ...d, photo: undefined, _hasPhoto: true };
+      }
+      return d;
+    });
+  }
+
+  // 4. Strip check-in/out photos
+  if (light.checkIn && light.checkIn.photo) {
+    light.checkIn = { ...light.checkIn, photo: undefined, _hasPhoto: true };
+  }
+  if (light.checkOut && light.checkOut.photo) {
+    light.checkOut = { ...light.checkOut, photo: undefined, _hasPhoto: true };
+  }
+
   return light;
 }
 

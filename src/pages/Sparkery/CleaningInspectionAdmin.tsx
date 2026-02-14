@@ -154,7 +154,18 @@ const CleaningInspectionAdmin: React.FC = () => {
       );
       setProperties(props);
     } catch {
-      messageApi.error('存储空间已满');
+      // Quota exceeded: try clearing old archived inspections to free space
+      try {
+        localStorage.removeItem('archived-cleaning-inspections');
+        localStorage.setItem(
+          'cleaning-inspection-properties',
+          JSON.stringify(props)
+        );
+        setProperties(props);
+        messageApi.warning('存储空间不足，已清理旧检查记录');
+      } catch {
+        messageApi.error('存储空间已满，请清理浏览器数据');
+      }
     }
   };
 
@@ -166,13 +177,26 @@ const CleaningInspectionAdmin: React.FC = () => {
       );
       setArchives(archs);
     } catch {
-      if (archs.length > 10) {
-        const trimmed = archs.slice(0, 10);
+      // Quota exceeded: trim to fewer records
+      try {
+        const trimmed = archs.slice(0, 5);
         localStorage.setItem(
           'archived-cleaning-inspections',
           JSON.stringify(trimmed)
         );
         setArchives(trimmed);
+      } catch {
+        // Still failing: keep only 1
+        try {
+          localStorage.setItem(
+            'archived-cleaning-inspections',
+            JSON.stringify(archs.slice(0, 1))
+          );
+          setArchives(archs.slice(0, 1));
+        } catch {
+          // Give up on localStorage
+          setArchives(archs);
+        }
       }
     }
   };
