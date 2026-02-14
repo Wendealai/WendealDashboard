@@ -361,10 +361,15 @@ const CleaningInspectionPage: React.FC = () => {
     }
 
     const roomIndex = clampedStep - 3;
-    if (roomIndex >= 0 && roomIndex < inspection.sections.length) {
+    const currentSection = inspection.sections[roomIndex];
+    if (
+      roomIndex >= 0 &&
+      roomIndex < inspection.sections.length &&
+      currentSection
+    ) {
       return (
         <StepRoomInspection
-          section={inspection.sections[roomIndex]}
+          section={currentSection}
           sectionIndex={roomIndex}
           totalSections={inspection.sections.length}
           propertyAddress={inspection.propertyAddress}

@@ -91,7 +91,7 @@ Example output format:
  */
 export function parseDataUrl(dataUrl: string): ImageData {
   const match = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
-  if (match) {
+  if (match && match[1] && match[2]) {
     return { mimeType: match[1], base64: match[2] };
   }
   return { mimeType: 'image/jpeg', base64: dataUrl };
@@ -111,7 +111,7 @@ function parseJsonResponse(text: string): RecognizedItem[] {
 
   // 尝试 2：从 markdown code fence 中提取
   const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-  if (codeBlockMatch) {
+  if (codeBlockMatch && codeBlockMatch[1]) {
     try {
       const parsed = JSON.parse(codeBlockMatch[1].trim());
       if (Array.isArray(parsed)) return validateItems(parsed);

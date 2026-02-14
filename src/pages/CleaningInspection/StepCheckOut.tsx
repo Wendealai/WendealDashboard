@@ -178,8 +178,8 @@ const StepCheckOut: React.FC<StepCheckOutProps> = ({
         }
       >
         <Select
-          value={keyMethod || undefined}
-          onChange={setKeyMethod}
+          value={keyMethod || null}
+          onChange={(val: string) => setKeyMethod(val)}
           placeholder='How are you returning the key?'
           options={KEY_RETURN_METHODS}
           style={{ width: '100%' }}

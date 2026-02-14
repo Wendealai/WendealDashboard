@@ -247,7 +247,8 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
             display: loading ? 'none' : 'block',
           }}
           allow='clipboard-read; clipboard-write; storage-access'
-          credentialless={false}
+          // @ts-expect-error credentialless is a valid HTML attribute but not yet in React types
+          credentialless='false'
         />
       )}
 
