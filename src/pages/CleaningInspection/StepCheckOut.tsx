@@ -94,13 +94,14 @@ const StepCheckOut: React.FC<StepCheckOutProps> = ({
         if (!item.checked) {
           uncheckedItems.push({
             roomName: section.name,
-            itemLabel: item.label,
+            itemLabel:
+              lang === 'en' && item.labelEn ? item.labelEn : item.label,
           });
         }
       });
     });
     return { allChecked: uncheckedItems.length === 0, uncheckedItems };
-  }, [inspection.sections]);
+  }, [inspection.sections, lang]);
 
   /**
    * Handle "Finish Work" button: validate checklist, then confirm.

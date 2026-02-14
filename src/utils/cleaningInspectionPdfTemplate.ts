@@ -629,7 +629,7 @@ function generateRoomChecklistPage(
         <div class="cl-icon ${item.checked ? 'cl-pass' : 'cl-fail'}">
           ${item.checked ? '✓' : '✗'}
         </div>
-        <div class="cl-label">${item.label}</div>
+        <div class="cl-label">${item.label}${item.labelEn ? ` <span style="color:#888;font-size:11px">(${item.labelEn})</span>` : ''}</div>
         ${item.photo ? '<span class="cl-badge cl-badge-photo">📷 已拍照</span>' : ''}
         ${item.requiredPhoto && !item.photo ? '<span class="cl-badge cl-badge-missing">⚠ 缺少照片</span>' : ''}
       </div>`
@@ -671,10 +671,10 @@ function generateChecklistPhotoPage(
       <div class="topline-right">第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页</div>
     </div>
     <div class="photo-area">
-      <img src="${item.photo}" alt="${item.label}" />
+      <img src="${item.photo}" alt="${item.labelEn || item.label}" />
     </div>
     <div class="photo-caption">
-      <div class="caption-text">${item.checked ? '✓' : '✗'} ${item.label}</div>
+      <div class="caption-text">${item.checked ? '✓' : '✗'} ${item.label}${item.labelEn ? ` (${item.labelEn})` : ''}</div>
       <div class="caption-page">{PAGE_NUM} / {TOTAL_PAGES}</div>
     </div>
   </div>

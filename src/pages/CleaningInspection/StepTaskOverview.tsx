@@ -4,13 +4,14 @@
  */
 
 import React from 'react';
-import { Card, Typography, Input, Row, Col, Tag, Alert } from 'antd';
+import { Card, Typography, Input, Row, Col, Tag, Alert, Image } from 'antd';
 import {
   HomeOutlined,
   CalendarOutlined,
   UserOutlined,
   EnvironmentOutlined,
   InfoCircleOutlined,
+  PictureOutlined,
 } from '@ant-design/icons';
 import type { CleaningInspection } from './types';
 import { useLang } from './i18n';
@@ -143,23 +144,86 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
       </Card>
 
       {/* Property Notes / Key Instructions */}
-      {inspection.propertyNotes && (
-        <Alert
-          type='info'
-          showIcon
-          icon={<InfoCircleOutlined />}
-          style={{ marginBottom: '16px', borderRadius: '8px' }}
-          message={
-            <Text strong style={{ fontSize: '13px' }}>
+      {(inspection.propertyNotes ||
+        (inspection.propertyNoteImages &&
+          inspection.propertyNoteImages.length > 0)) && (
+        <Card
+          size='small'
+          style={{
+            marginBottom: '16px',
+            borderRadius: '8px',
+            border: '1px solid #91d5ff',
+            background: '#e6f7ff',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '8px',
+            }}
+          >
+            <InfoCircleOutlined
+              style={{ color: '#1890ff', fontSize: '16px' }}
+            />
+            <Text strong style={{ fontSize: '14px', color: '#1890ff' }}>
               {t('overview.importantNotes')}
             </Text>
-          }
-          description={
-            <Text style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>
+          </div>
+          {inspection.propertyNotes && (
+            <Text
+              style={{
+                fontSize: '13px',
+                whiteSpace: 'pre-wrap',
+                display: 'block',
+                marginBottom: inspection.propertyNoteImages?.length
+                  ? '12px'
+                  : '0',
+              }}
+            >
               {inspection.propertyNotes}
             </Text>
-          }
-        />
+          )}
+          {inspection.propertyNoteImages &&
+            inspection.propertyNoteImages.length > 0 && (
+              <div>
+                <Text
+                  type='secondary'
+                  style={{
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <PictureOutlined />
+                  参考图片（点击查看大图）
+                </Text>
+                <Image.PreviewGroup>
+                  <div
+                    style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}
+                  >
+                    {inspection.propertyNoteImages.map((img, idx) => (
+                      <Image
+                        key={idx}
+                        src={img}
+                        alt={`说明图${idx + 1}`}
+                        width={120}
+                        height={120}
+                        style={{
+                          objectFit: 'cover',
+                          borderRadius: '8px',
+                          border: '1px solid #d9d9d9',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </Image.PreviewGroup>
+              </div>
+            )}
+        </Card>
       )}
 
       {/* Task Summary */}

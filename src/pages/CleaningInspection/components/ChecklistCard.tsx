@@ -39,9 +39,12 @@ const ChecklistCard: React.FC<ChecklistCardProps> = ({
   onFileRequest,
   disabled = false,
 }) => {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const needsPhoto = item.requiredPhoto && !item.photo;
   const canCheck = !item.requiredPhoto || !!item.photo;
+  /** 根据语言显示对应 label：英文模式下优先 labelEn，否则显示 label */
+  const displayLabel =
+    lang === 'en' && item.labelEn ? item.labelEn : item.label;
 
   return (
     <div
@@ -77,7 +80,7 @@ const ChecklistCard: React.FC<ChecklistCardProps> = ({
           fontSize: '13px',
         }}
       >
-        {item.label}
+        {displayLabel}
       </Text>
 
       {/* Photo status indicator */}

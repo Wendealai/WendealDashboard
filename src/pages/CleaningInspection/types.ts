@@ -10,8 +10,10 @@ import type { UploadFile } from 'antd/es/upload/interface';
 /** A single checklist item within a room section */
 export interface ChecklistItem {
   id: string;
-  /** Display label, e.g. "Gas stove has no grease stains" */
+  /** Display label (Chinese primary) */
   label: string;
+  /** English label (optional, used when language is set to English) */
+  labelEn?: string;
   checked: boolean;
   /** If true, the cleaner MUST attach a photo before checking this item */
   requiredPhoto: boolean;
@@ -97,6 +99,8 @@ export interface CleaningInspection {
   propertyAddress: string;
   /** Notes / remarks for cleaner (key pickup, alarm codes, access instructions, etc.) */
   propertyNotes?: string;
+  /** Images attached to property notes (base64 data URLs) for location guidance */
+  propertyNoteImages?: string[];
   checkOutDate: string;
   submittedAt: Date | string;
   sections: RoomSection[];
@@ -122,6 +126,8 @@ export interface PropertyTemplate {
   address: string;
   /** Notes / remarks for cleaner (key pickup, alarm codes, access instructions, etc.) */
   notes?: string;
+  /** Images attached to notes (base64 data URLs) for location guidance (e.g. key pickup, mail room) */
+  noteImages?: string[];
   /** IDs of active sections for this property */
   sections: string[];
   /** Reference images keyed by section ID */
@@ -191,133 +197,224 @@ export function getActiveSections(
 
 // ──────────────────────── Default Checklists ────────────────────
 
-/** Default checklist item templates keyed by section ID prefix (bilingual: Chinese primary) */
+/** Default checklist item templates keyed by section ID (Chinese label + English labelEn) */
 export const DEFAULT_CHECKLISTS: Record<
   string,
   Omit<ChecklistItem, 'id' | 'checked' | 'photo'>[]
 > = {
   kitchen: [
     {
-      label: '煤气灶/灶台无油渍 (No grease stains on stove)',
+      label: '煤气灶/灶台无油渍',
+      labelEn: 'No grease stains on stove',
       requiredPhoto: true,
     },
     {
-      label: '烤箱内部清洁，无积碳 (Oven clean, no carbon)',
+      label: '烤箱内部清洁，无积碳',
+      labelEn: 'Oven clean, no carbon buildup',
       requiredPhoto: true,
     },
     {
-      label: '水槽清洁，无水渍 (Sink clean, no water stains)',
+      label: '水槽清洁，无水渍',
+      labelEn: 'Sink clean, no water stains',
       requiredPhoto: false,
     },
     {
-      label: '水壶倒空并归位 (Kettle emptied and placed back)',
+      label: '水壶倒空并归位',
+      labelEn: 'Kettle emptied and placed back',
       requiredPhoto: false,
     },
     {
-      label: '洗碗机清洁并擦干 (Dishwasher cleaned and dried)',
+      label: '洗碗机清洁并擦干',
+      labelEn: 'Dishwasher cleaned and dried',
       requiredPhoto: true,
     },
-    { label: '冰箱内部清洁 (Fridge interior clean)', requiredPhoto: true },
-    { label: '微波炉内部清洁 (Microwave interior clean)', requiredPhoto: true },
-    { label: '台面擦拭干净 (Countertops wiped down)', requiredPhoto: false },
-    { label: '地板拖干净 (Floor mopped and clean)', requiredPhoto: false },
+    {
+      label: '冰箱内部清洁',
+      labelEn: 'Fridge interior clean',
+      requiredPhoto: true,
+    },
+    {
+      label: '微波炉内部清洁',
+      labelEn: 'Microwave interior clean',
+      requiredPhoto: true,
+    },
+    {
+      label: '台面擦拭干净',
+      labelEn: 'Countertops wiped down',
+      requiredPhoto: false,
+    },
+    {
+      label: '地板拖干净',
+      labelEn: 'Floor mopped and clean',
+      requiredPhoto: false,
+    },
   ],
   'living-room': [
     {
-      label: '沙发靠垫整齐摆放 (Sofa cushions arranged)',
+      label: '沙发靠垫整齐摆放',
+      labelEn: 'Sofa cushions arranged',
       requiredPhoto: false,
     },
-    { label: '茶几擦拭干净 (Coffee table wiped down)', requiredPhoto: false },
-    { label: '地板吸尘/拖干净 (Floor vacuumed/mopped)', requiredPhoto: false },
-    { label: '窗户和玻璃干净 (Windows and glass clean)', requiredPhoto: false },
-    { label: '电视屏幕擦拭 (TV screen wiped)', requiredPhoto: false },
+    {
+      label: '茶几擦拭干净',
+      labelEn: 'Coffee table wiped down',
+      requiredPhoto: false,
+    },
+    {
+      label: '地板吸尘/拖干净',
+      labelEn: 'Floor vacuumed/mopped',
+      requiredPhoto: false,
+    },
+    {
+      label: '窗户和玻璃干净',
+      labelEn: 'Windows and glass clean',
+      requiredPhoto: false,
+    },
+    { label: '电视屏幕擦拭', labelEn: 'TV screen wiped', requiredPhoto: false },
   ],
   'bedroom-1': [
-    { label: '床单更换/铺好 (Bed linen changed/made)', requiredPhoto: false },
-    { label: '衣柜内部擦拭 (Wardrobe interior wiped)', requiredPhoto: false },
-    { label: '地板吸尘 (Floor vacuumed)', requiredPhoto: false },
-    { label: '窗户擦拭 (Windows wiped)', requiredPhoto: false },
     {
-      label: '窗帘/百叶窗无灰尘 (Curtains/blinds dust-free)',
+      label: '床单更换/铺好',
+      labelEn: 'Bed linen changed/made',
+      requiredPhoto: false,
+    },
+    {
+      label: '衣柜内部擦拭',
+      labelEn: 'Wardrobe interior wiped',
+      requiredPhoto: false,
+    },
+    { label: '地板吸尘', labelEn: 'Floor vacuumed', requiredPhoto: false },
+    { label: '窗户擦拭', labelEn: 'Windows wiped', requiredPhoto: false },
+    {
+      label: '窗帘/百叶窗无灰尘',
+      labelEn: 'Curtains/blinds dust-free',
       requiredPhoto: false,
     },
   ],
   'bedroom-2': [
-    { label: '床单更换/铺好 (Bed linen changed/made)', requiredPhoto: false },
-    { label: '衣柜内部擦拭 (Wardrobe interior wiped)', requiredPhoto: false },
-    { label: '地板吸尘 (Floor vacuumed)', requiredPhoto: false },
+    {
+      label: '床单更换/铺好',
+      labelEn: 'Bed linen changed/made',
+      requiredPhoto: false,
+    },
+    {
+      label: '衣柜内部擦拭',
+      labelEn: 'Wardrobe interior wiped',
+      requiredPhoto: false,
+    },
+    { label: '地板吸尘', labelEn: 'Floor vacuumed', requiredPhoto: false },
   ],
   'bedroom-3': [
-    { label: '床单更换/铺好 (Bed linen changed/made)', requiredPhoto: false },
-    { label: '衣柜内部擦拭 (Wardrobe interior wiped)', requiredPhoto: false },
-    { label: '地板吸尘 (Floor vacuumed)', requiredPhoto: false },
+    {
+      label: '床单更换/铺好',
+      labelEn: 'Bed linen changed/made',
+      requiredPhoto: false,
+    },
+    {
+      label: '衣柜内部擦拭',
+      labelEn: 'Wardrobe interior wiped',
+      requiredPhoto: false,
+    },
+    { label: '地板吸尘', labelEn: 'Floor vacuumed', requiredPhoto: false },
   ],
   'bathroom-1': [
     {
-      label: '马桶内外清洁 (Toilet interior and exterior clean)',
+      label: '马桶内外清洁',
+      labelEn: 'Toilet interior and exterior clean',
       requiredPhoto: true,
     },
     {
-      label: '淋浴玻璃无水渍 (Shower glass no water marks)',
+      label: '淋浴玻璃无水渍',
+      labelEn: 'Shower glass no water marks',
       requiredPhoto: true,
     },
-    { label: '洗手台和镜子清洁 (Sink and mirror clean)', requiredPhoto: false },
-    { label: '地板拖干净 (Floor mopped)', requiredPhoto: false },
-    { label: '排水口通畅清洁 (Drain clear and clean)', requiredPhoto: false },
-    { label: '毛巾架擦拭 (Towel rack wiped)', requiredPhoto: false },
+    {
+      label: '洗手台和镜子清洁',
+      labelEn: 'Sink and mirror clean',
+      requiredPhoto: false,
+    },
+    { label: '地板拖干净', labelEn: 'Floor mopped', requiredPhoto: false },
+    {
+      label: '排水口通畅清洁',
+      labelEn: 'Drain clear and clean',
+      requiredPhoto: false,
+    },
+    { label: '毛巾架擦拭', labelEn: 'Towel rack wiped', requiredPhoto: false },
   ],
   'bathroom-2': [
     {
-      label: '马桶内外清洁 (Toilet interior and exterior clean)',
+      label: '马桶内外清洁',
+      labelEn: 'Toilet interior and exterior clean',
       requiredPhoto: true,
     },
     {
-      label: '淋浴玻璃无水渍 (Shower glass no water marks)',
+      label: '淋浴玻璃无水渍',
+      labelEn: 'Shower glass no water marks',
       requiredPhoto: true,
     },
-    { label: '洗手台和镜子清洁 (Sink and mirror clean)', requiredPhoto: false },
-    { label: '地板拖干净 (Floor mopped)', requiredPhoto: false },
+    {
+      label: '洗手台和镜子清洁',
+      labelEn: 'Sink and mirror clean',
+      requiredPhoto: false,
+    },
+    { label: '地板拖干净', labelEn: 'Floor mopped', requiredPhoto: false },
   ],
   'bathroom-3': [
     {
-      label: '马桶内外清洁 (Toilet interior and exterior clean)',
+      label: '马桶内外清洁',
+      labelEn: 'Toilet interior and exterior clean',
       requiredPhoto: true,
     },
-    { label: '淋浴/浴缸清洁 (Shower/bath clean)', requiredPhoto: false },
-    { label: '地板拖干净 (Floor mopped)', requiredPhoto: false },
+    {
+      label: '淋浴/浴缸清洁',
+      labelEn: 'Shower/bath clean',
+      requiredPhoto: false,
+    },
+    { label: '地板拖干净', labelEn: 'Floor mopped', requiredPhoto: false },
   ],
   toilet: [
     {
-      label: '马桶内外清洁 (Toilet interior and exterior clean)',
+      label: '马桶内外清洁',
+      labelEn: 'Toilet interior and exterior clean',
       requiredPhoto: true,
     },
-    { label: '地板拖干净 (Floor mopped)', requiredPhoto: false },
-    { label: '洗手台清洁 (Sink clean)', requiredPhoto: false },
+    { label: '地板拖干净', labelEn: 'Floor mopped', requiredPhoto: false },
+    { label: '洗手台清洁', labelEn: 'Sink clean', requiredPhoto: false },
   ],
   balcony: [
-    { label: '地板扫干净 (Floor swept)', requiredPhoto: false },
-    { label: '栏杆擦拭 (Railings wiped)', requiredPhoto: false },
-    { label: '户外家具清洁 (Outdoor furniture cleaned)', requiredPhoto: false },
+    { label: '地板扫干净', labelEn: 'Floor swept', requiredPhoto: false },
+    { label: '栏杆擦拭', labelEn: 'Railings wiped', requiredPhoto: false },
+    {
+      label: '户外家具清洁',
+      labelEn: 'Outdoor furniture cleaned',
+      requiredPhoto: false,
+    },
   ],
   laundry: [
     {
-      label: '洗衣机清洁并擦干 (Washing machine cleaned)',
+      label: '洗衣机清洁并擦干',
+      labelEn: 'Washing machine cleaned',
       requiredPhoto: false,
     },
     {
-      label: '烘干机滤网清理 (Dryer lint filter cleared)',
+      label: '烘干机滤网清理',
+      labelEn: 'Dryer lint filter cleared',
       requiredPhoto: false,
     },
-    { label: '洗手台清洁 (Sink clean)', requiredPhoto: false },
-    { label: '地板拖干净 (Floor mopped)', requiredPhoto: false },
+    { label: '洗手台清洁', labelEn: 'Sink clean', requiredPhoto: false },
+    { label: '地板拖干净', labelEn: 'Floor mopped', requiredPhoto: false },
   ],
   garage: [
-    { label: '地板扫干净 (Floor swept)', requiredPhoto: false },
-    { label: '架子擦拭 (Shelves wiped)', requiredPhoto: false },
+    { label: '地板扫干净', labelEn: 'Floor swept', requiredPhoto: false },
+    { label: '架子擦拭', labelEn: 'Shelves wiped', requiredPhoto: false },
   ],
   garden: [
-    { label: '户外区域整洁 (Outdoor area tidy)', requiredPhoto: false },
-    { label: '垃圾桶清空 (Bins emptied)', requiredPhoto: false },
+    {
+      label: '户外区域整洁',
+      labelEn: 'Outdoor area tidy',
+      requiredPhoto: false,
+    },
+    { label: '垃圾桶清空', labelEn: 'Bins emptied', requiredPhoto: false },
   ],
 };
 
@@ -328,12 +425,16 @@ export function getDefaultChecklistForSection(
   sectionId: string
 ): ChecklistItem[] {
   const templates = DEFAULT_CHECKLISTS[sectionId] || [];
-  return templates.map((t, idx) => ({
-    id: `${sectionId}-item-${idx}`,
-    label: t.label,
-    checked: false,
-    requiredPhoto: t.requiredPhoto,
-  }));
+  return templates.map((t, idx) => {
+    const item: ChecklistItem = {
+      id: `${sectionId}-item-${idx}`,
+      label: t.label,
+      checked: false,
+      requiredPhoto: t.requiredPhoto,
+    };
+    if (t.labelEn) item.labelEn = t.labelEn;
+    return item;
+  });
 }
 
 // ──────────────────────── Key Return Methods ────────────────────
