@@ -107,11 +107,25 @@ const translations: Record<Lang, Record<string, string>> = {
     'checkOut.finishButton': '完成工作 / 签退',
     'checkOut.checkedOutAt': '已于 {time} 签退',
     'checkOut.gpsInfo': 'GPS：{gps}',
+    'checkOut.timeLocked': '⏱ 签退时间已锁定，无法更改',
     'checkOut.submitButton': '提交检查报告',
     'checkOut.submitted': '检查已提交！',
     'checkOut.submittedDesc': '您的检查报告已成功记录。',
     'checkOut.generatePdf': '生成 PDF 报告',
     'checkOut.copyLink': '复制分享链接',
+    'checkOut.editButton': '返回编辑',
+    'checkOut.confirmTitle': '确认完成工作',
+    'checkOut.confirmContent':
+      '请确认您已完成今天的清洁工作，并且所有房间的照片都已拍摄完成。签退时间一经确认将无法更改。',
+    'checkOut.confirmOk': '确认完成',
+    'checkOut.incompleteTitle': '清单未完成',
+    'checkOut.incompleteDesc':
+      '以下检查项目尚未勾选完成，请返回对应房间完成所有检查后再签退：',
+    'checkOut.incompleteMore': '还有 {count} 项未完成...',
+    'checkOut.understood': '我知道了',
+    'checkOut.checklistWarning': '还有 {count} 个检查项目未完成',
+    'checkOut.checklistWarningDesc':
+      '请先返回各房间完成所有清单项目，才能签退和提交报告。',
 
     // ── PhotoCapture ──
     'photo.camera': '拍照',
@@ -242,11 +256,25 @@ const translations: Record<Lang, Record<string, string>> = {
     'checkOut.finishButton': 'Finish Work & Check Out',
     'checkOut.checkedOutAt': 'Checked out at {time}',
     'checkOut.gpsInfo': 'GPS: {gps}',
+    'checkOut.timeLocked': '⏱ Check-out time is locked and cannot be changed',
     'checkOut.submitButton': 'Submit Inspection',
     'checkOut.submitted': 'Inspection Submitted!',
     'checkOut.submittedDesc': 'Your inspection has been recorded successfully.',
     'checkOut.generatePdf': 'Generate PDF Report',
     'checkOut.copyLink': 'Copy Shareable Link',
+    'checkOut.editButton': 'Edit Report',
+    'checkOut.confirmTitle': 'Confirm Work Completion',
+    'checkOut.confirmContent':
+      'Please confirm you have completed all cleaning work and taken all required photos. The check-out time cannot be changed once confirmed.',
+    'checkOut.confirmOk': 'Confirm',
+    'checkOut.incompleteTitle': 'Checklist Incomplete',
+    'checkOut.incompleteDesc':
+      'The following items are not yet checked. Please go back and complete all items before checking out:',
+    'checkOut.incompleteMore': '{count} more items remaining...',
+    'checkOut.understood': 'Got it',
+    'checkOut.checklistWarning': '{count} checklist items incomplete',
+    'checkOut.checklistWarningDesc':
+      'Please go back and complete all room checklist items before you can check out and submit.',
 
     // ── PhotoCapture ──
     'photo.camera': 'Camera',

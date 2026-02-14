@@ -19,27 +19,54 @@ import type {
   CheckInOut,
   ChecklistItem,
 } from '@/pages/CleaningInspection/types';
+import { reverseGeocode } from '@/pages/CleaningInspection/utils';
 
 /**
- * Generate the complete HTML document for PDF printing
+ * Ensure a CheckInOut record has a reverse-geocoded gpsAddress.
+ * If gpsAddress is empty/missing but coords exist, perform reverse geocoding.
  */
-export function generateInspectionPdfHtml(
+async function ensureGpsAddress(
+  data: CheckInOut | null
+): Promise<CheckInOut | null> {
+  if (!data) return null;
+  if (data.gpsAddress && data.gpsAddress.length > 0) return data;
+  if (data.gpsLat !== null && data.gpsLng !== null) {
+    const address = await reverseGeocode(data.gpsLat, data.gpsLng);
+    return { ...data, gpsAddress: address };
+  }
+  return data;
+}
+
+/**
+ * Generate the complete HTML document for PDF printing.
+ * Async because it may need to reverse-geocode GPS coordinates.
+ */
+export async function generateInspectionPdfHtml(
   inspection: CleaningInspection
-): string {
-  const formattedDate = dayjs(inspection.checkOutDate).format('DD/MM/YYYY');
-  const submittedAt = inspection.submittedAt
-    ? dayjs(inspection.submittedAt).format('DD/MM/YYYY HH:mm')
+): Promise<string> {
+  // Pre-process: reverse-geocode check-in/out GPS if addresses are missing
+  const [enrichedCheckIn, enrichedCheckOut] = await Promise.all([
+    ensureGpsAddress(inspection.checkIn),
+    ensureGpsAddress(inspection.checkOut),
+  ]);
+  // Use enriched copy for rendering
+  const enriched: CleaningInspection = {
+    ...inspection,
+    checkIn: enrichedCheckIn,
+    checkOut: enrichedCheckOut,
+  };
+  const formattedDate = dayjs(enriched.checkOutDate).format('DD/MM/YYYY');
+  const submittedAt = enriched.submittedAt
+    ? dayjs(enriched.submittedAt).format('DD/MM/YYYY HH:mm')
     : 'N/A';
 
   const pages: string[] = [];
 
   // Page 1: Cover
-  pages.push(generateCoverPage(inspection, formattedDate, submittedAt));
+  pages.push(generateCoverPage(enriched, formattedDate, submittedAt));
 
   // Damage report pages (one photo per page)
-  const damagesWithPhotos = (inspection.damageReports || []).filter(
-    d => d.photo
-  );
+  const damagesWithPhotos = (enriched.damageReports || []).filter(d => d.photo);
   if (damagesWithPhotos.length > 0) {
     pages.push(generateDamageSummaryPage(damagesWithPhotos));
     damagesWithPhotos.forEach((d, idx) => {
@@ -48,15 +75,11 @@ export function generateInspectionPdfHtml(
   }
 
   // Per-room: checklist page + checklist item photos + additional photos
-  inspection.sections.forEach((section, sectionIdx) => {
+  enriched.sections.forEach((section, sectionIdx) => {
     // Checklist summary for this room
     if (section.checklist && section.checklist.length > 0) {
       pages.push(
-        generateRoomChecklistPage(
-          section,
-          sectionIdx,
-          inspection.sections.length
-        )
+        generateRoomChecklistPage(section, sectionIdx, enriched.sections.length)
       );
     }
 
@@ -86,7 +109,7 @@ export function generateInspectionPdfHtml(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>清洁检查报告 - ${inspection.id}</title>
+  <title>清洁检查报告 - ${enriched.id}</title>
   <style>
     ${generatePrintStyles()}
   </style>
@@ -414,10 +437,26 @@ function formatCioBox(data: CheckInOut | null, label: string): string {
   }
   const time = dayjs(data.timestamp).format('HH:mm:ss');
   const date = dayjs(data.timestamp).format('DD/MM/YYYY');
-  const gps =
-    data.gpsLat !== null && data.gpsLng !== null
-      ? `GPS: ${data.gpsLat.toFixed(4)}, ${data.gpsLng.toFixed(4)}`
-      : 'GPS: N/A';
+
+  // Show reverse-geocoded street address prominently; raw coords as secondary info
+  const hasCoords = data.gpsLat !== null && data.gpsLng !== null;
+  const coordsStr = hasCoords
+    ? `(${data.gpsLat!.toFixed(5)}, ${data.gpsLng!.toFixed(5)})`
+    : '';
+
+  // gpsAddress should now contain the reverse-geocoded street address
+  let locationLine = '';
+  if (data.gpsAddress) {
+    locationLine = `<div class="cio-detail" style="font-weight:600;">📍 ${data.gpsAddress}</div>`;
+    if (coordsStr) {
+      locationLine += `<div class="cio-detail" style="font-size:7pt;color:#888;">${coordsStr}</div>`;
+    }
+  } else if (hasCoords) {
+    locationLine = `<div class="cio-detail">GPS: ${coordsStr}</div>`;
+  } else {
+    locationLine = `<div class="cio-detail" style="color:#ccc;">GPS: N/A</div>`;
+  }
+
   const keyLine = data.keyReturnMethod
     ? `<div class="cio-detail" style="color:#d46b08;">钥匙归还: ${data.keyReturnMethod}</div>`
     : '';
@@ -426,8 +465,7 @@ function formatCioBox(data: CheckInOut | null, label: string): string {
       <div class="cio-label">${label}</div>
       <div class="cio-time">${time}</div>
       <div class="cio-detail">${date}</div>
-      <div class="cio-detail">${gps}</div>
-      ${data.gpsAddress ? `<div class="cio-detail">${data.gpsAddress}</div>` : ''}
+      ${locationLine}
       ${keyLine}
     </div>
   `;

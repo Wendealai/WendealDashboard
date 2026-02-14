@@ -42,6 +42,90 @@ export function formatGPS(lat: number | null, lng: number | null): string {
   return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 }
 
+/**
+ * Reverse geocode GPS coordinates to a human-readable address.
+ * Uses OpenStreetMap Nominatim API (free, no key required).
+ * Returns a formatted string like: "52 Wecker Road, Mansfield QLD 4122"
+ * Falls back to raw coordinates if the API fails.
+ */
+export async function reverseGeocode(
+  lat: number,
+  lng: number
+): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=en`,
+      {
+        headers: { 'User-Agent': 'SparkeryCleaningApp/1.0' },
+      }
+    );
+    if (!response.ok) return formatGPS(lat, lng);
+
+    const data = await response.json();
+    const addr = data.address || {};
+
+    // Build a clean address string: street, suburb, state, postcode
+    const parts: string[] = [];
+
+    // House number + road
+    const road = addr.road || addr.street || '';
+    const houseNum = addr.house_number || '';
+    if (road) {
+      parts.push(houseNum ? `${houseNum} ${road}` : road);
+    }
+
+    // Suburb / neighbourhood
+    const suburb =
+      addr.suburb || addr.neighbourhood || addr.hamlet || addr.town || '';
+    if (suburb) parts.push(suburb);
+
+    // State abbreviation + postcode
+    const state = addr.state || '';
+    const postcode = addr.postcode || '';
+    if (state || postcode) {
+      const stateAbbr = abbreviateState(state);
+      parts.push([stateAbbr, postcode].filter(Boolean).join(' '));
+    }
+
+    const result = parts.filter(Boolean).join(', ');
+    return result || data.display_name || formatGPS(lat, lng);
+  } catch {
+    return formatGPS(lat, lng);
+  }
+}
+
+/**
+ * Abbreviate Australian state names to standard codes
+ */
+function abbreviateState(state: string): string {
+  const map: Record<string, string> = {
+    queensland: 'QLD',
+    'new south wales': 'NSW',
+    victoria: 'VIC',
+    'western australia': 'WA',
+    'south australia': 'SA',
+    tasmania: 'TAS',
+    'northern territory': 'NT',
+    'australian capital territory': 'ACT',
+  };
+  return map[state.toLowerCase()] || state;
+}
+
+/**
+ * Capture GPS and immediately reverse geocode to a street address.
+ * Returns both coordinates and the formatted address string.
+ */
+export async function captureGPSWithAddress(): Promise<{
+  coords: GpsCoords | null;
+  address: string;
+}> {
+  const coords = await captureGPS();
+  if (!coords) return { coords: null, address: '' };
+
+  const address = await reverseGeocode(coords.lat, coords.lng);
+  return { coords, address };
+}
+
 // ──────────────────────── Image Compression ─────────────────────
 
 /**
@@ -90,12 +174,16 @@ export interface WatermarkOptions {
 }
 
 /**
- * Add a professional 3-line watermark strip to the bottom of a canvas.
+ * Add a professional watermark strip to the bottom of a canvas.
  *
- * Layout:
+ * When address is available:
+ *   Line 1: SPARKERY CLEANING INSPECTION
+ *   Line 2: 2026-02-14 09:35:22
+ *   Line 3: 📍 52 Wecker Road, Mansfield QLD 4122
+ *
+ * When only GPS coords are available:
  *   Line 1: SPARKERY CLEANING INSPECTION
  *   Line 2: 2026-02-14 09:35:22 | GPS: -27.4689, 153.0235
- *   Line 3: 52 Wecker Road, Mansfield QLD 4122
  */
 export function addWatermark(
   canvas: HTMLCanvasElement,
@@ -107,16 +195,25 @@ export function addWatermark(
   const timestamp = dayjs().format('YYYY-MM-DD HH:mm:ss');
 
   const label = options.label || 'SPARKERY CLEANING INSPECTION';
-  const gpsStr = options.gps
-    ? `GPS: ${options.gps.lat.toFixed(6)}, ${options.gps.lng.toFixed(6)}`
-    : 'GPS: N/A';
   const addressStr = options.address || '';
 
   // Calculate font sizes relative to image width
   const baseFontSize = Math.max(12, Math.round(w * 0.018));
   const lineHeight = baseFontSize * 1.4;
-  const lines = [label, `${timestamp}  |  ${gpsStr}`];
-  if (addressStr) lines.push(addressStr);
+
+  const lines: string[] = [label];
+
+  if (addressStr) {
+    // Has street address → show timestamp on line 2, address on line 3
+    lines.push(timestamp);
+    lines.push(`📍 ${addressStr}`);
+  } else if (options.gps) {
+    // No address but has raw coords → show on same line as timestamp
+    const gpsStr = `GPS: ${options.gps.lat.toFixed(6)}, ${options.gps.lng.toFixed(6)}`;
+    lines.push(`${timestamp}  |  ${gpsStr}`);
+  } else {
+    lines.push(timestamp);
+  }
 
   const stripHeight = lines.length * lineHeight + baseFontSize;
   const stripY = h - stripHeight;

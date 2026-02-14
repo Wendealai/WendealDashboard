@@ -236,26 +236,39 @@ const CleaningInspectionPage: React.FC = () => {
     if (urlInspectionId) {
       const archives = loadArchivedInspections();
       const existing = archives.find((a: any) => a.id === urlInspectionId);
+
       if (existing) {
-        setInspection(migrateInspection(existing));
-        setIsArchivedView(true);
-        setServerLoadAttempted(true);
-        if (existing.status === 'submitted') {
-          setCurrentStep(999); // Will be clamped to max step
+        // If local copy has real progress (in_progress or submitted), use it directly
+        if (
+          existing.status === 'submitted' ||
+          existing.status === 'in_progress'
+        ) {
+          setInspection(migrateInspection(existing));
+          setIsArchivedView(true);
+          setServerLoadAttempted(true);
+          if (existing.status === 'submitted') {
+            setCurrentStep(999);
+          }
+          return;
         }
-        return;
+        // Local copy is "draft" or "pending" (blank stub from admin panel)
+        // → still check the server for a newer version (e.g. cleaner submitted from phone)
       }
     }
 
-    // Step 2: If not found locally and we haven't tried the server yet, try it
+    // Step 2: Try loading from server (for new devices OR when local is blank stub)
     if (urlInspectionId && !serverLoadAttempted) {
       setIsLoadingFromServer(true);
       setServerLoadAttempted(true);
 
       loadInspection(urlInspectionId)
         .then(serverData => {
-          if (serverData) {
-            // Found on server! Save to localStorage for future access and use it
+          if (
+            serverData &&
+            (serverData.status === 'submitted' ||
+              serverData.status === 'in_progress')
+          ) {
+            // Server has a newer/active version → use it and update localStorage
             saveArchivedInspection(serverData);
             setInspection(migrateInspection(serverData));
             setIsArchivedView(true);
@@ -263,21 +276,35 @@ const CleaningInspectionPage: React.FC = () => {
               setCurrentStep(999);
             }
             console.log(
-              '[Init] Loaded inspection from server:',
+              '[Init] Loaded active inspection from server:',
               urlInspectionId
             );
           } else {
-            // Not found on server either → create new
-            console.log('[Init] Not found on server, creating new inspection');
-            setInspection(buildNewInspection());
-            setIsArchivedView(false);
+            // Server has nothing better → use local copy (if any) or create new
+            const archives = loadArchivedInspections();
+            const localCopy = archives.find(
+              (a: any) => a.id === urlInspectionId
+            );
+            if (localCopy) {
+              setInspection(migrateInspection(localCopy));
+              setIsArchivedView(false);
+            } else {
+              setInspection(buildNewInspection());
+              setIsArchivedView(false);
+            }
           }
         })
         .catch(() => {
-          // Server error → create new
-          console.warn('[Init] Server load failed, creating new inspection');
-          setInspection(buildNewInspection());
-          setIsArchivedView(false);
+          // Server error → fall back to local copy or create new
+          const archives = loadArchivedInspections();
+          const localCopy = archives.find((a: any) => a.id === urlInspectionId);
+          if (localCopy) {
+            setInspection(migrateInspection(localCopy));
+            setIsArchivedView(false);
+          } else {
+            setInspection(buildNewInspection());
+            setIsArchivedView(false);
+          }
         })
         .finally(() => {
           setIsLoadingFromServer(false);
@@ -401,10 +428,10 @@ const CleaningInspectionPage: React.FC = () => {
   }, [inspection, messageApi]);
 
   /** Generate PDF report and open in new window */
-  const handleGeneratePDF = useCallback(() => {
+  const handleGeneratePDF = useCallback(async () => {
     if (!inspection) return;
     try {
-      const html = generateInspectionPdfHtml(inspection);
+      const html = await generateInspectionPdfHtml(inspection);
       openInspectionPrintWindow(html);
     } catch {
       messageApi.error('Failed to generate PDF');
@@ -417,6 +444,21 @@ const CleaningInspectionPage: React.FC = () => {
     navigator.clipboard.writeText(url);
     messageApi.success('Link copied to clipboard!');
   }, [inspection, messageApi]);
+
+  /**
+   * Allow editing after submission: revert status to in_progress.
+   * Checkout timestamp remains locked (not cleared).
+   */
+  const handleEdit = useCallback(() => {
+    if (!inspection) return;
+    setInspection({ ...inspection, status: 'in_progress', submittedAt: '' });
+    setCurrentStep(0); // Go back to first step for editing
+    messageApi.info(
+      lang === 'zh'
+        ? '已进入编辑模式，修改完成后请重新提交'
+        : 'Edit mode enabled. Please re-submit when done.'
+    );
+  }, [inspection, messageApi, lang]);
 
   // ── Navigation ──
   const handleNext = () => setCurrentStep(s => Math.min(s + 1, maxStep));
@@ -483,6 +525,7 @@ const CleaningInspectionPage: React.FC = () => {
         onSubmit={handleSubmit}
         onGeneratePDF={handleGeneratePDF}
         onCopyLink={handleCopyLink}
+        onEdit={handleEdit}
         isSubmitting={isSubmitting}
       />
     );

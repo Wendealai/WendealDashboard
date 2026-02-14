@@ -22,7 +22,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { CheckInOut } from './types';
-import { captureGPS, formatGPS } from './utils';
+import { captureGPSWithAddress, formatGPS } from './utils';
 import { useLang } from './i18n';
 
 const { Title, Text, Paragraph } = Typography;
@@ -45,16 +45,18 @@ const StepCheckIn: React.FC<StepCheckInProps> = ({
   const [loading, setLoading] = useState(false);
   const [manualAddress, setManualAddress] = useState('');
 
-  /** Handle check-in: capture GPS and timestamp */
+  /** Handle check-in: capture GPS, reverse geocode, and record timestamp */
   const handleCheckIn = useCallback(async () => {
     setLoading(true);
     try {
-      const gps = await captureGPS();
+      const { coords, address: geoAddress } = await captureGPSWithAddress();
+      // Use reverse-geocoded address, fall back to property address or manual input
+      const resolvedAddress = geoAddress || propertyAddress || manualAddress;
       const data: CheckInOut = {
         timestamp: dayjs().toISOString(),
-        gpsLat: gps?.lat ?? null,
-        gpsLng: gps?.lng ?? null,
-        gpsAddress: propertyAddress || manualAddress,
+        gpsLat: coords?.lat ?? null,
+        gpsLng: coords?.lng ?? null,
+        gpsAddress: resolvedAddress,
       };
       onCheckIn(data);
     } finally {

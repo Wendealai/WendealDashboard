@@ -1,9 +1,15 @@
 /**
- * Final Step: Check-out
- * GPS capture, key return method, lock photo, summary, submit.
+ * Final Step: Check-out & Submit
+ *
+ * Flow:
+ *   1. Key return + lock photo
+ *   2. Checklist validation (all items must be checked before proceeding)
+ *   3. "Finish Work" button → confirmation dialog → locks checkout timestamp
+ *   4. "Submit Report" button
+ *   5. After submit: show success with PDF/link + Edit button
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card,
   Typography,
@@ -16,6 +22,7 @@ import {
   Divider,
   Alert,
   Result,
+  Modal,
 } from 'antd';
 import {
   CheckCircleOutlined,
@@ -26,10 +33,13 @@ import {
   FilePdfOutlined,
   LinkOutlined,
   LockOutlined,
+  EditOutlined,
+  ExclamationCircleOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { CleaningInspection, CheckInOut } from './types';
-import { captureGPS, formatGPS, calculateDuration } from './utils';
+import { captureGPSWithAddress, formatGPS, calculateDuration } from './utils';
 import PhotoCapture from './components/PhotoCapture';
 import { useLang, getKeyReturnMethods } from './i18n';
 
@@ -41,11 +51,13 @@ interface StepCheckOutProps {
   onSubmit: () => void;
   onGeneratePDF: () => void;
   onCopyLink: () => void;
+  /** Called when user wants to edit after submission */
+  onEdit: () => void;
   isSubmitting: boolean;
 }
 
 /**
- * Check-out and submission step
+ * Check-out and submission step with checklist validation
  */
 const StepCheckOut: React.FC<StepCheckOutProps> = ({
   inspection,
@@ -53,6 +65,7 @@ const StepCheckOut: React.FC<StepCheckOutProps> = ({
   onSubmit,
   onGeneratePDF,
   onCopyLink,
+  onEdit,
   isSubmitting,
 }) => {
   const { t, lang } = useLang();
@@ -70,24 +83,113 @@ const StepCheckOut: React.FC<StepCheckOutProps> = ({
   /** Localized key return methods */
   const keyReturnMethods = getKeyReturnMethods(lang);
 
-  /** Handle check-out button */
-  const handleCheckOut = useCallback(async () => {
-    setLoading(true);
-    try {
-      const gps = await captureGPS();
-      const data: CheckInOut = {
-        timestamp: dayjs().toISOString(),
-        gpsLat: gps?.lat ?? null,
-        gpsLng: gps?.lng ?? null,
-        gpsAddress: inspection.propertyAddress,
-        photo: lockPhoto,
-        keyReturnMethod: keyMethod,
-      };
-      onCheckOut(data);
-    } finally {
-      setLoading(false);
+  /**
+   * Checklist validation: find all unchecked items across all rooms.
+   * Returns { allChecked, uncheckedItems: [{ room, item }] }
+   */
+  const checklistValidation = useMemo(() => {
+    const uncheckedItems: { roomName: string; itemLabel: string }[] = [];
+    inspection.sections.forEach(section => {
+      section.checklist.forEach(item => {
+        if (!item.checked) {
+          uncheckedItems.push({
+            roomName: section.name,
+            itemLabel: item.label,
+          });
+        }
+      });
+    });
+    return { allChecked: uncheckedItems.length === 0, uncheckedItems };
+  }, [inspection.sections]);
+
+  /**
+   * Handle "Finish Work" button: validate checklist, then confirm.
+   * On confirm, capture GPS + timestamp (locked permanently).
+   */
+  const handleFinishWork = useCallback(() => {
+    // Block if checklist is incomplete
+    if (!checklistValidation.allChecked) {
+      const maxShow = 5;
+      const items = checklistValidation.uncheckedItems.slice(0, maxShow);
+      const remaining = checklistValidation.uncheckedItems.length - maxShow;
+      Modal.warning({
+        title: t('checkOut.incompleteTitle'),
+        content: (
+          <div>
+            <p>{t('checkOut.incompleteDesc')}</p>
+            <ul style={{ paddingLeft: '20px', margin: '8px 0' }}>
+              {items.map((u, idx) => (
+                <li key={idx} style={{ marginBottom: '4px' }}>
+                  <Tag color='orange' style={{ marginRight: '4px' }}>
+                    {u.roomName}
+                  </Tag>
+                  {u.itemLabel}
+                </li>
+              ))}
+              {remaining > 0 && (
+                <li style={{ color: '#999' }}>
+                  {t('checkOut.incompleteMore', { count: remaining })}
+                </li>
+              )}
+            </ul>
+          </div>
+        ),
+        okText: t('checkOut.understood'),
+      });
+      return;
     }
-  }, [inspection.propertyAddress, lockPhoto, keyMethod, onCheckOut]);
+
+    // All checked → show confirmation dialog
+    Modal.confirm({
+      title: t('checkOut.confirmTitle'),
+      icon: <ExclamationCircleOutlined />,
+      content: t('checkOut.confirmContent'),
+      okText: t('checkOut.confirmOk'),
+      cancelText: t('photo.cancel'),
+      okButtonProps: {
+        style: { background: '#52c41a', borderColor: '#52c41a' },
+      },
+      onOk: async () => {
+        setLoading(true);
+        try {
+          const { coords, address: geoAddress } = await captureGPSWithAddress();
+          const data: CheckInOut = {
+            timestamp: dayjs().toISOString(),
+            gpsLat: coords?.lat ?? null,
+            gpsLng: coords?.lng ?? null,
+            gpsAddress: geoAddress || inspection.propertyAddress,
+            photo: lockPhoto,
+            keyReturnMethod: keyMethod,
+          };
+          onCheckOut(data);
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+  }, [
+    checklistValidation,
+    inspection.propertyAddress,
+    lockPhoto,
+    keyMethod,
+    onCheckOut,
+    t,
+  ]);
+
+  /**
+   * Handle "Submit Report" button: also validate checklist before allowing submit
+   */
+  const handleSubmit = useCallback(() => {
+    if (!checklistValidation.allChecked) {
+      Modal.warning({
+        title: t('checkOut.incompleteTitle'),
+        content: t('checkOut.incompleteDesc'),
+        okText: t('checkOut.understood'),
+      });
+      return;
+    }
+    onSubmit();
+  }, [checklistValidation, onSubmit, t]);
 
   /** Calculate stats */
   const totalPhotos = inspection.sections.reduce(
@@ -110,7 +212,7 @@ const StepCheckOut: React.FC<StepCheckOutProps> = ({
         )
       : '—';
 
-  // Already submitted - show success
+  // ── Already submitted - show success with Edit option ──
   if (isSubmitted) {
     return (
       <div style={{ maxWidth: '500px', margin: '0 auto' }}>
@@ -130,6 +232,14 @@ const StepCheckOut: React.FC<StepCheckOutProps> = ({
             </Button>,
             <Button key='link' icon={<LinkOutlined />} onClick={onCopyLink}>
               {t('checkOut.copyLink')}
+            </Button>,
+            <Button
+              key='edit'
+              icon={<EditOutlined />}
+              onClick={onEdit}
+              style={{ marginTop: '8px' }}
+            >
+              {t('checkOut.editButton')}
             </Button>,
           ]}
         />
@@ -169,6 +279,20 @@ const StepCheckOut: React.FC<StepCheckOutProps> = ({
         <LockOutlined style={{ marginRight: '8px' }} />
         {t('checkOut.title')}
       </Title>
+
+      {/* Checklist validation warning */}
+      {!checklistValidation.allChecked && (
+        <Alert
+          type='warning'
+          showIcon
+          icon={<WarningOutlined />}
+          message={t('checkOut.checklistWarning', {
+            count: checklistValidation.uncheckedItems.length,
+          })}
+          description={t('checkOut.checklistWarningDesc')}
+          style={{ marginBottom: '12px', borderRadius: '8px' }}
+        />
+      )}
 
       {/* Key Return */}
       <Card
@@ -258,7 +382,10 @@ const StepCheckOut: React.FC<StepCheckOutProps> = ({
             <Statistic
               title={t('checkOut.checklist')}
               value={`${totalChecked}/${totalChecklistItems}`}
-              valueStyle={{ fontSize: '18px', color: '#52c41a' }}
+              valueStyle={{
+                fontSize: '18px',
+                color: checklistValidation.allChecked ? '#52c41a' : '#fa8c16',
+              }}
             />
           </Col>
         </Row>
@@ -281,47 +408,62 @@ const StepCheckOut: React.FC<StepCheckOutProps> = ({
         </div>
       </Card>
 
-      {/* Check-out & Submit */}
+      {/* Step 1: Finish Work (check out with GPS timestamp - locked) */}
       {!isCheckedOut ? (
         <Button
           type='primary'
           size='large'
           block
           icon={<CheckCircleOutlined />}
-          onClick={handleCheckOut}
+          onClick={handleFinishWork}
           loading={loading}
+          disabled={!checklistValidation.allChecked}
           style={{
             height: '52px',
             fontSize: '16px',
             borderRadius: '26px',
-            background: '#52c41a',
-            borderColor: '#52c41a',
+            background: checklistValidation.allChecked ? '#52c41a' : undefined,
+            borderColor: checklistValidation.allChecked ? '#52c41a' : undefined,
           }}
         >
           {t('checkOut.finishButton')}
         </Button>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Checkout timestamp (locked) */}
           <Alert
             type='success'
             showIcon
+            icon={<LockOutlined />}
             message={t('checkOut.checkedOutAt', {
               time: dayjs(inspection.checkOut!.timestamp).format('HH:mm:ss'),
             })}
-            description={t('checkOut.gpsInfo', {
-              gps: formatGPS(
-                inspection.checkOut!.gpsLat,
-                inspection.checkOut!.gpsLng
-              ),
-            })}
+            description={
+              <>
+                {inspection.checkOut!.gpsAddress
+                  ? `📍 ${inspection.checkOut!.gpsAddress}`
+                  : t('checkOut.gpsInfo', {
+                      gps: formatGPS(
+                        inspection.checkOut!.gpsLat,
+                        inspection.checkOut!.gpsLng
+                      ),
+                    })}
+                <br />
+                <Text type='secondary' style={{ fontSize: '11px' }}>
+                  {t('checkOut.timeLocked')}
+                </Text>
+              </>
+            }
             style={{ borderRadius: '8px' }}
           />
+
+          {/* Step 2: Submit Report */}
           <Button
             type='primary'
             size='large'
             block
             icon={<CheckCircleOutlined />}
-            onClick={onSubmit}
+            onClick={handleSubmit}
             loading={isSubmitting}
             style={{
               height: '52px',
