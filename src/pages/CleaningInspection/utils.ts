@@ -306,22 +306,70 @@ export function loadArchivedInspections(): any[] {
 }
 
 /**
- * Save an inspection to the localStorage archive
+ * Strip heavy data (propertyNoteImages, large photos) from inspection before localStorage save.
+ * These images are already synced to the server; localStorage only needs lightweight metadata.
+ */
+function stripHeavyDataForStorage(inspection: any): any {
+  const light = { ...inspection };
+  // propertyNoteImages are static reference images from admin — no need to store per-inspection
+  delete light.propertyNoteImages;
+  return light;
+}
+
+/**
+ * Save an inspection to the localStorage archive.
+ * Strips heavy image data to avoid QuotaExceededError.
  */
 export function saveArchivedInspection(inspection: any): void {
-  const archives = loadArchivedInspections();
-  const existingIndex = archives.findIndex((a: any) => a.id === inspection.id);
-  if (existingIndex >= 0) archives[existingIndex] = inspection;
-  else archives.unshift(inspection);
-  localStorage.setItem(ARCHIVED_KEY, JSON.stringify(archives));
+  try {
+    const archives = loadArchivedInspections();
+    const lightInspection = stripHeavyDataForStorage(inspection);
+    const existingIndex = archives.findIndex(
+      (a: any) => a.id === inspection.id
+    );
+    if (existingIndex >= 0) archives[existingIndex] = lightInspection;
+    else archives.unshift(lightInspection);
+    localStorage.setItem(ARCHIVED_KEY, JSON.stringify(archives));
+  } catch (e) {
+    // QuotaExceededError: try trimming old archives
+    console.warn(
+      '[Inspection] localStorage quota exceeded, trimming old archives',
+      e
+    );
+    try {
+      const archives = loadArchivedInspections();
+      // Keep only the current inspection + up to 5 most recent
+      const currentId = inspection.id;
+      const others = archives
+        .filter((a: any) => a.id !== currentId)
+        .slice(0, 5);
+      const lightInspection = stripHeavyDataForStorage(inspection);
+      const trimmed = [lightInspection, ...others];
+      localStorage.setItem(ARCHIVED_KEY, JSON.stringify(trimmed));
+    } catch {
+      // Last resort: only save the current inspection
+      try {
+        const lightInspection = stripHeavyDataForStorage(inspection);
+        localStorage.setItem(ARCHIVED_KEY, JSON.stringify([lightInspection]));
+      } catch {
+        console.error('[Inspection] localStorage completely full, cannot save');
+      }
+    }
+  }
 }
 
 /**
  * Delete an inspection from the localStorage archive
  */
 export function deleteArchivedInspection(id: string): void {
-  const archives = loadArchivedInspections().filter((a: any) => a.id !== id);
-  localStorage.setItem(ARCHIVED_KEY, JSON.stringify(archives));
+  try {
+    const archives = loadArchivedInspections().filter((a: any) => a.id !== id);
+    localStorage.setItem(ARCHIVED_KEY, JSON.stringify(archives));
+  } catch {
+    console.warn(
+      '[Inspection] Failed to delete archived inspection from localStorage'
+    );
+  }
 }
 
 /**

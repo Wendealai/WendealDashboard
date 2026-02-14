@@ -51,6 +51,7 @@ import {
 } from '@/pages/CleaningInspection/types';
 import type { Employee } from '@/pages/CleaningInspection/types';
 import { submitInspection } from '@/services/inspectionService';
+import { compressImage } from '@/pages/CleaningInspection/utils';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -601,15 +602,17 @@ const PropertySettingsModal: React.FC<{
     if (updated) setEditingProperty(updated);
   };
 
-  /** 添加备注说明图片（编辑模式） */
+  /** 添加备注说明图片（编辑模式），自动压缩避免 localStorage 配额溢出 */
   const handleAddNoteImage = (propertyId: string, file: RcFile) => {
     const reader = new FileReader();
-    reader.onload = e => {
-      const dataUrl = e.target?.result as string;
+    reader.onload = async e => {
+      const rawDataUrl = e.target?.result as string;
+      // Compress to max 800px width, 0.6 quality to keep localStorage usage low
+      const compressed = await compressImage(rawDataUrl, 800, 0.6);
       const newProps = properties.map(p => {
         if (p.id === propertyId) {
           const images = p.noteImages || [];
-          return { ...p, noteImages: [...images, dataUrl] };
+          return { ...p, noteImages: [...images, compressed] };
         }
         return p;
       });
@@ -695,8 +698,9 @@ const PropertySettingsModal: React.FC<{
     file: RcFile
   ) => {
     const reader = new FileReader();
-    reader.onload = e => {
-      const result = e.target?.result as string;
+    reader.onload = async e => {
+      const raw = e.target?.result as string;
+      const result = await compressImage(raw, 800, 0.6);
       const newProps = properties.map(p => {
         if (p.id === propertyId) {
           const sectionImages = p.referenceImages?.[sectionId] || [];
@@ -1132,9 +1136,14 @@ const PropertySettingsModal: React.FC<{
                   accept='image/*'
                   beforeUpload={file => {
                     const reader = new FileReader();
-                    reader.onload = e => {
-                      const dataUrl = e.target?.result as string;
-                      setNewNoteImages(prev => [...prev, dataUrl]);
+                    reader.onload = async e => {
+                      const rawDataUrl = e.target?.result as string;
+                      const compressed = await compressImage(
+                        rawDataUrl,
+                        800,
+                        0.6
+                      );
+                      setNewNoteImages(prev => [...prev, compressed]);
                     };
                     reader.readAsDataURL(file);
                     return false;
