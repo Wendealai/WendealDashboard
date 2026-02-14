@@ -57,7 +57,7 @@ import {
   generateInspectionPdfHtml,
   openInspectionPrintWindow,
 } from '@/utils/cleaningInspectionPdfTemplate';
-import { submitInspection } from '@/services/inspectionService';
+import { submitInspection, loadInspection } from '@/services/inspectionService';
 
 const { Text } = Typography;
 
@@ -164,28 +164,15 @@ const CleaningInspectionPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isArchivedView, setIsArchivedView] = useState(false);
+  const [isLoadingFromServer, setIsLoadingFromServer] = useState(false);
+  /** Track whether we've already tried server load to avoid re-fetching */
+  const [serverLoadAttempted, setServerLoadAttempted] = useState(false);
 
-  // ── Initialize Inspection ──
-  useEffect(() => {
-    // Already initialized - skip
-    if (inspection && inspection.id === urlInspectionId) return;
-
-    // Try to load existing inspection from archive
-    if (urlInspectionId) {
-      const archives = loadArchivedInspections();
-      const existing = archives.find((a: any) => a.id === urlInspectionId);
-      if (existing) {
-        setInspection(migrateInspection(existing));
-        setIsArchivedView(true);
-        // If submitted, jump to last step
-        if (existing.status === 'submitted') {
-          setCurrentStep(999); // Will be clamped to max step
-        }
-        return;
-      }
-    }
-
-    // Create new inspection
+  /**
+   * Build a fresh "new" inspection from URL params + templates.
+   * Used when no existing data is found (localStorage or server).
+   */
+  const buildNewInspection = useCallback(() => {
     const id = urlInspectionId || generateId('insp');
     const templates = loadPropertyTemplates();
     const matchingTemplate = templates.find(
@@ -216,17 +203,9 @@ const CleaningInspectionPage: React.FC = () => {
       } catch {
         // Ignore parse errors
       }
-      // Also check archived inspection for employee data (in case localStorage is on a different device)
-      if (!assignedEmployee) {
-        const archives = loadArchivedInspections();
-        const archivedInsp = archives.find((a: any) => a.id === id);
-        if (archivedInsp?.assignedEmployee) {
-          assignedEmployee = archivedInsp.assignedEmployee;
-        }
-      }
     }
 
-    const newInspection: CleaningInspection = {
+    const newInsp: CleaningInspection = {
       id,
       propertyId: urlPropertyName,
       propertyAddress,
@@ -242,10 +221,97 @@ const CleaningInspectionPage: React.FC = () => {
       damageReports: [],
       ...(assignedEmployee ? { assignedEmployee } : {}),
     };
+    return newInsp;
+  }, [urlInspectionId, urlPropertyName, urlDate, urlEmployeeId]);
 
-    setInspection(newInspection);
-    setIsArchivedView(false);
-  }, [urlInspectionId, urlPropertyName, urlDate, urlEmployeeId, inspection]);
+  // ── Initialize Inspection ──
+  // Step 1: Try localStorage (synchronous, fast)
+  // Step 2: If not found locally, try n8n server (async)
+  // Step 3: If still not found, create new blank inspection
+  useEffect(() => {
+    // Already initialized with the correct ID - skip
+    if (inspection && inspection.id === urlInspectionId) return;
+
+    // Step 1: Check localStorage first (instant)
+    if (urlInspectionId) {
+      const archives = loadArchivedInspections();
+      const existing = archives.find((a: any) => a.id === urlInspectionId);
+      if (existing) {
+        setInspection(migrateInspection(existing));
+        setIsArchivedView(true);
+        setServerLoadAttempted(true);
+        if (existing.status === 'submitted') {
+          setCurrentStep(999); // Will be clamped to max step
+        }
+        return;
+      }
+    }
+
+    // Step 2: If not found locally and we haven't tried the server yet, try it
+    if (urlInspectionId && !serverLoadAttempted) {
+      setIsLoadingFromServer(true);
+      setServerLoadAttempted(true);
+
+      loadInspection(urlInspectionId)
+        .then(serverData => {
+          if (serverData) {
+            // Found on server! Save to localStorage for future access and use it
+            saveArchivedInspection(serverData);
+            setInspection(migrateInspection(serverData));
+            setIsArchivedView(true);
+            if (serverData.status === 'submitted') {
+              setCurrentStep(999);
+            }
+            console.log(
+              '[Init] Loaded inspection from server:',
+              urlInspectionId
+            );
+          } else {
+            // Not found on server either → create new
+            console.log('[Init] Not found on server, creating new inspection');
+            setInspection(buildNewInspection());
+            setIsArchivedView(false);
+          }
+        })
+        .catch(() => {
+          // Server error → create new
+          console.warn('[Init] Server load failed, creating new inspection');
+          setInspection(buildNewInspection());
+          setIsArchivedView(false);
+        })
+        .finally(() => {
+          setIsLoadingFromServer(false);
+        });
+      return;
+    }
+
+    // Step 3: No ID in URL or server already attempted → create new
+    if (!inspection) {
+      setInspection(buildNewInspection());
+      setIsArchivedView(false);
+    }
+  }, [urlInspectionId, inspection, serverLoadAttempted, buildNewInspection]);
+
+  // ── Auto-save: persist inspection to localStorage + server on step change ──
+  // Debounced: saves when user navigates between steps (not on every keystroke)
+  useEffect(() => {
+    if (!inspection || inspection.status === 'submitted' || isLoadingFromServer)
+      return;
+
+    // Save to localStorage immediately (fast, offline-safe)
+    saveArchivedInspection(inspection);
+
+    // Also sync to n8n server in background (best-effort, no await)
+    const timer = setTimeout(() => {
+      submitInspection(inspection).catch(() => {
+        // Silently ignore server sync errors during auto-save
+      });
+    }, 500); // Small debounce to avoid flooding server on rapid step changes
+
+    return () => clearTimeout(timer);
+    // Only trigger on step change, not on every inspection update
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
 
   // ── Step Definitions ──
   // Steps: [Overview, Check-in, Damage, ...Rooms..., Check-out]
@@ -423,18 +489,29 @@ const CleaningInspectionPage: React.FC = () => {
   };
 
   // ── Loading ──
-  if (!inspection) {
+  if (!inspection || isLoadingFromServer) {
     return (
       <div
         style={{
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
           height: '100vh',
           background: '#f5f5f5',
+          gap: '12px',
         }}
       >
-        <Text>Loading...</Text>
+        <div style={{ fontSize: '24px', color: '#52c41a' }}>⏳</div>
+        <Text>
+          {isLoadingFromServer
+            ? t('lang.toggle') === '中文'
+              ? 'Loading from server...'
+              : '正在从服务器加载数据...'
+            : t('lang.toggle') === '中文'
+              ? 'Loading...'
+              : '加载中...'}
+        </Text>
       </div>
     );
   }
