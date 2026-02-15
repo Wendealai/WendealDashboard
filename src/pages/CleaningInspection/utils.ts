@@ -126,6 +126,69 @@ export async function captureGPSWithAddress(): Promise<{
   return { coords, address };
 }
 
+// ──────────────────────── Save Original Photo to Device ──────────
+
+/**
+ * Save a photo to the device as a downloaded file (original backup).
+ * On mobile, the file goes to Downloads or prompts "Save to Photos".
+ * Uses canvas/Blob for camera captures or direct dataUrl for uploads.
+ * Runs silently — errors are caught and logged, never blocking the workflow.
+ */
+export function saveOriginalToDevice(
+  source: HTMLCanvasElement | string,
+  filenamePrefix = 'inspection'
+): void {
+  try {
+    const timestamp = dayjs().format('YYYYMMDDHHmmss');
+    const filename = `${filenamePrefix}_${timestamp}.jpg`;
+
+    if (source instanceof HTMLCanvasElement) {
+      // From camera capture: convert canvas to Blob and trigger download
+      source.toBlob(
+        blob => {
+          if (!blob) return;
+          triggerBlobDownload(blob, filename);
+        },
+        'image/jpeg',
+        0.92 // High quality for backup
+      );
+    } else {
+      // From file upload or dataUrl: convert to Blob
+      const byteString = atob(source.split(',')[1] || '');
+      const mimeMatch = source.match(/data:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([ab], { type: mime });
+      triggerBlobDownload(blob, filename);
+    }
+  } catch (err) {
+    console.warn('[PhotoBackup] Failed to save original photo to device:', err);
+  }
+}
+
+/**
+ * Trigger a file download in the browser from a Blob.
+ * Creates a temporary <a download> link and clicks it.
+ */
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  // Clean up after a short delay to ensure download starts
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }, 1000);
+}
+
 // ──────────────────────── Image Compression ─────────────────────
 
 /**
@@ -249,6 +312,9 @@ export async function capturePhotoFromVideo(
   canvas.height = video.videoHeight;
   ctx.drawImage(video, 0, 0);
 
+  // Save original (un-watermarked) photo to device as backup
+  saveOriginalToDevice(canvas, 'cleaning_photo');
+
   if (watermarkOptions) {
     addWatermark(canvas, ctx, watermarkOptions);
   }
@@ -270,6 +336,9 @@ export function addWatermarkToImage(
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
+      // Save original un-watermarked photo to device as backup
+      saveOriginalToDevice(dataUrl, 'cleaning_upload');
+
       const canvas = document.createElement('canvas');
       const scale = Math.min(1, maxWidth / img.width);
       canvas.width = Math.round(img.width * scale);
