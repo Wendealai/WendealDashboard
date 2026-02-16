@@ -611,14 +611,17 @@ const _labelLookup = buildLabelLookup();
  *  - Already correct (has labelEn): no change
  */
 export function migrateChecklistItemLabel(item: any): any {
+  const label: string = item.label || '';
+  if (!label) return item; // No label to migrate
+
   // Already has labelEn → already migrated
   if (item.labelEn) return item;
 
   const label: string = item.label || '';
 
-  // Try bilingual pattern: "中文内容 (English content)"
+  // Try bilingual pattern: "中文内容
   const bilingualMatch = label.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
-  if (bilingualMatch) {
+  if (bilingualMatch && bilingualMatch[1] && bilingualMatch[2]) {
     const zh = bilingualMatch[1].trim();
     const en = bilingualMatch[2].trim();
     return { ...item, label: zh, labelEn: en };

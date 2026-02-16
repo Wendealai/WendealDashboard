@@ -1105,7 +1105,7 @@ const PropertySettingsModal: React.FC<{
                 value={newNotesZh}
                 onChange={e => setNewNotesZh(e.target.value)}
                 placeholder='例如：🔑 取钥匙说明：&#10;1. 前往信箱室（穿过大堂走到底）&#10;2. 密码锁密码：3091&#10;3. 取出钥匙&#10;&#10;🚪 进入方式：&#10;1. 进入大堂（8 Margaret St）...'
-                rows={4}
+                rows={6}
                 style={{ marginTop: '4px' }}
               />
               <Text type='secondary' style={{ fontSize: '11px' }}>
@@ -1120,7 +1120,7 @@ const PropertySettingsModal: React.FC<{
                   value={newNotes}
                   onChange={e => setNewNotes(e.target.value)}
                   placeholder='e.g. 🔑 Key Access:&#10;1. Go to the lockbox at the mailroom.&#10;2. Code: 3091&#10;&#10;🚪 Entry:&#10;1. Enter the building lobby (8 Margaret St)...'
-                  rows={4}
+                  rows={6}
                   style={{ marginTop: '4px' }}
                 />
                 <Text type='secondary' style={{ fontSize: '11px' }}>
@@ -1320,7 +1320,7 @@ const PropertySettingsModal: React.FC<{
                         )
                       }
                       placeholder='例如：🔑 取钥匙说明：&#10;1. 前往信箱室（穿过大堂走到底）&#10;2. 密码锁密码：3091&#10;3. 取出钥匙'
-                      rows={4}
+                      rows={6}
                       style={{ marginTop: '4px' }}
                     />
                     <Text type='secondary' style={{ fontSize: '11px' }}>
@@ -1341,7 +1341,7 @@ const PropertySettingsModal: React.FC<{
                           )
                         }
                         placeholder='e.g. 🔑 Key Access:&#10;1. Go to the lockbox at the mailroom.&#10;2. Code: 3091'
-                        rows={4}
+                        rows={6}
                         style={{ marginTop: '4px' }}
                       />
                       <Text type='secondary' style={{ fontSize: '11px' }}>
