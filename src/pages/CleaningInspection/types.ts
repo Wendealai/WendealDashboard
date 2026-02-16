@@ -617,8 +617,6 @@ export function migrateChecklistItemLabel(item: any): any {
   // Already has labelEn → already migrated
   if (item.labelEn) return item;
 
-  const label: string = item.label || '';
-
   // Try bilingual pattern: "中文内容
   const bilingualMatch = label.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
   if (bilingualMatch && bilingualMatch[1] && bilingualMatch[2]) {
