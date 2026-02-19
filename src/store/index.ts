@@ -259,6 +259,10 @@ export {
   default as sparkeryDispatchSlice,
   fetchDispatchJobs,
   fetchDispatchEmployees,
+  upsertDispatchEmployee,
+  fetchDispatchCustomerProfiles,
+  upsertDispatchCustomerProfile,
+  generateDispatchJobsFromRecurring,
   createDispatchJob,
   updateDispatchJob,
   assignDispatchJob,
@@ -270,6 +274,7 @@ export {
   selectDispatchState,
   selectDispatchJobs,
   selectDispatchEmployees,
+  selectDispatchCustomerProfiles,
   selectDispatchWeekRange,
   selectDispatchJobsByDate,
 } from './slices/sparkeryDispatchSlice';

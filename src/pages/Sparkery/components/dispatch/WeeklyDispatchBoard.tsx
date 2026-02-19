@@ -1,5 +1,14 @@
-import React from 'react';
-import { Button, Card, Col, Row, Select, Space, Tag, Typography } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Button,
+  Card,
+  Modal,
+  Popover,
+  Select,
+  Space,
+  Tag,
+  Typography,
+} from 'antd';
 import type {
   DispatchEmployee,
   DispatchJob,
@@ -8,12 +17,31 @@ import type {
 
 const { Text } = Typography;
 
+const START_HOUR = 7;
+const END_HOUR = 24;
+const SLOT_MINUTES = 30;
+const SLOT_HEIGHT = 26;
+
+const SERVICE_COLORS: Record<DispatchJob['serviceType'], string> = {
+  airbnb: '#ff5a5f',
+  regular: '#13c2c2',
+  commercial: '#91caff',
+  bond: '#8b5e3c',
+};
+
 interface WeeklyDispatchBoardProps {
   jobsByDate: Record<string, DispatchJob[]>;
   employees: DispatchEmployee[];
   weekStart: string;
-  onAssign: (jobId: string, employeeId: string) => void;
+  onAssign: (jobId: string, employeeIds: string[]) => void;
   onStatusChange: (jobId: string, status: DispatchJobStatus) => void;
+  onReschedule: (
+    jobId: string,
+    scheduledDate: string,
+    scheduledStartTime: string,
+    scheduledEndTime: string
+  ) => void;
+  onEdit: (job: DispatchJob) => void;
 }
 
 const getWeekDates = (weekStart: string): string[] => {
@@ -25,107 +53,701 @@ const getWeekDates = (weekStart: string): string[] => {
   });
 };
 
+const parseTimeToMinutes = (time: string): number => {
+  const [hours, minutes] = time.split(':').map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+};
+
+const getEventPosition = (job: DispatchJob) => {
+  const startMinutes = parseTimeToMinutes(job.scheduledStartTime);
+  const endMinutes = parseTimeToMinutes(job.scheduledEndTime);
+  const timelineStart = START_HOUR * 60;
+  const timelineEnd = END_HOUR * 60;
+  const clampedStart = Math.max(
+    timelineStart,
+    Math.min(startMinutes, timelineEnd)
+  );
+  const clampedEnd = Math.max(
+    clampedStart + SLOT_MINUTES,
+    Math.min(endMinutes, timelineEnd)
+  );
+  const topSlots = (clampedStart - timelineStart) / SLOT_MINUTES;
+  const heightSlots = (clampedEnd - clampedStart) / SLOT_MINUTES;
+
+  return {
+    top: topSlots * SLOT_HEIGHT,
+    height: Math.max(24, heightSlots * SLOT_HEIGHT - 4),
+  };
+};
+
+const formatMinutesToTime = (minutes: number): string => {
+  const safeMinutes = Math.max(0, Math.min(24 * 60, minutes));
+  const hours = Math.floor(safeMinutes / 60);
+  const mins = safeMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+};
+
+const formatDurationHours = (
+  startMinutes: number,
+  endMinutes: number
+): string => {
+  const duration = Math.max(0, endMinutes - startMinutes);
+  if (duration < 60) {
+    return `${duration}m`;
+  }
+  const hours = duration / 60;
+  return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
+};
+
+interface PositionedJob {
+  job: DispatchJob;
+  top: number;
+  height: number;
+  columnIndex: number;
+  totalColumns: number;
+}
+
+const buildPositionedJobs = (jobs: DispatchJob[]): PositionedJob[] => {
+  const sortedJobs = jobs
+    .slice()
+    .sort(
+      (a, b) =>
+        parseTimeToMinutes(a.scheduledStartTime) -
+        parseTimeToMinutes(b.scheduledStartTime)
+    );
+
+  const activeColumns: number[] = [];
+  const items: PositionedJob[] = [];
+
+  sortedJobs.forEach(job => {
+    const start = parseTimeToMinutes(job.scheduledStartTime);
+    const end = Math.max(
+      start + SLOT_MINUTES,
+      parseTimeToMinutes(job.scheduledEndTime)
+    );
+
+    for (let i = activeColumns.length - 1; i >= 0; i -= 1) {
+      const activeColumnEnd = activeColumns[i];
+      if (activeColumnEnd !== undefined && activeColumnEnd <= start) {
+        activeColumns.splice(i, 1);
+      }
+    }
+
+    let columnIndex = 0;
+    while (activeColumns.includes(columnIndex)) {
+      columnIndex += 1;
+    }
+    activeColumns.push(columnIndex);
+    activeColumns.sort((a, b) => a - b);
+
+    const eventPos = getEventPosition(job);
+    items.push({
+      job,
+      top: eventPos.top,
+      height: eventPos.height,
+      columnIndex,
+      totalColumns: Math.max(1, activeColumns.length),
+    });
+  });
+
+  return items.map(current => {
+    const currentStart = parseTimeToMinutes(current.job.scheduledStartTime);
+    const currentEnd = Math.max(
+      currentStart + SLOT_MINUTES,
+      parseTimeToMinutes(current.job.scheduledEndTime)
+    );
+
+    let maxOverlapColumns = current.totalColumns;
+    items.forEach(other => {
+      if (other.job.id === current.job.id) return;
+      const otherStart = parseTimeToMinutes(other.job.scheduledStartTime);
+      const otherEnd = Math.max(
+        otherStart + SLOT_MINUTES,
+        parseTimeToMinutes(other.job.scheduledEndTime)
+      );
+      const overlap = currentStart < otherEnd && otherStart < currentEnd;
+      if (overlap) {
+        maxOverlapColumns = Math.max(
+          maxOverlapColumns,
+          current.columnIndex + 1,
+          other.columnIndex + 1
+        );
+      }
+    });
+
+    return {
+      ...current,
+      totalColumns: Math.max(1, maxOverlapColumns),
+    };
+  });
+};
+
+const getHourLabels = (): string[] => {
+  const labels: string[] = [];
+  for (let hour = START_HOUR; hour <= END_HOUR; hour += 1) {
+    labels.push(`${String(hour).padStart(2, '0')}:00`);
+  }
+  return labels;
+};
+
+const getDayHeader = (dateText: string): string => {
+  const date = new Date(dateText);
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+  const shortDate = date.toLocaleDateString('en-AU', {
+    day: '2-digit',
+    month: '2-digit',
+  });
+  return `${weekday} ${shortDate}`;
+};
+
 const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
   jobsByDate,
   employees,
   weekStart,
   onAssign,
   onStatusChange,
+  onReschedule,
+  onEdit,
 }) => {
   const weekDates = getWeekDates(weekStart);
+  const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
+  const boardHeight = totalSlots * SLOT_HEIGHT;
+  const hourLabels = getHourLabels();
+  const [draggingJob, setDraggingJob] = useState<DispatchJob | null>(null);
+  const [dropPreview, setDropPreview] = useState<{
+    date: string;
+    startMinutes: number;
+  } | null>(null);
+  const [resizingState, setResizingState] = useState<{
+    jobId: string;
+    date: string;
+    startMinutes: number;
+    endMinutes: number;
+    originY: number;
+    originEndMinutes: number;
+  } | null>(null);
+  const [previewState, setPreviewState] = useState<{
+    urls: string[];
+    index: number;
+  } | null>(null);
+
+  const positionedByDate = useMemo(() => {
+    const result: Record<string, PositionedJob[]> = {};
+    weekDates.forEach(date => {
+      result[date] = buildPositionedJobs(jobsByDate[date] || []);
+    });
+    return result;
+  }, [jobsByDate, weekDates]);
+
+  const getStartMinutesByMouse = (
+    event: React.DragEvent<HTMLDivElement>
+  ): number => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const relativeY = event.clientY - rect.top;
+    const rawSlots = Math.round(relativeY / SLOT_HEIGHT);
+    const maxStartSlots = totalSlots - 1;
+    const slot = Math.max(0, Math.min(rawSlots, maxStartSlots));
+    return START_HOUR * 60 + slot * SLOT_MINUTES;
+  };
+
+  useEffect(() => {
+    if (!resizingState) return;
+
+    const onMouseMove = (event: MouseEvent) => {
+      const deltaY = event.clientY - resizingState.originY;
+      const deltaSlots = Math.round(deltaY / SLOT_HEIGHT);
+      const nextEndMinutes = Math.max(
+        resizingState.startMinutes + SLOT_MINUTES,
+        Math.min(
+          END_HOUR * 60,
+          resizingState.originEndMinutes + deltaSlots * SLOT_MINUTES
+        )
+      );
+      setResizingState(prev =>
+        prev
+          ? {
+              ...prev,
+              endMinutes: nextEndMinutes,
+            }
+          : prev
+      );
+    };
+
+    const onMouseUp = () => {
+      setResizingState(prev => {
+        if (prev) {
+          onReschedule(
+            prev.jobId,
+            prev.date,
+            formatMinutesToTime(prev.startMinutes),
+            formatMinutesToTime(prev.endMinutes)
+          );
+        }
+        return null;
+      });
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [onReschedule, resizingState]);
 
   return (
-    <Row gutter={12} wrap>
-      {weekDates.map(date => {
-        const jobs = jobsByDate[date] || [];
-        return (
-          <Col span={24} key={date}>
-            <Card title={date} size='small' style={{ marginBottom: 12 }}>
-              {jobs.length === 0 ? (
-                <Text type='secondary'>No jobs</Text>
-              ) : (
-                <Space direction='vertical' style={{ width: '100%' }}>
-                  {jobs.map(job => {
-                    const assignedEmployee = employees.find(
-                      emp => emp.id === job.assignedEmployeeId
-                    );
-                    return (
-                      <Card key={job.id} size='small'>
-                        <Space direction='vertical' style={{ width: '100%' }}>
-                          <Space
-                            style={{
-                              justifyContent: 'space-between',
-                              width: '100%',
-                            }}
-                          >
-                            <Text strong>{job.title}</Text>
-                            <Tag color='blue'>{job.serviceType}</Tag>
-                          </Space>
-                          <Text type='secondary'>
-                            {job.scheduledStartTime} - {job.scheduledEndTime}
-                          </Text>
-                          <Space>
-                            <Text>Staff:</Text>
-                            <Select
-                              style={{ width: 180 }}
-                              value={job.assignedEmployeeId || undefined}
-                              placeholder='Assign employee'
-                              onChange={value => {
-                                if (value) {
-                                  onAssign(job.id, value);
-                                }
-                              }}
-                              allowClear
-                            >
-                              {employees.map(emp => (
-                                <Select.Option key={emp.id} value={emp.id}>
-                                  {emp.name}
-                                </Select.Option>
-                              ))}
-                            </Select>
-                            {assignedEmployee && (
-                              <Tag>{assignedEmployee.name}</Tag>
-                            )}
-                          </Space>
-                          <Space>
-                            <Tag>{job.status}</Tag>
-                            <Button
-                              size='small'
-                              onClick={() =>
-                                onStatusChange(job.id, 'in_progress')
-                              }
-                            >
-                              Start
-                            </Button>
-                            <Button
-                              size='small'
-                              onClick={() =>
-                                onStatusChange(job.id, 'completed')
-                              }
-                            >
-                              Complete
-                            </Button>
-                            <Button
-                              size='small'
-                              danger
-                              onClick={() =>
-                                onStatusChange(job.id, 'cancelled')
-                              }
-                            >
-                              Cancel
-                            </Button>
-                          </Space>
-                        </Space>
-                      </Card>
-                    );
-                  })}
-                </Space>
+    <Card title='Weekly Dispatch Board (Mon-Sun, 07:00-24:00)' size='small'>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '72px repeat(7, minmax(140px, 1fr))',
+          border: '1px solid #f0f0f0',
+          borderRadius: 8,
+          overflowX: 'auto',
+        }}
+      >
+        <div
+          style={{ borderRight: '1px solid #f0f0f0', background: '#fafafa' }}
+        />
+        {weekDates.map(date => (
+          <div
+            key={`header-${date}`}
+            style={{
+              padding: '8px 6px',
+              textAlign: 'center',
+              borderRight: '1px solid #f0f0f0',
+              borderBottom: '1px solid #f0f0f0',
+              background: '#fafafa',
+              fontWeight: 600,
+              minWidth: 140,
+            }}
+          >
+            {getDayHeader(date)}
+          </div>
+        ))}
+
+        <div
+          style={{
+            height: boardHeight,
+            borderRight: '1px solid #f0f0f0',
+            position: 'relative',
+            background: '#fcfcfc',
+          }}
+        >
+          {hourLabels.map((label, index) => (
+            <div
+              key={label}
+              style={{
+                position: 'absolute',
+                top: index * SLOT_HEIGHT * 2 - 8,
+                right: 6,
+                fontSize: 11,
+                color: '#8c8c8c',
+              }}
+            >
+              {label}
+            </div>
+          ))}
+        </div>
+
+        {weekDates.map(date => {
+          const positionedJobs = positionedByDate[date] || [];
+
+          return (
+            <div
+              key={`col-${date}`}
+              style={{
+                height: boardHeight,
+                position: 'relative',
+                borderRight: '1px solid #f0f0f0',
+                background: '#fff',
+                minWidth: 140,
+              }}
+              onDragOver={event => {
+                event.preventDefault();
+                if (!draggingJob) return;
+                const startMinutes = getStartMinutesByMouse(event);
+                setDropPreview({ date, startMinutes });
+              }}
+              onDrop={event => {
+                event.preventDefault();
+                if (!draggingJob) return;
+                const duration = Math.max(
+                  SLOT_MINUTES,
+                  parseTimeToMinutes(draggingJob.scheduledEndTime) -
+                    parseTimeToMinutes(draggingJob.scheduledStartTime)
+                );
+                const startMinutes = getStartMinutesByMouse(event);
+                const endMinutes = Math.min(
+                  END_HOUR * 60,
+                  startMinutes + duration
+                );
+                onReschedule(
+                  draggingJob.id,
+                  date,
+                  formatMinutesToTime(startMinutes),
+                  formatMinutesToTime(endMinutes)
+                );
+                setDraggingJob(null);
+                setDropPreview(null);
+              }}
+            >
+              {Array.from({ length: totalSlots + 1 }).map((_, slotIndex) => (
+                <div
+                  key={`line-${date}-${slotIndex}`}
+                  style={{
+                    position: 'absolute',
+                    top: slotIndex * SLOT_HEIGHT,
+                    left: 0,
+                    right: 0,
+                    borderTop:
+                      slotIndex % 2 === 0
+                        ? '1px solid rgba(0,0,0,0.08)'
+                        : '1px dashed rgba(0,0,0,0.05)',
+                  }}
+                />
+              ))}
+
+              {dropPreview && dropPreview.date === date && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 4,
+                    right: 4,
+                    top:
+                      ((dropPreview.startMinutes - START_HOUR * 60) /
+                        SLOT_MINUTES) *
+                      SLOT_HEIGHT,
+                    height: SLOT_HEIGHT * 2 - 4,
+                    background: 'rgba(24, 144, 255, 0.15)',
+                    border: '1px dashed #1890ff',
+                    borderRadius: 6,
+                    pointerEvents: 'none',
+                    zIndex: 1,
+                  }}
+                />
               )}
-            </Card>
-          </Col>
-        );
-      })}
-    </Row>
+
+              {positionedJobs.map(item => {
+                const { job } = item;
+                const assignedEmployees = employees.filter(emp =>
+                  job.assignedEmployeeIds?.includes(emp.id)
+                );
+                const color = SERVICE_COLORS[job.serviceType] || '#69c0ff';
+                const columnWidthPercent = 100 / item.totalColumns;
+                const left = item.columnIndex * columnWidthPercent;
+                const isResizing = resizingState?.jobId === job.id;
+                const startMinutes = parseTimeToMinutes(job.scheduledStartTime);
+                const endMinutes = parseTimeToMinutes(job.scheduledEndTime);
+                const effectiveEndMinutes = isResizing
+                  ? resizingState.endMinutes
+                  : endMinutes;
+                const effectiveHeight = Math.max(
+                  24,
+                  ((effectiveEndMinutes - startMinutes) / SLOT_MINUTES) *
+                    SLOT_HEIGHT -
+                    4
+                );
+                const liveStartText = formatMinutesToTime(startMinutes);
+                const liveEndText = formatMinutesToTime(effectiveEndMinutes);
+                const liveDurationText = formatDurationHours(
+                  startMinutes,
+                  effectiveEndMinutes
+                );
+
+                return (
+                  <Popover
+                    key={job.id}
+                    placement='rightTop'
+                    content={
+                      <div style={{ maxWidth: 320 }}>
+                        <div style={{ marginBottom: 6 }}>
+                          <strong>{job.title}</strong>
+                        </div>
+                        <div>
+                          <strong>Time:</strong> {job.scheduledDate}{' '}
+                          {job.scheduledStartTime} - {job.scheduledEndTime}
+                        </div>
+                        {job.description && (
+                          <div style={{ marginTop: 6 }}>
+                            <strong>Task:</strong> {job.description}
+                          </div>
+                        )}
+                        {job.notes && (
+                          <div style={{ marginTop: 6 }}>
+                            <strong>Notes:</strong> {job.notes}
+                          </div>
+                        )}
+                        {job.imageUrls && job.imageUrls.length > 0 && (
+                          <div style={{ marginTop: 8 }}>
+                            <strong>Images:</strong>
+                            <div
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(3, 1fr)',
+                                gap: 4,
+                                marginTop: 4,
+                              }}
+                            >
+                              {job.imageUrls.slice(0, 6).map(url => (
+                                <img
+                                  key={url}
+                                  src={url}
+                                  alt='job'
+                                  onClick={event => {
+                                    event.stopPropagation();
+                                    setPreviewState({
+                                      urls: job.imageUrls || [],
+                                      index: (job.imageUrls || []).indexOf(url),
+                                    });
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    height: 56,
+                                    objectFit: 'cover',
+                                    cursor: 'zoom-in',
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    }
+                  >
+                    <div
+                      draggable={!isResizing}
+                      onDragStart={event => {
+                        setDraggingJob(job);
+                        event.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragEnd={() => {
+                        setDraggingJob(null);
+                        setDropPreview(null);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        left: `calc(${left}% + 4px)`,
+                        width: `calc(${columnWidthPercent}% - 8px)`,
+                        top: item.top,
+                        height: effectiveHeight,
+                        background: `${color}22`,
+                        borderLeft: `4px solid ${color}`,
+                        borderRadius: 6,
+                        padding: '4px 6px',
+                        overflow: 'hidden',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                        zIndex: draggingJob?.id === job.id ? 3 : 2,
+                        cursor: 'grab',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                          gap: 6,
+                        }}
+                      >
+                        <Text strong style={{ fontSize: 12 }} ellipsis>
+                          {job.title}
+                        </Text>
+                        <Space size={4}>
+                          <Tag
+                            color='processing'
+                            style={{ marginInlineEnd: 0 }}
+                          >
+                            {job.serviceType}
+                          </Tag>
+                          <Button
+                            size='small'
+                            onClick={event => {
+                              event.stopPropagation();
+                              onEdit(job);
+                            }}
+                            style={{ padding: '0 8px', height: 22 }}
+                          >
+                            Edit
+                          </Button>
+                        </Space>
+                      </div>
+                      <Text type='secondary' style={{ fontSize: 11 }}>
+                        {liveStartText} - {liveEndText} ({liveDurationText})
+                      </Text>
+                      {isResizing && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: -26,
+                            left: 8,
+                            background: '#262626',
+                            color: '#fff',
+                            borderRadius: 4,
+                            padding: '2px 6px',
+                            fontSize: 11,
+                            lineHeight: '16px',
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                          }}
+                        >
+                          {liveStartText} - {liveEndText} ({liveDurationText})
+                        </div>
+                      )}
+                      <Space
+                        size={4}
+                        style={{ width: '100%', marginTop: 4 }}
+                        wrap
+                      >
+                        <Space size={4} style={{ fontSize: 11 }}>
+                          <Text type='secondary' style={{ fontSize: 11 }}>
+                            执行人:
+                          </Text>
+                          {assignedEmployees.length > 0 ? (
+                            <Space size={2}>
+                              {assignedEmployees.map(emp => (
+                                <Tag
+                                  key={emp.id}
+                                  color='blue'
+                                  style={{
+                                    marginInlineEnd: 0,
+                                    fontSize: 11,
+                                    padding: '0 4px',
+                                    lineHeight: '18px',
+                                  }}
+                                >
+                                  {emp.name
+                                    .split(' ')
+                                    .map(word => word[0])
+                                    .join('')
+                                    .toUpperCase()}
+                                </Tag>
+                              ))}
+                            </Space>
+                          ) : (
+                            <Text type='secondary' style={{ fontSize: 11 }}>
+                              未分配
+                            </Text>
+                          )}
+                          <Select
+                            mode='multiple'
+                            size='small'
+                            style={{ width: 60 }}
+                            value={job.assignedEmployeeIds || []}
+                            placeholder='选择'
+                            onChange={value => {
+                              onAssign(job.id, value);
+                            }}
+                            maxTagCount={0}
+                            dropdownStyle={{ minWidth: 150 }}
+                          >
+                            {employees.map(emp => (
+                              <Select.Option key={emp.id} value={emp.id}>
+                                {emp.name}
+                              </Select.Option>
+                            ))}
+                          </Select>
+                        </Space>
+                        <Select
+                          size='small'
+                          style={{ minWidth: 98 }}
+                          value={job.status}
+                          onChange={value =>
+                            onStatusChange(job.id, value as DispatchJobStatus)
+                          }
+                        >
+                          <Select.Option value='pending'>Pending</Select.Option>
+                          <Select.Option value='assigned'>
+                            Assigned
+                          </Select.Option>
+                          <Select.Option value='in_progress'>
+                            In Progress
+                          </Select.Option>
+                          <Select.Option value='completed'>
+                            Completed
+                          </Select.Option>
+                          <Select.Option value='cancelled'>
+                            Cancelled
+                          </Select.Option>
+                        </Select>
+                      </Space>
+                      <div
+                        onMouseDown={event => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setResizingState({
+                            jobId: job.id,
+                            date: job.scheduledDate,
+                            startMinutes,
+                            endMinutes,
+                            originY: event.clientY,
+                            originEndMinutes: endMinutes,
+                          });
+                        }}
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: 8,
+                          cursor: 'ns-resize',
+                          background: 'transparent',
+                        }}
+                      />
+                    </div>
+                  </Popover>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+
+      <Modal
+        open={Boolean(previewState)}
+        title='Task Image Preview'
+        footer={
+          previewState ? (
+            <Space>
+              <Button
+                onClick={() => {
+                  if (!previewState.urls.length) return;
+                  setPreviewState({
+                    ...previewState,
+                    index:
+                      (previewState.index - 1 + previewState.urls.length) %
+                      previewState.urls.length,
+                  });
+                }}
+              >
+                Prev
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!previewState.urls.length) return;
+                  setPreviewState({
+                    ...previewState,
+                    index: (previewState.index + 1) % previewState.urls.length,
+                  });
+                }}
+              >
+                Next
+              </Button>
+            </Space>
+          ) : null
+        }
+        onCancel={() => setPreviewState(null)}
+        width={760}
+      >
+        {previewState && previewState.urls[previewState.index] && (
+          <img
+            src={previewState.urls[previewState.index]}
+            alt='preview'
+            style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+          />
+        )}
+      </Modal>
+    </Card>
   );
 };
 

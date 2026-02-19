@@ -1,26 +1,129 @@
 import React from 'react';
-import { Form, Input, InputNumber, Modal, Select } from 'antd';
+import {
+  Button,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Upload,
+  message,
+} from 'antd';
+import type { UploadFile } from 'antd/es/upload/interface';
 import type {
   CreateDispatchJobPayload,
+  DispatchCustomerProfile,
   DispatchJob,
+  UpsertDispatchCustomerProfilePayload,
 } from '../../dispatch/types';
 
 interface DispatchJobFormModalProps {
   open: boolean;
   loading?: boolean;
   initialValue?: DispatchJob;
+  customerProfiles: DispatchCustomerProfile[];
   onCancel: () => void;
   onSubmit: (values: CreateDispatchJobPayload) => Promise<void> | void;
+  onAddCustomerProfile: (
+    payload: UpsertDispatchCustomerProfilePayload
+  ) => Promise<DispatchCustomerProfile>;
 }
 
 const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
   open,
   loading,
   initialValue,
+  customerProfiles,
   onCancel,
   onSubmit,
+  onAddCustomerProfile,
 }) => {
   const [form] = Form.useForm<CreateDispatchJobPayload>();
+  const MAX_IMAGE_SIZE_MB = 2;
+  const MAX_IMAGE_COUNT = 8;
+
+  const handleCustomerProfileChange = (value: string) => {
+    if (value === '__new__') {
+      form.resetFields(['customerProfileId']);
+      return;
+    }
+    const profile = customerProfiles.find(item => item.id === value);
+    if (!profile) return;
+    const patch: Partial<CreateDispatchJobPayload> = {
+      customerProfileId: profile.id,
+      customerName: profile.name,
+    };
+    if (profile.address) patch.customerAddress = profile.address;
+    if (profile.phone) patch.customerPhone = profile.phone;
+    if (profile.defaultJobTitle) patch.title = profile.defaultJobTitle;
+    if (profile.defaultDescription)
+      patch.description = profile.defaultDescription;
+    if (profile.defaultNotes) patch.notes = profile.defaultNotes;
+    form.setFieldsValue(patch);
+  };
+
+  const handleAddLongTermCustomer = async () => {
+    const values = form.getFieldsValue();
+    if (!values.customerName) {
+      message.warning('Please fill customer name first');
+      return;
+    }
+
+    const payload: UpsertDispatchCustomerProfilePayload = {
+      name: values.customerName,
+      defaultJobTitle: values.title,
+    };
+    if (values.customerAddress) payload.address = values.customerAddress;
+    if (values.customerPhone) payload.phone = values.customerPhone;
+    if (values.description) payload.defaultDescription = values.description;
+    if (values.notes) payload.defaultNotes = values.notes;
+
+    const saved = await onAddCustomerProfile(payload);
+
+    form.setFieldsValue({ customerProfileId: saved.id });
+    message.success('Added to long-term customer list');
+  };
+
+  const toBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const normalizeUploadToUrls = async (
+    fileList: Array<UploadFile | string>
+  ): Promise<string[]> => {
+    const urls = await Promise.all(
+      fileList.map(async file => {
+        if (typeof file === 'string') {
+          return file;
+        }
+        if (file.url) return file.url;
+        if (file.thumbUrl) return file.thumbUrl;
+        if (file.originFileObj) {
+          return toBase64(file.originFileObj as File);
+        }
+        return '';
+      })
+    );
+    return urls.filter(Boolean);
+  };
+
+  const uploadInitialFiles: UploadFile[] = React.useMemo(() => {
+    if (!initialValue?.imageUrls) {
+      return [];
+    }
+    return initialValue.imageUrls.map((url: string, index: number) => ({
+      uid: `existing-${index}`,
+      name: `image-${index + 1}.png`,
+      status: 'done',
+      url,
+      thumbUrl: url,
+    }));
+  }, [initialValue?.imageUrls]);
 
   return (
     <Modal
@@ -43,16 +146,63 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
             scheduledEndTime: '12:00',
           }
         }
-        onFinish={onSubmit}
+        onFinish={async values => {
+          const normalized = { ...values };
+          const anyImageUrls = (
+            normalized as unknown as { imageUrls?: UploadFile[] }
+          ).imageUrls;
+          if (Array.isArray(anyImageUrls)) {
+            normalized.imageUrls = await normalizeUploadToUrls(anyImageUrls);
+          }
+          await onSubmit(normalized);
+        }}
       >
         <Form.Item label='Title' name='title' rules={[{ required: true }]}>
           <Input placeholder='Job title' />
         </Form.Item>
+        <Form.Item label='Customer Library' name='customerProfileId'>
+          <Select
+            placeholder='Select recurring customer'
+            allowClear
+            onChange={handleCustomerProfileChange}
+          >
+            {customerProfiles.map(profile => (
+              <Select.Option key={profile.id} value={profile.id}>
+                {profile.name}
+              </Select.Option>
+            ))}
+            <Select.Option value='__new__'>
+              + New One-time Customer
+            </Select.Option>
+          </Select>
+        </Form.Item>
         <Form.Item label='Customer Name' name='customerName'>
           <Input placeholder='Customer name' />
         </Form.Item>
+        <Form.Item label='Description' name='description'>
+          <Input.TextArea
+            autoSize={{ minRows: 3, maxRows: 10 }}
+            placeholder='Task content/description'
+            style={{ resize: 'vertical' }}
+          />
+        </Form.Item>
+        <Form.Item label='Notes' name='notes'>
+          <Input.TextArea
+            autoSize={{ minRows: 4, maxRows: 12 }}
+            placeholder='注意事项 / notes'
+            style={{ resize: 'vertical' }}
+          />
+        </Form.Item>
         <Form.Item label='Address' name='customerAddress'>
           <Input placeholder='Customer address' />
+        </Form.Item>
+        <Form.Item label='Phone' name='customerPhone'>
+          <Input placeholder='Customer phone' />
+        </Form.Item>
+        <Form.Item>
+          <Button onClick={handleAddLongTermCustomer} block>
+            Add to Long-term Customer List
+          </Button>
         </Form.Item>
         <Form.Item
           label='Service Type'
@@ -93,6 +243,29 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           rules={[{ required: true }]}
         >
           <Input type='time' />
+        </Form.Item>
+        <Form.Item
+          label='Images'
+          name='imageUrls'
+          initialValue={uploadInitialFiles}
+          valuePropName='fileList'
+          getValueFromEvent={e => (Array.isArray(e) ? e : e?.fileList || [])}
+        >
+          <Upload
+            listType='picture-card'
+            beforeUpload={file => {
+              const isTooLarge = file.size / 1024 / 1024 > MAX_IMAGE_SIZE_MB;
+              if (isTooLarge) {
+                message.error(`Each image must be <= ${MAX_IMAGE_SIZE_MB}MB`);
+                return Upload.LIST_IGNORE;
+              }
+              return false;
+            }}
+            multiple
+            maxCount={MAX_IMAGE_COUNT}
+          >
+            + Upload
+          </Upload>
         </Form.Item>
       </Form>
     </Modal>

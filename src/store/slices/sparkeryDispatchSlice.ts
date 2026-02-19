@@ -7,10 +7,13 @@ import {
 import { sparkeryDispatchService } from '@/services/sparkeryDispatchService';
 import type {
   CreateDispatchJobPayload,
+  DispatchCustomerProfile,
   DispatchEmployee,
   DispatchFilters,
   DispatchJob,
   DispatchJobStatus,
+  UpsertDispatchEmployeePayload,
+  UpsertDispatchCustomerProfilePayload,
   UpdateDispatchJobPayload,
 } from '@/pages/Sparkery/dispatch/types';
 import type { RootState } from '@/store';
@@ -22,7 +25,7 @@ interface FetchJobsPayload {
 
 interface AssignDispatchJobPayload {
   id: string;
-  employeeId: string;
+  employeeIds: string[];
 }
 
 interface UpdateDispatchJobStatusPayload {
@@ -38,6 +41,7 @@ interface UpdateDispatchJobPayloadInput {
 export interface SparkeryDispatchState {
   jobs: DispatchJob[];
   employees: DispatchEmployee[];
+  customerProfiles: DispatchCustomerProfile[];
   selectedWeekStart: string;
   filters: DispatchFilters;
   isLoading: boolean;
@@ -55,6 +59,7 @@ const getStartOfWeek = (): string => {
 const initialState: SparkeryDispatchState = {
   jobs: [],
   employees: [],
+  customerProfiles: [],
   selectedWeekStart: getStartOfWeek(),
   filters: {},
   isLoading: false,
@@ -82,6 +87,36 @@ export const fetchDispatchEmployees = createAsyncThunk<DispatchEmployee[]>(
   }
 );
 
+export const upsertDispatchEmployee = createAsyncThunk<
+  DispatchEmployee,
+  UpsertDispatchEmployeePayload
+>('sparkeryDispatch/upsertEmployee', async payload => {
+  return sparkeryDispatchService.upsertEmployee(payload);
+});
+
+export const fetchDispatchCustomerProfiles = createAsyncThunk<
+  DispatchCustomerProfile[]
+>('sparkeryDispatch/fetchCustomerProfiles', async () => {
+  return sparkeryDispatchService.getCustomerProfiles();
+});
+
+export const upsertDispatchCustomerProfile = createAsyncThunk<
+  DispatchCustomerProfile,
+  UpsertDispatchCustomerProfilePayload
+>('sparkeryDispatch/upsertCustomerProfile', async payload => {
+  return sparkeryDispatchService.upsertCustomerProfile(payload);
+});
+
+export const generateDispatchJobsFromRecurring = createAsyncThunk<
+  DispatchJob[],
+  { weekStart: string; weekEnd: string }
+>('sparkeryDispatch/generateRecurringJobs', async ({ weekStart, weekEnd }) => {
+  return sparkeryDispatchService.createJobsFromRecurringProfiles(
+    weekStart,
+    weekEnd
+  );
+});
+
 export const createDispatchJob = createAsyncThunk<
   DispatchJob,
   CreateDispatchJobPayload
@@ -99,8 +134,8 @@ export const updateDispatchJob = createAsyncThunk<
 export const assignDispatchJob = createAsyncThunk<
   DispatchJob,
   AssignDispatchJobPayload
->('sparkeryDispatch/assignJob', async ({ id, employeeId }) => {
-  return sparkeryDispatchService.assignJob(id, employeeId);
+>('sparkeryDispatch/assignJob', async ({ id, employeeIds }) => {
+  return sparkeryDispatchService.assignJob(id, employeeIds);
 });
 
 export const updateDispatchJobStatus = createAsyncThunk<
@@ -128,6 +163,32 @@ const upsertJob = (
   }
   const cloned = [...jobs];
   cloned[index] = updatedJob;
+  return cloned;
+};
+
+const upsertCustomerProfile = (
+  profiles: DispatchCustomerProfile[],
+  profile: DispatchCustomerProfile
+): DispatchCustomerProfile[] => {
+  const idx = profiles.findIndex(item => item.id === profile.id);
+  if (idx === -1) {
+    return [profile, ...profiles];
+  }
+  const cloned = [...profiles];
+  cloned[idx] = profile;
+  return cloned;
+};
+
+const upsertEmployee = (
+  employees: DispatchEmployee[],
+  employee: DispatchEmployee
+): DispatchEmployee[] => {
+  const idx = employees.findIndex(item => item.id === employee.id);
+  if (idx === -1) {
+    return [employee, ...employees];
+  }
+  const cloned = [...employees];
+  cloned[idx] = employee;
   return cloned;
 };
 
@@ -177,6 +238,38 @@ export const sparkeryDispatchSlice = createSlice({
         state.employees = action.payload;
       })
       .addCase(fetchDispatchEmployees.rejected, setRejected)
+      .addCase(upsertDispatchEmployee.pending, setPending)
+      .addCase(upsertDispatchEmployee.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.employees = upsertEmployee(state.employees, action.payload);
+      })
+      .addCase(upsertDispatchEmployee.rejected, setRejected)
+      .addCase(fetchDispatchCustomerProfiles.pending, setPending)
+      .addCase(fetchDispatchCustomerProfiles.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.customerProfiles = action.payload;
+      })
+      .addCase(fetchDispatchCustomerProfiles.rejected, setRejected)
+      .addCase(upsertDispatchCustomerProfile.pending, setPending)
+      .addCase(upsertDispatchCustomerProfile.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.customerProfiles = upsertCustomerProfile(
+          state.customerProfiles,
+          action.payload
+        );
+      })
+      .addCase(upsertDispatchCustomerProfile.rejected, setRejected)
+      .addCase(generateDispatchJobsFromRecurring.pending, setPending)
+      .addCase(generateDispatchJobsFromRecurring.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const merged = [...action.payload, ...state.jobs];
+        const deduped = new Map<string, DispatchJob>();
+        merged.forEach(job => {
+          deduped.set(job.id, job);
+        });
+        state.jobs = Array.from(deduped.values());
+      })
+      .addCase(generateDispatchJobsFromRecurring.rejected, setRejected)
       .addCase(createDispatchJob.pending, setPending)
       .addCase(createDispatchJob.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -224,6 +317,10 @@ export const selectDispatchJobs = (state: RootState): DispatchJob[] =>
 export const selectDispatchEmployees = (state: RootState): DispatchEmployee[] =>
   selectDispatchState(state).employees;
 
+export const selectDispatchCustomerProfiles = (
+  state: RootState
+): DispatchCustomerProfile[] => selectDispatchState(state).customerProfiles;
+
 export const selectDispatchWeekRange = createSelector(
   [selectDispatchState],
   dispatchState => ({
@@ -256,7 +353,9 @@ export const selectDispatchJobsByDate = createSelector(
       }
       if (
         dispatchState.filters.assignedEmployeeId &&
-        job.assignedEmployeeId !== dispatchState.filters.assignedEmployeeId
+        !job.assignedEmployeeIds?.includes(
+          dispatchState.filters.assignedEmployeeId
+        )
       ) {
         return false;
       }

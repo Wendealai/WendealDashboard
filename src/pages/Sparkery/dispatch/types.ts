@@ -15,6 +15,9 @@ export interface DispatchJob {
   id: string;
   title: string;
   description?: string;
+  notes?: string;
+  imageUrls?: string[];
+  customerProfileId?: string;
   customerName?: string;
   customerAddress?: string;
   customerPhone?: string;
@@ -26,13 +29,40 @@ export interface DispatchJob {
   scheduledDate: string;
   scheduledStartTime: string;
   scheduledEndTime: string;
-  assignedEmployeeId?: string;
+  assignedEmployeeIds?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DispatchCustomerProfile {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  defaultJobTitle?: string;
+  defaultDescription?: string;
+  defaultNotes?: string;
+  recurringEnabled?: boolean;
+  recurringWeekday?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  recurringStartTime?: string;
+  recurringEndTime?: string;
+  recurringServiceType?: DispatchServiceType;
+  recurringPriority?: DispatchPriority;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface DispatchEmployee {
   id: string;
+  name: string;
+  nameCN?: string;
+  phone?: string;
+  skills: DispatchServiceType[];
+  status: DispatchEmployeeStatus;
+}
+
+export interface UpsertDispatchEmployeePayload {
+  id?: string;
   name: string;
   nameCN?: string;
   phone?: string;
@@ -59,6 +89,9 @@ export interface DispatchFilters {
 export interface CreateDispatchJobPayload {
   title: string;
   description?: string;
+  notes?: string;
+  imageUrls?: string[];
+  customerProfileId?: string;
   customerName?: string;
   customerAddress?: string;
   customerPhone?: string;
@@ -69,6 +102,22 @@ export interface CreateDispatchJobPayload {
   scheduledDate: string;
   scheduledStartTime: string;
   scheduledEndTime: string;
+}
+
+export interface UpsertDispatchCustomerProfilePayload {
+  id?: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  defaultJobTitle?: string;
+  defaultDescription?: string;
+  defaultNotes?: string;
+  recurringEnabled?: boolean;
+  recurringWeekday?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  recurringStartTime?: string;
+  recurringEndTime?: string;
+  recurringServiceType?: DispatchServiceType;
+  recurringPriority?: DispatchPriority;
 }
 
 export type UpdateDispatchJobPayload = Partial<
