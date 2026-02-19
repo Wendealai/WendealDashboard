@@ -534,11 +534,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       id: string;
       title: string;
       description: string;
-      /** 单价（每单位价格），与数量相乘得到总金额 */
-      unitPrice: number;
-      /** 数量（单位数），如 2 小时、3 次服务、5 间房等 */
-      quantity: number;
-      /** 单位：次、小时、间、月、平米等 */
+      amount: number;
       unit: string;
     }>
   >([]);
