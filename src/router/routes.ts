@@ -37,6 +37,9 @@ const CleaningInspectionPage = lazy(() => import('@/pages/CleaningInspection'));
 
 // Sparkery
 const SparkeryPage = lazy(() => import('@/pages/Sparkery/index'));
+const SparkeryDispatchPage = lazy(
+  () => import('@/pages/Sparkery/DispatchDashboard')
+);
 
 // Bond Clean Quote Form (standalone public page)
 const BondCleanQuoteForm = lazy(
@@ -202,6 +205,39 @@ export const routes: RouteConfig[] = [
           requiresAuth: true,
           roles: ['admin', 'user'],
           icon: 'SafetyCertificateOutlined',
+        },
+      },
+      {
+        path: 'sparkery/dispatch',
+        element: SparkeryDispatchPage,
+        meta: {
+          title: 'Sparkery Dispatch',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'ScheduleOutlined',
+          hideInMenu: true,
+        },
+      },
+      {
+        path: 'sparkery/schedule',
+        element: SparkeryDispatchPage,
+        meta: {
+          title: 'Sparkery Schedule',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'ScheduleOutlined',
+          hideInMenu: true,
+        },
+      },
+      {
+        path: 'sparkery/staff',
+        element: SparkeryDispatchPage,
+        meta: {
+          title: 'Sparkery Staff',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'TeamOutlined',
+          hideInMenu: true,
         },
       },
       {
