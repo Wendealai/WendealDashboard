@@ -1,0 +1,109 @@
+.sparkery-page .sparkery-tabs .ant-tabs-nav {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 6px 8px;
+}
+
+.sparkery-page .sparkery-tabs .ant-tabs-tab {
+  background: #ffffff;
+  border-radius: 8px;
+  margin-inline-end: 6px;
+}
+
+.sparkery-page .sparkery-tabs .ant-tabs-tab .ant-tabs-tab-btn {
+  color: #1f1f1f;
+}
+
+.sparkery-page .sparkery-tabs .ant-tabs-content-holder,
+.sparkery-page .sparkery-tabs .ant-tabs-tabpane {
+  background: #ffffff;
+}
+
+.dispatch-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dispatch-dashboard-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.dispatch-filters-bar .ant-space-item {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .sparkery-page {
+    padding: 8px !important;
+  }
+
+  .sparkery-page .sparkery-tabs .ant-tabs-nav {
+    background: #ffffff;
+    padding: 6px;
+    border: 1px solid #f0f0f0;
+  }
+
+  .sparkery-page .sparkery-tabs .ant-tabs-tab {
+    background: #ffffff;
+    border: 1px solid #f0f0f0;
+    margin: 0 4px 4px 0;
+    padding: 6px 8px;
+  }
+
+  .sparkery-page .sparkery-tabs .ant-tabs-tab .ant-tabs-tab-btn {
+    color: #1f1f1f;
+    font-size: 13px;
+  }
+
+  .dispatch-dashboard-page {
+    padding: 8px !important;
+  }
+
+  .dispatch-dashboard-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .dispatch-dashboard-title {
+    margin-bottom: 2px !important;
+    font-size: 18px !important;
+    line-height: 1.25;
+  }
+
+  .dispatch-dashboard-subtitle {
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .dispatch-dashboard-actions {
+    width: 100%;
+    gap: 6px !important;
+  }
+
+  .dispatch-dashboard-actions .ant-btn {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .dispatch-filters-bar {
+    width: 100%;
+    gap: 6px !important;
+  }
+
+  .dispatch-filters-bar .ant-space {
+    width: 100%;
+  }
+
+  .dispatch-filters-bar .ant-input,
+  .dispatch-filters-bar .ant-select,
+  .dispatch-filters-bar .ant-btn {
+    width: 100% !important;
+  }
+}

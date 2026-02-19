@@ -20,6 +20,7 @@ import BondCleanQuoteForm from './BondCleanQuoteForm';
 import BondCleanQuoteFormCN from './BondCleanQuoteFormCN';
 import BondCleanQuoteSubmissions from './BondCleanQuoteSubmissions';
 import DispatchDashboard from './DispatchDashboard';
+import './sparkery.css';
 
 const { Title } = Typography;
 
@@ -150,11 +151,16 @@ const SparkeryPage: React.FC = () => {
     <QuoteDraftContext.Provider
       value={{ draftData, setDraftData, activeTab, setActiveTab }}
     >
-      <div style={{ padding: '12px' }}>
+      <div className='sparkery-page' style={{ padding: '12px' }}>
         <Title level={3} style={{ marginBottom: '16px' }}>
           Sparkery Tools
         </Title>
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+        <Tabs
+          className='sparkery-tabs'
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={tabItems}
+        />
       </div>
     </QuoteDraftContext.Provider>
   );

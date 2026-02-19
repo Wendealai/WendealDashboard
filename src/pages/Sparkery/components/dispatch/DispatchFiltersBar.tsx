@@ -29,7 +29,11 @@ const DispatchFiltersBar: React.FC<DispatchFiltersBarProps> = ({
   };
 
   return (
-    <Space wrap style={{ width: '100%', justifyContent: 'space-between' }}>
+    <Space
+      className='dispatch-filters-bar'
+      wrap
+      style={{ width: '100%', justifyContent: 'space-between' }}
+    >
       <Space wrap>
         <Input
           type='date'

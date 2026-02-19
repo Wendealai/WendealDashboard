@@ -182,21 +182,21 @@ const DispatchDashboard: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: 12 }}>
-      <Space
-        style={{
-          width: '100%',
-          justifyContent: 'space-between',
-          marginBottom: 12,
-        }}
-      >
+    <div className='dispatch-dashboard-page' style={{ padding: 12 }}>
+      <div className='dispatch-dashboard-header'>
         <div>
-          <Title level={4} style={{ marginBottom: 4 }}>
+          <Title
+            level={4}
+            className='dispatch-dashboard-title'
+            style={{ marginBottom: 4 }}
+          >
             Sparkery Dispatch Dashboard
           </Title>
-          <Text type='secondary'>Weekly scheduling and assignment board</Text>
+          <Text className='dispatch-dashboard-subtitle' type='secondary'>
+            Weekly scheduling and assignment board
+          </Text>
         </div>
-        <Space>
+        <Space className='dispatch-dashboard-actions' wrap>
           <Button onClick={() => setAdminSetupOpen(true)}>
             Edit Employees & Customers
           </Button>
@@ -207,7 +207,7 @@ const DispatchDashboard: React.FC = () => {
             Create Job
           </Button>
         </Space>
-      </Space>
+      </div>
 
       <Card size='small' style={{ marginBottom: 12 }}>
         <DispatchFiltersBar
