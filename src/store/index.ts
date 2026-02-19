@@ -6,6 +6,7 @@ import authSlice from './slices/authSlice';
 import informationDashboardSlice from './slices/informationDashboardSlice';
 import redditWorkflowSlice from './slices/redditWorkflowSlice';
 import invoiceOCRSlice from './slices/invoiceOCRSlice';
+import sparkeryDispatchSlice from './slices/sparkeryDispatchSlice';
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     informationDashboard: informationDashboardSlice,
     redditWorkflow: redditWorkflowSlice,
     invoiceOCR: invoiceOCRSlice,
+    sparkeryDispatch: sparkeryDispatchSlice,
   },
   middleware: getDefaultMiddleware =>
     getDefaultMiddleware({
@@ -251,3 +253,23 @@ export {
   selectInvoiceOCRErrors as selectInvoiceOCRError,
   selectUploadProgress,
 } from './slices/invoiceOCRSlice';
+
+// Export Sparkery Dispatch slice and actions
+export {
+  default as sparkeryDispatchSlice,
+  fetchDispatchJobs,
+  fetchDispatchEmployees,
+  createDispatchJob,
+  updateDispatchJob,
+  assignDispatchJob,
+  updateDispatchJobStatus,
+  deleteDispatchJob,
+  setSelectedWeekStart as setDispatchSelectedWeekStart,
+  setFilters as setDispatchFilters,
+  clearDispatchError,
+  selectDispatchState,
+  selectDispatchJobs,
+  selectDispatchEmployees,
+  selectDispatchWeekRange,
+  selectDispatchJobsByDate,
+} from './slices/sparkeryDispatchSlice';

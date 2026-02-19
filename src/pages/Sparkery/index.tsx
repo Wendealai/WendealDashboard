@@ -11,6 +11,7 @@ import {
   FileTextOutlined,
   GlobalOutlined,
   UnorderedListOutlined,
+  ScheduleOutlined,
 } from '@ant-design/icons';
 import CleaningInspectionAdmin from './CleaningInspectionAdmin';
 import ChinaProcurementReport from './ChinaProcurementReport';
@@ -18,6 +19,7 @@ import BrisbaneQuoteCalculator from './BrisbaneQuoteCalculator';
 import BondCleanQuoteForm from './BondCleanQuoteForm';
 import BondCleanQuoteFormCN from './BondCleanQuoteFormCN';
 import BondCleanQuoteSubmissions from './BondCleanQuoteSubmissions';
+import DispatchDashboard from './DispatchDashboard';
 
 const { Title } = Typography;
 
@@ -131,6 +133,16 @@ const SparkeryPage: React.FC = () => {
         </span>
       ),
       children: <BondCleanQuoteSubmissions />,
+    },
+    {
+      key: 'dispatch-dashboard',
+      label: (
+        <span>
+          <ScheduleOutlined />
+          Dispatch Dashboard
+        </span>
+      ),
+      children: <DispatchDashboard />,
     },
   ];
 

@@ -51,6 +51,25 @@ export {
   selectInvoiceOCRErrors,
 } from './invoiceOCRSlice';
 
+export {
+  default as sparkeryDispatchSlice,
+  fetchDispatchJobs,
+  fetchDispatchEmployees,
+  createDispatchJob,
+  updateDispatchJob,
+  assignDispatchJob,
+  updateDispatchJobStatus,
+  deleteDispatchJob,
+  setSelectedWeekStart,
+  setFilters,
+  clearDispatchError,
+  selectDispatchState,
+  selectDispatchJobs,
+  selectDispatchEmployees,
+  selectDispatchWeekRange,
+  selectDispatchJobsByDate,
+} from './sparkeryDispatchSlice';
+
 // Export types
 export type { default as UserState } from './userSlice';
 export type { default as UIState } from './uiSlice';
