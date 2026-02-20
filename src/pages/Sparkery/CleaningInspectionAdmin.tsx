@@ -2,7 +2,7 @@
  * Cleaning Inspection Admin Panel - Enhanced with Checklist Templates & Dynamic Sections
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Card,
   Typography,
@@ -36,6 +36,9 @@ import {
   CheckSquareOutlined,
   CameraOutlined,
   UnorderedListOutlined,
+  MenuOutlined,
+  UpOutlined,
+  DownOutlined,
   RocketOutlined,
   FormOutlined,
   EditOutlined,
@@ -49,13 +52,29 @@ import {
   DEFAULT_CHECKLISTS,
   getDefaultChecklistForSection,
   migratePropertyChecklists,
+  type PropertyTemplate,
 } from '@/pages/CleaningInspection/types';
 import type { Employee } from '@/pages/CleaningInspection/types';
-import { submitInspection } from '@/services/inspectionService';
+import {
+  submitInspection,
+  loadAllInspections,
+  deleteInspection,
+  loadPropertyTemplates,
+  savePropertyTemplates,
+  loadEmployees,
+  saveEmployees,
+} from '@/services/inspectionService';
 import { compressImage } from '@/pages/CleaningInspection/utils';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
+
+type InspectionArchive = {
+  id: string;
+  propertyId: string;
+  status: 'pending' | 'in_progress' | 'submitted';
+  [key: string]: any;
+};
 
 /** Generate unique ID */
 const generateId = () =>
@@ -63,63 +82,22 @@ const generateId = () =>
 
 /** Get all available sections (base + optional) */
 const getAllSections = (activeSectionIds: string[]) => {
-  return getActiveSectionDefs(activeSectionIds);
+  const allSections = [...BASE_ROOM_SECTIONS, ...OPTIONAL_SECTIONS];
+  const sectionMap = new Map(allSections.map(section => [section.id, section]));
+  return activeSectionIds
+    .map(sectionId => sectionMap.get(sectionId))
+    .filter((section): section is (typeof allSections)[number] =>
+      Boolean(section)
+    );
 };
 
 /** Main Component */
 const CleaningInspectionAdmin: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage();
 
-  const [properties, setProperties] = useState<any[]>(() => {
-    try {
-      const data = localStorage.getItem('cleaning-inspection-properties');
-      if (!data) return [];
-      const parsed = JSON.parse(data);
-      const migrated = parsed.map((p: any) => {
-        if (!p.sections) {
-          const newReferenceImages: Record<string, any[]> = {};
-          const newSections: string[] = [...BASE_ROOM_SECTIONS.map(s => s.id)];
-          if (p.referenceImages) {
-            Object.entries(p.referenceImages).forEach(
-              ([sectionId, image]: [string, any]) => {
-                newReferenceImages[sectionId] = [{ image, description: '' }];
-              }
-            );
-          }
-          return {
-            ...p,
-            sections: newSections,
-            referenceImages: newReferenceImages,
-          };
-        }
-        return p;
-      });
-      // Also migrate checklist labels to new zh/en format
-      const withChecklists = migrated.map(migratePropertyChecklists);
-      if (JSON.stringify(withChecklists) !== data) {
-        try {
-          localStorage.setItem(
-            'cleaning-inspection-properties',
-            JSON.stringify(withChecklists)
-          );
-        } catch {
-          /* quota exceeded, skip write */
-        }
-      }
-      return withChecklists;
-    } catch {
-      return [];
-    }
-  });
+  const [properties, setProperties] = useState<PropertyTemplate[]>([]);
 
-  const [archives, setArchives] = useState<any[]>(() => {
-    try {
-      const data = localStorage.getItem('archived-cleaning-inspections');
-      return data ? JSON.parse(data) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [archives, setArchives] = useState<InspectionArchive[]>([]);
 
   const [searchText, setSearchText] = useState('');
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
@@ -131,80 +109,88 @@ const CleaningInspectionAdmin: React.FC = () => {
   const [isEmployeesOpen, setIsEmployeesOpen] = useState(false);
 
   // ── Employee Management ──
-  const [employees, setEmployees] = useState<Employee[]>(() => {
-    try {
-      const data = localStorage.getItem('cleaning-inspection-employees');
-      return data ? JSON.parse(data) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
-  /** Save employees to localStorage */
-  const saveEmployeesToStorage = (emps: Employee[]) => {
-    try {
-      localStorage.setItem(
-        'cleaning-inspection-employees',
-        JSON.stringify(emps)
-      );
-      setEmployees(emps);
-    } catch {
-      messageApi.error('存储空间已满');
-    }
-  };
+  React.useEffect(() => {
+    let cancelled = false;
 
-  const savePropertiesToStorage = (props: any[]) => {
-    try {
-      localStorage.setItem(
-        'cleaning-inspection-properties',
-        JSON.stringify(props)
-      );
-      setProperties(props);
-    } catch {
-      // Quota exceeded: try clearing old archived inspections to free space
+    const loadInitialData = async () => {
       try {
-        localStorage.removeItem('archived-cleaning-inspections');
-        localStorage.setItem(
-          'cleaning-inspection-properties',
-          JSON.stringify(props)
-        );
-        setProperties(props);
-        messageApi.warning('存储空间不足，已清理旧检查记录');
-      } catch {
-        messageApi.error('存储空间已满，请清理浏览器数据');
-      }
-    }
-  };
+        const [rawTemplates, rawArchives, rawEmployees] = await Promise.all([
+          loadPropertyTemplates(),
+          loadAllInspections(),
+          loadEmployees(),
+        ]);
 
-  const saveArchivesToStorage = (archs: any[]) => {
-    try {
-      localStorage.setItem(
-        'archived-cleaning-inspections',
-        JSON.stringify(archs)
-      );
-      setArchives(archs);
-    } catch {
-      // Quota exceeded: trim to fewer records
-      try {
-        const trimmed = archs.slice(0, 5);
-        localStorage.setItem(
-          'archived-cleaning-inspections',
-          JSON.stringify(trimmed)
-        );
-        setArchives(trimmed);
+        if (cancelled) return;
+
+        const migratedTemplates = rawTemplates.map((p: any) => {
+          if (!p.sections) {
+            const newReferenceImages: Record<string, any[]> = {};
+            const newSections: string[] = [
+              ...BASE_ROOM_SECTIONS.map(s => s.id),
+            ];
+            if (p.referenceImages) {
+              Object.entries(p.referenceImages).forEach(
+                ([sectionId, image]: [string, any]) => {
+                  newReferenceImages[sectionId] = [{ image, description: '' }];
+                }
+              );
+            }
+            return {
+              ...p,
+              sections: newSections,
+              referenceImages: newReferenceImages,
+            };
+          }
+          return p;
+        });
+
+        setProperties(migratedTemplates.map(migratePropertyChecklists));
+        setArchives(rawArchives as InspectionArchive[]);
+        setEmployees(rawEmployees);
       } catch {
-        // Still failing: keep only 1
-        try {
-          localStorage.setItem(
-            'archived-cleaning-inspections',
-            JSON.stringify(archs.slice(0, 1))
-          );
-          setArchives(archs.slice(0, 1));
-        } catch {
-          // Give up on localStorage
-          setArchives(archs);
+        if (!cancelled) {
+          messageApi.error('加载云端数据失败，请检查 Supabase 配置');
         }
       }
+    };
+
+    loadInitialData();
+    return () => {
+      cancelled = true;
+    };
+  }, [messageApi]);
+
+  /** Save employees to Supabase */
+  const saveEmployeesToStorage = async (emps: Employee[]) => {
+    setEmployees(emps);
+    try {
+      await saveEmployees(emps);
+    } catch {
+      messageApi.error('员工保存失败，请稍后重试');
+    }
+  };
+
+  const savePropertiesToStorage = async (props: PropertyTemplate[]) => {
+    setProperties(props);
+    try {
+      await savePropertyTemplates(props);
+    } catch {
+      messageApi.error('房产模板保存失败，请稍后重试');
+    }
+  };
+
+  const saveArchivesToStorage = async (archs: InspectionArchive[]) => {
+    setArchives(archs);
+    try {
+      await Promise.all(
+        archs.map(async archive => {
+          await submitInspection(archive as any);
+        })
+      );
+    } catch {
+      messageApi.error('检查记录同步失败，请稍后重试');
     }
   };
 
@@ -236,8 +222,9 @@ const CleaningInspectionAdmin: React.FC = () => {
     const sections = getAllSections(activeSections).map(s => {
       // Build checklists: use property template checklists or defaults
       let checklist: any[] = [];
-      if (property.checklists?.[s.id]) {
-        checklist = property.checklists[s.id].map((t: any, idx: number) => {
+      const sectionChecklist = property.checklists?.[s.id];
+      if (sectionChecklist) {
+        checklist = sectionChecklist.map((t: any, idx: number) => {
           const item: any = {
             id: `${s.id}-item-${idx}`,
             label: t.label,
@@ -294,9 +281,15 @@ const CleaningInspectionAdmin: React.FC = () => {
   };
 
   const handleDelete = (id: string) => {
-    const newArchives = archives.filter(a => a.id !== id);
-    saveArchivesToStorage(newArchives);
-    messageApi.success('已删除');
+    deleteInspection(id)
+      .then(() => {
+        const newArchives = archives.filter(a => a.id !== id);
+        setArchives(newArchives);
+        messageApi.success('已删除');
+      })
+      .catch(() => {
+        messageApi.error('删除失败，请稍后重试');
+      });
   };
 
   const handleCopyLink = (id: string, propertyId: string) => {
@@ -577,6 +570,11 @@ const PropertySettingsModal: React.FC<{
     desc: string;
   } | null>(null);
   const [editingProperty, setEditingProperty] = useState<any>(null);
+  const [dragSectionIndex, setDragSectionIndex] = useState<number | null>(null);
+  const [dragOverSectionIndex, setDragOverSectionIndex] = useState<
+    number | null
+  >(null);
+  const dragSectionIndexRef = useRef<number | null>(null);
 
   /** 添加新房产 */
   const handleAdd = () => {
@@ -726,6 +724,89 @@ const PropertySettingsModal: React.FC<{
         messageApi.success('区域已移除');
       },
     });
+  };
+
+  const reorderArray = <T,>(items: T[], fromIndex: number, toIndex: number) => {
+    if (
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= items.length ||
+      toIndex >= items.length ||
+      fromIndex === toIndex
+    ) {
+      return items;
+    }
+    const next = [...items];
+    const [moved] = next.splice(fromIndex, 1);
+    if (typeof moved === 'undefined') {
+      return items;
+    }
+    next.splice(toIndex, 0, moved);
+    return next;
+  };
+
+  const handleSectionReorder = (
+    pid: string,
+    oldIndex: number,
+    newIndex: number
+  ) => {
+    const targetIndex = oldIndex === newIndex ? newIndex : oldIndex;
+    let hasChanges = oldIndex !== newIndex;
+
+    const newProps = properties.map(p => {
+      if (p.id !== pid) return p;
+
+      const sections = p.sections || BASE_ROOM_SECTIONS.map(s => s.id);
+      const reorderedSections = reorderArray(sections, oldIndex, newIndex);
+
+      if (hasChanges) {
+        return { ...p, sections: reorderedSections };
+      }
+
+      console.log('[handleSectionReorder] Property:', pid);
+      console.log(
+        '[handleSectionReorder] Old index:',
+        oldIndex,
+        '-> New index:',
+        newIndex,
+        '-> Reordered:',
+        reorderedSections
+      );
+
+      return p;
+    });
+
+    const updated = newProps.find(p => p.id === pid);
+    if (updated) {
+      console.log(
+        '[handleSectionReorder] Updating property:',
+        pid,
+        updated.name
+      );
+      setEditingProperty({ ...updated });
+    } else {
+      console.log(
+        '[handleSectionReorder] Updated property not found, using first matching one'
+      );
+      setEditingProperty(newProps[0]);
+    }
+  };
+
+  const handleSectionMove = (
+    propertyId: string,
+    index: number,
+    direction: 'up' | 'down'
+  ) => {
+    const nextIndex = direction === 'up' ? index - 1 : index + 1;
+    if (nextIndex < 0) return;
+
+    const property = properties.find(p => p.id === propertyId);
+    const sectionCount = (
+      property?.sections || BASE_ROOM_SECTIONS.map(s => s.id)
+    ).length;
+    if (nextIndex >= sectionCount) return;
+
+    handleSectionReorder(propertyId, index, nextIndex);
   };
 
   const handleUploadImage = (
@@ -1469,6 +1550,16 @@ const PropertySettingsModal: React.FC<{
               <Divider style={{ margin: '12px 0' }} />
 
               <Title level={5}>检查区域</Title>
+              <Text
+                type='secondary'
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '12px',
+                }}
+              >
+                拖动每个区域前的 <MenuOutlined /> 手柄可调整区域顺序
+              </Text>
               <div
                 style={{
                   display: 'flex',
@@ -1477,19 +1568,124 @@ const PropertySettingsModal: React.FC<{
                   marginBottom: '16px',
                 }}
               >
-                {getActiveSections(editingProperty).map(section => (
-                  <Tag
-                    key={section.id}
-                    color='blue'
-                    closable
-                    onClose={() =>
-                      handleRemoveSection(editingProperty.id, section.id)
+                {getActiveSections(editingProperty).map((section, idx) => {
+                  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+                    e.preventDefault();
+                    console.log(
+                      '[Drop] Current editingProperty.id:',
+                      editingProperty.id
+                    );
+
+                    const sourceData = e.dataTransfer.getData('text/plain');
+                    console.log('[Drop] sourceData:', sourceData);
+
+                    if (!sourceData) {
+                      console.log('[Drop] No sourceData, returning');
+                      return;
                     }
-                    style={{ padding: '4px 8px', fontSize: '13px' }}
-                  >
-                    {section.name}
-                  </Tag>
-                ))}
+                    const sourceIdxFromData = Number.parseInt(sourceData, 10);
+                    const sourceIdx = Number.isNaN(sourceIdxFromData)
+                      ? dragSectionIndexRef.current
+                      : sourceIdxFromData;
+                    console.log('[Drop] sourceIdx:', sourceIdx);
+
+                    if (sourceIdx === null) {
+                      console.log('[Drop] sourceIdx is null, returning');
+                      return;
+                    }
+                    if (sourceIdx !== idx) {
+                      const pid = editingProperty.id;
+                      console.log('[Drop] Calling handleSectionReorder:', {
+                        pid,
+                        sourceIdx,
+                        targetIdx: idx,
+                      });
+                      handleSectionReorder(pid, sourceIdx, idx);
+                      console.log('[Drop] handleSectionReorder completed');
+                    } else {
+                      console.log(
+                        '[Drop] sourceIdx === idx, no reordering needed'
+                      );
+                    }
+                    dragSectionIndexRef.current = null;
+                    setDragSectionIndex(null);
+                    setDragOverSectionIndex(null);
+                    console.log('[Drop] Drag state cleared');
+                  };
+                  return (
+                    <div
+                      key={section.id}
+                      draggable
+                      onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                        console.log('[DragStart] Setting source to idx:', idx);
+                        dragSectionIndexRef.current = idx;
+                        setDragSectionIndex(idx);
+                        e.dataTransfer.effectAllowed = 'move';
+                        // Firefox/Zen requires setData for drag events to fire reliably.
+                        e.dataTransfer.setData('text/plain', String(idx));
+                      }}
+                      onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
+                        e.preventDefault();
+                        setDragOverSectionIndex(idx);
+                      }}
+                      onDragEnd={() => {
+                        setTimeout(() => {
+                          dragSectionIndexRef.current = null;
+                          setDragSectionIndex(null);
+                          setDragOverSectionIndex(null);
+                        }, 0);
+                      }}
+                      onDrop={handleDrop}
+                      style={{
+                        cursor: 'move',
+                        userSelect: 'none',
+                        opacity: dragSectionIndex === idx ? 0.6 : 1,
+                        outline:
+                          dragOverSectionIndex === idx &&
+                          dragSectionIndex !== idx
+                            ? '1px dashed #1677ff'
+                            : 'none',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      <Space size={4}>
+                        <Button
+                          type='text'
+                          size='small'
+                          icon={<UpOutlined />}
+                          onMouseDown={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleSectionMove(editingProperty.id, idx, 'up');
+                          }}
+                        />
+                        <Button
+                          type='text'
+                          size='small'
+                          icon={<DownOutlined />}
+                          onMouseDown={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleSectionMove(editingProperty.id, idx, 'down');
+                          }}
+                        />
+                        <Tag
+                          color='blue'
+                          closable
+                          onClose={() =>
+                            handleRemoveSection(editingProperty.id, section.id)
+                          }
+                          style={{ padding: '4px 8px', fontSize: '13px' }}
+                        >
+                          <MenuOutlined
+                            style={{ marginRight: '6px', color: '#8c8c8c' }}
+                          />
+                          {section.name}
+                        </Tag>
+                      </Space>
+                    </div>
+                  );
+                })}
               </div>
               <Title level={5}>可选区域</Title>
               <div

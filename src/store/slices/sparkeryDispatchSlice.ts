@@ -38,6 +38,18 @@ interface UpdateDispatchJobPayloadInput {
   patch: UpdateDispatchJobPayload;
 }
 
+interface DispatchLocalSyncResult {
+  employees: number;
+  customerProfiles: number;
+  jobs: number;
+}
+
+interface DispatchBackupImportResult {
+  jobs: DispatchJob[];
+  employees: DispatchEmployee[];
+  customerProfiles: DispatchCustomerProfile[];
+}
+
 export interface SparkeryDispatchState {
   jobs: DispatchJob[];
   employees: DispatchEmployee[];
@@ -152,6 +164,28 @@ export const deleteDispatchJob = createAsyncThunk<string, string>(
     return id;
   }
 );
+
+export const migrateDispatchLocalPeopleToSupabase =
+  createAsyncThunk<DispatchLocalSyncResult>(
+    'sparkeryDispatch/migrateLocalPeopleToSupabase',
+    async () => {
+      return sparkeryDispatchService.migrateLocalPeopleToSupabase();
+    }
+  );
+
+export const exportDispatchBackup = createAsyncThunk<string>(
+  'sparkeryDispatch/exportBackup',
+  async () => {
+    return sparkeryDispatchService.exportBackup();
+  }
+);
+
+export const importDispatchBackup = createAsyncThunk<
+  DispatchBackupImportResult,
+  string
+>('sparkeryDispatch/importBackup', async rawBackup => {
+  return sparkeryDispatchService.importBackup(rawBackup);
+});
 
 const upsertJob = (
   jobs: DispatchJob[],
@@ -299,7 +333,25 @@ export const sparkeryDispatchSlice = createSlice({
         state.isLoading = false;
         state.jobs = state.jobs.filter(job => job.id !== action.payload);
       })
-      .addCase(deleteDispatchJob.rejected, setRejected);
+      .addCase(deleteDispatchJob.rejected, setRejected)
+      .addCase(migrateDispatchLocalPeopleToSupabase.pending, setPending)
+      .addCase(migrateDispatchLocalPeopleToSupabase.fulfilled, state => {
+        state.isLoading = false;
+      })
+      .addCase(migrateDispatchLocalPeopleToSupabase.rejected, setRejected)
+      .addCase(exportDispatchBackup.pending, setPending)
+      .addCase(exportDispatchBackup.fulfilled, state => {
+        state.isLoading = false;
+      })
+      .addCase(exportDispatchBackup.rejected, setRejected)
+      .addCase(importDispatchBackup.pending, setPending)
+      .addCase(importDispatchBackup.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.jobs = action.payload.jobs;
+        state.employees = action.payload.employees;
+        state.customerProfiles = action.payload.customerProfiles;
+      })
+      .addCase(importDispatchBackup.rejected, setRejected);
   },
 });
 

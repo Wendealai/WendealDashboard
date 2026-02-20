@@ -23,20 +23,30 @@ interface DispatchAdminSetupModalProps {
   open: boolean;
   employees: DispatchEmployee[];
   customerProfiles: DispatchCustomerProfile[];
+  loading: boolean;
   onCancel: () => void;
   onSaveEmployee: (payload: UpsertDispatchEmployeePayload) => Promise<void>;
   onSaveCustomer: (
     payload: UpsertDispatchCustomerProfilePayload
   ) => Promise<DispatchCustomerProfile | void>;
+  onMigrateLocalPeople: () => Promise<void>;
+  onResetMigrationPrompt: () => void;
+  onExportBackup: () => Promise<void>;
+  onImportBackup: (file: File) => Promise<void>;
 }
 
 const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
   open,
   employees,
   customerProfiles,
+  loading,
   onCancel,
   onSaveEmployee,
   onSaveCustomer,
+  onMigrateLocalPeople,
+  onResetMigrationPrompt,
+  onExportBackup,
+  onImportBackup,
 }) => {
   const [employeeForm] = Form.useForm<UpsertDispatchEmployeePayload>();
   const [customerForm] = Form.useForm<UpsertDispatchCustomerProfilePayload>();
@@ -50,6 +60,32 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
       width={920}
       destroyOnHidden
     >
+      <Space style={{ marginBottom: 12 }} wrap>
+        <Button loading={loading} onClick={onMigrateLocalPeople}>
+          Migrate Local Data to Supabase
+        </Button>
+        <Button onClick={onResetMigrationPrompt}>Reset Migration Prompt</Button>
+        <Button loading={loading} onClick={onExportBackup}>
+          Export JSON Backup
+        </Button>
+        <Button loading={loading}>
+          <label style={{ cursor: 'pointer' }}>
+            Import JSON Backup
+            <input
+              type='file'
+              accept='application/json'
+              style={{ display: 'none' }}
+              onChange={async event => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                await onImportBackup(file);
+                event.currentTarget.value = '';
+              }}
+            />
+          </label>
+        </Button>
+      </Space>
+
       <Tabs
         items={[
           {

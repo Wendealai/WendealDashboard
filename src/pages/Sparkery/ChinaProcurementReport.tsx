@@ -61,7 +61,6 @@ import jsPDF from 'jspdf';
 import {
   generatePdfHtml,
   openPrintWindow,
-  getDailySequence,
   generateFilename,
   type PurchaseRecord as PdfPurchaseRecord,
   type PdfPurchaseItem,
@@ -70,6 +69,14 @@ import {
   recognizeOrderItems,
   parseDataUrl,
 } from '@/services/geminiVisionService';
+import {
+  loadDraftIndex as loadDraftIndexFromCloud,
+  saveDraft as saveDraftToCloud,
+  loadDraftData as loadDraftDataFromCloud,
+  deleteDraft as deleteDraftFromCloud,
+  renameDraft as renameDraftInCloud,
+  getDailySequence as getDailySequenceFromCloud,
+} from '@/services/chinaProcurementService';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -142,80 +149,6 @@ interface DraftData {
   currentRecord: Partial<PurchaseRecord>;
   purchaseItems: PurchaseItem[];
   gstEnabled: boolean;
-}
-
-const DRAFT_INDEX_KEY = 'procurement_drafts_index';
-const DRAFT_DATA_PREFIX = 'procurement_draft_';
-
-/**
- * 获取所有草稿的元数据索引列表
- */
-function loadDraftIndex(): DraftMeta[] {
-  try {
-    const raw = localStorage.getItem(DRAFT_INDEX_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * 保存草稿索引到 localStorage
- */
-function saveDraftIndex(index: DraftMeta[]): void {
-  localStorage.setItem(DRAFT_INDEX_KEY, JSON.stringify(index));
-}
-
-/**
- * 加载单个草稿的完整数据
- */
-function loadDraftData(draftId: string): DraftData | null {
-  try {
-    const raw = localStorage.getItem(DRAFT_DATA_PREFIX + draftId);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 保存单个草稿的完整数据到 localStorage
- * @returns true 如果成功，false 如果存储空间不足
- */
-function saveDraftData(draft: DraftData): boolean {
-  try {
-    const json = JSON.stringify(draft);
-    localStorage.setItem(DRAFT_DATA_PREFIX + draft.meta.id, json);
-    return true;
-  } catch (e) {
-    // 通常是 QuotaExceededError
-    console.error('[Draft] Save failed (storage full?):', e);
-    return false;
-  }
-}
-
-/**
- * 删除单个草稿
- */
-function deleteDraftData(draftId: string): void {
-  localStorage.removeItem(DRAFT_DATA_PREFIX + draftId);
-  const index = loadDraftIndex().filter(d => d.id !== draftId);
-  saveDraftIndex(index);
-}
-
-/**
- * 估算 localStorage 已用空间（近似值）
- */
-function estimateStorageUsage(): { usedKB: number; totalKB: number } {
-  let total = 0;
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key) {
-      total += key.length + (localStorage.getItem(key)?.length || 0);
-    }
-  }
-  // localStorage 一般 5~10 MB，按 5MB 估算
-  return { usedKB: Math.round((total * 2) / 1024), totalKB: 5120 };
 }
 
 // 10 Documentation sections based on folder structure
@@ -353,9 +286,7 @@ const ChinaProcurementReport: React.FC = () => {
   /** 草稿列表 Drawer 是否可见 */
   const [draftDrawerOpen, setDraftDrawerOpen] = useState(false);
   /** 草稿索引列表 */
-  const [draftIndex, setDraftIndex] = useState<DraftMeta[]>(() =>
-    loadDraftIndex()
-  );
+  const [draftIndex, setDraftIndex] = useState<DraftMeta[]>([]);
   /** 自上次保存后是否有未保存的修改 */
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   /** 自动保存定时器 */
@@ -392,6 +323,24 @@ const ChinaProcurementReport: React.FC = () => {
     ];
   });
   const [gstEnabled, setGstEnabled] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadDraftIndexFromCloud()
+      .then(index => {
+        if (!cancelled) {
+          setDraftIndex(index as DraftMeta[]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          messageApi.error('Failed to load cloud drafts / 云端草稿加载失败');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [messageApi]);
 
   // Calculate subtotal for a single item
   const calculateItemSubtotal = (item: PurchaseItem) => {
@@ -541,23 +490,22 @@ const ChinaProcurementReport: React.FC = () => {
    * @param silent 是否静默（不显示 message）
    */
   const handleSaveDraft = useCallback(
-    (silent = false) => {
+    async (silent = false) => {
       const draftId = currentDraftId || generateId();
       const existingMeta = draftIndex.find(d => d.id === draftId);
       const draft = buildDraftData(draftId, existingMeta?.name);
 
-      const success = saveDraftData(draft);
-      if (!success) {
+      try {
+        await saveDraftToCloud(draft as any);
+      } catch {
         messageApi.error(
-          'Storage full! Unable to save draft. Please delete old drafts to free space.'
+          'Save draft failed. Please check network and retry. / 草稿保存失败，请检查网络后重试'
         );
         return;
       }
 
-      // 更新索引
       const newIndex = draftIndex.filter(d => d.id !== draftId);
-      newIndex.unshift(draft.meta); // 最新的排在前面
-      saveDraftIndex(newIndex);
+      newIndex.unshift(draft.meta);
       setDraftIndex(newIndex);
 
       if (!currentDraftId) setCurrentDraftId(draftId);
@@ -574,8 +522,8 @@ const ChinaProcurementReport: React.FC = () => {
    * 加载草稿到当前表单
    */
   const handleLoadDraft = useCallback(
-    (draftId: string) => {
-      const draft = loadDraftData(draftId);
+    async (draftId: string) => {
+      const draft = await loadDraftDataFromCloud(draftId);
       if (!draft) {
         messageApi.error('Draft not found or data corrupted');
         return;
@@ -584,7 +532,7 @@ const ChinaProcurementReport: React.FC = () => {
       // 确保 sections 包含所有默认 section（兼容旧草稿）
       const savedSections = draft.currentRecord.sections || [];
       const mergedSections = DEFAULT_SECTIONS.map(def => {
-        const saved = savedSections.find(s => s.id === def.id);
+        const saved = savedSections.find((s: any) => s.id === def.id);
         return saved || { ...def, images: [] };
       });
 
@@ -608,8 +556,8 @@ const ChinaProcurementReport: React.FC = () => {
    * 删除指定草稿
    */
   const handleDeleteDraft = useCallback(
-    (draftId: string) => {
-      deleteDraftData(draftId);
+    async (draftId: string) => {
+      await deleteDraftFromCloud(draftId);
       const newIndex = draftIndex.filter(d => d.id !== draftId);
       setDraftIndex(newIndex);
 
@@ -628,19 +576,12 @@ const ChinaProcurementReport: React.FC = () => {
    * 重命名草稿
    */
   const handleRenameDraft = useCallback(
-    (draftId: string, newName: string) => {
+    async (draftId: string, newName: string) => {
+      await renameDraftInCloud(draftId, newName);
       const newIndex = draftIndex.map(d =>
         d.id === draftId ? { ...d, name: newName.trim() || d.name } : d
       );
-      saveDraftIndex(newIndex);
       setDraftIndex(newIndex);
-
-      // 同步更新 localStorage 中的完整数据
-      const draft = loadDraftData(draftId);
-      if (draft) {
-        draft.meta.name = newName.trim() || draft.meta.name;
-        saveDraftData(draft);
-      }
 
       setRenamingDraftId(null);
       setRenameValue('');
@@ -663,8 +604,9 @@ const ChinaProcurementReport: React.FC = () => {
         okText: 'Save & New / 保存后新建',
         cancelText: 'Discard / 直接新建',
         onOk: () => {
-          handleSaveDraft(true);
-          resetToBlank();
+          return handleSaveDraft(true).then(() => {
+            resetToBlank();
+          });
         },
         onCancel: () => {
           resetToBlank();
@@ -939,18 +881,8 @@ const ChinaProcurementReport: React.FC = () => {
     }
   };
 
-  // Get daily sequence number from localStorage
-  const getDailySequence = (): number => {
-    const today = dayjs().format('YYYYMMDD');
-    const storageKey = `pdf_seq_${today}`;
-    const currentSeq = parseInt(localStorage.getItem(storageKey) || '0', 10);
-    const newSeq = currentSeq + 1;
-    localStorage.setItem(storageKey, newSeq.toString());
-    return newSeq;
-  };
-
   // Generate PDF with all images
-  const generatePDF = () => {
+  const generatePDF = async () => {
     setPdfGenerating(true);
 
     try {
@@ -976,10 +908,10 @@ const ChinaProcurementReport: React.FC = () => {
         createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
       };
 
-      // Get daily sequence number
-      const dailySeq = getDailySequence();
-      const dailySeqStr = dailySeq.toString().padStart(3, '0');
       const dateStr = dayjs(record.purchaseDate).format('YYYYMMDD');
+      // Get daily sequence number
+      const dailySeq = await getDailySequenceFromCloud(dateStr);
+      const dailySeqStr = dailySeq.toString().padStart(3, '0');
 
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -1230,7 +1162,7 @@ const ChinaProcurementReport: React.FC = () => {
   };
 
   // Generate PDF using HTML template (new professional layout)
-  const generatePDFViaHTML = () => {
+  const generatePDFViaHTML = async () => {
     setPdfGenerating(true);
 
     try {
@@ -1257,7 +1189,8 @@ const ChinaProcurementReport: React.FC = () => {
       };
 
       // Get daily sequence number
-      const dailySeq = getDailySequence();
+      const dateStr = dayjs(record.purchaseDate).format('YYYYMMDD');
+      const dailySeq = await getDailySequenceFromCloud(dateStr);
 
       // Generate HTML content (pass purchaseItems for details table)
       const htmlContent = generatePdfHtml(
@@ -1344,11 +1277,7 @@ const ChinaProcurementReport: React.FC = () => {
     ? draftIndex.find(d => d.id === currentDraftId)?.name || 'Untitled Draft'
     : null;
 
-  /** 存储空间信息 */
-  const storageInfo = estimateStorageUsage();
-  const storagePercent = Math.round(
-    (storageInfo.usedKB / storageInfo.totalKB) * 100
-  );
+  const storagePercent = 0;
 
   return (
     <div style={{ padding: '12px' }}>
@@ -1466,8 +1395,7 @@ const ChinaProcurementReport: React.FC = () => {
           >
             <Text type='secondary' style={{ fontSize: '12px' }}>
               <CloudOutlined style={{ marginRight: '4px' }} />
-              Storage: {storageInfo.usedKB}KB / {storageInfo.totalKB}KB (
-              {storagePercent}%)
+              Cloud drafts enabled / 云端草稿已启用
             </Text>
             {storagePercent > 80 && (
               <Text type='danger' style={{ fontSize: '12px' }}>

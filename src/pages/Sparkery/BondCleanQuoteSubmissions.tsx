@@ -32,6 +32,12 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useQuoteDraft } from './index';
 import type { QuoteDraftData } from './index';
+import {
+  listSubmissions,
+  updateSubmissionStatus,
+  deleteSubmission as deleteSubmissionFromCloud,
+  type BondQuoteStatus,
+} from '@/services/bondQuoteSubmissionService';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -85,20 +91,15 @@ const BondCleanQuoteSubmissions: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [formTypeFilter, setFormTypeFilter] = useState<string>('all');
 
-  // Load submissions from localStorage (replace with API call in production)
-  const loadSubmissions = () => {
+  const loadSubmissions = async () => {
     setLoading(true);
     try {
-      const stored = localStorage.getItem('bondCleanQuoteRequests');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // Add status if not present (for backward compatibility)
-        const withStatus = parsed.map((s: QuoteSubmission) => ({
-          ...s,
-          status: s.status || 'new',
-        }));
-        setSubmissions(withStatus.reverse()); // Show newest first
-      }
+      const rows = await listSubmissions();
+      const withStatus = rows.map((s: any) => ({
+        ...s,
+        status: s.status || 'new',
+      }));
+      setSubmissions(withStatus as QuoteSubmission[]);
     } catch (error) {
       message.error('Failed to load submissions');
     } finally {
@@ -107,25 +108,38 @@ const BondCleanQuoteSubmissions: React.FC = () => {
   };
 
   useEffect(() => {
-    loadSubmissions();
+    loadSubmissions().catch(() => {
+      // handled in loadSubmissions
+    });
   }, []);
 
   // Update submission status
-  const updateStatus = (id: string, newStatus: QuoteSubmission['status']) => {
-    const updated = submissions.map(s =>
-      s.id === id ? { ...s, status: newStatus } : s
-    );
-    setSubmissions(updated);
-    localStorage.setItem('bondCleanQuoteRequests', JSON.stringify(updated));
-    message.success('Status updated');
+  const updateStatus = async (
+    id: string,
+    newStatus: QuoteSubmission['status']
+  ) => {
+    try {
+      await updateSubmissionStatus(id, newStatus as BondQuoteStatus);
+      const updated = submissions.map(s =>
+        s.id === id ? { ...s, status: newStatus } : s
+      );
+      setSubmissions(updated);
+      message.success('Status updated');
+    } catch {
+      message.error('Failed to update status');
+    }
   };
 
   // Delete submission
-  const deleteSubmission = (id: string) => {
-    const filtered = submissions.filter(s => s.id !== id);
-    setSubmissions(filtered);
-    localStorage.setItem('bondCleanQuoteRequests', JSON.stringify(filtered));
-    message.success('Submission deleted');
+  const deleteSubmission = async (id: string) => {
+    try {
+      await deleteSubmissionFromCloud(id);
+      const filtered = submissions.filter(s => s.id !== id);
+      setSubmissions(filtered);
+      message.success('Submission deleted');
+    } catch {
+      message.error('Failed to delete submission');
+    }
   };
 
   // Generate quote draft - pass data to calculator
@@ -409,8 +423,8 @@ const BondCleanQuoteSubmissions: React.FC = () => {
           <Descriptions.Item label='Status'>
             <Select
               value={selectedSubmission.status}
-              onChange={value => {
-                updateStatus(selectedSubmission.id, value);
+              onChange={async value => {
+                await updateStatus(selectedSubmission.id, value);
                 setSelectedSubmission({ ...selectedSubmission, status: value });
               }}
               style={{ width: 120 }}
@@ -606,7 +620,14 @@ const BondCleanQuoteSubmissions: React.FC = () => {
           </Col>
           <Col xs={24} sm={24} md={10} style={{ textAlign: 'right' }}>
             <Space>
-              <Button icon={<ReloadOutlined />} onClick={loadSubmissions}>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => {
+                  loadSubmissions().catch(() => {
+                    // handled in loadSubmissions
+                  });
+                }}
+              >
                 Refresh
               </Button>
               <Button

@@ -3,6 +3,20 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './locales';
 
+type SupabaseRuntimeConfig = {
+  url?: string;
+  anonKey?: string;
+};
+
+const runtime = globalThis as typeof globalThis & {
+  __WENDEAL_SUPABASE_CONFIG__?: SupabaseRuntimeConfig;
+};
+
+runtime.__WENDEAL_SUPABASE_CONFIG__ = {
+  url: import.meta.env.VITE_SUPABASE_URL,
+  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+};
+
 // 在开发环境中启动MSW (暂时禁用以解决CORS问题)
 if (import.meta.env.DEV) {
   console.log('MSW已临时禁用以解决webhook CORS问题');

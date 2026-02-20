@@ -5,6 +5,7 @@ import {
   Card,
   Col,
   message,
+  Modal,
   Row,
   Space,
   Typography,
@@ -13,10 +14,13 @@ import {
   assignDispatchJob,
   clearDispatchError,
   createDispatchJob,
+  exportDispatchBackup,
   fetchDispatchCustomerProfiles,
   fetchDispatchEmployees,
   fetchDispatchJobs,
   generateDispatchJobsFromRecurring,
+  importDispatchBackup,
+  migrateDispatchLocalPeopleToSupabase,
   selectDispatchCustomerProfiles,
   selectDispatchEmployees,
   selectDispatchJobsByDate,
@@ -41,6 +45,9 @@ import DispatchJobFormModal from './components/dispatch/DispatchJobFormModal';
 import WeeklyDispatchBoard from './components/dispatch/WeeklyDispatchBoard';
 
 const { Title, Text } = Typography;
+const DISPATCH_LOCAL_STORAGE_KEY = 'sparkery_dispatch_storage_v1';
+const DISPATCH_AUTO_MIGRATION_PROMPT_KEY =
+  'sparkery_dispatch_auto_migration_prompt_seen_v1';
 
 const getWeekEnd = (weekStart: string): string => {
   const start = new Date(weekStart);
@@ -75,6 +82,72 @@ const DispatchDashboard: React.FC = () => {
 
   React.useEffect(() => {
     dispatch(fetchDispatchJobs(weekRange));
+  }, [dispatch, weekRange]);
+
+  React.useEffect(() => {
+    if (localStorage.getItem(DISPATCH_AUTO_MIGRATION_PROMPT_KEY)) {
+      return;
+    }
+
+    const runtime = globalThis as typeof globalThis & {
+      __WENDEAL_SUPABASE_CONFIG__?: {
+        url?: string;
+        anonKey?: string;
+      };
+    };
+    const supabaseReady = Boolean(
+      runtime.__WENDEAL_SUPABASE_CONFIG__?.url &&
+        runtime.__WENDEAL_SUPABASE_CONFIG__?.anonKey
+    );
+    if (!supabaseReady) {
+      return;
+    }
+
+    const raw = localStorage.getItem(DISPATCH_LOCAL_STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(DISPATCH_AUTO_MIGRATION_PROMPT_KEY, 'no-local-data');
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as { jobs?: unknown[] };
+      const hasLocalJobs = Array.isArray(parsed.jobs) && parsed.jobs.length > 0;
+      if (!hasLocalJobs) {
+        localStorage.setItem(
+          DISPATCH_AUTO_MIGRATION_PROMPT_KEY,
+          'no-local-jobs'
+        );
+        return;
+      }
+    } catch {
+      return;
+    }
+
+    Modal.confirm({
+      title: 'Found local jobs data',
+      content:
+        'Supabase is connected. Do you want to migrate local jobs/customers/employees to cloud now?',
+      okText: 'Migrate now',
+      cancelText: 'Later',
+      onOk: async () => {
+        localStorage.setItem(DISPATCH_AUTO_MIGRATION_PROMPT_KEY, 'migrated');
+        const result = await dispatch(migrateDispatchLocalPeopleToSupabase());
+        if (migrateDispatchLocalPeopleToSupabase.fulfilled.match(result)) {
+          message.success(
+            `Migrated ${result.payload.employees} employees, ${result.payload.customerProfiles} customers, and ${result.payload.jobs} jobs`
+          );
+          await dispatch(fetchDispatchJobs(weekRange));
+          await dispatch(fetchDispatchEmployees());
+          await dispatch(fetchDispatchCustomerProfiles());
+          return;
+        }
+        localStorage.removeItem(DISPATCH_AUTO_MIGRATION_PROMPT_KEY);
+        message.error('Failed to migrate local data to Supabase');
+      },
+      onCancel: () => {
+        localStorage.setItem(DISPATCH_AUTO_MIGRATION_PROMPT_KEY, 'skipped');
+      },
+    });
   }, [dispatch, weekRange]);
 
   const handleRefresh = async () => {
@@ -181,6 +254,57 @@ const DispatchDashboard: React.FC = () => {
     message.error('Failed to generate recurring tasks');
   };
 
+  const handleMigrateLocalPeople = async () => {
+    const result = await dispatch(migrateDispatchLocalPeopleToSupabase());
+    if (migrateDispatchLocalPeopleToSupabase.fulfilled.match(result)) {
+      message.success(
+        `Migrated ${result.payload.employees} employees, ${result.payload.customerProfiles} customers, and ${result.payload.jobs} jobs`
+      );
+      await dispatch(fetchDispatchJobs(weekRange));
+      await dispatch(fetchDispatchEmployees());
+      await dispatch(fetchDispatchCustomerProfiles());
+      return;
+    }
+    message.error('Failed to migrate local data to Supabase');
+  };
+
+  const handleExportBackup = async () => {
+    const result = await dispatch(exportDispatchBackup());
+    if (exportDispatchBackup.fulfilled.match(result)) {
+      const content = result.payload;
+      const blob = new Blob([content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `dispatch-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      message.success('Backup exported');
+      return;
+    }
+    message.error('Failed to export backup');
+  };
+
+  const handleImportBackup = async (file: File) => {
+    const content = await file.text();
+    const result = await dispatch(importDispatchBackup(content));
+    if (importDispatchBackup.fulfilled.match(result)) {
+      message.success('Backup imported');
+      await dispatch(fetchDispatchJobs(weekRange));
+      return;
+    }
+    message.error('Failed to import backup file');
+  };
+
+  const handleResetMigrationPrompt = () => {
+    localStorage.removeItem(DISPATCH_AUTO_MIGRATION_PROMPT_KEY);
+    message.success(
+      'Migration prompt reset. It will show again when local jobs are detected.'
+    );
+  };
+
   return (
     <div className='dispatch-dashboard-page' style={{ padding: 12 }}>
       <div className='dispatch-dashboard-header'>
@@ -258,11 +382,16 @@ const DispatchDashboard: React.FC = () => {
 
       <DispatchAdminSetupModal
         open={adminSetupOpen}
+        loading={isLoading}
         employees={employees}
         customerProfiles={customerProfiles}
         onCancel={() => setAdminSetupOpen(false)}
         onSaveEmployee={handleSaveEmployee}
         onSaveCustomer={handleAddCustomerProfile}
+        onMigrateLocalPeople={handleMigrateLocalPeople}
+        onResetMigrationPrompt={handleResetMigrationPrompt}
+        onExportBackup={handleExportBackup}
+        onImportBackup={handleImportBackup}
       />
     </div>
   );

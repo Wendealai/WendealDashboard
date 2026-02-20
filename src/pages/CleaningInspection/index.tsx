@@ -42,11 +42,6 @@ import {
   generateId,
   migrateChecklistItemLabel,
 } from './types';
-import {
-  loadArchivedInspections,
-  saveArchivedInspection,
-  loadPropertyTemplates,
-} from './utils';
 import { LangContext, createT, type Lang } from './i18n';
 
 import StepTaskOverview from './StepTaskOverview';
@@ -58,7 +53,12 @@ import {
   generateInspectionPdfHtml,
   openInspectionPrintWindow,
 } from '@/utils/cleaningInspectionPdfTemplate';
-import { submitInspection, loadInspection } from '@/services/inspectionService';
+import {
+  submitInspection,
+  loadInspection,
+  loadPropertyTemplates,
+  loadEmployees,
+} from '@/services/inspectionService';
 
 const { Text } = Typography;
 
@@ -167,16 +167,14 @@ const CleaningInspectionPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isArchivedView, setIsArchivedView] = useState(false);
   const [isLoadingFromServer, setIsLoadingFromServer] = useState(false);
-  /** Track whether we've already tried server load to avoid re-fetching */
-  const [serverLoadAttempted, setServerLoadAttempted] = useState(false);
 
   /**
    * Build a fresh "new" inspection from URL params + templates.
    * Used when no existing data is found (localStorage or server).
    */
-  const buildNewInspection = useCallback(() => {
+  const buildNewInspection = useCallback(async () => {
     const id = urlInspectionId || generateId('insp');
-    const templates = loadPropertyTemplates();
+    const templates = await loadPropertyTemplates();
     const matchingTemplate = templates.find(
       (p: any) => p.name === urlPropertyName
     );
@@ -195,15 +193,14 @@ const CleaningInspectionPage: React.FC = () => {
       sections = buildDefaultSections();
     }
 
-    // Load assigned employee from localStorage if employee ID is in URL
+    // Load assigned employee from Supabase if employee ID is in URL
     let assignedEmployee: Employee | undefined;
     if (urlEmployeeId) {
       try {
-        const empData = localStorage.getItem('cleaning-inspection-employees');
-        const empList: Employee[] = empData ? JSON.parse(empData) : [];
+        const empList = await loadEmployees();
         assignedEmployee = empList.find(e => e.id === urlEmployeeId);
       } catch {
-        // Ignore parse errors
+        // Ignore employee loading errors
       }
     }
 
@@ -226,73 +223,22 @@ const CleaningInspectionPage: React.FC = () => {
     return newInsp;
   }, [urlInspectionId, urlPropertyName, urlDate, urlEmployeeId]);
 
-  // ── Initialize Inspection ──
-  // Step 1: Try localStorage (synchronous, fast)
-  // Step 2: If not found locally, try n8n server (async)
-  // Step 3: If still not found, create new blank inspection
+  // ── Initialize Inspection from Supabase ──
   useEffect(() => {
-    // Already initialized with the correct ID - skip
-    if (inspection && inspection.id === urlInspectionId) return;
+    let cancelled = false;
 
-    // Step 1: Check localStorage first for instant display (photos may be stripped)
-    if (urlInspectionId) {
-      const archives = loadArchivedInspections();
-      const existing = archives.find((a: any) => a.id === urlInspectionId);
-
-      if (existing) {
-        const hasRealData =
-          existing.status === 'submitted' ||
-          existing.status === 'in_progress' ||
-          (existing.propertyAddress && existing.propertyAddress.length > 0);
-
-        if (hasRealData) {
-          // Show local copy immediately (may lack photos due to localStorage stripping)
-          setInspection(migrateInspection(existing));
-          if (existing.status === 'submitted') {
-            setIsArchivedView(true);
-            setCurrentStep(999);
-          } else if (existing.status === 'in_progress') {
-            setIsArchivedView(true);
-          } else {
-            setIsArchivedView(false);
-          }
-          // Still fetch from server in background to get full data (with photos)
-          if (!serverLoadAttempted) {
-            setServerLoadAttempted(true);
-            loadInspection(urlInspectionId)
-              .then(serverData => {
-                if (serverData) {
-                  // Merge: use server data (has photos) but keep local progress if newer
-                  const merged =
-                    existing.status === 'in_progress' &&
-                    serverData.status === 'pending'
-                      ? existing // Local is further along, keep it
-                      : serverData;
-                  setInspection(migrateInspection(merged));
-                  console.log(
-                    '[Init] Background server refresh completed:',
-                    urlInspectionId
-                  );
-                }
-              })
-              .catch(() => {
-                /* Keep local copy */
-              });
-          }
-          return;
-        }
+    const initialize = async () => {
+      if (inspection && inspection.id === urlInspectionId) {
+        return;
       }
-    }
 
-    // Step 2: Try loading from server (for new devices OR when local is blank stub)
-    if (urlInspectionId && !serverLoadAttempted) {
       setIsLoadingFromServer(true);
-      setServerLoadAttempted(true);
+      try {
+        if (urlInspectionId) {
+          const serverData = await loadInspection(urlInspectionId);
+          if (cancelled) return;
 
-      loadInspection(urlInspectionId)
-        .then(serverData => {
           if (serverData) {
-            saveArchivedInspection(serverData);
             setInspection(migrateInspection(serverData));
             if (serverData.status === 'submitted') {
               setIsArchivedView(true);
@@ -302,62 +248,41 @@ const CleaningInspectionPage: React.FC = () => {
             } else {
               setIsArchivedView(false);
             }
-            console.log(
-              '[Init] Loaded from server:',
-              urlInspectionId,
-              serverData.status
-            );
-          } else {
-            const archives = loadArchivedInspections();
-            const localCopy = archives.find(
-              (a: any) => a.id === urlInspectionId
-            );
-            if (localCopy) {
-              setInspection(migrateInspection(localCopy));
-              setIsArchivedView(false);
-            } else {
-              setInspection(buildNewInspection());
-              setIsArchivedView(false);
-            }
+            return;
           }
-        })
-        .catch(() => {
-          const archives = loadArchivedInspections();
-          const localCopy = archives.find((a: any) => a.id === urlInspectionId);
-          if (localCopy) {
-            setInspection(migrateInspection(localCopy));
-            setIsArchivedView(false);
-          } else {
-            setInspection(buildNewInspection());
-            setIsArchivedView(false);
-          }
-        })
-        .finally(() => {
+        }
+
+        const fresh = await buildNewInspection();
+        if (!cancelled) {
+          setInspection(fresh);
+          setIsArchivedView(false);
+        }
+      } catch {
+        if (!cancelled) {
+          messageApi.error('加载检查数据失败，请稍后重试');
+        }
+      } finally {
+        if (!cancelled) {
           setIsLoadingFromServer(false);
-        });
-      return;
-    }
+        }
+      }
+    };
 
-    // Step 3: No ID in URL or server already attempted → create new
-    if (!inspection) {
-      setInspection(buildNewInspection());
-      setIsArchivedView(false);
-    }
-  }, [urlInspectionId, inspection, serverLoadAttempted, buildNewInspection]);
+    initialize();
+    return () => {
+      cancelled = true;
+    };
+  }, [urlInspectionId, inspection, buildNewInspection, messageApi]);
 
-  // ── Auto-save: persist inspection to localStorage + server on step change ──
+  // ── Auto-save: persist inspection to Supabase on step change ──
   // Debounced: saves when user navigates between steps (not on every keystroke)
   useEffect(() => {
     if (!inspection || inspection.status === 'submitted' || isLoadingFromServer)
       return;
 
-    // Save to localStorage immediately (fast, offline-safe)
-    saveArchivedInspection(inspection);
-
-    // Also sync to n8n server in background (best-effort, no await)
     const timer = setTimeout(() => {
       submitInspection(inspection).catch(() => {
-        // Silently ignore server sync errors during auto-save
+        messageApi.error('自动保存失败，请检查网络后重试');
       });
     }, 500); // Small debounce to avoid flooding server on rapid step changes
 
@@ -435,19 +360,11 @@ const CleaningInspectionPage: React.FC = () => {
     };
 
     try {
-      // Submit to n8n + localStorage fallback
-      const result = await submitInspection(submitted);
+      await submitInspection(submitted);
       setInspection(submitted);
-      if (result.source === 'n8n') {
-        messageApi.success('Inspection submitted to server!');
-      } else {
-        messageApi.success('Inspection saved locally (server unavailable).');
-      }
+      messageApi.success('Inspection submitted to server!');
     } catch {
-      // Even if service throws, save locally
-      saveArchivedInspection(submitted);
-      setInspection(submitted);
-      messageApi.success('Inspection saved locally.');
+      messageApi.error('Submission failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

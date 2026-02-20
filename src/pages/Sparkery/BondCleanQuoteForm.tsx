@@ -24,6 +24,7 @@ import {
   CopyOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
+import { createSubmission } from '@/services/bondQuoteSubmissionService';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -114,24 +115,10 @@ const BondCleanQuoteForm: React.FC = () => {
         ...values,
         submittedAt: new Date().toISOString(),
         formType: 'bond_clean_quote_request',
+        status: 'new' as const,
       };
 
-      // TODO: Replace with actual API endpoint
-      // For now, simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Store in localStorage as fallback
-      const existingSubmissions = JSON.parse(
-        localStorage.getItem('bondCleanQuoteRequests') || '[]'
-      );
-      existingSubmissions.push({
-        ...formData,
-        id: `BCQ-${Date.now()}`,
-      });
-      localStorage.setItem(
-        'bondCleanQuoteRequests',
-        JSON.stringify(existingSubmissions)
-      );
+      await createSubmission(formData);
 
       message.success('Your quote request has been submitted successfully!');
       setSubmitted(true);

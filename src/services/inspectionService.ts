@@ -1,149 +1,213 @@
-/**
- * Inspection Service - n8n Single-Endpoint API with localStorage Fallback
- *
- * Single POST endpoint: https://n8n.wendealai.com.au/webhook/inspection-api
- * Actions: submit, load, list, delete
- *
- * Falls back to localStorage if n8n is unreachable.
- */
+import type {
+  CleaningInspection,
+  Employee,
+  PropertyTemplate,
+} from '@/pages/CleaningInspection/types';
 
-import type { CleaningInspection } from '@/pages/CleaningInspection/types';
+interface SupabaseConfig {
+  url: string;
+  anonKey: string;
+}
 
-/** n8n single API endpoint */
-const API_ENDPOINT = 'https://n8n.wendealai.com.au/webhook/inspection-api';
-const LOCAL_STORAGE_KEY = 'archived-cleaning-inspections';
+type SupabaseRuntime = typeof globalThis & {
+  __WENDEAL_SUPABASE_CONFIG__?: {
+    url?: string;
+    anonKey?: string;
+  };
+};
 
-/**
- * Call the n8n API with an action and payload
- */
-async function callApi(payload: Record<string, any>): Promise<any> {
-  const response = await fetch(API_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+interface SupabaseInspectionRow {
+  id: string;
+  property_id: string;
+  status: CleaningInspection['status'];
+  check_out_date: string;
+  submitted_at: string | null;
+  updated_at: string | null;
+  payload: CleaningInspection;
+}
+
+interface SupabasePropertyRow {
+  id: string;
+  name: string;
+  updated_at: string | null;
+  payload: PropertyTemplate;
+}
+
+interface SupabaseEmployeeRow {
+  id: string;
+  name: string;
+  updated_at: string | null;
+  payload: Employee;
+}
+
+const getSupabaseConfig = (): SupabaseConfig => {
+  const runtime = globalThis as SupabaseRuntime;
+  const url = runtime.__WENDEAL_SUPABASE_CONFIG__?.url?.trim();
+  const anonKey = runtime.__WENDEAL_SUPABASE_CONFIG__?.anonKey?.trim();
+  if (!url || !anonKey) {
+    throw new Error('Supabase is not configured');
+  }
+
+  return { url, anonKey };
+};
+
+const supabaseFetch = async <T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> => {
+  const config = getSupabaseConfig();
+  const requestUrl = `${config.url.replace(/\/$/, '')}${path}`;
+  const response = await fetch(requestUrl, {
+    ...options,
+    headers: {
+      apikey: config.anonKey,
+      Authorization: `Bearer ${config.anonKey}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
   });
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
+    const details = await response.text();
+    throw new Error(
+      `Supabase request failed (${response.status}): ${details || 'No details'}`
+    );
   }
-
-  return response.json();
-}
-
-/**
- * Submit a completed inspection to n8n backend.
- * Always saves to localStorage first as backup.
- */
-export async function submitInspection(
-  inspection: CleaningInspection
-): Promise<{ success: boolean; source: 'n8n' | 'localStorage' }> {
-  // Always save to localStorage first (as backup)
-  saveToLocalStorage(inspection);
 
   try {
-    const result = await callApi({
-      action: 'submit',
-      data: inspection,
-    });
-
-    if (result.success) {
-      console.log('[InspectionService] Submitted to n8n:', result.id);
-      return { success: true, source: 'n8n' };
-    }
-
-    console.warn('[InspectionService] n8n submit failed:', result.error);
-    return { success: true, source: 'localStorage' };
-  } catch (error) {
-    console.warn(
-      '[InspectionService] n8n unreachable, using localStorage:',
-      error
-    );
-    return { success: true, source: 'localStorage' };
+    return (await response.json()) as T;
+  } catch {
+    return [] as T;
   }
+};
+
+const toInspectionRow = (
+  inspection: CleaningInspection
+): SupabaseInspectionRow => ({
+  id: inspection.id,
+  property_id: inspection.propertyId,
+  status: inspection.status,
+  check_out_date: inspection.checkOutDate,
+  submitted_at:
+    typeof inspection.submittedAt === 'string'
+      ? inspection.submittedAt || null
+      : inspection.submittedAt?.toISOString() || null,
+  updated_at: new Date().toISOString(),
+  payload: inspection,
+});
+
+const toPropertyRow = (property: PropertyTemplate): SupabasePropertyRow => ({
+  id: property.id,
+  name: property.name,
+  updated_at: new Date().toISOString(),
+  payload: property,
+});
+
+const toEmployeeRow = (employee: Employee): SupabaseEmployeeRow => ({
+  id: employee.id,
+  name: employee.name,
+  updated_at: new Date().toISOString(),
+  payload: employee,
+});
+
+export async function submitInspection(
+  inspection: CleaningInspection
+): Promise<{ success: boolean; source: 'supabase' }> {
+  const row = toInspectionRow(inspection);
+  const result = await supabaseFetch<SupabaseInspectionRow[]>(
+    '/rest/v1/cleaning_inspections?on_conflict=id',
+    {
+      method: 'POST',
+      headers: {
+        Prefer: 'resolution=merge-duplicates,return=representation',
+      },
+      body: JSON.stringify([row]),
+    }
+  );
+
+  if (!result[0]) {
+    throw new Error('Supabase inspection upsert returned no rows');
+  }
+
+  return { success: true, source: 'supabase' };
 }
 
-/**
- * Load an inspection by ID. Tries n8n first, falls back to localStorage.
- */
 export async function loadInspection(
   id: string
 ): Promise<CleaningInspection | null> {
-  // Try n8n first
-  try {
-    const result = await callApi({ action: 'load', id });
-    if (result.success && result.data) {
-      console.log('[InspectionService] Loaded from n8n:', id);
-      return result.data as CleaningInspection;
-    }
-  } catch {
-    console.warn('[InspectionService] n8n load failed, trying localStorage');
-  }
-
-  // Fallback to localStorage
-  return loadFromLocalStorage(id);
+  const rows = await supabaseFetch<SupabaseInspectionRow[]>(
+    `/rest/v1/cleaning_inspections?select=*&id=eq.${id}`
+  );
+  return rows[0]?.payload || null;
 }
 
-/**
- * Load all inspections from localStorage.
- * In the future, can also call n8n list action.
- */
-export function loadAllInspections(): CleaningInspection[] {
-  try {
-    const data = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
+export async function loadAllInspections(): Promise<CleaningInspection[]> {
+  const rows = await supabaseFetch<SupabaseInspectionRow[]>(
+    '/rest/v1/cleaning_inspections?select=*&order=updated_at.desc.nullslast,id.desc'
+  );
+  return rows.map(row => row.payload);
 }
 
-/**
- * Delete an inspection from both n8n and localStorage.
- */
 export async function deleteInspection(id: string): Promise<void> {
-  // Delete from localStorage
-  try {
-    const archives = loadAllInspections().filter(a => a.id !== id);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(archives));
-  } catch {
-    console.error('[InspectionService] localStorage delete failed');
-  }
-
-  // Also delete from n8n (best effort)
-  try {
-    await callApi({ action: 'delete', id });
-  } catch {
-    // Silently ignore n8n delete failures
-  }
-}
-
-// ──────────────────── localStorage Helpers ──────────────────────
-
-/**
- * Save inspection to localStorage archive
- */
-function saveToLocalStorage(inspection: CleaningInspection): void {
-  try {
-    const archives = loadAllInspections();
-    const existingIndex = archives.findIndex(a => a.id === inspection.id);
-    if (existingIndex >= 0) {
-      archives[existingIndex] = inspection;
-    } else {
-      archives.unshift(inspection);
+  await supabaseFetch<SupabaseInspectionRow[]>(
+    `/rest/v1/cleaning_inspections?id=eq.${id}`,
+    {
+      method: 'DELETE',
+      headers: {
+        Prefer: 'return=representation',
+      },
     }
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(archives));
-  } catch (error) {
-    console.error('[InspectionService] localStorage save failed:', error);
-  }
+  );
 }
 
-/**
- * Load a single inspection from localStorage by ID
- */
-function loadFromLocalStorage(id: string): CleaningInspection | null {
-  try {
-    const archives = loadAllInspections();
-    return (archives.find(a => a.id === id) as CleaningInspection) || null;
-  } catch {
-    return null;
+export async function loadPropertyTemplates(): Promise<PropertyTemplate[]> {
+  const rows = await supabaseFetch<SupabasePropertyRow[]>(
+    '/rest/v1/cleaning_inspection_properties?select=*&order=updated_at.desc.nullslast,id.asc'
+  );
+  return rows.map(row => row.payload);
+}
+
+export async function savePropertyTemplates(
+  templates: PropertyTemplate[]
+): Promise<void> {
+  if (templates.length === 0) {
+    return;
   }
+
+  const rows = templates.map(toPropertyRow);
+  await supabaseFetch<SupabasePropertyRow[]>(
+    '/rest/v1/cleaning_inspection_properties?on_conflict=id',
+    {
+      method: 'POST',
+      headers: {
+        Prefer: 'resolution=merge-duplicates,return=representation',
+      },
+      body: JSON.stringify(rows),
+    }
+  );
+}
+
+export async function loadEmployees(): Promise<Employee[]> {
+  const rows = await supabaseFetch<SupabaseEmployeeRow[]>(
+    '/rest/v1/cleaning_inspection_employees?select=*&order=updated_at.desc.nullslast,id.asc'
+  );
+  return rows.map(row => row.payload);
+}
+
+export async function saveEmployees(employees: Employee[]): Promise<void> {
+  if (employees.length === 0) {
+    return;
+  }
+
+  const rows = employees.map(toEmployeeRow);
+  await supabaseFetch<SupabaseEmployeeRow[]>(
+    '/rest/v1/cleaning_inspection_employees?on_conflict=id',
+    {
+      method: 'POST',
+      headers: {
+        Prefer: 'resolution=merge-duplicates,return=representation',
+      },
+      body: JSON.stringify(rows),
+    }
+  );
 }
