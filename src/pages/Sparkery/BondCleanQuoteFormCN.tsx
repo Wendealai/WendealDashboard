@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Form,
   Input,
   Select,
@@ -23,12 +24,21 @@ import {
   CheckCircleOutlined,
   CopyOutlined,
   InfoCircleOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
-import { createSubmission } from '@/services/bondQuoteSubmissionService';
+import {
+  createFormShareLink,
+  createSubmission,
+  getActiveFormShareLink,
+  markFormShareLinkUsed,
+  type BondQuoteFormType,
+} from '@/services/bondQuoteSubmissionService';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
+const FORM_TYPE: BondQuoteFormType = 'bond_clean_quote_request_cn';
+const PUBLIC_FORM_PATH = '/bond-clean-quote-cn';
 
 interface BondCleanFormData {
   // Customer Info
@@ -72,6 +82,22 @@ const BondCleanQuoteFormCN: React.FC = () => {
   const [showCustomRoomType, setShowCustomRoomType] = useState(false);
   const [showRubbishNotes, setShowRubbishNotes] = useState(false);
   const [propertyType, setPropertyType] = useState<string>('apartment');
+  const [shareLinkLoading, setShareLinkLoading] = useState(false);
+  const [generatedShareLink, setGeneratedShareLink] = useState('');
+  const [linkValidationLoading, setLinkValidationLoading] = useState(false);
+  const [linkValidationError, setLinkValidationError] = useState('');
+  const searchParams = useMemo(
+    () => new URLSearchParams(window.location.search),
+    []
+  );
+  const sourceLinkId = searchParams.get('linkId')?.trim() || '';
+  const sourceLinkToken = searchParams.get('token')?.trim() || '';
+  const isStandaloneRoute =
+    window.location.pathname.toLowerCase() === PUBLIC_FORM_PATH;
+  const isLinkVisit = Boolean(sourceLinkId && sourceLinkToken);
+  const requiresGeneratedLink = isStandaloneRoute;
+  const canSubmitFromLink =
+    isLinkVisit && !linkValidationLoading && !linkValidationError;
 
   // Set page title
   useEffect(() => {
@@ -92,21 +118,92 @@ const BondCleanQuoteFormCN: React.FC = () => {
     { id: 'other', name: '其他（请在下方说明）', maxCarpet: 5 },
   ];
 
-  const copyPageUrl = () => {
-    // Always use the standalone route URL
-    const baseUrl = window.location.origin;
-    const url = `${baseUrl}/bond-clean-quote-cn`;
-    navigator.clipboard
-      .writeText(url)
-      .then(() => {
-        message.success('页面链接已复制到剪贴板！');
+  useEffect(() => {
+    if (!requiresGeneratedLink) {
+      setLinkValidationError('');
+      setLinkValidationLoading(false);
+      return;
+    }
+
+    if (!sourceLinkId || !sourceLinkToken) {
+      setLinkValidationError(
+        '该表单必须通过专属链接访问，请联系 Sparkery 获取链接。'
+      );
+      setLinkValidationLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLinkValidationLoading(true);
+    setLinkValidationError('');
+
+    getActiveFormShareLink(FORM_TYPE, sourceLinkId, sourceLinkToken)
+      .then(link => {
+        if (cancelled) return;
+        if (!link) {
+          setLinkValidationError(
+            '该链接无效或已被使用，请联系工作人员重新生成。'
+          );
+        }
       })
       .catch(() => {
-        message.error('复制失败');
+        if (cancelled) return;
+        setLinkValidationError('链接校验失败，请稍后再试。');
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLinkValidationLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requiresGeneratedLink, sourceLinkId, sourceLinkToken]);
+
+  const copyToClipboard = async (
+    content: string,
+    successMessage: string,
+    failureMessage: string
+  ) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      message.success(successMessage);
+    } catch {
+      message.error(failureMessage);
+    }
+  };
+
+  const generateShareLink = async () => {
+    setShareLinkLoading(true);
+    try {
+      const createdLink = await createFormShareLink(FORM_TYPE, {
+        createdFrom: 'sparkery-dashboard',
+      });
+      const shareUrl = `${window.location.origin}${PUBLIC_FORM_PATH}?linkId=${encodeURIComponent(createdLink.id)}&token=${encodeURIComponent(createdLink.token)}`;
+      setGeneratedShareLink(shareUrl);
+      await copyToClipboard(
+        shareUrl,
+        '专属链接已生成并复制！',
+        '专属链接已生成，但自动复制失败。'
+      );
+    } catch {
+      message.error('生成链接失败，请检查 Supabase 配置。');
+    } finally {
+      setShareLinkLoading(false);
+    }
+  };
+
+  const copyGeneratedShareLink = async () => {
+    if (!generatedShareLink) return;
+    await copyToClipboard(generatedShareLink, '链接已复制！', '复制失败');
   };
 
   const onFinish = async (values: BondCleanFormData) => {
+    if (requiresGeneratedLink && !canSubmitFromLink) {
+      message.error('请使用有效的专属链接访问后再提交。');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -114,11 +211,24 @@ const BondCleanQuoteFormCN: React.FC = () => {
       const formData = {
         ...values,
         submittedAt: new Date().toISOString(),
-        formType: 'bond_clean_quote_request_cn',
+        formType: FORM_TYPE,
         status: 'new' as const,
+        ...(sourceLinkId ? { formLinkId: sourceLinkId } : {}),
       };
 
-      await createSubmission(formData);
+      const created = await createSubmission(formData);
+
+      if (sourceLinkId && sourceLinkToken) {
+        try {
+          await markFormShareLinkUsed(
+            sourceLinkId,
+            sourceLinkToken,
+            created.id
+          );
+        } catch {
+          message.warning('提交已保存，但链接状态更新失败。');
+        }
+      }
 
       message.success('您的报价请求已成功提交！');
       setSubmitted(true);
@@ -226,16 +336,52 @@ const BondCleanQuoteFormCN: React.FC = () => {
 
       {/* Form Content */}
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
-        {/* Copy URL Button */}
-        <div style={{ marginBottom: 16, textAlign: 'right' }}>
-          <Button
-            icon={<CopyOutlined />}
-            onClick={copyPageUrl}
-            style={{ borderColor: '#005901', color: '#005901' }}
-          >
-            复制页面链接
-          </Button>
-        </div>
+        {!isStandaloneRoute && (
+          <div style={{ marginBottom: 16 }}>
+            <Space wrap style={{ width: '100%', justifyContent: 'flex-end' }}>
+              <Button
+                icon={<LinkOutlined />}
+                onClick={generateShareLink}
+                loading={shareLinkLoading}
+                style={{ borderColor: '#005901', color: '#005901' }}
+              >
+                生成专属链接
+              </Button>
+              {generatedShareLink && (
+                <Button
+                  icon={<CopyOutlined />}
+                  onClick={copyGeneratedShareLink}
+                >
+                  复制链接
+                </Button>
+              )}
+            </Space>
+            {generatedShareLink && (
+              <Input
+                value={generatedShareLink}
+                readOnly
+                style={{ marginTop: 8 }}
+              />
+            )}
+          </div>
+        )}
+        {isStandaloneRoute && (
+          <div style={{ marginBottom: 16 }}>
+            {linkValidationLoading && (
+              <Alert type='info' showIcon message='正在校验专属链接...' />
+            )}
+            {!linkValidationLoading && linkValidationError && (
+              <Alert type='error' showIcon message={linkValidationError} />
+            )}
+            {!linkValidationLoading && !linkValidationError && isLinkVisit && (
+              <Alert
+                type='success'
+                showIcon
+                message='链接有效，可填写并提交。'
+              />
+            )}
+          </div>
+        )}
 
         <Card
           style={{
@@ -818,6 +964,7 @@ const BondCleanQuoteFormCN: React.FC = () => {
                   htmlType='submit'
                   size='large'
                   block
+                  disabled={requiresGeneratedLink && !canSubmitFromLink}
                   style={{
                     backgroundColor: '#005901',
                     borderColor: '#005901',

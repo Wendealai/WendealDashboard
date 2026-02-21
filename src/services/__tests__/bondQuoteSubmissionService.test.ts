@@ -1,8 +1,11 @@
 import {
+  createFormShareLink,
   createSubmission,
-  listSubmissions,
-  updateSubmissionStatus,
   deleteSubmission,
+  getActiveFormShareLink,
+  listSubmissions,
+  markFormShareLinkUsed,
+  updateSubmissionStatus,
   type BondQuoteSubmissionPayload,
 } from '../bondQuoteSubmissionService';
 
@@ -43,6 +46,24 @@ describe('bondQuoteSubmissionService', () => {
     status: 'new',
   };
 
+  const submissionRow = {
+    id: 'BCQ-1',
+    submitted_at: payload.submittedAt,
+    status: payload.status,
+    payload: { ...payload, id: 'BCQ-1' },
+  };
+
+  const activeLinkRow = {
+    id: 'BQL-1',
+    form_type: 'bond_clean_quote_request',
+    token: 'token-1',
+    status: 'active',
+    created_at: '2026-02-21T10:00:00.000Z',
+    used_at: null,
+    used_submission_id: null,
+    payload: null,
+  };
+
   beforeEach(() => {
     runtime.__WENDEAL_SUPABASE_CONFIG__ = {
       url: 'https://example.supabase.co',
@@ -60,7 +81,7 @@ describe('bondQuoteSubmissionService', () => {
     const fetchMock = global.fetch as jest.Mock;
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => [{ id: 'BCQ-1', payload }],
+      json: async () => [submissionRow],
     });
 
     const result = await createSubmission(payload);
@@ -78,7 +99,7 @@ describe('bondQuoteSubmissionService', () => {
     const fetchMock = global.fetch as jest.Mock;
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => [{ id: 'BCQ-1', payload }],
+      json: async () => [submissionRow],
     });
 
     const result = await listSubmissions();
@@ -92,7 +113,7 @@ describe('bondQuoteSubmissionService', () => {
     fetchMock
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => [{ id: 'BCQ-1', payload }],
+        json: async () => [submissionRow],
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -128,6 +149,77 @@ describe('bondQuoteSubmissionService', () => {
         '/rest/v1/bond_clean_quote_submissions?id=eq.BCQ-1'
       ),
       expect.objectContaining({ method: 'DELETE' })
+    );
+  });
+
+  it('creates one share link in supabase', async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [activeLinkRow],
+    });
+
+    const result = await createFormShareLink('bond_clean_quote_request');
+
+    expect(result.id).toBe('BQL-1');
+    expect(result.formType).toBe('bond_clean_quote_request');
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/rest/v1/bond_clean_quote_form_links?on_conflict=id'
+      ),
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  it('validates one active share link from supabase', async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => [activeLinkRow],
+    });
+
+    const result = await getActiveFormShareLink(
+      'bond_clean_quote_request',
+      'BQL-1',
+      'token-1'
+    );
+
+    expect(result?.id).toBe('BQL-1');
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/rest/v1/bond_clean_quote_form_links?select=*&id=eq.BQL-1&token=eq.token-1&form_type=eq.bond_clean_quote_request&status=eq.active&limit=1'
+      ),
+      expect.any(Object)
+    );
+  });
+
+  it('marks one share link as used in supabase', async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [activeLinkRow],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            ...activeLinkRow,
+            status: 'used',
+            used_at: '2026-02-21T11:00:00.000Z',
+            used_submission_id: 'BCQ-1',
+          },
+        ],
+      });
+
+    const result = await markFormShareLinkUsed('BQL-1', 'token-1', 'BCQ-1');
+
+    expect(result.status).toBe('used');
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/rest/v1/bond_clean_quote_form_links?id=eq.BQL-1&token=eq.token-1&status=eq.active'
+      ),
+      expect.objectContaining({ method: 'PATCH' })
     );
   });
 });

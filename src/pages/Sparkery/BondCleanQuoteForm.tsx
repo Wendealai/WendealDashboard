@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Form,
   Input,
   Select,
@@ -23,12 +24,21 @@ import {
   CheckCircleOutlined,
   CopyOutlined,
   InfoCircleOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
-import { createSubmission } from '@/services/bondQuoteSubmissionService';
+import {
+  createFormShareLink,
+  createSubmission,
+  getActiveFormShareLink,
+  markFormShareLinkUsed,
+  type BondQuoteFormType,
+} from '@/services/bondQuoteSubmissionService';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
+const FORM_TYPE: BondQuoteFormType = 'bond_clean_quote_request';
+const PUBLIC_FORM_PATH = '/bond-clean-quote';
 
 interface BondCleanFormData {
   // Customer Info
@@ -72,6 +82,22 @@ const BondCleanQuoteForm: React.FC = () => {
   const [showCustomRoomType, setShowCustomRoomType] = useState(false);
   const [showRubbishNotes, setShowRubbishNotes] = useState(false);
   const [propertyType, setPropertyType] = useState<string>('apartment');
+  const [shareLinkLoading, setShareLinkLoading] = useState(false);
+  const [generatedShareLink, setGeneratedShareLink] = useState('');
+  const [linkValidationLoading, setLinkValidationLoading] = useState(false);
+  const [linkValidationError, setLinkValidationError] = useState('');
+  const searchParams = useMemo(
+    () => new URLSearchParams(window.location.search),
+    []
+  );
+  const sourceLinkId = searchParams.get('linkId')?.trim() || '';
+  const sourceLinkToken = searchParams.get('token')?.trim() || '';
+  const isStandaloneRoute =
+    window.location.pathname.toLowerCase() === PUBLIC_FORM_PATH;
+  const isLinkVisit = Boolean(sourceLinkId && sourceLinkToken);
+  const requiresGeneratedLink = isStandaloneRoute;
+  const canSubmitFromLink =
+    isLinkVisit && !linkValidationLoading && !linkValidationError;
 
   // Set page title
   useEffect(() => {
@@ -92,21 +118,100 @@ const BondCleanQuoteForm: React.FC = () => {
     { id: 'other', name: 'Other (please specify below)', maxCarpet: 5 },
   ];
 
-  const copyPageUrl = () => {
-    // Always use the standalone route URL
-    const baseUrl = window.location.origin;
-    const url = `${baseUrl}/bond-clean-quote`;
-    navigator.clipboard
-      .writeText(url)
-      .then(() => {
-        message.success('Page URL copied to clipboard!');
+  useEffect(() => {
+    if (!requiresGeneratedLink) {
+      setLinkValidationError('');
+      setLinkValidationLoading(false);
+      return;
+    }
+
+    if (!sourceLinkId || !sourceLinkToken) {
+      setLinkValidationError(
+        'This form requires a generated share link. Please contact Sparkery for your link.'
+      );
+      setLinkValidationLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLinkValidationLoading(true);
+    setLinkValidationError('');
+
+    getActiveFormShareLink(FORM_TYPE, sourceLinkId, sourceLinkToken)
+      .then(link => {
+        if (cancelled) return;
+        if (!link) {
+          setLinkValidationError(
+            'This link is invalid or already used. Please request a new link.'
+          );
+        }
       })
       .catch(() => {
-        message.error('Failed to copy URL');
+        if (cancelled) return;
+        setLinkValidationError(
+          'Unable to validate this link right now. Please try again later.'
+        );
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLinkValidationLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requiresGeneratedLink, sourceLinkId, sourceLinkToken]);
+
+  const copyToClipboard = async (
+    content: string,
+    successMessage: string,
+    failureMessage: string
+  ) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      message.success(successMessage);
+    } catch {
+      message.error(failureMessage);
+    }
+  };
+
+  const generateShareLink = async () => {
+    setShareLinkLoading(true);
+    try {
+      const createdLink = await createFormShareLink(FORM_TYPE, {
+        createdFrom: 'sparkery-dashboard',
+      });
+      const shareUrl = `${window.location.origin}${PUBLIC_FORM_PATH}?linkId=${encodeURIComponent(createdLink.id)}&token=${encodeURIComponent(createdLink.token)}`;
+      setGeneratedShareLink(shareUrl);
+      await copyToClipboard(
+        shareUrl,
+        'Private share link generated and copied!',
+        'Share link generated, but failed to copy automatically.'
+      );
+    } catch {
+      message.error('Failed to generate share link. Please check Supabase.');
+    } finally {
+      setShareLinkLoading(false);
+    }
+  };
+
+  const copyGeneratedShareLink = async () => {
+    if (!generatedShareLink) return;
+    await copyToClipboard(
+      generatedShareLink,
+      'Share link copied!',
+      'Failed to copy share link'
+    );
   };
 
   const onFinish = async (values: BondCleanFormData) => {
+    if (requiresGeneratedLink && !canSubmitFromLink) {
+      message.error(
+        'Please open this form using a valid generated link before submitting.'
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -114,11 +219,26 @@ const BondCleanQuoteForm: React.FC = () => {
       const formData = {
         ...values,
         submittedAt: new Date().toISOString(),
-        formType: 'bond_clean_quote_request',
+        formType: FORM_TYPE,
         status: 'new' as const,
+        ...(sourceLinkId ? { formLinkId: sourceLinkId } : {}),
       };
 
-      await createSubmission(formData);
+      const created = await createSubmission(formData);
+
+      if (sourceLinkId && sourceLinkToken) {
+        try {
+          await markFormShareLinkUsed(
+            sourceLinkId,
+            sourceLinkToken,
+            created.id
+          );
+        } catch {
+          message.warning(
+            'Submission saved, but failed to update share-link usage state.'
+          );
+        }
+      }
 
       message.success('Your quote request has been submitted successfully!');
       setSubmitted(true);
@@ -227,16 +347,52 @@ const BondCleanQuoteForm: React.FC = () => {
 
       {/* Form Content */}
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
-        {/* Copy URL Button */}
-        <div style={{ marginBottom: 16, textAlign: 'right' }}>
-          <Button
-            icon={<CopyOutlined />}
-            onClick={copyPageUrl}
-            style={{ borderColor: '#005901', color: '#005901' }}
-          >
-            Copy Page URL
-          </Button>
-        </div>
+        {!isStandaloneRoute && (
+          <div style={{ marginBottom: 16 }}>
+            <Space wrap style={{ width: '100%', justifyContent: 'flex-end' }}>
+              <Button
+                icon={<LinkOutlined />}
+                onClick={generateShareLink}
+                loading={shareLinkLoading}
+                style={{ borderColor: '#005901', color: '#005901' }}
+              >
+                Generate Share Link
+              </Button>
+              {generatedShareLink && (
+                <Button
+                  icon={<CopyOutlined />}
+                  onClick={copyGeneratedShareLink}
+                >
+                  Copy Link
+                </Button>
+              )}
+            </Space>
+            {generatedShareLink && (
+              <Input
+                value={generatedShareLink}
+                readOnly
+                style={{ marginTop: 8 }}
+              />
+            )}
+          </div>
+        )}
+        {isStandaloneRoute && (
+          <div style={{ marginBottom: 16 }}>
+            {linkValidationLoading && (
+              <Alert type='info' showIcon message='Validating secure link...' />
+            )}
+            {!linkValidationLoading && linkValidationError && (
+              <Alert type='error' showIcon message={linkValidationError} />
+            )}
+            {!linkValidationLoading && !linkValidationError && isLinkVisit && (
+              <Alert
+                type='success'
+                showIcon
+                message='Secure link is active. You can submit this quote request.'
+              />
+            )}
+          </div>
+        )}
 
         <Card
           style={{
@@ -846,6 +1002,7 @@ const BondCleanQuoteForm: React.FC = () => {
                   htmlType='submit'
                   size='large'
                   block
+                  disabled={requiresGeneratedLink && !canSubmitFromLink}
                   style={{
                     backgroundColor: '#005901',
                     borderColor: '#005901',

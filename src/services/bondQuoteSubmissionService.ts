@@ -18,6 +18,12 @@ export type BondQuoteStatus =
   | 'completed'
   | 'cancelled';
 
+export type BondQuoteFormType =
+  | 'bond_clean_quote_request'
+  | 'bond_clean_quote_request_cn';
+
+export type BondQuoteFormLinkStatus = 'active' | 'used' | 'disabled';
+
 export interface BondQuoteSubmissionPayload {
   submittedAt: string;
   formType: string;
@@ -45,6 +51,7 @@ export interface BondQuoteSubmissionPayload {
   preferredDate: string;
   additionalNotes: string;
   isSparkeryNewCustomer?: boolean;
+  formLinkId?: string;
   status: BondQuoteStatus;
 }
 
@@ -57,6 +64,28 @@ interface SupabaseBondQuoteSubmissionRow {
   submitted_at: string;
   status: BondQuoteStatus;
   payload: BondQuoteSubmission;
+}
+
+interface SupabaseBondQuoteFormLinkRow {
+  id: string;
+  form_type: BondQuoteFormType;
+  token: string;
+  status: BondQuoteFormLinkStatus;
+  created_at: string;
+  used_at: string | null;
+  used_submission_id: string | null;
+  payload: Record<string, unknown> | null;
+}
+
+export interface BondQuoteFormLink {
+  id: string;
+  formType: BondQuoteFormType;
+  token: string;
+  status: BondQuoteFormLinkStatus;
+  createdAt: string;
+  usedAt: string | null;
+  usedSubmissionId: string | null;
+  payload: Record<string, unknown> | null;
 }
 
 const getSupabaseConfig = (): SupabaseConfig => {
@@ -120,6 +149,58 @@ const toSubmission = (
 });
 
 const createSubmissionId = (): string => `BCQ-${Date.now()}`;
+const createFormShareLinkId = (): string =>
+  `BQL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const createRandomToken = (length = 32): string => {
+  const alphabet =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const bytes = new Uint8Array(length);
+  const runtimeCrypto = (
+    globalThis as typeof globalThis & {
+      crypto?: { getRandomValues?: (array: Uint8Array) => Uint8Array };
+    }
+  ).crypto;
+
+  if (runtimeCrypto?.getRandomValues) {
+    runtimeCrypto.getRandomValues(bytes);
+    return Array.from(bytes, value => alphabet[value % alphabet.length]).join(
+      ''
+    );
+  }
+
+  return Array.from(
+    { length },
+    () => alphabet[Math.floor(Math.random() * alphabet.length)]
+  ).join('');
+};
+
+const encodePostgrestValue = (value: string): string =>
+  encodeURIComponent(value);
+
+const toFormLink = (row: SupabaseBondQuoteFormLinkRow): BondQuoteFormLink => ({
+  id: row.id,
+  formType: row.form_type,
+  token: row.token,
+  status: row.status,
+  createdAt: row.created_at,
+  usedAt: row.used_at,
+  usedSubmissionId: row.used_submission_id,
+  payload: row.payload,
+});
+
+const toFormLinkRow = (
+  link: BondQuoteFormLink
+): SupabaseBondQuoteFormLinkRow => ({
+  id: link.id,
+  form_type: link.formType,
+  token: link.token,
+  status: link.status,
+  created_at: link.createdAt,
+  used_at: link.usedAt,
+  used_submission_id: link.usedSubmissionId,
+  payload: link.payload,
+});
 
 export async function createSubmission(
   payload: BondQuoteSubmissionPayload
@@ -200,4 +281,92 @@ export async function deleteSubmission(id: string): Promise<void> {
       },
     }
   );
+}
+
+export async function createFormShareLink(
+  formType: BondQuoteFormType,
+  payload: Record<string, unknown> | null = null
+): Promise<BondQuoteFormLink> {
+  const link: BondQuoteFormLink = {
+    id: createFormShareLinkId(),
+    formType,
+    token: createRandomToken(36),
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    usedAt: null,
+    usedSubmissionId: null,
+    payload,
+  };
+
+  const result = await supabaseFetch<SupabaseBondQuoteFormLinkRow[]>(
+    '/rest/v1/bond_clean_quote_form_links?on_conflict=id',
+    {
+      method: 'POST',
+      headers: {
+        Prefer: 'resolution=merge-duplicates,return=representation',
+      },
+      body: JSON.stringify([toFormLinkRow(link)]),
+    }
+  );
+
+  const first = result[0];
+  if (!first) {
+    throw new Error('Form link creation returned no rows');
+  }
+
+  return toFormLink(first);
+}
+
+export async function getActiveFormShareLink(
+  formType: BondQuoteFormType,
+  id: string,
+  token: string
+): Promise<BondQuoteFormLink | null> {
+  const rows = await supabaseFetch<SupabaseBondQuoteFormLinkRow[]>(
+    `/rest/v1/bond_clean_quote_form_links?select=*&id=eq.${encodePostgrestValue(id)}&token=eq.${encodePostgrestValue(token)}&form_type=eq.${encodePostgrestValue(formType)}&status=eq.active&limit=1`
+  );
+
+  return rows[0] ? toFormLink(rows[0]) : null;
+}
+
+export async function markFormShareLinkUsed(
+  id: string,
+  token: string,
+  submissionId: string
+): Promise<BondQuoteFormLink> {
+  const existingRows = await supabaseFetch<SupabaseBondQuoteFormLinkRow[]>(
+    `/rest/v1/bond_clean_quote_form_links?select=*&id=eq.${encodePostgrestValue(id)}&token=eq.${encodePostgrestValue(token)}&limit=1`
+  );
+  const existing = existingRows[0];
+  if (!existing) {
+    throw new Error('Form share link not found');
+  }
+  if (existing.status === 'used') {
+    return toFormLink(existing);
+  }
+  if (existing.status !== 'active') {
+    throw new Error(`Form share link is not active: ${existing.status}`);
+  }
+
+  const result = await supabaseFetch<SupabaseBondQuoteFormLinkRow[]>(
+    `/rest/v1/bond_clean_quote_form_links?id=eq.${encodePostgrestValue(id)}&token=eq.${encodePostgrestValue(token)}&status=eq.active`,
+    {
+      method: 'PATCH',
+      headers: {
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({
+        status: 'used',
+        used_at: new Date().toISOString(),
+        used_submission_id: submissionId,
+      }),
+    }
+  );
+
+  const first = result[0];
+  if (!first) {
+    throw new Error('Form share link update returned no rows');
+  }
+
+  return toFormLink(first);
 }

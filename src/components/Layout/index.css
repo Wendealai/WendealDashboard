@@ -133,4 +133,36 @@
     font-size: 12px !important;
     font-weight: 500 !important;
   }
+
+  .mobile-navigation-drawer .ant-drawer-content {
+    background: #ffffff !important;
+  }
+
+  .mobile-navigation-drawer .ant-drawer-header {
+    background: #ffffff !important;
+  }
+
+  .mobile-navigation-drawer .ant-drawer-title,
+  .mobile-navigation-drawer .ant-drawer-close {
+    color: #1f2937 !important;
+  }
+
+  .mobile-navigation-menu.ant-menu-light {
+    background: #ffffff !important;
+    color: #1f2937 !important;
+  }
+
+  .mobile-navigation-menu.ant-menu-light .ant-menu-item {
+    color: #1f2937 !important;
+  }
+
+  .mobile-navigation-menu.ant-menu-light .ant-menu-item .anticon {
+    color: #4b5563 !important;
+  }
+
+  .mobile-navigation-menu.ant-menu-light .ant-menu-item-selected {
+    background: #eff6ff !important;
+    border-left: 3px solid #2563eb !important;
+    color: #1e40af !important;
+  }
 }

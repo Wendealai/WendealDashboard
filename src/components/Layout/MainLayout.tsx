@@ -69,6 +69,7 @@ const MainLayout: React.FC = () => {
 
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [mobileDrawerVisible, setMobileDrawerVisible] = useState(false);
+  const menuTheme = isMobile ? 'light' : theme === 'dark' ? 'dark' : 'light';
 
   // Handle sidebar toggle
   const handleSidebarToggle = () => {
@@ -213,7 +214,7 @@ const MainLayout: React.FC = () => {
         </GradientText>
       </div>
       <Menu
-        theme={theme === 'dark' ? 'dark' : 'light'}
+        theme={menuTheme}
         mode='inline'
         selectedKeys={[location.pathname]}
         items={menuItems}
@@ -222,8 +223,14 @@ const MainLayout: React.FC = () => {
           borderRight: 0,
           flex: 1,
           fontSize: '14px',
+          ...(isMobile
+            ? {
+                backgroundColor: '#ffffff',
+                color: '#1f2937',
+              }
+            : {}),
         }}
-        className='navigation-menu'
+        className={`navigation-menu${isMobile ? ' mobile-navigation-menu' : ''}`}
       />
       <WhatsNewPanel collapsed={sidebarCollapsed} />
     </div>
@@ -256,19 +263,19 @@ const MainLayout: React.FC = () => {
       {/* Mobile Drawer */}
       {isMobile && (
         <Drawer
+          rootClassName='mobile-navigation-drawer'
           title={t('navigation.menu')}
           placement='left'
           onClose={() => setMobileDrawerVisible(false)}
           open={mobileDrawerVisible}
           styles={{ body: { padding: 0 } }}
           headerStyle={{
-            backgroundColor: 'var(--sidebar-color)',
-            color: 'var(--text-color)',
+            backgroundColor: '#ffffff',
+            color: '#1f2937',
+            borderBottom: '1px solid #e5e7eb',
           }}
         >
-          <div
-            style={{ backgroundColor: 'var(--sidebar-color)', height: '100%' }}
-          >
+          <div style={{ backgroundColor: '#ffffff', height: '100%' }}>
             {sidebarContent}
           </div>
         </Drawer>

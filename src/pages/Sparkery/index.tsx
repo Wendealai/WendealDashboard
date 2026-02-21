@@ -90,7 +90,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <HomeOutlined />
-          Cleaning Inspection
+          清洁检查
         </span>
       ),
       children: <CleaningInspectionAdmin />,
@@ -100,7 +100,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <ShoppingCartOutlined />
-          China Procurement
+          中国采购
         </span>
       ),
       children: <ChinaProcurementReport />,
@@ -110,7 +110,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <FileTextOutlined />
-          Quote Form (EN)
+          报价表单（英文）
         </span>
       ),
       children: <BondCleanQuoteForm />,
@@ -120,7 +120,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <GlobalOutlined />
-          报价表单 (中文)
+          报价表单（中文）
         </span>
       ),
       children: <BondCleanQuoteFormCN />,
@@ -130,7 +130,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <UnorderedListOutlined />
-          已提交报价记录
+          已提交报价
         </span>
       ),
       children: <BondCleanQuoteSubmissions />,
@@ -140,7 +140,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <ScheduleOutlined />
-          Dispatch Dashboard
+          派单看板
         </span>
       ),
       children: <DispatchDashboard />,
