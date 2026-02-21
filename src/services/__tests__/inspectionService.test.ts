@@ -23,6 +23,7 @@ describe('inspectionService (supabase)', () => {
   const runtime = globalThis as typeof globalThis & {
     __WENDEAL_SUPABASE_CONFIG__?: SupabaseRuntimeConfig;
   };
+  let storage: Record<string, string>;
 
   const mockInspection = (): CleaningInspection => ({
     id: 'insp-123',
@@ -40,15 +41,37 @@ describe('inspectionService (supabase)', () => {
   });
 
   beforeEach(() => {
+    storage = {};
+    const ls = window.localStorage as unknown as {
+      getItem: jest.Mock;
+      setItem: jest.Mock;
+      removeItem: jest.Mock;
+      clear: jest.Mock;
+    };
+    ls.getItem = jest.fn((key: string) =>
+      Object.prototype.hasOwnProperty.call(storage, key) ? storage[key] : null
+    );
+    ls.setItem = jest.fn((key: string, value: string) => {
+      storage[key] = String(value);
+    });
+    ls.removeItem = jest.fn((key: string) => {
+      delete storage[key];
+    });
+    ls.clear = jest.fn(() => {
+      storage = {};
+    });
+
     runtime.__WENDEAL_SUPABASE_CONFIG__ = {
       url: 'https://example.supabase.co',
       anonKey: 'anon-key',
     };
+    localStorage.clear();
     global.fetch = jest.fn();
   });
 
   afterEach(() => {
     delete runtime.__WENDEAL_SUPABASE_CONFIG__;
+    localStorage.clear();
     global.fetch = originalFetch;
   });
 
@@ -212,5 +235,33 @@ describe('inspectionService (supabase)', () => {
       ),
       expect.objectContaining({ method: 'POST' })
     );
+  });
+
+  it('falls back to local cache when submit fails on supabase', async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock.mockRejectedValue(new Error('network down'));
+
+    const result = await submitInspection(mockInspection());
+
+    expect(result).toEqual({ success: true, source: 'local' });
+    const cached = JSON.parse(
+      localStorage.getItem('archived-cleaning-inspections') || '[]'
+    );
+    expect(cached).toHaveLength(1);
+    expect(cached[0].id).toBe('insp-123');
+  });
+
+  it('loads inspection from local cache when supabase is unavailable', async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    fetchMock.mockRejectedValue(new Error('network down'));
+    localStorage.setItem(
+      'archived-cleaning-inspections',
+      JSON.stringify([mockInspection()])
+    );
+
+    const result = await loadInspection('insp-123');
+
+    expect(result?.id).toBe('insp-123');
+    expect(fetchMock).toHaveBeenCalled();
   });
 });

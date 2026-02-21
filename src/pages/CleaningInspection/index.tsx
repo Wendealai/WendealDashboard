@@ -169,6 +169,28 @@ const CleaningInspectionPage: React.FC = () => {
   const [isLoadingFromServer, setIsLoadingFromServer] = useState(false);
 
   /**
+   * Local emergency fallback when cloud loading fails.
+   * Prevents endless loading screen and still allows manual completion.
+   */
+  const buildEmergencyInspection = useCallback((): CleaningInspection => {
+    return {
+      id: urlInspectionId || generateId('insp'),
+      propertyId: urlPropertyName,
+      propertyAddress: '',
+      propertyNotes: '',
+      checkOutDate: urlDate,
+      submittedAt: '',
+      sections: buildDefaultSections(),
+      submitterName: undefined,
+      status: 'pending',
+      templateName: undefined,
+      checkIn: null,
+      checkOut: null,
+      damageReports: [],
+    };
+  }, [urlInspectionId, urlPropertyName, urlDate]);
+
+  /**
    * Build a fresh "new" inspection from URL params + templates.
    * Used when no existing data is found (localStorage or server).
    */
@@ -228,10 +250,6 @@ const CleaningInspectionPage: React.FC = () => {
     let cancelled = false;
 
     const initialize = async () => {
-      if (inspection && inspection.id === urlInspectionId) {
-        return;
-      }
-
       setIsLoadingFromServer(true);
       try {
         if (urlInspectionId) {
@@ -260,6 +278,9 @@ const CleaningInspectionPage: React.FC = () => {
       } catch {
         if (!cancelled) {
           messageApi.error('加载检查数据失败，请稍后重试');
+          // Fallback to local defaults so page never gets stuck on loading.
+          setInspection(buildEmergencyInspection());
+          setIsArchivedView(false);
         }
       } finally {
         if (!cancelled) {
@@ -272,7 +293,12 @@ const CleaningInspectionPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [urlInspectionId, inspection, buildNewInspection, messageApi]);
+  }, [
+    urlInspectionId,
+    buildNewInspection,
+    buildEmergencyInspection,
+    messageApi,
+  ]);
 
   // ── Auto-save: persist inspection to Supabase on step change ──
   // Debounced: saves when user navigates between steps (not on every keystroke)
@@ -360,15 +386,23 @@ const CleaningInspectionPage: React.FC = () => {
     };
 
     try {
-      await submitInspection(submitted);
+      const result = await submitInspection(submitted);
       setInspection(submitted);
-      messageApi.success('Inspection submitted to server!');
+      if (result.source === 'supabase') {
+        messageApi.success('Inspection submitted to server!');
+      } else {
+        messageApi.warning(
+          lang === 'zh'
+            ? '已保存到本地缓存，当前云端不可用。网络恢复后请再次提交以同步云端。'
+            : 'Saved to local cache only. Cloud is currently unavailable. Please submit again later to sync.'
+        );
+      }
     } catch {
       messageApi.error('Submission failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [inspection, messageApi]);
+  }, [inspection, messageApi, lang]);
 
   /** Generate PDF report and open in new window */
   const handleGeneratePDF = useCallback(async () => {
@@ -477,28 +511,31 @@ const CleaningInspectionPage: React.FC = () => {
   // ── Loading ──
   if (!inspection || isLoadingFromServer) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-          background: '#f5f5f5',
-          gap: '12px',
-        }}
-      >
-        <div style={{ fontSize: '24px', color: '#52c41a' }}>⏳</div>
-        <Text>
-          {isLoadingFromServer
-            ? t('lang.toggle') === '中文'
-              ? 'Loading from server...'
-              : '正在从服务器加载数据...'
-            : t('lang.toggle') === '中文'
-              ? 'Loading...'
-              : '加载中...'}
-        </Text>
-      </div>
+      <>
+        {contextHolder}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100vh',
+            background: '#f5f5f5',
+            gap: '12px',
+          }}
+        >
+          <div style={{ fontSize: '24px', color: '#52c41a' }}>⏳</div>
+          <Text>
+            {isLoadingFromServer
+              ? t('lang.toggle') === '中文'
+                ? 'Loading from server...'
+                : '正在从服务器加载数据...'
+              : t('lang.toggle') === '中文'
+                ? 'Loading...'
+                : '加载中...'}
+          </Text>
+        </div>
+      </>
     );
   }
 
