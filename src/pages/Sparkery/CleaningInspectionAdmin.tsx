@@ -53,6 +53,8 @@ import {
   getDefaultChecklistForSection,
   migratePropertyChecklists,
   type PropertyTemplate,
+  OFFICE_SECTION_IDS,
+  removeOfficeSections,
 } from '@/pages/CleaningInspection/types';
 import type { Employee } from '@/pages/CleaningInspection/types';
 import {
@@ -697,6 +699,79 @@ const PropertySettingsModal: React.FC<{
     const updated = newProps.find(p => p.id === propertyId);
     if (updated) setEditingProperty(updated);
     messageApi.success('区域已添加');
+  };
+
+  const handleApplyOfficeSections = (propertyId: string) => {
+    const officeSectionIds = [...OFFICE_SECTION_IDS];
+    const newProps = properties.map(p => {
+      if (p.id !== propertyId) {
+        return p;
+      }
+
+      const currentSections = p.sections || BASE_ROOM_SECTIONS.map(s => s.id);
+      const nextSections = [...currentSections];
+      const nextChecklists = { ...(p.checklists || {}) };
+
+      officeSectionIds.forEach(sectionId => {
+        if (!nextSections.includes(sectionId)) {
+          nextSections.push(sectionId);
+          const defaultItems = DEFAULT_CHECKLISTS[sectionId] || [];
+          if (defaultItems.length > 0) {
+            nextChecklists[sectionId] = defaultItems.map(item => ({
+              label: item.label,
+              labelEn: item.labelEn,
+              requiredPhoto: item.requiredPhoto,
+            }));
+          }
+        }
+      });
+
+      return {
+        ...p,
+        sections: nextSections,
+        checklists: nextChecklists,
+      };
+    });
+
+    onSave(newProps);
+    const updated = newProps.find(p => p.id === propertyId);
+    if (updated) {
+      setEditingProperty(updated);
+    }
+    messageApi.success('已应用办公室区域预设');
+  };
+
+  const handleRemoveOfficeSectionsPreset = (propertyId: string) => {
+    const officeSectionIdSet = new Set<string>(OFFICE_SECTION_IDS);
+    const newProps = properties.map(p => {
+      if (p.id !== propertyId) {
+        return p;
+      }
+
+      const currentSections = p.sections || BASE_ROOM_SECTIONS.map(s => s.id);
+      const nextSections = removeOfficeSections(currentSections);
+      const nextReferenceImages = { ...(p.referenceImages || {}) };
+      const nextChecklists = { ...(p.checklists || {}) };
+
+      OFFICE_SECTION_IDS.forEach(sectionId => {
+        delete nextReferenceImages[sectionId];
+        delete nextChecklists[sectionId];
+      });
+
+      return {
+        ...p,
+        sections: nextSections,
+        referenceImages: nextReferenceImages,
+        checklists: nextChecklists,
+      };
+    });
+
+    onSave(newProps);
+    const updated = newProps.find(p => p.id === propertyId);
+    if (updated) {
+      setEditingProperty(updated);
+    }
+    messageApi.success('已移除办公室区域预设');
   };
 
   const handleRemoveSection = (propertyId: string, sectionId: string) => {
@@ -1688,6 +1763,29 @@ const PropertySettingsModal: React.FC<{
                 })}
               </div>
               <Title level={5}>可选区域</Title>
+              <div style={{ marginBottom: '8px' }}>
+                <Space>
+                  <Button
+                    size='small'
+                    icon={<PlusOutlined />}
+                    onClick={() =>
+                      handleApplyOfficeSections(editingProperty.id)
+                    }
+                  >
+                    Add Office Areas / 一键添加办公室区域
+                  </Button>
+                  <Button
+                    size='small'
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() =>
+                      handleRemoveOfficeSectionsPreset(editingProperty.id)
+                    }
+                  >
+                    Remove Office Areas / 移除办公室区域
+                  </Button>
+                </Space>
+              </div>
               <div
                 style={{
                   display: 'flex',

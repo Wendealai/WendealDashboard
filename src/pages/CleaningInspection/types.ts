@@ -178,6 +178,16 @@ export const BASE_ROOM_SECTIONS: SectionDefinition[] = [
 ];
 
 /** Optional sections that can be added per property - Chinese primary */
+export const OFFICE_SECTION_IDS = [
+  'meeting-room',
+  'office-area-1',
+  'office-area-2',
+  'archive-room',
+  'pantry',
+  'restroom',
+  'print-area',
+] as const;
+
 export const OPTIONAL_SECTIONS: SectionDefinition[] = [
   { id: 'bedroom-2', name: '卧室2 Bedroom 2', description: '第二卧室' },
   { id: 'bathroom-2', name: '卫生间2 Bathroom 2', description: '第二卫生间' },
@@ -187,6 +197,41 @@ export const OPTIONAL_SECTIONS: SectionDefinition[] = [
   { id: 'laundry', name: '洗衣房 Laundry', description: '洗衣房' },
   { id: 'garage', name: '车库 Garage', description: '车库' },
   { id: 'garden', name: '花园 Garden', description: '花园/户外区域' },
+  {
+    id: OFFICE_SECTION_IDS[0],
+    name: '会议室 Meeting Room',
+    description: '办公室会议室',
+  },
+  {
+    id: OFFICE_SECTION_IDS[1],
+    name: '办公区1 Office Area 1',
+    description: '办公室工位区1',
+  },
+  {
+    id: OFFICE_SECTION_IDS[2],
+    name: '办公区2 Office Area 2',
+    description: '办公室工位区2',
+  },
+  {
+    id: OFFICE_SECTION_IDS[3],
+    name: '资料室 Archive Room',
+    description: '档案/资料存放区域',
+  },
+  {
+    id: OFFICE_SECTION_IDS[4],
+    name: '茶水间 Pantry',
+    description: '茶水/员工休息区域',
+  },
+  {
+    id: OFFICE_SECTION_IDS[5],
+    name: '办公洗手间 Restroom',
+    description: '办公区域洗手间',
+  },
+  {
+    id: OFFICE_SECTION_IDS[6],
+    name: '打印区 Print Area',
+    description: '打印复印设备区域',
+  },
 ];
 
 /** Get active sections from IDs list */
@@ -197,6 +242,12 @@ export function getActiveSections(
   return BASE_ROOM_SECTIONS.filter(s => activeIds.has(s.id)).concat(
     OPTIONAL_SECTIONS.filter(s => activeIds.has(s.id))
   );
+}
+
+/** Remove office-only section IDs from a section list */
+export function removeOfficeSections(sectionIds: string[]): string[] {
+  const officeIds = new Set<string>(OFFICE_SECTION_IDS);
+  return sectionIds.filter(sectionId => !officeIds.has(sectionId));
 }
 
 // ──────────────────────── Default Checklists ────────────────────
@@ -419,6 +470,150 @@ export const DEFAULT_CHECKLISTS: Record<
       requiredPhoto: false,
     },
     { label: '垃圾桶清空', labelEn: 'Bins emptied', requiredPhoto: false },
+  ],
+  'meeting-room': [
+    {
+      label: '会议桌擦拭无灰尘',
+      labelEn: 'Meeting table wiped and dust-free',
+      requiredPhoto: false,
+    },
+    {
+      label: '会议椅摆放整齐',
+      labelEn: 'Meeting chairs arranged neatly',
+      requiredPhoto: false,
+    },
+    {
+      label: '白板/显示屏表面清洁',
+      labelEn: 'Whiteboard/display surfaces cleaned',
+      requiredPhoto: false,
+    },
+    {
+      label: '地面吸尘或拖净',
+      labelEn: 'Floor vacuumed or mopped',
+      requiredPhoto: false,
+    },
+  ],
+  'office-area-1': [
+    {
+      label: '工位桌面擦拭干净',
+      labelEn: 'Workstation desks wiped clean',
+      requiredPhoto: false,
+    },
+    {
+      label: '键盘鼠标周边除尘',
+      labelEn: 'Dust removed around keyboards and mice',
+      requiredPhoto: false,
+    },
+    {
+      label: '地毯/地板清洁',
+      labelEn: 'Carpet/floor cleaned',
+      requiredPhoto: false,
+    },
+    {
+      label: '垃圾桶清空并更换垃圾袋',
+      labelEn: 'Bins emptied and liners replaced',
+      requiredPhoto: false,
+    },
+  ],
+  'office-area-2': [
+    {
+      label: '工位桌面擦拭干净',
+      labelEn: 'Workstation desks wiped clean',
+      requiredPhoto: false,
+    },
+    {
+      label: '公共通道无杂物',
+      labelEn: 'Walkways clear of clutter',
+      requiredPhoto: false,
+    },
+    {
+      label: '地毯/地板清洁',
+      labelEn: 'Carpet/floor cleaned',
+      requiredPhoto: false,
+    },
+    {
+      label: '垃圾桶清空并更换垃圾袋',
+      labelEn: 'Bins emptied and liners replaced',
+      requiredPhoto: false,
+    },
+  ],
+  'archive-room': [
+    {
+      label: '资料架表面除尘',
+      labelEn: 'Archive shelves dusted',
+      requiredPhoto: false,
+    },
+    {
+      label: '地面清洁无纸屑',
+      labelEn: 'Floor clean with no paper scraps',
+      requiredPhoto: false,
+    },
+    {
+      label: '通道保持畅通',
+      labelEn: 'Access paths kept clear',
+      requiredPhoto: false,
+    },
+  ],
+  pantry: [
+    {
+      label: '台面与水槽清洁',
+      labelEn: 'Countertops and sink cleaned',
+      requiredPhoto: false,
+    },
+    {
+      label: '微波炉/冰箱外表擦拭',
+      labelEn: 'Microwave/fridge exterior wiped',
+      requiredPhoto: false,
+    },
+    {
+      label: '地面拖净无污渍',
+      labelEn: 'Floor mopped with no stains',
+      requiredPhoto: false,
+    },
+    {
+      label: '垃圾桶清空并更换垃圾袋',
+      labelEn: 'Bins emptied and liners replaced',
+      requiredPhoto: false,
+    },
+  ],
+  restroom: [
+    {
+      label: '马桶清洁消毒',
+      labelEn: 'Toilets cleaned and sanitized',
+      requiredPhoto: true,
+    },
+    {
+      label: '洗手台与镜面清洁',
+      labelEn: 'Sinks and mirrors cleaned',
+      requiredPhoto: false,
+    },
+    {
+      label: '地面拖净并无异味',
+      labelEn: 'Floor mopped and odor-free',
+      requiredPhoto: false,
+    },
+    {
+      label: '纸巾与洗手液补充',
+      labelEn: 'Paper towels and soap replenished',
+      requiredPhoto: false,
+    },
+  ],
+  'print-area': [
+    {
+      label: '打印机外表除尘',
+      labelEn: 'Printer surfaces dusted',
+      requiredPhoto: false,
+    },
+    {
+      label: '工作台面擦拭干净',
+      labelEn: 'Work counter wiped clean',
+      requiredPhoto: false,
+    },
+    {
+      label: '地面清洁无纸屑',
+      labelEn: 'Floor clean with no paper scraps',
+      requiredPhoto: false,
+    },
   ],
 };
 
