@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   Modal,
+  Popconfirm,
   Popover,
   Select,
   Space,
@@ -35,6 +36,7 @@ interface WeeklyDispatchBoardProps {
   weekStart: string;
   onAssign: (jobId: string, employeeIds: string[]) => void;
   onStatusChange: (jobId: string, status: DispatchJobStatus) => void;
+  onDelete: (jobId: string) => Promise<void> | void;
   onReschedule: (
     jobId: string,
     scheduledDate: string,
@@ -44,12 +46,26 @@ interface WeeklyDispatchBoardProps {
   onEdit: (job: DispatchJob) => void;
 }
 
+const formatDateKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateKey = (dateStr: string): Date => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year || 1970, (month || 1) - 1, day || 1);
+};
+
+const getTodayDateKey = (): string => formatDateKey(new Date());
+
 const getWeekDates = (weekStart: string): string[] => {
-  const start = new Date(weekStart);
+  const start = parseDateKey(weekStart);
   return Array.from({ length: 7 }).map((_, index) => {
     const date = new Date(start);
     date.setDate(start.getDate() + index);
-    return date.toISOString().slice(0, 10);
+    return formatDateKey(date);
   });
 };
 
@@ -191,7 +207,7 @@ const getHourLabels = (): string[] => {
 };
 
 const getDayHeader = (dateText: string): string => {
-  const date = new Date(dateText);
+  const date = parseDateKey(dateText);
   const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
   const shortDate = date.toLocaleDateString('en-AU', {
     day: '2-digit',
@@ -206,10 +222,12 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
   weekStart,
   onAssign,
   onStatusChange,
+  onDelete,
   onReschedule,
   onEdit,
 }) => {
   const weekDates = getWeekDates(weekStart);
+  const todayDateKey = getTodayDateKey();
   const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
   const boardHeight = totalSlots * SLOT_HEIGHT;
   const hourLabels = getHourLabels();
@@ -310,22 +328,32 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
         <div
           style={{ borderRight: '1px solid #f0f0f0', background: '#fafafa' }}
         />
-        {weekDates.map(date => (
-          <div
-            key={`header-${date}`}
-            style={{
-              padding: '8px 6px',
-              textAlign: 'center',
-              borderRight: '1px solid #f0f0f0',
-              borderBottom: '1px solid #f0f0f0',
-              background: '#fafafa',
-              fontWeight: 600,
-              minWidth: 140,
-            }}
-          >
-            {getDayHeader(date)}
-          </div>
-        ))}
+        {weekDates.map(date => {
+          const isToday = date === todayDateKey;
+          return (
+            <div
+              key={`header-${date}`}
+              style={{
+                padding: '8px 6px',
+                textAlign: 'center',
+                borderRight: '1px solid #f0f0f0',
+                borderBottom: '1px solid #f0f0f0',
+                background: isToday ? '#fff7e6' : '#fafafa',
+                color: isToday ? '#ad6800' : undefined,
+                boxShadow: isToday ? 'inset 0 -2px 0 #fa8c16' : undefined,
+                fontWeight: 600,
+                minWidth: 140,
+              }}
+            >
+              {getDayHeader(date)}
+              {isToday && (
+                <div style={{ fontSize: 10, marginTop: 2, fontWeight: 600 }}>
+                  Today
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         <div
           style={{
@@ -352,6 +380,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
         </div>
 
         {weekDates.map(date => {
+          const isToday = date === todayDateKey;
           const positionedJobs = positionedByDate[date] || [];
 
           return (
@@ -361,7 +390,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                 height: boardHeight,
                 position: 'relative',
                 borderRight: '1px solid #f0f0f0',
-                background: '#fff',
+                background: isToday ? '#fffdf5' : '#fff',
                 minWidth: 140,
               }}
               onDragOver={event => {
@@ -455,6 +484,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                   startMinutes,
                   effectiveEndMinutes
                 );
+                const titleWithSchedule = `${job.title} ${liveStartText}-${liveEndText} (${liveDurationText})`;
 
                 return (
                   <Popover
@@ -550,13 +580,22 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                           gap: 6,
                         }}
                       >
-                        <Text strong style={{ fontSize: 12 }} ellipsis>
-                          {job.title}
+                        <Text
+                          strong
+                          style={{ fontSize: 10, lineHeight: '14px' }}
+                          ellipsis={{ tooltip: titleWithSchedule }}
+                        >
+                          {titleWithSchedule}
                         </Text>
                         <Space size={4}>
                           <Tag
                             color='processing'
-                            style={{ marginInlineEnd: 0 }}
+                            style={{
+                              marginInlineEnd: 0,
+                              fontSize: 10,
+                              lineHeight: '16px',
+                              padding: '0 4px',
+                            }}
                           >
                             {job.serviceType}
                           </Tag>
@@ -570,11 +609,27 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                           >
                             Edit
                           </Button>
+                          <Popconfirm
+                            title='Delete this task?'
+                            description='This cannot be undone.'
+                            okText='Delete'
+                            cancelText='Cancel'
+                            onConfirm={async event => {
+                              event?.stopPropagation?.();
+                              await onDelete(job.id);
+                            }}
+                          >
+                            <Button
+                              size='small'
+                              danger
+                              onClick={event => event.stopPropagation()}
+                              style={{ padding: '0 8px', height: 22 }}
+                            >
+                              Delete
+                            </Button>
+                          </Popconfirm>
                         </Space>
                       </div>
-                      <Text type='secondary' style={{ fontSize: 11 }}>
-                        {liveStartText} - {liveEndText} ({liveDurationText})
-                      </Text>
                       {isResizing && (
                         <div
                           style={{
@@ -596,11 +651,11 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                       )}
                       <Space
                         size={4}
-                        style={{ width: '100%', marginTop: 4 }}
+                        style={{ width: '100%', marginTop: 2 }}
                         wrap
                       >
-                        <Space size={4} style={{ fontSize: 11 }}>
-                          <Text type='secondary' style={{ fontSize: 11 }}>
+                        <Space size={4} style={{ fontSize: 10 }}>
+                          <Text type='secondary' style={{ fontSize: 10 }}>
                             执行人:
                           </Text>
                           {assignedEmployees.length > 0 ? (
@@ -611,9 +666,9 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                   color='blue'
                                   style={{
                                     marginInlineEnd: 0,
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     padding: '0 4px',
-                                    lineHeight: '18px',
+                                    lineHeight: '16px',
                                   }}
                                 >
                                   {emp.name
@@ -625,32 +680,49 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                               ))}
                             </Space>
                           ) : (
-                            <Text type='secondary' style={{ fontSize: 11 }}>
+                            <Text type='secondary' style={{ fontSize: 10 }}>
                               未分配
                             </Text>
                           )}
                           <Select
                             mode='multiple'
                             size='small'
-                            style={{ width: 60 }}
+                            className='dispatch-assignee-select'
+                            popupClassName='dispatch-assignee-select-popup'
+                            style={{
+                              width: 152,
+                              fontSize: 10,
+                            }}
                             value={job.assignedEmployeeIds || []}
-                            placeholder='选择'
+                            placeholder='Select'
                             onChange={value => {
                               onAssign(job.id, value);
                             }}
-                            maxTagCount={0}
-                            dropdownStyle={{ minWidth: 150 }}
+                            maxTagCount={1}
+                            maxTagTextLength={5}
+                            listHeight={180}
+                            dropdownStyle={{
+                              minWidth: 200,
+                            }}
                           >
                             {employees.map(emp => (
                               <Select.Option key={emp.id} value={emp.id}>
-                                {emp.name}
+                                <span
+                                  style={{
+                                    display: 'block',
+                                    fontSize: 10,
+                                    lineHeight: '15px',
+                                  }}
+                                >
+                                  {emp.name}
+                                </span>
                               </Select.Option>
                             ))}
                           </Select>
                         </Space>
                         <Select
                           size='small'
-                          style={{ minWidth: 98 }}
+                          style={{ minWidth: 92, fontSize: 10 }}
                           value={job.status}
                           onChange={value =>
                             onStatusChange(job.id, value as DispatchJobStatus)

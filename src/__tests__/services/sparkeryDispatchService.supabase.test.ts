@@ -27,25 +27,52 @@ describe('sparkeryDispatchService Supabase integration', () => {
   });
 
   it('loads employees from Supabase when configured', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => [
-        {
-          id: 'emp-99',
-          name: 'Remote User',
-          name_cn: 'Remote CN',
-          phone: '0400 111 222',
-          skills: ['bond'],
-          status: 'available',
-        },
-      ],
-    });
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: 'emp-99',
+            name: 'Remote User',
+            name_cn: 'Remote CN',
+            phone: '0400 111 222',
+            skills: ['bond'],
+            status: 'available',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      });
 
     const result = await sparkeryDispatchService.getEmployees();
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/rest/v1/dispatch_employees?'),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          apikey: 'anon-key',
+        }),
+      })
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/rest/v1/dispatch_employee_locations?'),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          apikey: 'anon-key',
+        }),
+      })
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/rest/v1/cleaning_inspection_employees?select=*'
+      ),
       expect.objectContaining({
         headers: expect.objectContaining({
           apikey: 'anon-key',
@@ -195,5 +222,85 @@ describe('sparkeryDispatchService Supabase integration', () => {
       title: 'Cloud Job',
       serviceType: 'regular',
     });
+  });
+
+  it('auto-creates missing dispatch employee when reporting location hits FK error', async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        text: async () =>
+          JSON.stringify({
+            code: '23503',
+            details: 'Key is not present in table "dispatch_employees".',
+            message:
+              'insert or update on table "dispatch_employee_locations" violates foreign key constraint "dispatch_employee_locations_employee_id_fkey"',
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: 'emp-1',
+            name: 'Alex Chen',
+            name_cn: 'Alex CN',
+            phone: null,
+            skills: ['regular'],
+            status: 'available',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            employee_id: 'emp-1',
+            lat: -27.47,
+            lng: 153.02,
+            accuracy_m: 12,
+            source: 'gps',
+            label: null,
+            updated_at: '2026-02-21T10:00:00.000Z',
+          },
+        ],
+      });
+
+    const result = await sparkeryDispatchService.reportEmployeeLocation(
+      'emp-1',
+      {
+        lat: -27.47,
+        lng: 153.02,
+        source: 'gps',
+        accuracyM: 12,
+      }
+    );
+
+    expect(result).toMatchObject({
+      lat: -27.47,
+      lng: 153.02,
+      source: 'gps',
+    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/rest/v1/dispatch_employee_locations?on_conflict=employee_id'
+      ),
+      expect.objectContaining({ method: 'POST' })
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/rest/v1/dispatch_employees?select=*&id=eq.emp-1'
+      ),
+      expect.objectContaining({
+        headers: expect.objectContaining({ apikey: 'anon-key' }),
+      })
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/rest/v1/dispatch_employees?on_conflict=id'),
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 });

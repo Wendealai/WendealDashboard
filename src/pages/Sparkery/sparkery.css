@@ -36,6 +36,62 @@
   max-width: 100%;
 }
 
+.dispatch-assignee-select,
+.dispatch-assignee-select-popup {
+  font-size: 10px !important;
+}
+
+.dispatch-assignee-select.ant-select-multiple .ant-select-selector {
+  min-height: 24px !important;
+  height: auto !important;
+  align-items: center;
+  padding-top: 1px !important;
+  padding-bottom: 1px !important;
+}
+
+.dispatch-assignee-select.ant-select-multiple .ant-select-selection-overflow {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.dispatch-assignee-select.ant-select-multiple .ant-select-selection-item {
+  height: 16px !important;
+  margin-top: 3px !important;
+  margin-bottom: 3px !important;
+  padding-inline: 4px !important;
+  font-size: 10px !important;
+  line-height: 14px !important;
+}
+
+.dispatch-assignee-select.ant-select-multiple
+  .ant-select-selection-item-content {
+  font-size: 10px !important;
+  line-height: 14px !important;
+}
+
+.dispatch-assignee-select.ant-select-multiple
+  .ant-select-selection-placeholder {
+  font-size: 10px !important;
+  line-height: 20px !important;
+}
+
+.dispatch-assignee-select .ant-select-selection-search-input {
+  height: 20px !important;
+  font-size: 10px !important;
+}
+
+.dispatch-assignee-select-popup .ant-select-item {
+  min-height: 24px !important;
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+}
+
+.dispatch-assignee-select-popup .ant-select-item-option-content {
+  font-size: 10px !important;
+  line-height: 15px !important;
+  white-space: normal;
+}
+
 @media (max-width: 768px) {
   .sparkery-page {
     padding: 8px !important;

@@ -14,8 +14,17 @@ import type {
   CreateDispatchJobPayload,
   DispatchCustomerProfile,
   DispatchJob,
+  DispatchWeekday,
   UpsertDispatchCustomerProfilePayload,
 } from '../../dispatch/types';
+
+const getTodayDateKey = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 interface DispatchJobFormModalProps {
   open: boolean;
@@ -39,8 +48,18 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
   onAddCustomerProfile,
 }) => {
   const [form] = Form.useForm<CreateDispatchJobPayload>();
+  const recurringEnabled = Form.useWatch('recurringEnabled', form);
   const MAX_IMAGE_SIZE_MB = 2;
   const MAX_IMAGE_COUNT = 8;
+  const weekdayOptions: Array<{ value: DispatchWeekday; label: string }> = [
+    { value: 1, label: 'Monday' },
+    { value: 2, label: 'Tuesday' },
+    { value: 3, label: 'Wednesday' },
+    { value: 4, label: 'Thursday' },
+    { value: 5, label: 'Friday' },
+    { value: 6, label: 'Saturday' },
+    { value: 7, label: 'Sunday' },
+  ];
 
   const handleCustomerProfileChange = (value: string) => {
     if (value === '__new__') {
@@ -59,6 +78,31 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
     if (profile.defaultDescription)
       patch.description = profile.defaultDescription;
     if (profile.defaultNotes) patch.notes = profile.defaultNotes;
+    if (typeof profile.recurringEnabled === 'boolean') {
+      patch.recurringEnabled = profile.recurringEnabled;
+    }
+    if (profile.recurringStartTime) {
+      patch.scheduledStartTime = profile.recurringStartTime;
+    }
+    if (profile.recurringEndTime) {
+      patch.scheduledEndTime = profile.recurringEndTime;
+    }
+    if (profile.recurringServiceType) {
+      patch.serviceType = profile.recurringServiceType;
+    }
+    if (profile.recurringPriority) {
+      patch.priority = profile.recurringPriority;
+    }
+    if (profile.recurringWeekdays && profile.recurringWeekdays.length > 0) {
+      patch.recurringWeekdays = profile.recurringWeekdays;
+      const firstWeekday = profile.recurringWeekdays[0];
+      if (firstWeekday) {
+        patch.recurringWeekday = firstWeekday;
+      }
+    } else if (profile.recurringWeekday) {
+      patch.recurringWeekday = profile.recurringWeekday;
+      patch.recurringWeekdays = [profile.recurringWeekday];
+    }
     form.setFieldsValue(patch);
   };
 
@@ -77,6 +121,33 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
     if (values.customerPhone) payload.phone = values.customerPhone;
     if (values.description) payload.defaultDescription = values.description;
     if (values.notes) payload.defaultNotes = values.notes;
+    const recurringWeekdays = Array.isArray(values.recurringWeekdays)
+      ? values.recurringWeekdays
+      : values.recurringWeekday
+        ? [values.recurringWeekday]
+        : [];
+    if (typeof values.recurringEnabled === 'boolean') {
+      payload.recurringEnabled = values.recurringEnabled;
+    }
+    if (recurringWeekdays.length > 0) {
+      const firstWeekday = recurringWeekdays[0];
+      if (firstWeekday) {
+        payload.recurringWeekday = firstWeekday;
+      }
+      payload.recurringWeekdays = recurringWeekdays;
+    }
+    if (values.scheduledStartTime) {
+      payload.recurringStartTime = values.scheduledStartTime;
+    }
+    if (values.scheduledEndTime) {
+      payload.recurringEndTime = values.scheduledEndTime;
+    }
+    if (values.serviceType) {
+      payload.recurringServiceType = values.serviceType;
+    }
+    if (values.priority) {
+      payload.recurringPriority = values.priority;
+    }
 
     const saved = await onAddCustomerProfile(payload);
 
@@ -141,9 +212,11 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           initialValue || {
             serviceType: 'bond',
             priority: 3,
-            scheduledDate: new Date().toISOString().slice(0, 10),
+            scheduledDate: getTodayDateKey(),
             scheduledStartTime: '09:00',
             scheduledEndTime: '12:00',
+            recurringEnabled: false,
+            recurringWeekdays: [],
           }
         }
         onFinish={async values => {
@@ -153,6 +226,20 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           ).imageUrls;
           if (Array.isArray(anyImageUrls)) {
             normalized.imageUrls = await normalizeUploadToUrls(anyImageUrls);
+          }
+          const recurringWeekdays = Array.isArray(normalized.recurringWeekdays)
+            ? normalized.recurringWeekdays
+            : normalized.recurringWeekday
+              ? [normalized.recurringWeekday]
+              : [];
+          if (recurringWeekdays.length > 0) {
+            normalized.recurringWeekdays = recurringWeekdays;
+            const firstWeekday = recurringWeekdays[0];
+            if (firstWeekday) {
+              normalized.recurringWeekday = firstWeekday;
+            }
+          } else {
+            normalized.recurringWeekdays = [];
           }
           await onSubmit(normalized);
         }}
@@ -243,6 +330,42 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           rules={[{ required: true }]}
         >
           <Input type='time' />
+        </Form.Item>
+        <Form.Item
+          label='Recurring Weekly Task'
+          name='recurringEnabled'
+          tooltip='Enable this if this job should be generated every week'
+        >
+          <Select>
+            <Select.Option value={false}>Disabled</Select.Option>
+            <Select.Option value={true}>Enabled</Select.Option>
+          </Select>
+        </Form.Item>
+        <Form.Item
+          label='Recurring Weekdays'
+          name='recurringWeekdays'
+          rules={[
+            {
+              validator(_, value) {
+                if (!recurringEnabled) {
+                  return Promise.resolve();
+                }
+                if (Array.isArray(value) && value.length > 0) {
+                  return Promise.resolve();
+                }
+                return Promise.reject(
+                  new Error('Please select at least one recurring weekday')
+                );
+              },
+            },
+          ]}
+        >
+          <Select
+            mode='multiple'
+            placeholder='e.g. Wednesday + Sunday'
+            options={weekdayOptions}
+            maxTagCount={3}
+          />
         </Form.Item>
         <Form.Item
           label='Images'

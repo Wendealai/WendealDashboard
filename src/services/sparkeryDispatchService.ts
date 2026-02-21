@@ -2,13 +2,20 @@ import type {
   CreateDispatchJobPayload,
   DispatchCustomerProfile,
   DispatchEmployee,
+  DispatchEmployeeLocation,
   DispatchJob,
   DispatchJobStatus,
+  DispatchWeekday,
   EmployeeSchedule,
   UpsertDispatchEmployeePayload,
   UpsertDispatchCustomerProfilePayload,
   UpdateDispatchJobPayload,
 } from '@/pages/Sparkery/dispatch/types';
+import type { Employee as InspectionEmployee } from '@/pages/CleaningInspection/types';
+import {
+  loadEmployees as loadInspectionEmployees,
+  saveEmployees as saveInspectionEmployees,
+} from '@/services/inspectionService';
 
 interface DispatchStorage {
   jobs: DispatchJob[];
@@ -21,6 +28,7 @@ interface DispatchBackupPayload {
   version: 'v1';
   exportedAt: string;
   data: DispatchStorage;
+  employeeLocations?: Record<string, DispatchEmployeeLocation>;
 }
 
 interface SupabaseConfig {
@@ -42,6 +50,16 @@ interface SupabaseDispatchEmployeeRow {
   phone: string | null;
   skills: DispatchEmployee['skills'] | null;
   status: DispatchEmployee['status'];
+}
+
+interface SupabaseDispatchEmployeeLocationRow {
+  employee_id: string;
+  lat: number;
+  lng: number;
+  accuracy_m: number | null;
+  source: DispatchEmployeeLocation['source'] | null;
+  label: string | null;
+  updated_at: string;
 }
 
 interface SupabaseDispatchJobRow {
@@ -77,6 +95,7 @@ interface SupabaseDispatchCustomerProfileRow {
   default_notes: string | null;
   recurring_enabled: boolean | null;
   recurring_weekday: DispatchCustomerProfile['recurringWeekday'] | null;
+  recurring_weekdays?: DispatchWeekday[] | null;
   recurring_start_time: string | null;
   recurring_end_time: string | null;
   recurring_service_type:
@@ -87,7 +106,117 @@ interface SupabaseDispatchCustomerProfileRow {
   updated_at: string | null;
 }
 
+const WEEKDAY_VALUES: DispatchWeekday[] = [1, 2, 3, 4, 5, 6, 7];
+
+const normalizeRecurringWeekdays = (
+  weekdays: Array<number | DispatchWeekday> | null | undefined
+): DispatchWeekday[] => {
+  if (!Array.isArray(weekdays)) {
+    return [];
+  }
+
+  const unique = new Set<DispatchWeekday>();
+  weekdays.forEach(value => {
+    const numeric = Number(value) as DispatchWeekday;
+    if (WEEKDAY_VALUES.includes(numeric)) {
+      unique.add(numeric);
+    }
+  });
+  return Array.from(unique).sort((a, b) => a - b);
+};
+
 const STORAGE_KEY = 'sparkery_dispatch_storage_v1';
+const EMPLOYEE_LOCATION_STORAGE_KEY = 'sparkery_dispatch_employee_locations_v1';
+
+const toInspectionEmployee = (
+  employee: DispatchEmployee
+): InspectionEmployee => {
+  const hasNameCN = Boolean(employee.nameCN?.trim());
+  const record: InspectionEmployee = {
+    id: employee.id,
+    name: hasNameCN ? employee.nameCN!.trim() : employee.name.trim(),
+  };
+  if (hasNameCN && employee.name.trim()) {
+    record.nameEn = employee.name.trim();
+  }
+  if (employee.phone?.trim()) {
+    record.phone = employee.phone.trim();
+  }
+  return record;
+};
+
+const toDispatchEmployeeFromInspection = (
+  employee: InspectionEmployee,
+  existing?: DispatchEmployee
+): DispatchEmployee => {
+  const next: DispatchEmployee = {
+    id: employee.id,
+    name: employee.nameEn?.trim() || employee.name,
+    skills: existing?.skills || ['regular'],
+    status: existing?.status || 'available',
+  };
+
+  if (employee.nameEn?.trim()) {
+    next.nameCN = employee.name;
+  } else if (existing?.nameCN) {
+    next.nameCN = existing.nameCN;
+  }
+
+  if (employee.phone?.trim()) {
+    next.phone = employee.phone.trim();
+  } else if (existing?.phone) {
+    next.phone = existing.phone;
+  }
+
+  if (existing?.currentLocation) {
+    next.currentLocation = existing.currentLocation;
+  }
+
+  return next;
+};
+
+const mergeInspectionEmployees = async (
+  dispatchEmployees: DispatchEmployee[]
+): Promise<DispatchEmployee[]> => {
+  const byId = new Map<string, DispatchEmployee>();
+  dispatchEmployees.forEach(employee => byId.set(employee.id, employee));
+
+  try {
+    const inspectionEmployees = await loadInspectionEmployees();
+    inspectionEmployees.forEach(employee => {
+      const existing = byId.get(employee.id);
+      byId.set(
+        employee.id,
+        toDispatchEmployeeFromInspection(employee, existing)
+      );
+    });
+  } catch {
+    // Keep dispatch list if inspection source is unavailable.
+  }
+
+  return Array.from(byId.values());
+};
+
+const syncInspectionEmployeesFromDispatch = async (
+  dispatchEmployees: DispatchEmployee[]
+): Promise<void> => {
+  try {
+    const currentInspectionEmployees = await loadInspectionEmployees();
+    const byId = new Map<string, InspectionEmployee>();
+    currentInspectionEmployees.forEach(employee =>
+      byId.set(employee.id, employee)
+    );
+    dispatchEmployees.forEach(employee =>
+      byId.set(employee.id, toInspectionEmployee(employee))
+    );
+    await saveInspectionEmployees(Array.from(byId.values()));
+  } catch (error) {
+    console.warn(
+      '[sparkeryDispatchService] Failed to sync dispatch employees to inspection source',
+      error
+    );
+  }
+};
 
 const getSupabaseConfig = (): SupabaseConfig | null => {
   const runtime = globalThis as SupabaseRuntime;
@@ -112,6 +241,52 @@ const toEmployee = (row: SupabaseDispatchEmployeeRow): DispatchEmployee => {
   if (row.phone) employee.phone = row.phone;
   return employee;
 };
+
+const toEmployeeLocation = (
+  row: SupabaseDispatchEmployeeLocationRow
+): DispatchEmployeeLocation => {
+  const location: DispatchEmployeeLocation = {
+    lat: row.lat,
+    lng: row.lng,
+    source: row.source || 'mobile',
+    updatedAt: row.updated_at,
+  };
+  if (typeof row.accuracy_m === 'number') {
+    location.accuracyM = row.accuracy_m;
+  }
+  if (row.label) {
+    location.label = row.label;
+  }
+  return location;
+};
+
+const toEmployeeLocationRow = (
+  employeeId: string,
+  location: DispatchEmployeeLocation
+): SupabaseDispatchEmployeeLocationRow => ({
+  employee_id: employeeId,
+  lat: location.lat,
+  lng: location.lng,
+  accuracy_m: location.accuracyM ?? null,
+  source: location.source,
+  label: location.label ?? null,
+  updated_at: location.updatedAt,
+});
+
+const mergeEmployeeLocations = (
+  employees: DispatchEmployee[],
+  locations: Record<string, DispatchEmployeeLocation>
+): DispatchEmployee[] =>
+  employees.map(employee => {
+    const location = locations[employee.id];
+    if (!location) {
+      return employee;
+    }
+    return {
+      ...employee,
+      currentLocation: location,
+    };
+  });
 
 const toEmployeeRow = (
   payload: UpsertDispatchEmployeePayload,
@@ -204,6 +379,16 @@ const toCustomerProfile = (
     profile.recurringEnabled = row.recurring_enabled;
   }
   if (row.recurring_weekday) profile.recurringWeekday = row.recurring_weekday;
+  const recurringWeekdays = normalizeRecurringWeekdays(row.recurring_weekdays);
+  if (recurringWeekdays.length > 0) {
+    profile.recurringWeekdays = recurringWeekdays;
+    if (!profile.recurringWeekday) {
+      const firstWeekday = recurringWeekdays[0];
+      if (firstWeekday) {
+        profile.recurringWeekday = firstWeekday;
+      }
+    }
+  }
   if (row.recurring_start_time)
     profile.recurringStartTime = row.recurring_start_time;
   if (row.recurring_end_time) profile.recurringEndTime = row.recurring_end_time;
@@ -219,24 +404,33 @@ const toCustomerProfile = (
 const toCustomerProfileRow = (
   payload: UpsertDispatchCustomerProfilePayload,
   id: string
-): Omit<SupabaseDispatchCustomerProfileRow, 'created_at' | 'updated_at'> => ({
-  id,
-  name: payload.name,
-  address: payload.address || null,
-  phone: payload.phone || null,
-  default_job_title: payload.defaultJobTitle || null,
-  default_description: payload.defaultDescription || null,
-  default_notes: payload.defaultNotes || null,
-  recurring_enabled:
-    typeof payload.recurringEnabled === 'boolean'
-      ? payload.recurringEnabled
-      : null,
-  recurring_weekday: payload.recurringWeekday || null,
-  recurring_start_time: payload.recurringStartTime || null,
-  recurring_end_time: payload.recurringEndTime || null,
-  recurring_service_type: payload.recurringServiceType || null,
-  recurring_priority: payload.recurringPriority || null,
-});
+): Omit<SupabaseDispatchCustomerProfileRow, 'created_at' | 'updated_at'> => {
+  const recurringWeekdays = normalizeRecurringWeekdays(
+    payload.recurringWeekdays
+  );
+  const fallbackWeekday = payload.recurringWeekday || null;
+  const firstWeekday = recurringWeekdays[0] || fallbackWeekday;
+
+  return {
+    id,
+    name: payload.name,
+    address: payload.address || null,
+    phone: payload.phone || null,
+    default_job_title: payload.defaultJobTitle || null,
+    default_description: payload.defaultDescription || null,
+    default_notes: payload.defaultNotes || null,
+    recurring_enabled:
+      typeof payload.recurringEnabled === 'boolean'
+        ? payload.recurringEnabled
+        : null,
+    recurring_weekday: firstWeekday,
+    recurring_weekdays: recurringWeekdays.length > 1 ? recurringWeekdays : null,
+    recurring_start_time: payload.recurringStartTime || null,
+    recurring_end_time: payload.recurringEndTime || null,
+    recurring_service_type: payload.recurringServiceType || null,
+    recurring_priority: payload.recurringPriority || null,
+  };
+};
 
 const supabaseFetch = async <T>(
   path: string,
@@ -324,8 +518,225 @@ const loadStorage = (): DispatchStorage => {
   }
 };
 
+const formatDateKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateKey = (dateStr: string): Date => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year || 1970, (month || 1) - 1, day || 1);
+};
+
 const saveStorage = (storage: DispatchStorage): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(storage));
+};
+
+const loadLocalEmployeeLocations = (): Record<
+  string,
+  DispatchEmployeeLocation
+> => {
+  const raw = localStorage.getItem(EMPLOYEE_LOCATION_STORAGE_KEY);
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, DispatchEmployeeLocation>;
+    const normalized: Record<string, DispatchEmployeeLocation> = {};
+
+    Object.entries(parsed).forEach(([employeeId, location]) => {
+      if (!location || typeof location !== 'object') {
+        return;
+      }
+
+      const lat = Number(location.lat);
+      const lng = Number(location.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return;
+      }
+
+      const result: DispatchEmployeeLocation = {
+        lat,
+        lng,
+        source: location.source || 'mobile',
+        updatedAt: location.updatedAt || new Date().toISOString(),
+      };
+
+      if (typeof location.accuracyM === 'number') {
+        result.accuracyM = location.accuracyM;
+      }
+      if (location.label) {
+        result.label = location.label;
+      }
+
+      normalized[employeeId] = result;
+    });
+
+    return normalized;
+  } catch {
+    return {};
+  }
+};
+
+const saveLocalEmployeeLocations = (
+  locations: Record<string, DispatchEmployeeLocation>
+): void => {
+  localStorage.setItem(
+    EMPLOYEE_LOCATION_STORAGE_KEY,
+    JSON.stringify(locations)
+  );
+};
+
+const isSupabaseRelationMissingError = (
+  error: unknown,
+  relationName: string
+): boolean => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  const relation = relationName.toLowerCase();
+  return (
+    message.includes(relation) &&
+    (message.includes('42p01') ||
+      message.includes('relation') ||
+      message.includes('schema cache'))
+  );
+};
+
+const isSupabaseForeignKeyError = (
+  error: unknown,
+  constraintName?: string
+): boolean => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  if (!message.includes('23503')) {
+    return false;
+  }
+
+  if (!constraintName) {
+    return true;
+  }
+
+  return message.includes(constraintName.toLowerCase());
+};
+
+const isSupabaseMissingColumnError = (
+  error: unknown,
+  columnName: string
+): boolean => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('column') &&
+    message.includes(columnName.toLowerCase()) &&
+    message.includes('does not exist')
+  );
+};
+
+const findEmployeeFromLocalOrInspection = async (
+  employeeId: string
+): Promise<DispatchEmployee | null> => {
+  const fromLocalStorage = loadStorage().employees.find(
+    employee => employee.id === employeeId
+  );
+  if (fromLocalStorage) {
+    return fromLocalStorage;
+  }
+
+  try {
+    const inspectionEmployees = await loadInspectionEmployees();
+    const inspectionEmployee = inspectionEmployees.find(
+      employee => employee.id === employeeId
+    );
+    if (inspectionEmployee) {
+      return toDispatchEmployeeFromInspection(inspectionEmployee);
+    }
+  } catch {
+    // ignore, fallback to generated minimal employee
+  }
+
+  return null;
+};
+
+const ensureSupabaseEmployeeExists = async (
+  employeeId: string
+): Promise<void> => {
+  const encodedId = encodeURIComponent(employeeId);
+  const existingRows = await supabaseFetch<SupabaseDispatchEmployeeRow[]>(
+    `/rest/v1/dispatch_employees?select=*&id=eq.${encodedId}&limit=1`
+  );
+  if (existingRows[0]) {
+    return;
+  }
+
+  const sourceEmployee = await findEmployeeFromLocalOrInspection(employeeId);
+  const payload: UpsertDispatchEmployeePayload = sourceEmployee
+    ? {
+        id: sourceEmployee.id,
+        name: sourceEmployee.name,
+        skills:
+          sourceEmployee.skills.length > 0
+            ? sourceEmployee.skills
+            : ['regular'],
+        status: sourceEmployee.status || 'available',
+      }
+    : {
+        id: employeeId,
+        name: `Employee ${employeeId}`,
+        skills: ['regular'],
+        status: 'available',
+      };
+
+  if (sourceEmployee?.nameCN) {
+    payload.nameCN = sourceEmployee.nameCN;
+  }
+  if (sourceEmployee?.phone) {
+    payload.phone = sourceEmployee.phone;
+  }
+
+  const row = toEmployeeRow(payload, employeeId);
+  await supabaseFetch<SupabaseDispatchEmployeeRow[]>(
+    '/rest/v1/dispatch_employees?on_conflict=id',
+    {
+      method: 'POST',
+      headers: {
+        Prefer: 'resolution=merge-duplicates,return=representation',
+      },
+      body: JSON.stringify([row]),
+    }
+  );
+};
+
+const normalizeEmployeeLocation = (
+  location: Omit<DispatchEmployeeLocation, 'updatedAt'> & {
+    updatedAt?: string;
+  }
+): DispatchEmployeeLocation => {
+  const normalized: DispatchEmployeeLocation = {
+    lat: Number(location.lat),
+    lng: Number(location.lng),
+    source: location.source,
+    updatedAt: location.updatedAt || new Date().toISOString(),
+  };
+
+  if (typeof location.accuracyM === 'number') {
+    normalized.accuracyM = location.accuracyM;
+  }
+  if (location.label) {
+    normalized.label = location.label;
+  }
+
+  return normalized;
 };
 
 const generateId = (prefix: string): string =>
@@ -533,14 +944,124 @@ export const sparkeryDispatchService = {
     saveStorage(storage);
   },
 
+  async getEmployeeLocations(): Promise<
+    Record<string, DispatchEmployeeLocation>
+  > {
+    const supabaseConfig = getSupabaseConfig();
+    if (supabaseConfig) {
+      try {
+        const rows = await supabaseFetch<SupabaseDispatchEmployeeLocationRow[]>(
+          '/rest/v1/dispatch_employee_locations?select=*&order=updated_at.desc.nullslast,employee_id.asc'
+        );
+        const locations = rows.reduce<Record<string, DispatchEmployeeLocation>>(
+          (acc, row) => {
+            acc[row.employee_id] = toEmployeeLocation(row);
+            return acc;
+          },
+          {}
+        );
+        saveLocalEmployeeLocations(locations);
+        return locations;
+      } catch (error) {
+        if (
+          !isSupabaseRelationMissingError(error, 'dispatch_employee_locations')
+        ) {
+          throw error;
+        }
+      }
+    }
+
+    return loadLocalEmployeeLocations();
+  },
+
+  async reportEmployeeLocation(
+    employeeId: string,
+    locationInput: Omit<DispatchEmployeeLocation, 'updatedAt'> & {
+      updatedAt?: string;
+    }
+  ): Promise<DispatchEmployeeLocation> {
+    const location = normalizeEmployeeLocation(locationInput);
+    const supabaseConfig = getSupabaseConfig();
+
+    if (supabaseConfig) {
+      const upsertLocation =
+        async (): Promise<DispatchEmployeeLocation | null> => {
+          const row = toEmployeeLocationRow(employeeId, location);
+          const result = await supabaseFetch<
+            SupabaseDispatchEmployeeLocationRow[]
+          >('/rest/v1/dispatch_employee_locations?on_conflict=employee_id', {
+            method: 'POST',
+            headers: {
+              Prefer: 'resolution=merge-duplicates,return=representation',
+            },
+            body: JSON.stringify([row]),
+          });
+
+          const first = result[0];
+          if (!first) {
+            return null;
+          }
+
+          const resolved = toEmployeeLocation(first);
+          const localLocations = loadLocalEmployeeLocations();
+          localLocations[employeeId] = resolved;
+          saveLocalEmployeeLocations(localLocations);
+          return resolved;
+        };
+
+      try {
+        const resolved = await upsertLocation();
+        if (resolved) {
+          return resolved;
+        }
+      } catch (error) {
+        if (
+          isSupabaseForeignKeyError(
+            error,
+            'dispatch_employee_locations_employee_id_fkey'
+          )
+        ) {
+          await ensureSupabaseEmployeeExists(employeeId);
+          const resolved = await upsertLocation();
+          if (resolved) {
+            return resolved;
+          }
+        }
+
+        if (
+          !isSupabaseRelationMissingError(error, 'dispatch_employee_locations')
+        ) {
+          throw error;
+        }
+      }
+    }
+
+    const localLocations = loadLocalEmployeeLocations();
+    localLocations[employeeId] = location;
+    saveLocalEmployeeLocations(localLocations);
+    return location;
+  },
+
   async getEmployees(): Promise<DispatchEmployee[]> {
     if (getSupabaseConfig()) {
       const rows = await supabaseFetch<SupabaseDispatchEmployeeRow[]>(
         '/rest/v1/dispatch_employees?select=*&order=id.asc'
       );
-      return rows.map(toEmployee);
+      const baseEmployees = rows.map(toEmployee);
+      let locations: Record<string, DispatchEmployeeLocation> = {};
+      try {
+        locations = await this.getEmployeeLocations();
+      } catch {
+        locations = loadLocalEmployeeLocations();
+      }
+      const withLocations = mergeEmployeeLocations(baseEmployees, locations);
+      return mergeInspectionEmployees(withLocations);
     }
-    return loadStorage().employees;
+
+    const storage = loadStorage();
+    const locations = loadLocalEmployeeLocations();
+    const withLocations = mergeEmployeeLocations(storage.employees, locations);
+    return mergeInspectionEmployees(withLocations);
   },
 
   async upsertEmployee(
@@ -562,7 +1083,17 @@ export const sparkeryDispatchService = {
       if (!first) {
         throw new Error('Supabase employee upsert returned no rows');
       }
-      return toEmployee(first);
+      const employee = toEmployee(first);
+      const locations = await this.getEmployeeLocations();
+      const location = locations[employee.id];
+      const mergedEmployee = !location
+        ? employee
+        : {
+            ...employee,
+            currentLocation: location,
+          };
+      await syncInspectionEmployeesFromDispatch([mergedEmployee]);
+      return mergedEmployee;
     }
 
     const storage = loadStorage();
@@ -577,8 +1108,13 @@ export const sparkeryDispatchService = {
       skills: payload.skills,
       status: payload.status,
     };
+    const existingEmployee =
+      existingIndex >= 0 ? storage.employees[existingIndex] : undefined;
     if (payload.nameCN) next.nameCN = payload.nameCN;
     if (payload.phone) next.phone = payload.phone;
+    if (existingEmployee?.currentLocation) {
+      next.currentLocation = existingEmployee.currentLocation;
+    }
 
     if (existingIndex >= 0) {
       storage.employees[existingIndex] = next;
@@ -586,6 +1122,7 @@ export const sparkeryDispatchService = {
       storage.employees.unshift(next);
     }
     saveStorage(storage);
+    await syncInspectionEmployeesFromDispatch(storage.employees);
     return next;
   },
 
@@ -621,17 +1158,43 @@ export const sparkeryDispatchService = {
         payload,
         payload.id || generateId('customer')
       );
-
-      const result = await supabaseFetch<SupabaseDispatchCustomerProfileRow[]>(
-        '/rest/v1/dispatch_customer_profiles?on_conflict=id',
-        {
-          method: 'POST',
-          headers: {
-            Prefer: 'resolution=merge-duplicates,return=representation',
-          },
-          body: JSON.stringify([row]),
+      let result: SupabaseDispatchCustomerProfileRow[];
+      try {
+        result = await supabaseFetch<SupabaseDispatchCustomerProfileRow[]>(
+          '/rest/v1/dispatch_customer_profiles?on_conflict=id',
+          {
+            method: 'POST',
+            headers: {
+              Prefer: 'resolution=merge-duplicates,return=representation',
+            },
+            body: JSON.stringify([row]),
+          }
+        );
+      } catch (error) {
+        if (
+          row.recurring_weekdays &&
+          isSupabaseMissingColumnError(error, 'recurring_weekdays')
+        ) {
+          const fallbackRow = {
+            ...row,
+            recurring_weekdays: undefined,
+            recurring_weekday:
+              row.recurring_weekday || row.recurring_weekdays[0],
+          };
+          result = await supabaseFetch<SupabaseDispatchCustomerProfileRow[]>(
+            '/rest/v1/dispatch_customer_profiles?on_conflict=id',
+            {
+              method: 'POST',
+              headers: {
+                Prefer: 'resolution=merge-duplicates,return=representation',
+              },
+              body: JSON.stringify([fallbackRow]),
+            }
+          );
+        } else {
+          throw error;
         }
-      );
+      }
 
       const first = result[0];
       if (!first) {
@@ -666,6 +1229,16 @@ export const sparkeryDispatchService = {
     }
     if (payload.recurringWeekday) {
       baseProfile.recurringWeekday = payload.recurringWeekday;
+    }
+    const recurringWeekdays = normalizeRecurringWeekdays(
+      payload.recurringWeekdays
+    );
+    if (recurringWeekdays.length > 0) {
+      baseProfile.recurringWeekdays = recurringWeekdays;
+      const firstWeekday = recurringWeekdays[0];
+      if (firstWeekday) {
+        baseProfile.recurringWeekday = firstWeekday;
+      }
     }
     if (payload.recurringStartTime) {
       baseProfile.recurringStartTime = payload.recurringStartTime;
@@ -706,62 +1279,74 @@ export const sparkeryDispatchService = {
       const profiles = await this.getCustomerProfiles();
       const existingJobs = await this.getJobs({ weekStart, weekEnd });
       const created: DispatchJob[] = [];
-      const weekStartDate = new Date(weekStart);
+      const weekStartDate = parseDateKey(weekStart);
 
       for (const profile of profiles) {
         if (
           !profile.recurringEnabled ||
-          !profile.recurringWeekday ||
           !profile.recurringStartTime ||
           !profile.recurringEndTime
         ) {
           continue;
         }
-
-        const targetDate = new Date(weekStartDate);
-        targetDate.setDate(
-          targetDate.getDate() + (profile.recurringWeekday - 1)
+        const recurringDays = normalizeRecurringWeekdays(
+          profile.recurringWeekdays
         );
-        const scheduledDate = targetDate.toISOString().slice(0, 10);
-        if (scheduledDate < weekStart || scheduledDate > weekEnd) {
+        const effectiveDays =
+          recurringDays.length > 0
+            ? recurringDays
+            : profile.recurringWeekday
+              ? [profile.recurringWeekday]
+              : [];
+        if (effectiveDays.length === 0) {
           continue;
         }
 
-        const existed = existingJobs.some(
-          job =>
-            job.customerProfileId === profile.id &&
-            job.scheduledDate === scheduledDate &&
-            job.scheduledStartTime === profile.recurringStartTime
-        );
-        if (existed) {
-          continue;
-        }
+        for (const weekday of effectiveDays) {
+          const targetDate = new Date(weekStartDate);
+          targetDate.setDate(targetDate.getDate() + (weekday - 1));
+          const scheduledDate = formatDateKey(targetDate);
+          if (scheduledDate < weekStart || scheduledDate > weekEnd) {
+            continue;
+          }
 
-        const createPayload: CreateDispatchJobPayload = {
-          title: profile.defaultJobTitle || `${profile.name} Recurring Service`,
-          customerProfileId: profile.id,
-          customerName: profile.name,
-          serviceType: profile.recurringServiceType || 'regular',
-          priority: profile.recurringPriority || 3,
-          scheduledDate,
-          scheduledStartTime: profile.recurringStartTime,
-          scheduledEndTime: profile.recurringEndTime,
-        };
-        if (profile.defaultDescription) {
-          createPayload.description = profile.defaultDescription;
-        }
-        if (profile.defaultNotes) {
-          createPayload.notes = profile.defaultNotes;
-        }
-        if (profile.address) {
-          createPayload.customerAddress = profile.address;
-        }
-        if (profile.phone) {
-          createPayload.customerPhone = profile.phone;
-        }
+          const existed = existingJobs.some(
+            job =>
+              job.customerProfileId === profile.id &&
+              job.scheduledDate === scheduledDate &&
+              job.scheduledStartTime === profile.recurringStartTime
+          );
+          if (existed) {
+            continue;
+          }
 
-        const createdJob = await this.createJob(createPayload);
-        created.push(createdJob);
+          const createPayload: CreateDispatchJobPayload = {
+            title:
+              profile.defaultJobTitle || `${profile.name} Recurring Service`,
+            customerProfileId: profile.id,
+            customerName: profile.name,
+            serviceType: profile.recurringServiceType || 'regular',
+            priority: profile.recurringPriority || 3,
+            scheduledDate,
+            scheduledStartTime: profile.recurringStartTime,
+            scheduledEndTime: profile.recurringEndTime,
+          };
+          if (profile.defaultDescription) {
+            createPayload.description = profile.defaultDescription;
+          }
+          if (profile.defaultNotes) {
+            createPayload.notes = profile.defaultNotes;
+          }
+          if (profile.address) {
+            createPayload.customerAddress = profile.address;
+          }
+          if (profile.phone) {
+            createPayload.customerPhone = profile.phone;
+          }
+
+          const createdJob = await this.createJob(createPayload);
+          created.push(createdJob);
+        }
       }
 
       return created;
@@ -769,60 +1354,73 @@ export const sparkeryDispatchService = {
 
     const storage = loadStorage();
     const created: DispatchJob[] = [];
-    const weekStartDate = new Date(weekStart);
+    const weekStartDate = parseDateKey(weekStart);
 
     storage.customerProfiles.forEach(profile => {
       if (
         !profile.recurringEnabled ||
-        !profile.recurringWeekday ||
         !profile.recurringStartTime ||
         !profile.recurringEndTime
       ) {
         return;
       }
-
-      const targetDate = new Date(weekStartDate);
-      targetDate.setDate(targetDate.getDate() + (profile.recurringWeekday - 1));
-      const scheduledDate = targetDate.toISOString().slice(0, 10);
-      if (scheduledDate < weekStart || scheduledDate > weekEnd) {
-        return;
-      }
-
-      const existed = storage.jobs.some(
-        job =>
-          job.customerProfileId === profile.id &&
-          job.scheduledDate === scheduledDate &&
-          job.scheduledStartTime === profile.recurringStartTime
+      const recurringDays = normalizeRecurringWeekdays(
+        profile.recurringWeekdays
       );
-
-      if (existed) {
+      const effectiveDays =
+        recurringDays.length > 0
+          ? recurringDays
+          : profile.recurringWeekday
+            ? [profile.recurringWeekday]
+            : [];
+      if (effectiveDays.length === 0) {
         return;
       }
 
-      const now = new Date().toISOString();
-      const job: DispatchJob = {
-        id: generateId('job'),
-        title: profile.defaultJobTitle || `${profile.name} Recurring Service`,
-        serviceType: profile.recurringServiceType || 'regular',
-        status: 'pending',
-        priority: profile.recurringPriority || 3,
-        scheduledDate,
-        scheduledStartTime: profile.recurringStartTime,
-        scheduledEndTime: profile.recurringEndTime,
-        customerProfileId: profile.id,
-        customerName: profile.name,
-        createdAt: now,
-        updatedAt: now,
-      };
+      effectiveDays.forEach(weekday => {
+        const targetDate = new Date(weekStartDate);
+        targetDate.setDate(targetDate.getDate() + (weekday - 1));
+        const scheduledDate = formatDateKey(targetDate);
+        if (scheduledDate < weekStart || scheduledDate > weekEnd) {
+          return;
+        }
 
-      if (profile.address) job.customerAddress = profile.address;
-      if (profile.phone) job.customerPhone = profile.phone;
-      if (profile.defaultDescription)
-        job.description = profile.defaultDescription;
-      if (profile.defaultNotes) job.notes = profile.defaultNotes;
+        const existed = storage.jobs.some(
+          job =>
+            job.customerProfileId === profile.id &&
+            job.scheduledDate === scheduledDate &&
+            job.scheduledStartTime === profile.recurringStartTime
+        );
 
-      storage.jobs.unshift(job);
-      created.push(job);
+        if (existed) {
+          return;
+        }
+
+        const now = new Date().toISOString();
+        const job: DispatchJob = {
+          id: generateId('job'),
+          title: profile.defaultJobTitle || `${profile.name} Recurring Service`,
+          serviceType: profile.recurringServiceType || 'regular',
+          status: 'pending',
+          priority: profile.recurringPriority || 3,
+          scheduledDate,
+          scheduledStartTime: profile.recurringStartTime!,
+          scheduledEndTime: profile.recurringEndTime!,
+          customerProfileId: profile.id,
+          customerName: profile.name,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        if (profile.address) job.customerAddress = profile.address;
+        if (profile.phone) job.customerPhone = profile.phone;
+        if (profile.defaultDescription)
+          job.description = profile.defaultDescription;
+        if (profile.defaultNotes) job.notes = profile.defaultNotes;
+
+        storage.jobs.unshift(job);
+        created.push(job);
+      });
     });
 
     saveStorage(storage);
@@ -839,8 +1437,12 @@ export const sparkeryDispatchService = {
     }
 
     const storage = loadStorage();
+    const localLocations = loadLocalEmployeeLocations();
     const employeesRows = storage.employees.map(employee =>
       toEmployeeRow(employee, employee.id)
+    );
+    const employeeLocationRows = Object.entries(localLocations).map(
+      ([employeeId, location]) => toEmployeeLocationRow(employeeId, location)
     );
     const customerRows = storage.customerProfiles.map(profile =>
       toCustomerProfileRow(profile, profile.id)
@@ -861,6 +1463,27 @@ export const sparkeryDispatchService = {
           body: JSON.stringify(employeesRows),
         }
       );
+    }
+
+    if (employeeLocationRows.length > 0) {
+      try {
+        await supabaseFetch<SupabaseDispatchEmployeeLocationRow[]>(
+          '/rest/v1/dispatch_employee_locations?on_conflict=employee_id',
+          {
+            method: 'POST',
+            headers: {
+              Prefer: 'resolution=merge-duplicates,return=representation',
+            },
+            body: JSON.stringify(employeeLocationRows),
+          }
+        );
+      } catch (error) {
+        if (
+          !isSupabaseRelationMissingError(error, 'dispatch_employee_locations')
+        ) {
+          throw error;
+        }
+      }
     }
 
     if (customerRows.length > 0) {
@@ -898,10 +1521,12 @@ export const sparkeryDispatchService = {
 
   async exportBackup(): Promise<string> {
     const storage = loadStorage();
+    const employeeLocations = loadLocalEmployeeLocations();
     const payload: DispatchBackupPayload = {
       version: 'v1',
       exportedAt: new Date().toISOString(),
       data: storage,
+      employeeLocations,
     };
     return JSON.stringify(payload, null, 2);
   },
@@ -918,6 +1543,12 @@ export const sparkeryDispatchService = {
       throw new Error('Backup JSON missing data field');
     }
 
+    const employeeLocations: Record<string, DispatchEmployeeLocation> =
+      parsed.employeeLocations && typeof parsed.employeeLocations === 'object'
+        ? parsed.employeeLocations
+        : {};
+    saveLocalEmployeeLocations(employeeLocations);
+
     const nextStorage: DispatchStorage = {
       jobs: Array.isArray(parsed.data.jobs) ? parsed.data.jobs : [],
       employees: Array.isArray(parsed.data.employees)
@@ -931,7 +1562,16 @@ export const sparkeryDispatchService = {
         : [],
     };
 
-    saveStorage(nextStorage);
-    return nextStorage;
+    const mergedEmployees = mergeEmployeeLocations(
+      nextStorage.employees,
+      employeeLocations
+    );
+    const mergedStorage: DispatchStorage = {
+      ...nextStorage,
+      employees: mergedEmployees,
+    };
+
+    saveStorage(mergedStorage);
+    return mergedStorage;
   },
 };

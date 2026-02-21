@@ -9,6 +9,7 @@ import type {
   CreateDispatchJobPayload,
   DispatchCustomerProfile,
   DispatchEmployee,
+  DispatchEmployeeLocation,
   DispatchFilters,
   DispatchJob,
   DispatchJobStatus,
@@ -44,11 +45,30 @@ interface DispatchLocalSyncResult {
   jobs: number;
 }
 
+interface ReportDispatchEmployeeLocationPayload {
+  employeeId: string;
+  location: Omit<DispatchEmployeeLocation, 'updatedAt'> & {
+    updatedAt?: string;
+  };
+}
+
 interface DispatchBackupImportResult {
   jobs: DispatchJob[];
   employees: DispatchEmployee[];
   customerProfiles: DispatchCustomerProfile[];
 }
+
+const formatDateKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateKey = (dateStr: string): Date => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year || 1970, (month || 1) - 1, day || 1);
+};
 
 export interface SparkeryDispatchState {
   jobs: DispatchJob[];
@@ -63,9 +83,13 @@ export interface SparkeryDispatchState {
 const getStartOfWeek = (): string => {
   const today = new Date();
   const day = today.getDay();
-  const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(today.setDate(diff));
-  return monday.toISOString().slice(0, 10);
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate() + mondayOffset
+  );
+  return formatDateKey(monday);
 };
 
 const initialState: SparkeryDispatchState = {
@@ -79,10 +103,10 @@ const initialState: SparkeryDispatchState = {
 };
 
 const getWeekEnd = (weekStart: string): string => {
-  const date = new Date(weekStart);
+  const date = parseDateKey(weekStart);
   const end = new Date(date);
   end.setDate(date.getDate() + 6);
-  return end.toISOString().slice(0, 10);
+  return formatDateKey(end);
 };
 
 export const fetchDispatchJobs = createAsyncThunk<
@@ -104,6 +128,20 @@ export const upsertDispatchEmployee = createAsyncThunk<
   UpsertDispatchEmployeePayload
 >('sparkeryDispatch/upsertEmployee', async payload => {
   return sparkeryDispatchService.upsertEmployee(payload);
+});
+
+export const reportDispatchEmployeeLocation = createAsyncThunk<
+  { employeeId: string; location: DispatchEmployeeLocation },
+  ReportDispatchEmployeeLocationPayload
+>('sparkeryDispatch/reportEmployeeLocation', async payload => {
+  const location = await sparkeryDispatchService.reportEmployeeLocation(
+    payload.employeeId,
+    payload.location
+  );
+  return {
+    employeeId: payload.employeeId,
+    location,
+  };
 });
 
 export const fetchDispatchCustomerProfiles = createAsyncThunk<
@@ -278,6 +316,20 @@ export const sparkeryDispatchSlice = createSlice({
         state.employees = upsertEmployee(state.employees, action.payload);
       })
       .addCase(upsertDispatchEmployee.rejected, setRejected)
+      .addCase(reportDispatchEmployeeLocation.pending, setPending)
+      .addCase(reportDispatchEmployeeLocation.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.employees = state.employees.map(employee => {
+          if (employee.id !== action.payload.employeeId) {
+            return employee;
+          }
+          return {
+            ...employee,
+            currentLocation: action.payload.location,
+          };
+        });
+      })
+      .addCase(reportDispatchEmployeeLocation.rejected, setRejected)
       .addCase(fetchDispatchCustomerProfiles.pending, setPending)
       .addCase(fetchDispatchCustomerProfiles.fulfilled, (state, action) => {
         state.isLoading = false;

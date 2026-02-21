@@ -14,6 +14,7 @@ import {
   assignDispatchJob,
   clearDispatchError,
   createDispatchJob,
+  deleteDispatchJob,
   exportDispatchBackup,
   fetchDispatchCustomerProfiles,
   fetchDispatchEmployees,
@@ -23,8 +24,10 @@ import {
   migrateDispatchLocalPeopleToSupabase,
   selectDispatchCustomerProfiles,
   selectDispatchEmployees,
+  selectDispatchJobs,
   selectDispatchJobsByDate,
   selectDispatchState,
+  reportDispatchEmployeeLocation,
   setFilters,
   setSelectedWeekStart,
   upsertDispatchEmployee,
@@ -35,25 +38,79 @@ import {
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import type {
   CreateDispatchJobPayload,
+  DispatchEmployeeLocation,
   DispatchFilters,
   DispatchJob,
   DispatchJobStatus,
+  DispatchWeekday,
+  UpsertDispatchCustomerProfilePayload,
 } from './dispatch/types';
 import DispatchFiltersBar from './components/dispatch/DispatchFiltersBar';
 import DispatchAdminSetupModal from './components/dispatch/DispatchAdminSetupModal';
 import DispatchJobFormModal from './components/dispatch/DispatchJobFormModal';
 import WeeklyDispatchBoard from './components/dispatch/WeeklyDispatchBoard';
+import DispatchMapPlanner from './components/dispatch/DispatchMapPlanner';
+import {
+  isGoogleCalendarConfigured,
+  syncDispatchWeekToGoogleCalendar,
+} from '@/services/googleCalendarService';
 
 const { Title, Text } = Typography;
 const DISPATCH_LOCAL_STORAGE_KEY = 'sparkery_dispatch_storage_v1';
 const DISPATCH_AUTO_MIGRATION_PROMPT_KEY =
   'sparkery_dispatch_auto_migration_prompt_seen_v1';
 
+const formatDateKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateKey = (dateStr: string): Date => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year || 1970, (month || 1) - 1, day || 1);
+};
+
 const getWeekEnd = (weekStart: string): string => {
-  const start = new Date(weekStart);
+  const start = parseDateKey(weekStart);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
-  return end.toISOString().slice(0, 10);
+  return formatDateKey(end);
+};
+
+const getWeekStart = (dateStr: string): string => {
+  const date = parseDateKey(dateStr);
+  const day = date.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() + mondayOffset
+  );
+  return formatDateKey(monday);
+};
+
+const extractThunkError = (
+  action: { error?: { message?: string } },
+  fallback: string
+): string => action.error?.message || fallback;
+
+const normalizeRecurringWeekdays = (
+  payload: Pick<
+    CreateDispatchJobPayload,
+    'recurringWeekdays' | 'recurringWeekday'
+  >
+): DispatchWeekday[] => {
+  const source = Array.isArray(payload.recurringWeekdays)
+    ? payload.recurringWeekdays
+    : payload.recurringWeekday
+      ? [payload.recurringWeekday]
+      : [];
+  const validWeekdays = source.filter((value): value is DispatchWeekday =>
+    [1, 2, 3, 4, 5, 6, 7].includes(value)
+  );
+  return Array.from(new Set(validWeekdays)).sort((a, b) => a - b);
 };
 
 const DispatchDashboard: React.FC = () => {
@@ -63,9 +120,27 @@ const DispatchDashboard: React.FC = () => {
   const employees = useAppSelector(selectDispatchEmployees);
   const customerProfiles = useAppSelector(selectDispatchCustomerProfiles);
   const jobsByDate = useAppSelector(selectDispatchJobsByDate);
+  const jobs = useAppSelector(selectDispatchJobs);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<DispatchJob | null>(null);
   const [adminSetupOpen, setAdminSetupOpen] = useState(false);
+  const [syncingGoogleCalendar, setSyncingGoogleCalendar] = useState(false);
+  const supabaseConfigured = React.useMemo(() => {
+    const runtime = globalThis as typeof globalThis & {
+      __WENDEAL_SUPABASE_CONFIG__?: {
+        url?: string;
+        anonKey?: string;
+      };
+    };
+    return Boolean(
+      runtime.__WENDEAL_SUPABASE_CONFIG__?.url &&
+        runtime.__WENDEAL_SUPABASE_CONFIG__?.anonKey
+    );
+  }, []);
+  const googleCalendarConfigured = React.useMemo(
+    () => isGoogleCalendarConfigured(),
+    []
+  );
 
   const weekRange = useMemo(
     () => ({
@@ -83,6 +158,15 @@ const DispatchDashboard: React.FC = () => {
   React.useEffect(() => {
     dispatch(fetchDispatchJobs(weekRange));
   }, [dispatch, weekRange]);
+
+  React.useEffect(() => {
+    const timer = window.setInterval(() => {
+      dispatch(fetchDispatchEmployees());
+    }, 30000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [dispatch]);
 
   React.useEffect(() => {
     if (localStorage.getItem(DISPATCH_AUTO_MIGRATION_PROMPT_KEY)) {
@@ -155,21 +239,208 @@ const DispatchDashboard: React.FC = () => {
     message.success('Dispatch jobs refreshed');
   };
 
+  const handleSyncGoogleCalendar = async () => {
+    if (!googleCalendarConfigured) {
+      message.warning(
+        'Google Calendar is not configured. Please set credentials first.'
+      );
+      return;
+    }
+
+    setSyncingGoogleCalendar(true);
+    try {
+      const result = await syncDispatchWeekToGoogleCalendar({
+        jobs,
+        weekStart: weekRange.weekStart,
+        weekEnd: weekRange.weekEnd,
+      });
+      message.success(
+        `Calendar synced: +${result.created} / ~${result.updated} / -${result.deleted}`
+      );
+    } catch (error) {
+      message.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to sync Google Calendar'
+      );
+    } finally {
+      setSyncingGoogleCalendar(false);
+    }
+  };
+
   const handleCreateJob = async (payload: CreateDispatchJobPayload) => {
+    const isEditing = Boolean(editingJob);
+    const recurringWeekdays = normalizeRecurringWeekdays(payload);
+    const recurringEnabled = Boolean(payload.recurringEnabled);
+    let savedJob: DispatchJob | null = null;
+
     if (editingJob) {
-      await dispatch(updateDispatchJob({ id: editingJob.id, patch: payload }));
+      const result = await dispatch(
+        updateDispatchJob({ id: editingJob.id, patch: payload })
+      );
+      if (!updateDispatchJob.fulfilled.match(result)) {
+        message.error(
+          extractThunkError(result, 'Failed to update task in Supabase')
+        );
+        return;
+      }
+      savedJob = result.payload;
       message.success('Job updated');
+      await dispatch(fetchDispatchJobs(weekRange));
     } else {
-      await dispatch(createDispatchJob(payload));
+      const result = await dispatch(createDispatchJob(payload));
+      if (!createDispatchJob.fulfilled.match(result)) {
+        message.error(
+          extractThunkError(result, 'Failed to create task in Supabase')
+        );
+        return;
+      }
+      savedJob = result.payload;
+
+      let refreshRange = weekRange;
+      const createdDate = result.payload.scheduledDate || payload.scheduledDate;
+      if (
+        createdDate < weekRange.weekStart ||
+        createdDate > weekRange.weekEnd
+      ) {
+        const targetWeekStart = getWeekStart(createdDate);
+        refreshRange = {
+          weekStart: targetWeekStart,
+          weekEnd: getWeekEnd(targetWeekStart),
+        };
+        dispatch(setSelectedWeekStart(targetWeekStart));
+      }
+
       message.success('Job created');
+      await dispatch(fetchDispatchJobs(refreshRange));
+    }
+
+    if (recurringEnabled) {
+      if (recurringWeekdays.length === 0) {
+        message.warning(
+          'Task saved, but recurring weekdays are empty. Please select at least one weekday.'
+        );
+      } else {
+        const existingProfile = payload.customerProfileId
+          ? customerProfiles.find(
+              profile => profile.id === payload.customerProfileId
+            )
+          : undefined;
+        const profileName =
+          payload.customerName?.trim() ||
+          existingProfile?.name?.trim() ||
+          savedJob?.customerName?.trim() ||
+          '';
+
+        if (!profileName) {
+          message.warning(
+            'Task saved, but recurring template needs customer name or customer profile.'
+          );
+        } else {
+          const recurringProfilePayload: UpsertDispatchCustomerProfilePayload =
+            {
+              name: profileName,
+              recurringEnabled: true,
+              recurringWeekdays,
+              recurringStartTime: payload.scheduledStartTime,
+              recurringEndTime: payload.scheduledEndTime,
+              recurringServiceType: payload.serviceType,
+              recurringPriority: payload.priority,
+              defaultJobTitle: payload.title,
+            };
+          const profileId = payload.customerProfileId || existingProfile?.id;
+          if (profileId) {
+            recurringProfilePayload.id = profileId;
+          }
+          const firstWeekday = recurringWeekdays[0];
+          if (firstWeekday) {
+            recurringProfilePayload.recurringWeekday = firstWeekday;
+          }
+          const address =
+            payload.customerAddress ||
+            existingProfile?.address ||
+            savedJob?.customerAddress;
+          if (address) recurringProfilePayload.address = address;
+          const phone =
+            payload.customerPhone ||
+            existingProfile?.phone ||
+            savedJob?.customerPhone;
+          if (phone) recurringProfilePayload.phone = phone;
+          if (payload.description) {
+            recurringProfilePayload.defaultDescription = payload.description;
+          }
+          if (payload.notes) {
+            recurringProfilePayload.defaultNotes = payload.notes;
+          }
+
+          const profileResult = await dispatch(
+            upsertDispatchCustomerProfile(recurringProfilePayload)
+          );
+          if (upsertDispatchCustomerProfile.fulfilled.match(profileResult)) {
+            const savedProfile = profileResult.payload;
+            if (savedJob && !savedJob.customerProfileId) {
+              const jobPatch: Partial<
+                Omit<DispatchJob, 'id' | 'createdAt' | 'updatedAt'>
+              > = {
+                customerProfileId: savedProfile.id,
+                customerName: savedJob.customerName || savedProfile.name,
+              };
+              const nextAddress =
+                savedJob.customerAddress || savedProfile.address;
+              if (nextAddress) {
+                jobPatch.customerAddress = nextAddress;
+              }
+              const nextPhone = savedJob.customerPhone || savedProfile.phone;
+              if (nextPhone) {
+                jobPatch.customerPhone = nextPhone;
+              }
+              await dispatch(
+                updateDispatchJob({
+                  id: savedJob.id,
+                  patch: jobPatch,
+                })
+              );
+            }
+            await dispatch(fetchDispatchCustomerProfiles());
+            message.success(
+              `Recurring template saved (${recurringWeekdays.length} day${
+                recurringWeekdays.length > 1 ? 's' : ''
+              }/week)`
+            );
+          } else {
+            message.warning(
+              extractThunkError(
+                profileResult,
+                'Task saved, but failed to save recurring template'
+              )
+            );
+          }
+        }
+      }
+    }
+
+    if (isEditing) {
+      setEditingJob(null);
     }
     setModalOpen(false);
-    setEditingJob(null);
   };
 
   const handleAssign = async (jobId: string, employeeIds: string[]) => {
     await dispatch(assignDispatchJob({ id: jobId, employeeIds }));
     message.success('Employees assigned');
+  };
+
+  const handleAssignJobsToEmployee = async (
+    jobIds: string[],
+    employeeId: string
+  ) => {
+    for (const jobId of jobIds) {
+      await dispatch(
+        assignDispatchJob({ id: jobId, employeeIds: [employeeId] })
+      );
+    }
+    message.success(`Assigned ${jobIds.length} jobs`);
+    await dispatch(fetchDispatchJobs(weekRange));
   };
 
   const handleStatusChange = async (
@@ -178,6 +449,15 @@ const DispatchDashboard: React.FC = () => {
   ) => {
     await dispatch(updateDispatchJobStatus({ id: jobId, status }));
     message.success('Status updated');
+  };
+
+  const handleDeleteJob = async (jobId: string) => {
+    const result = await dispatch(deleteDispatchJob(jobId));
+    if (deleteDispatchJob.fulfilled.match(result)) {
+      message.success('Task deleted');
+      return;
+    }
+    message.error('Failed to delete task');
   };
 
   const handleReschedule = async (
@@ -209,14 +489,9 @@ const DispatchDashboard: React.FC = () => {
     setModalOpen(true);
   };
 
-  const handleAddCustomerProfile = async (payload: {
-    name: string;
-    address?: string;
-    phone?: string;
-    defaultJobTitle?: string;
-    defaultDescription?: string;
-    defaultNotes?: string;
-  }) => {
+  const handleAddCustomerProfile = async (
+    payload: UpsertDispatchCustomerProfilePayload
+  ) => {
     const result = await dispatch(upsertDispatchCustomerProfile(payload));
     if (upsertDispatchCustomerProfile.fulfilled.match(result)) {
       return result.payload;
@@ -238,6 +513,26 @@ const DispatchDashboard: React.FC = () => {
       return;
     }
     throw new Error('Failed to save employee');
+  };
+
+  const handleReportEmployeeLocation = async (
+    employeeId: string,
+    location: Omit<DispatchEmployeeLocation, 'updatedAt'> & {
+      updatedAt?: string;
+    }
+  ) => {
+    const result = await dispatch(
+      reportDispatchEmployeeLocation({
+        employeeId,
+        location,
+      })
+    );
+    if (reportDispatchEmployeeLocation.fulfilled.match(result)) {
+      message.success('Employee location updated');
+      await dispatch(fetchDispatchEmployees());
+      return;
+    }
+    throw new Error('Failed to report employee location');
   };
 
   const handleAutoFillRecurringJobs = async () => {
@@ -321,6 +616,13 @@ const DispatchDashboard: React.FC = () => {
           </Text>
         </div>
         <Space className='dispatch-dashboard-actions' wrap>
+          <Button
+            onClick={handleSyncGoogleCalendar}
+            loading={syncingGoogleCalendar}
+            disabled={!googleCalendarConfigured}
+          >
+            Sync Week to Google Calendar
+          </Button>
           <Button onClick={() => setAdminSetupOpen(true)}>
             Edit Employees & Customers
           </Button>
@@ -343,6 +645,26 @@ const DispatchDashboard: React.FC = () => {
         />
       </Card>
 
+      {!supabaseConfigured && (
+        <Alert
+          type='warning'
+          showIcon
+          style={{ marginBottom: 12 }}
+          message='Supabase is not configured'
+          description='Dispatch data is currently stored in browser local storage only. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to persist tasks to cloud.'
+        />
+      )}
+
+      {!googleCalendarConfigured && (
+        <Alert
+          type='info'
+          showIcon
+          style={{ marginBottom: 12 }}
+          message='Google Calendar sync is not configured'
+          description='Set VITE_GOOGLE_CALENDAR_CLIENT_ID to enable one-click Google Calendar sync.'
+        />
+      )}
+
       {error && (
         <Alert
           type='error'
@@ -361,11 +683,20 @@ const DispatchDashboard: React.FC = () => {
             weekStart={selectedWeekStart}
             onAssign={handleAssign}
             onStatusChange={handleStatusChange}
+            onDelete={handleDeleteJob}
             onReschedule={handleReschedule}
             onEdit={handleEdit}
           />
         </Col>
       </Row>
+
+      <Card size='small' style={{ marginTop: 12 }}>
+        <DispatchMapPlanner
+          jobs={jobs}
+          employees={employees}
+          onAssignJobsToEmployee={handleAssignJobsToEmployee}
+        />
+      </Card>
 
       <DispatchJobFormModal
         open={modalOpen}
@@ -387,6 +718,7 @@ const DispatchDashboard: React.FC = () => {
         customerProfiles={customerProfiles}
         onCancel={() => setAdminSetupOpen(false)}
         onSaveEmployee={handleSaveEmployee}
+        onReportEmployeeLocation={handleReportEmployeeLocation}
         onSaveCustomer={handleAddCustomerProfile}
         onMigrateLocalPeople={handleMigrateLocalPeople}
         onResetMigrationPrompt={handleResetMigrationPrompt}

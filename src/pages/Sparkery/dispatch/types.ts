@@ -8,8 +8,18 @@ export type DispatchJobStatus =
   | 'cancelled';
 
 export type DispatchPriority = 1 | 2 | 3 | 4 | 5;
+export type DispatchWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export type DispatchEmployeeStatus = 'available' | 'off';
+
+export interface DispatchEmployeeLocation {
+  lat: number;
+  lng: number;
+  updatedAt: string;
+  source: 'gps' | 'manual' | 'mobile';
+  accuracyM?: number;
+  label?: string;
+}
 
 export interface DispatchJob {
   id: string;
@@ -43,7 +53,8 @@ export interface DispatchCustomerProfile {
   defaultDescription?: string;
   defaultNotes?: string;
   recurringEnabled?: boolean;
-  recurringWeekday?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  recurringWeekday?: DispatchWeekday;
+  recurringWeekdays?: DispatchWeekday[];
   recurringStartTime?: string;
   recurringEndTime?: string;
   recurringServiceType?: DispatchServiceType;
@@ -59,6 +70,7 @@ export interface DispatchEmployee {
   phone?: string;
   skills: DispatchServiceType[];
   status: DispatchEmployeeStatus;
+  currentLocation?: DispatchEmployeeLocation;
 }
 
 export interface UpsertDispatchEmployeePayload {
@@ -102,6 +114,9 @@ export interface CreateDispatchJobPayload {
   scheduledDate: string;
   scheduledStartTime: string;
   scheduledEndTime: string;
+  recurringEnabled?: boolean;
+  recurringWeekday?: DispatchWeekday;
+  recurringWeekdays?: DispatchWeekday[];
 }
 
 export interface UpsertDispatchCustomerProfilePayload {
@@ -113,7 +128,8 @@ export interface UpsertDispatchCustomerProfilePayload {
   defaultDescription?: string;
   defaultNotes?: string;
   recurringEnabled?: boolean;
-  recurringWeekday?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  recurringWeekday?: DispatchWeekday;
+  recurringWeekdays?: DispatchWeekday[];
   recurringStartTime?: string;
   recurringEndTime?: string;
   recurringServiceType?: DispatchServiceType;

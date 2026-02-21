@@ -40,6 +40,9 @@ const SparkeryPage = lazy(() => import('@/pages/Sparkery/index'));
 const SparkeryDispatchPage = lazy(
   () => import('@/pages/Sparkery/DispatchDashboard')
 );
+const DispatchLocationReportPage = lazy(
+  () => import('@/pages/Sparkery/DispatchLocationReport')
+);
 
 // Bond Clean Quote Form (standalone public page)
 const BondCleanQuoteForm = lazy(
@@ -128,6 +131,16 @@ export const routes: RouteConfig[] = [
     element: CleaningInspectionPage,
     meta: {
       title: 'Cleaning Inspection',
+      requiresAuth: false,
+      hideInMenu: true,
+    },
+  },
+  // Dispatch employee location report page (public link for mobile/WeChat)
+  {
+    path: '/dispatch-location-report',
+    element: DispatchLocationReportPage,
+    meta: {
+      title: 'Dispatch Location Report',
       requiresAuth: false,
       hideInMenu: true,
     },

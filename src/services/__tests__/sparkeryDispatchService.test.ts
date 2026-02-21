@@ -91,6 +91,37 @@ describe('sparkeryDispatchService', () => {
     expect(jobs[0].title).toBe('Inside week');
   });
 
+  it('generates recurring jobs for multiple weekdays', async () => {
+    await sparkeryDispatchService.upsertCustomerProfile({
+      name: 'Recurring Multi-Day Customer',
+      recurringEnabled: true,
+      recurringWeekdays: [3, 7],
+      recurringStartTime: '08:30',
+      recurringEndTime: '10:30',
+      recurringServiceType: 'regular',
+      recurringPriority: 2,
+      defaultJobTitle: 'Recurring Multi-Day Service',
+    });
+
+    const firstRun =
+      await sparkeryDispatchService.createJobsFromRecurringProfiles(
+        '2026-02-16',
+        '2026-02-22'
+      );
+    const secondRun =
+      await sparkeryDispatchService.createJobsFromRecurringProfiles(
+        '2026-02-16',
+        '2026-02-22'
+      );
+
+    expect(firstRun).toHaveLength(2);
+    expect(firstRun.map(job => job.scheduledDate).sort()).toEqual([
+      '2026-02-18',
+      '2026-02-22',
+    ]);
+    expect(secondRun).toHaveLength(0);
+  });
+
   it('assigns employee and sets status assigned', async () => {
     const employees = await sparkeryDispatchService.getEmployees();
     const created = await sparkeryDispatchService.createJob({

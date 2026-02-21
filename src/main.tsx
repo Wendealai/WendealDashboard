@@ -8,13 +8,33 @@ type SupabaseRuntimeConfig = {
   anonKey?: string;
 };
 
+type GoogleMapsRuntimeConfig = {
+  apiKey?: string;
+};
+
+type GoogleCalendarRuntimeConfig = {
+  clientId?: string;
+  calendarId?: string;
+};
+
 const runtime = globalThis as typeof globalThis & {
   __WENDEAL_SUPABASE_CONFIG__?: SupabaseRuntimeConfig;
+  __WENDEAL_GOOGLE_MAPS_CONFIG__?: GoogleMapsRuntimeConfig;
+  __WENDEAL_GOOGLE_CALENDAR_CONFIG__?: GoogleCalendarRuntimeConfig;
 };
 
 runtime.__WENDEAL_SUPABASE_CONFIG__ = {
   url: import.meta.env.VITE_SUPABASE_URL,
   anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+};
+
+runtime.__WENDEAL_GOOGLE_MAPS_CONFIG__ = {
+  apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+};
+
+runtime.__WENDEAL_GOOGLE_CALENDAR_CONFIG__ = {
+  clientId: import.meta.env.VITE_GOOGLE_CALENDAR_CLIENT_ID,
+  calendarId: import.meta.env.VITE_GOOGLE_CALENDAR_ID,
 };
 
 // 在开发环境中启动MSW (暂时禁用以解决CORS问题)
