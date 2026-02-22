@@ -121,6 +121,14 @@ function buildDefaultSections(): RoomSection[] {
  * Migrate an old inspection record to the new format
  */
 function migrateInspection(raw: any): CleaningInspection {
+  const normalizedAssignedEmployees: Employee[] = Array.isArray(
+    raw.assignedEmployees
+  )
+    ? raw.assignedEmployees
+    : raw.assignedEmployee
+      ? [raw.assignedEmployee]
+      : [];
+
   return {
     ...raw,
     checkIn: raw.checkIn || null,
@@ -139,6 +147,12 @@ function migrateInspection(raw: any): CleaningInspection {
       photos: s.photos || [],
       notes: s.notes || '',
     })),
+    ...(normalizedAssignedEmployees.length > 0
+      ? {
+          assignedEmployees: normalizedAssignedEmployees,
+          assignedEmployee: normalizedAssignedEmployees[0],
+        }
+      : {}),
   };
 }
 
@@ -162,6 +176,14 @@ const CleaningInspectionPage: React.FC = () => {
   const urlPropertyAddress = searchParams.get('addr') || '';
   const urlDate = searchParams.get('date') || dayjs().format('YYYY-MM-DD');
   const urlEmployeeId = searchParams.get('employee') || '';
+  const urlEmployeeIds = useMemo(
+    () =>
+      (searchParams.get('employees') || '')
+        .split(',')
+        .map(id => id.trim())
+        .filter(Boolean),
+    [searchParams]
+  );
   const urlTemplateId = searchParams.get('templateId') || '';
 
   // ── Core State ──
@@ -222,14 +244,18 @@ const CleaningInspectionPage: React.FC = () => {
       templateName = resolvedPropertyName || undefined;
     }
 
-    // Load assigned employee from Supabase if employee ID is in URL
-    let assignedEmployee: Employee | undefined;
-    if (urlEmployeeId) {
+    // Load assigned employees from Supabase if employee IDs are provided in URL
+    let assignedEmployees: Employee[] = [];
+    if (urlEmployeeIds.length > 0 || urlEmployeeId) {
       try {
         const empList = await loadEmployees();
-        assignedEmployee = empList.find(e => e.id === urlEmployeeId);
+        const idSet = new Set<string>([
+          ...urlEmployeeIds,
+          ...(urlEmployeeId ? [urlEmployeeId] : []),
+        ]);
+        assignedEmployees = empList.filter(e => idSet.has(e.id));
       } catch {
-        // Ignore employee loading errors
+        // Ignore employee loading errors and keep wizard usable
       }
     }
 
@@ -248,7 +274,12 @@ const CleaningInspectionPage: React.FC = () => {
       checkIn: null,
       checkOut: null,
       damageReports: [],
-      ...(assignedEmployee ? { assignedEmployee } : {}),
+      ...(assignedEmployees.length > 0
+        ? {
+            assignedEmployees,
+            assignedEmployee: assignedEmployees[0],
+          }
+        : {}),
     };
     return newInsp;
   }, [
@@ -257,6 +288,7 @@ const CleaningInspectionPage: React.FC = () => {
     urlPropertyAddress,
     urlDate,
     urlEmployeeId,
+    urlEmployeeIds,
     urlTemplateId,
   ]);
 
@@ -437,7 +469,9 @@ const CleaningInspectionPage: React.FC = () => {
       propertyName: inspection.propertyId,
       propertyAddress: inspection.propertyAddress,
       checkOutDate: inspection.checkOutDate,
-      employeeId: inspection.assignedEmployee?.id,
+      employeeIds:
+        inspection.assignedEmployees?.map(emp => emp.id) ||
+        (inspection.assignedEmployee ? [inspection.assignedEmployee.id] : []),
       templateId: inspection.propertyTemplateId,
     });
     navigator.clipboard.writeText(url);

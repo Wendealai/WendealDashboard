@@ -92,6 +92,35 @@
   white-space: normal;
 }
 
+.dispatch-status-select,
+.dispatch-status-select-popup {
+  font-size: 10px !important;
+}
+
+.dispatch-status-select .ant-select-selector {
+  min-height: 24px !important;
+  padding-inline: 6px !important;
+  display: flex;
+  align-items: center;
+}
+
+.dispatch-status-select .ant-select-selection-item,
+.dispatch-status-select .ant-select-selection-placeholder {
+  font-size: 10px !important;
+  line-height: 20px !important;
+}
+
+.dispatch-status-select-popup .ant-select-item {
+  min-height: 24px !important;
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+}
+
+.dispatch-status-select-popup .ant-select-item-option-content {
+  font-size: 10px !important;
+  line-height: 15px !important;
+}
+
 @media (max-width: 768px) {
   .sparkery-page {
     padding: 8px !important;

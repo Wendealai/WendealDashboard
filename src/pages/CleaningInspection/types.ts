@@ -119,6 +119,8 @@ export interface CleaningInspection {
   damageReports: DamageReport[];
   /** Assigned employee/cleaner (pre-filled from admin) */
   assignedEmployee?: Employee;
+  /** Assigned employees/cleaners (multi-assignee support) */
+  assignedEmployees?: Employee[];
 }
 
 // ──────────────────────── Property Template ─────────────────────

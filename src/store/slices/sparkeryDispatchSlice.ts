@@ -130,6 +130,14 @@ export const upsertDispatchEmployee = createAsyncThunk<
   return sparkeryDispatchService.upsertEmployee(payload);
 });
 
+export const deleteDispatchEmployee = createAsyncThunk<string, string>(
+  'sparkeryDispatch/deleteEmployee',
+  async id => {
+    await sparkeryDispatchService.deleteEmployee(id);
+    return id;
+  }
+);
+
 export const reportDispatchEmployeeLocation = createAsyncThunk<
   { employeeId: string; location: DispatchEmployeeLocation },
   ReportDispatchEmployeeLocationPayload
@@ -316,6 +324,34 @@ export const sparkeryDispatchSlice = createSlice({
         state.employees = upsertEmployee(state.employees, action.payload);
       })
       .addCase(upsertDispatchEmployee.rejected, setRejected)
+      .addCase(deleteDispatchEmployee.pending, setPending)
+      .addCase(deleteDispatchEmployee.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.employees = state.employees.filter(
+          employee => employee.id !== action.payload
+        );
+        state.jobs = state.jobs.map(job => {
+          if (!job.assignedEmployeeIds?.includes(action.payload)) {
+            return job;
+          }
+          const nextAssignedIds = job.assignedEmployeeIds.filter(
+            employeeId => employeeId !== action.payload
+          );
+          if (nextAssignedIds.length > 0) {
+            return {
+              ...job,
+              assignedEmployeeIds: nextAssignedIds,
+            };
+          }
+          const nextJob: DispatchJob = { ...job };
+          delete nextJob.assignedEmployeeIds;
+          if (nextJob.status === 'assigned') {
+            nextJob.status = 'pending';
+          }
+          return nextJob;
+        });
+      })
+      .addCase(deleteDispatchEmployee.rejected, setRejected)
       .addCase(reportDispatchEmployeeLocation.pending, setPending)
       .addCase(reportDispatchEmployeeLocation.fulfilled, (state, action) => {
         state.isLoading = false;

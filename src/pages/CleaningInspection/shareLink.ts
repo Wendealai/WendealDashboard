@@ -4,6 +4,7 @@ type BuildInspectionShareUrlInput = {
   propertyAddress?: string | undefined;
   checkOutDate?: string | undefined;
   employeeId?: string | undefined;
+  employeeIds?: string[] | undefined;
   templateId?: string | undefined;
 };
 
@@ -23,7 +24,17 @@ export const buildInspectionShareUrl = (
   appendParam(params, 'property', input.propertyName);
   appendParam(params, 'addr', input.propertyAddress);
   appendParam(params, 'date', input.checkOutDate);
-  appendParam(params, 'employee', input.employeeId);
+  if (Array.isArray(input.employeeIds) && input.employeeIds.length > 0) {
+    params.set(
+      'employees',
+      input.employeeIds
+        .map(id => id.trim())
+        .filter(Boolean)
+        .join(',')
+    );
+  } else {
+    appendParam(params, 'employee', input.employeeId);
+  }
   appendParam(params, 'templateId', input.templateId);
 
   const normalizedOrigin = origin.replace(/\/$/, '');

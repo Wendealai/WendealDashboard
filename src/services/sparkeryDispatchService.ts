@@ -127,6 +127,7 @@ const normalizeRecurringWeekdays = (
 
 const STORAGE_KEY = 'sparkery_dispatch_storage_v1';
 const EMPLOYEE_LOCATION_STORAGE_KEY = 'sparkery_dispatch_employee_locations_v1';
+const INSPECTION_EMPLOYEE_STORAGE_KEY = 'cleaning-inspection-employees';
 
 const toInspectionEmployee = (
   employee: DispatchEmployee
@@ -588,6 +589,54 @@ const saveLocalEmployeeLocations = (
     EMPLOYEE_LOCATION_STORAGE_KEY,
     JSON.stringify(locations)
   );
+};
+
+const removeInspectionEmployeeLocalCache = (employeeId: string): void => {
+  try {
+    const raw = localStorage.getItem(INSPECTION_EMPLOYEE_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+    const parsed = JSON.parse(raw) as InspectionEmployee[];
+    if (!Array.isArray(parsed)) {
+      return;
+    }
+    const filtered = parsed.filter(employee => employee?.id !== employeeId);
+    localStorage.setItem(
+      INSPECTION_EMPLOYEE_STORAGE_KEY,
+      JSON.stringify(filtered)
+    );
+  } catch {
+    // Ignore invalid local inspection employee cache.
+  }
+};
+
+const removeInspectionEmployeeMirror = async (
+  employeeId: string
+): Promise<void> => {
+  removeInspectionEmployeeLocalCache(employeeId);
+  if (!getSupabaseConfig()) {
+    return;
+  }
+
+  const encodedId = encodeURIComponent(employeeId);
+  try {
+    await supabaseFetch<unknown[]>(
+      `/rest/v1/cleaning_inspection_employees?id=eq.${encodedId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Prefer: 'return=representation',
+        },
+      }
+    );
+  } catch (error) {
+    if (
+      !isSupabaseRelationMissingError(error, 'cleaning_inspection_employees')
+    ) {
+      throw error;
+    }
+  }
 };
 
 const isSupabaseRelationMissingError = (
@@ -1124,6 +1173,83 @@ export const sparkeryDispatchService = {
     saveStorage(storage);
     await syncInspectionEmployeesFromDispatch(storage.employees);
     return next;
+  },
+
+  async deleteEmployee(id: string): Promise<void> {
+    const encodedId = encodeURIComponent(id);
+
+    if (getSupabaseConfig()) {
+      try {
+        await supabaseFetch<SupabaseDispatchEmployeeLocationRow[]>(
+          `/rest/v1/dispatch_employee_locations?employee_id=eq.${encodedId}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Prefer: 'return=representation',
+            },
+          }
+        );
+      } catch (error) {
+        if (
+          !isSupabaseRelationMissingError(error, 'dispatch_employee_locations')
+        ) {
+          throw error;
+        }
+      }
+
+      await supabaseFetch<SupabaseDispatchEmployeeRow[]>(
+        `/rest/v1/dispatch_employees?id=eq.${encodedId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Prefer: 'return=representation',
+          },
+        }
+      );
+    }
+
+    const storage = loadStorage();
+    const now = new Date().toISOString();
+    storage.employees = storage.employees.filter(
+      employee => employee.id !== id
+    );
+    storage.jobs = storage.jobs.map(job => {
+      if (!job.assignedEmployeeIds?.includes(id)) {
+        return job;
+      }
+      const nextAssignedIds = job.assignedEmployeeIds.filter(
+        employeeId => employeeId !== id
+      );
+      const nextJob: DispatchJob = {
+        ...job,
+        updatedAt: now,
+      };
+      if (nextAssignedIds.length > 0) {
+        nextJob.assignedEmployeeIds = nextAssignedIds;
+      } else {
+        delete nextJob.assignedEmployeeIds;
+        if (nextJob.status === 'assigned') {
+          nextJob.status = 'pending';
+        }
+      }
+      return nextJob;
+    });
+    saveStorage(storage);
+
+    const localLocations = loadLocalEmployeeLocations();
+    if (localLocations[id]) {
+      delete localLocations[id];
+      saveLocalEmployeeLocations(localLocations);
+    }
+
+    try {
+      await removeInspectionEmployeeMirror(id);
+    } catch (error) {
+      console.warn(
+        '[sparkeryDispatchService] Failed to delete employee from inspection source',
+        error
+      );
+    }
   },
 
   async upsertEmployeeSchedule(

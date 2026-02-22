@@ -65,6 +65,13 @@ import {
   savePropertyTemplates,
   loadEmployees,
   saveEmployees,
+  clearInspectionTemplateLocalCache,
+  isInspectionSupabaseConfigured,
+  checkInspectionSupabaseConnection,
+  getInspectionSupabaseUrl,
+  getInspectionStorageBucket,
+  getInspectionLastCloudWriteAt,
+  migrateInspectionAssetsToStorage,
 } from '@/services/inspectionService';
 import { compressImage } from '@/pages/CleaningInspection/utils';
 import { buildInspectionShareUrl } from '@/pages/CleaningInspection/shareLink';
@@ -78,6 +85,8 @@ type InspectionArchive = {
   status: 'pending' | 'in_progress' | 'submitted';
   [key: string]: any;
 };
+
+type SupabaseStatus = 'local' | 'checking' | 'connected' | 'unreachable';
 
 /** Generate unique ID */
 const generateId = () =>
@@ -94,9 +103,32 @@ const getAllSections = (activeSectionIds: string[]) => {
     );
 };
 
+const cloneTemplateSnapshot = (
+  templates: PropertyTemplate[]
+): PropertyTemplate[] => {
+  try {
+    return JSON.parse(JSON.stringify(templates)) as PropertyTemplate[];
+  } catch {
+    return templates.map(item => ({ ...item }));
+  }
+};
+
 /** Main Component */
 const CleaningInspectionAdmin: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage();
+  const supabaseConfigured = React.useMemo(
+    () => isInspectionSupabaseConfigured(),
+    []
+  );
+  const [supabaseStatus, setSupabaseStatus] = useState<SupabaseStatus>(
+    supabaseConfigured ? 'checking' : 'local'
+  );
+  const [supabaseStatusMessage, setSupabaseStatusMessage] = useState('');
+  const [isMigratingAssets, setIsMigratingAssets] = useState(false);
+  const [lastCloudWriteAt, setLastCloudWriteAt] = useState<string | null>(() =>
+    getInspectionLastCloudWriteAt()
+  );
+  const storageBucket = React.useMemo(() => getInspectionStorageBucket(), []);
 
   const [properties, setProperties] = useState<PropertyTemplate[]>([]);
 
@@ -104,15 +136,68 @@ const CleaningInspectionAdmin: React.FC = () => {
 
   const [searchText, setSearchText] = useState('');
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [checkOutDate, setCheckOutDate] = useState(
     dayjs().format('YYYY-MM-DD')
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isEmployeesOpen, setIsEmployeesOpen] = useState(false);
 
-  // ── Employee Management ──
+  // Employee Management
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const pendingTemplateSaveRef = useRef<PropertyTemplate[] | null>(null);
+  const isTemplateSaveRunningRef = useRef(false);
+
+  const checkCloudConnectivity = React.useCallback(
+    async (showToast = false): Promise<boolean> => {
+      if (!supabaseConfigured) {
+        setSupabaseStatus('local');
+        setSupabaseStatusMessage('Supabase environment variables are missing.');
+        setLastCloudWriteAt(getInspectionLastCloudWriteAt());
+        if (showToast) {
+          messageApi.warning(
+            'Supabase is not configured. Running in local cache mode.'
+          );
+        }
+        return false;
+      }
+
+      setSupabaseStatus('checking');
+      const status = await checkInspectionSupabaseConnection();
+      if (status.connected) {
+        const supabaseUrl = getInspectionSupabaseUrl();
+        const host = supabaseUrl
+          ? (() => {
+              try {
+                return new URL(supabaseUrl).host;
+              } catch {
+                return supabaseUrl;
+              }
+            })()
+          : '';
+        setSupabaseStatus('connected');
+        setSupabaseStatusMessage(
+          host
+            ? `Cloud database is reachable (${host}) | bucket: ${storageBucket}`
+            : `Cloud database is reachable | bucket: ${storageBucket}`
+        );
+        setLastCloudWriteAt(getInspectionLastCloudWriteAt());
+        if (showToast) {
+          messageApi.success('Supabase connection verified');
+        }
+        return true;
+      }
+
+      setSupabaseStatus('unreachable');
+      const reason = status.message || 'Unable to reach Supabase';
+      setSupabaseStatusMessage(reason);
+      if (showToast) {
+        messageApi.error(`Supabase is unreachable: ${reason}`);
+      }
+      return false;
+    },
+    [messageApi, storageBucket, supabaseConfigured]
+  );
 
   React.useEffect(() => {
     let cancelled = false;
@@ -178,6 +263,10 @@ const CleaningInspectionAdmin: React.FC = () => {
   }, [messageApi]);
 
   React.useEffect(() => {
+    checkCloudConnectivity(false);
+  }, [checkCloudConnectivity]);
+
+  React.useEffect(() => {
     let disposed = false;
 
     const refreshArchives = async () => {
@@ -210,47 +299,155 @@ const CleaningInspectionAdmin: React.FC = () => {
     setEmployees(emps);
     try {
       await saveEmployees(emps);
+      setLastCloudWriteAt(getInspectionLastCloudWriteAt());
     } catch {
-      messageApi.error('员工保存失败，请稍后重试');
+      messageApi.error('Failed to save employees. Please try again.');
     }
   };
 
-  const savePropertiesToStorage = async (props: PropertyTemplate[]) => {
-    setProperties(props);
+  const drainTemplateSaveQueue = React.useCallback(async () => {
+    if (isTemplateSaveRunningRef.current) {
+      return;
+    }
+
+    isTemplateSaveRunningRef.current = true;
     try {
-      await savePropertyTemplates(props);
-    } catch {
-      messageApi.error('房产模板保存失败，请稍后重试');
+      while (pendingTemplateSaveRef.current) {
+        const snapshot = pendingTemplateSaveRef.current;
+        pendingTemplateSaveRef.current = null;
+
+        try {
+          const savedTemplates = await savePropertyTemplates(snapshot);
+          setProperties(savedTemplates.map(migratePropertyChecklists));
+          setLastCloudWriteAt(getInspectionLastCloudWriteAt());
+        } catch (error) {
+          const reason =
+            error instanceof Error ? error.message : 'unknown cloud error';
+          messageApi.error(`Property template save failed: ${reason}`);
+
+          if (supabaseConfigured) {
+            try {
+              clearInspectionTemplateLocalCache();
+              const cloudTemplates = await loadPropertyTemplates();
+              setProperties(cloudTemplates.map(migratePropertyChecklists));
+            } catch {
+              // Keep current state if cloud refresh also fails.
+            }
+          }
+        }
+      }
+    } finally {
+      isTemplateSaveRunningRef.current = false;
+      if (pendingTemplateSaveRef.current) {
+        void drainTemplateSaveQueue();
+      }
+    }
+  }, [messageApi, supabaseConfigured]);
+
+  const savePropertiesToStorage = (props: PropertyTemplate[]) => {
+    const snapshot = cloneTemplateSnapshot(props);
+    setProperties(snapshot);
+    pendingTemplateSaveRef.current = snapshot;
+    void drainTemplateSaveQueue();
+  };
+  const handleForceRefreshTemplates = async () => {
+    const connected = await checkCloudConnectivity(true);
+    if (!connected) {
+      return;
+    }
+
+    try {
+      clearInspectionTemplateLocalCache();
+      const templates = await loadPropertyTemplates();
+      setProperties(templates.map(migratePropertyChecklists));
+      setSupabaseStatus('connected');
+      setSupabaseStatusMessage('Cloud templates were refreshed successfully.');
+      setLastCloudWriteAt(getInspectionLastCloudWriteAt());
+      messageApi.success('Property templates refreshed from cloud');
+    } catch (error) {
+      setSupabaseStatus('unreachable');
+      const reason =
+        error instanceof Error ? error.message : 'unknown cloud error';
+      setSupabaseStatusMessage(reason);
+      messageApi.error(`Cloud template refresh failed: ${reason}`);
+    }
+  };
+
+  const handleMigrateLegacyAssets = async () => {
+    const connected = await checkCloudConnectivity(true);
+    if (!connected) {
+      return;
+    }
+
+    setIsMigratingAssets(true);
+    try {
+      const result = await migrateInspectionAssetsToStorage();
+      clearInspectionTemplateLocalCache();
+      const templates = await loadPropertyTemplates();
+      setProperties(templates.map(migratePropertyChecklists));
+      setLastCloudWriteAt(getInspectionLastCloudWriteAt());
+      setSupabaseStatus('connected');
+      setSupabaseStatusMessage(
+        `Legacy image migration completed. Templates: ${result.templatesUpdated}/${result.templatesProcessed}, inspections: ${result.inspectionsUpdated}/${result.inspectionsProcessed}.`
+      );
+
+      messageApi.success(
+        `Migration completed. Uploaded ${result.uploadedAssets} assets.`
+      );
+      if (result.failedInspections > 0) {
+        messageApi.warning(
+          `${result.failedInspections} inspection records failed during migration.`
+        );
+      }
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : 'unknown cloud error';
+      setSupabaseStatus('unreachable');
+      setSupabaseStatusMessage(reason);
+      messageApi.error(`Legacy image migration failed: ${reason}`);
+    } finally {
+      setIsMigratingAssets(false);
     }
   };
 
   const buildShareUrl = (
     archive: Partial<InspectionArchive> & { id: string }
-  ) =>
-    buildInspectionShareUrl(window.location.origin, {
+  ) => {
+    const assignedEmployees = (archive as any).assignedEmployees as
+      | Employee[]
+      | undefined;
+    const employeeIds =
+      assignedEmployees && assignedEmployees.length > 0
+        ? assignedEmployees.map(emp => emp.id)
+        : (archive as any).assignedEmployee
+          ? [(archive as any).assignedEmployee.id]
+          : [];
+
+    return buildInspectionShareUrl(window.location.origin, {
       id: archive.id,
       propertyName: archive.propertyId || '',
       propertyAddress: (archive as any).propertyAddress || '',
       checkOutDate: (archive as any).checkOutDate || '',
-      employeeId: (archive as any).assignedEmployee?.id,
+      employeeIds,
       templateId: (archive as any).propertyTemplateId || '',
     });
+  };
 
   const handleGenerateLink = async () => {
     if (!selectedPropertyId) {
-      messageApi.warning('请先选择房产');
+      messageApi.warning('Please select a property first');
       return;
     }
     const property = properties.find(p => p.id === selectedPropertyId);
     if (!property) {
-      messageApi.error('未找到该房产');
+      messageApi.error('Property not found');
       return;
     }
 
     const inspectionId = `insp-${generateId()}`;
-    const selectedEmployee = selectedEmployeeId
-      ? employees.find(e => e.id === selectedEmployeeId)
-      : undefined;
+    const selectedEmployees = employees.filter(emp =>
+      selectedEmployeeIds.includes(emp.id)
+    );
 
     const activeSections =
       property.sections || BASE_ROOM_SECTIONS.map(s => s.id);
@@ -300,8 +497,9 @@ const CleaningInspectionAdmin: React.FC = () => {
     if (property.noteImages && property.noteImages.length > 0) {
       newInspection.propertyNoteImages = [...property.noteImages];
     }
-    if (selectedEmployee) {
-      newInspection.assignedEmployee = selectedEmployee;
+    if (selectedEmployees.length > 0) {
+      newInspection.assignedEmployees = selectedEmployees;
+      newInspection.assignedEmployee = selectedEmployees[0];
     }
 
     setArchives(prev => [
@@ -316,10 +514,11 @@ const CleaningInspectionAdmin: React.FC = () => {
     window.open(url, '_blank');
 
     if (syncResult.source === 'supabase') {
-      messageApi.success('检查链接已复制到剪贴板，并已经同步到云端。');
+      setLastCloudWriteAt(getInspectionLastCloudWriteAt());
+      messageApi.success('Inspection link copied and synced to cloud');
     } else {
       messageApi.warning(
-        '链接已复制，但云端同步失败。当前只保存到本地，请稍后重试以确保云端归档。'
+        'Link copied, but cloud sync failed. Data is currently local only.'
       );
     }
   };
@@ -329,10 +528,11 @@ const CleaningInspectionAdmin: React.FC = () => {
       .then(() => {
         const newArchives = archives.filter(a => a.id !== id);
         setArchives(newArchives);
-        messageApi.success('已删除');
+        setLastCloudWriteAt(getInspectionLastCloudWriteAt());
+        messageApi.success('Deleted');
       })
       .catch(() => {
-        messageApi.error('删除失败，请稍后重试');
+        messageApi.error('Delete failed. Please try again.');
       });
   };
 
@@ -355,14 +555,38 @@ const CleaningInspectionAdmin: React.FC = () => {
     return matchesSearch;
   });
 
-  /** 快速打开 Wizard：必须先选择房产和日期，生成唯一链接后新窗口打开 */
+  /** Quick-start wizard: pick property + date, then generate/open a unique link. */
   const handleQuickStartWithProperty = () => {
     if (!selectedPropertyId) {
-      messageApi.warning('请先在下方选择一个房产');
+      messageApi.warning('Please select a property first');
       return;
     }
     handleGenerateLink();
   };
+
+  const supabaseTagColor =
+    supabaseStatus === 'connected'
+      ? 'green'
+      : supabaseStatus === 'checking'
+        ? 'processing'
+        : supabaseStatus === 'unreachable'
+          ? 'red'
+          : 'orange';
+
+  const supabaseTagText =
+    supabaseStatus === 'connected'
+      ? 'Supabase Connected'
+      : supabaseStatus === 'checking'
+        ? 'Checking Supabase...'
+        : supabaseStatus === 'unreachable'
+          ? 'Supabase Unreachable'
+          : 'Local Cache Mode';
+
+  const formattedLastCloudWriteAt = lastCloudWriteAt
+    ? dayjs(lastCloudWriteAt).isValid()
+      ? dayjs(lastCloudWriteAt).format('YYYY-MM-DD HH:mm:ss')
+      : lastCloudWriteAt
+    : 'Never';
 
   return (
     <div style={{ padding: '12px' }}>
@@ -370,25 +594,60 @@ const CleaningInspectionAdmin: React.FC = () => {
       <div style={{ marginBottom: '16px' }}>
         <Title level={3}>
           <HomeOutlined style={{ marginRight: '8px' }} />
-          清洁检查管理
+          Cleaning Inspection Admin
         </Title>
-        <Space>
+        <Space wrap>
           <Button
             icon={<SettingOutlined />}
             onClick={() => setIsSettingsOpen(true)}
           >
-            房产模板
+            Property Templates
           </Button>
           <Button
             icon={<EditOutlined />}
             onClick={() => setIsEmployeesOpen(true)}
           >
-            员工管理 ({employees.length})
+            Employee Management ({employees.length})
           </Button>
+          <Button
+            onClick={handleForceRefreshTemplates}
+            loading={supabaseStatus === 'checking' && !isMigratingAssets}
+            disabled={isMigratingAssets}
+          >
+            Refresh Cloud Templates
+          </Button>
+          <Button
+            onClick={handleMigrateLegacyAssets}
+            loading={isMigratingAssets}
+            disabled={supabaseStatus === 'checking'}
+          >
+            Migrate Legacy Images
+          </Button>
+          <Tag color={supabaseTagColor}>{supabaseTagText}</Tag>
+          {supabaseStatusMessage ? (
+            <Text type='secondary' style={{ fontSize: '12px' }}>
+              {supabaseStatusMessage}
+            </Text>
+          ) : null}
         </Space>
+        <div
+          style={{
+            marginTop: '8px',
+            display: 'flex',
+            gap: '16px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <Text type='secondary' style={{ fontSize: '12px' }}>
+            Storage bucket: {storageBucket}
+          </Text>
+          <Text type='secondary' style={{ fontSize: '12px' }}>
+            Last cloud write: {formattedLastCloudWriteAt}
+          </Text>
+        </div>
       </div>
 
-      {/* ── 新 Wizard 快捷入口：选择房产 + 日期 → Start Inspection ── */}
+      {/* Quick Start Wizard: select property + date, then start inspection */}
       <Card
         size='small'
         style={{
@@ -409,11 +668,12 @@ const CleaningInspectionAdmin: React.FC = () => {
               gap: '8px',
             }}
           >
-            <FormOutlined /> 清洁检查向导
+            <FormOutlined /> Quick Inspection Link
           </Text>
           <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: '13px' }}>
-            选择房产和日期后点击"开始检查"，系统会生成唯一链接并在新窗口打开向导，
-            将链接发送给清洁工即可。
+            Select property and date, then click Start Inspection to generate a
+            unique share link. The link opens in a new tab and can be sent to
+            assigned cleaners immediately.
           </Text>
         </div>
 
@@ -423,19 +683,20 @@ const CleaningInspectionAdmin: React.FC = () => {
               strong
               style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
             >
-              选择房产 *
+              Property *
             </Text>
             <div style={{ marginTop: '4px' }}>
               {properties.length === 0 ? (
                 <Text
                   style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}
                 >
-                  暂无房产，请先在"房产模板"中添加。
+                  No property templates yet. Add one in "Property Templates"
+                  first.
                 </Text>
               ) : (
                 <Select
                   style={{ width: '100%' }}
-                  placeholder='请选择房产'
+                  placeholder='Select property'
                   value={selectedPropertyId || null}
                   onChange={(val: string) => setSelectedPropertyId(val)}
                 >
@@ -453,7 +714,7 @@ const CleaningInspectionAdmin: React.FC = () => {
               strong
               style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
             >
-              退房日期
+              Check-out Date
             </Text>
             <Input
               type='date'
@@ -467,14 +728,15 @@ const CleaningInspectionAdmin: React.FC = () => {
               strong
               style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
             >
-              指派员工
+              Assigned Employees
             </Text>
             <div style={{ marginTop: '4px' }}>
               <Select
                 style={{ width: '100%' }}
-                placeholder='可选'
-                value={selectedEmployeeId || null}
-                onChange={(val: string) => setSelectedEmployeeId(val || '')}
+                placeholder='Optional'
+                mode='multiple'
+                value={selectedEmployeeIds}
+                onChange={(vals: string[]) => setSelectedEmployeeIds(vals)}
                 allowClear
               >
                 {employees.map(emp => (
@@ -504,7 +766,7 @@ const CleaningInspectionAdmin: React.FC = () => {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
               }}
             >
-              <RocketOutlined /> 开始检查
+              <RocketOutlined /> Start Inspection
             </Button>
           </Col>
         </Row>
@@ -512,7 +774,7 @@ const CleaningInspectionAdmin: React.FC = () => {
 
       <Card size='small' style={{ marginBottom: '16px' }}>
         <Input
-          placeholder='搜索房产名称或检查ID'
+          placeholder='Search by property name or inspection ID'
           value={searchText}
           onChange={e => setSearchText(e.target.value)}
           allowClear
@@ -525,7 +787,7 @@ const CleaningInspectionAdmin: React.FC = () => {
             <Card key={item.id} size='small'>
               <Row align='middle' justify='space-between'>
                 <Col xs={24} sm={16}>
-                  <Text strong>{item.propertyId || '未命名'}</Text>
+                  <Text strong>{item.propertyId || 'Unnamed'}</Text>
                   <div>
                     <Text type='secondary' style={{ fontSize: '12px' }}>
                       {item.checkOutDate} |{' '}
@@ -543,10 +805,10 @@ const CleaningInspectionAdmin: React.FC = () => {
                   <Space>
                     <Tag color={item.status === 'submitted' ? 'green' : 'blue'}>
                       {item.status === 'submitted'
-                        ? '已提交'
+                        ? 'Submitted'
                         : item.status === 'in_progress'
-                          ? '进行中'
-                          : '待开始'}
+                          ? 'In Progress'
+                          : 'Pending'}
                     </Tag>
                     <Button
                       type='text'
@@ -559,7 +821,7 @@ const CleaningInspectionAdmin: React.FC = () => {
                       onClick={() => handleCopyLink(item)}
                     />
                     <Popconfirm
-                      title='确认删除？'
+                      title='Confirm delete?'
                       onConfirm={() => handleDelete(item.id)}
                     >
                       <Button type='text' danger icon={<DeleteOutlined />} />
@@ -574,7 +836,7 @@ const CleaningInspectionAdmin: React.FC = () => {
         <Card style={{ textAlign: 'center', padding: '48px' }}>
           <HomeOutlined style={{ fontSize: '48px', color: '#bfbfbf' }} />
           <Title level={4} type='secondary'>
-            暂无检查记录
+            No inspections yet.
           </Title>
         </Card>
       )}
@@ -623,10 +885,10 @@ const PropertySettingsModal: React.FC<{
   >(null);
   const dragSectionIndexRef = useRef<number | null>(null);
 
-  /** 添加新房产 */
+  /** Add new property */
   const handleAdd = () => {
     if (!newName) {
-      messageApi.warning('请输入房产名称');
+      messageApi.warning('Please enter property name');
       return;
     }
     const defaultSectionIds = Array.from(
@@ -665,10 +927,10 @@ const PropertySettingsModal: React.FC<{
     setNewNotesZh('');
     setNewNoteImages([]);
     setNewOptionalSectionIds([]);
-    messageApi.success('房产已添加');
+    messageApi.success('Property added');
   };
 
-  /** 更新房产基本信息（名称、地址、备注等） */
+  /** Update property basic info (name, address, notes, etc.) */
   const handleUpdateProperty = (
     propertyId: string,
     field: 'name' | 'address' | 'notes' | 'notesZh',
@@ -686,7 +948,7 @@ const PropertySettingsModal: React.FC<{
     if (updated) setEditingProperty(updated);
   };
 
-  /** 添加备注说明图片（编辑模式），自动压缩避免 localStorage 配额溢出 */
+  /** Add note image (edit mode), auto-compress to reduce storage usage */
   const handleAddNoteImage = (propertyId: string, file: RcFile) => {
     const reader = new FileReader();
     reader.onload = async e => {
@@ -708,7 +970,7 @@ const PropertySettingsModal: React.FC<{
     return false;
   };
 
-  /** 删除备注说明图片（编辑模式） */
+  /** Remove note image (edit mode) */
   const handleDeleteNoteImage = (propertyId: string, imageIndex: number) => {
     const newProps = properties.map(p => {
       if (p.id === propertyId) {
@@ -746,7 +1008,7 @@ const PropertySettingsModal: React.FC<{
     // Refresh editingProperty
     const updated = newProps.find(p => p.id === propertyId);
     if (updated) setEditingProperty(updated);
-    messageApi.success('区域已添加');
+    messageApi.success('Section added');
   };
 
   const handleApplyOfficeSections = (propertyId: string) => {
@@ -786,7 +1048,7 @@ const PropertySettingsModal: React.FC<{
     if (updated) {
       setEditingProperty(updated);
     }
-    messageApi.success('已应用办公室区域预设');
+    messageApi.success('Office areas added');
   };
 
   const handleRemoveOfficeSectionsPreset = (propertyId: string) => {
@@ -819,13 +1081,14 @@ const PropertySettingsModal: React.FC<{
     if (updated) {
       setEditingProperty(updated);
     }
-    messageApi.success('已移除办公室区域预设');
+    messageApi.success('Office areas removed');
   };
 
   const handleRemoveSection = (propertyId: string, sectionId: string) => {
     Modal.confirm({
-      title: '移除区域',
-      content: '移除后该区域的参考图片和清单也会被删除，确认继续？',
+      title: 'Remove Section',
+      content:
+        'Removing this section will also remove its reference images and checklist. Continue?',
       onOk: () => {
         const newProps = properties.map(p => {
           if (p.id === propertyId) {
@@ -844,7 +1107,7 @@ const PropertySettingsModal: React.FC<{
         // Refresh editingProperty
         const updated = newProps.find(p => p.id === propertyId);
         if (updated) setEditingProperty(updated);
-        messageApi.success('区域已移除');
+        messageApi.success('Section removed');
       },
     });
   };
@@ -980,7 +1243,7 @@ const PropertySettingsModal: React.FC<{
       return p;
     });
     onSave(newProps);
-    messageApi.success('图片已删除');
+    messageApi.success('Image removed');
   };
 
   /** Update checklist template for a property section */
@@ -1009,11 +1272,11 @@ const PropertySettingsModal: React.FC<{
 
   const handleDelete = (id: string) => {
     Modal.confirm({
-      title: '删除房产',
-      content: '确定要删除这个房产吗？',
+      title: 'Delete Property',
+      content: 'Are you sure you want to delete this property?',
       onOk: () => {
         onSave(properties.filter(p => p.id !== id));
-        messageApi.success('已删除');
+        messageApi.success('Property deleted');
       },
     });
   };
@@ -1033,7 +1296,7 @@ const PropertySettingsModal: React.FC<{
   return (
     <>
       <Modal
-        title='房产模板管理'
+        title='Property Template Management'
         open={open}
         onCancel={onClose}
         footer={null}
@@ -1049,11 +1312,11 @@ const PropertySettingsModal: React.FC<{
           }}
           style={{ marginBottom: '16px' }}
         >
-          添加房产
+          Add Property
         </Button>
 
         {properties.length === 0 ? (
-          <Empty description='暂无房产' />
+          <Empty description='No properties' />
         ) : (
           properties.map(prop => (
             <Card
@@ -1072,27 +1335,27 @@ const PropertySettingsModal: React.FC<{
                     icon={<EditOutlined />}
                     onClick={() => setEditingProperty(prop)}
                   >
-                    编辑
+                    Edit
                   </Button>
                   <Popconfirm
-                    title='确认删除？'
+                    title='Confirm delete?'
                     onConfirm={() => handleDelete(prop.id)}
                   >
                     <Button type='text' danger size='small'>
-                      删除
+                      Delete
                     </Button>
                   </Popconfirm>
                 </Space>
               }
             >
-              {/* 备注信息 */}
+              {/* Notes */}
               {(prop.notes ||
                 prop.notesZh ||
                 (prop.noteImages && prop.noteImages.length > 0)) && (
                 <div style={{ marginBottom: '10px' }}>
                   <Text strong style={{ fontSize: '12px' }}>
                     <InfoCircleOutlined style={{ marginRight: '4px' }} />
-                    备注：{' '}
+                    Notes:
                   </Text>
                   {prop.notesZh && (
                     <Text
@@ -1128,7 +1391,7 @@ const PropertySettingsModal: React.FC<{
                         <img
                           key={idx}
                           src={img}
-                          alt={`说明${idx + 1}`}
+                          alt={`Note ${idx + 1}`}
                           style={{
                             width: '48px',
                             height: '48px',
@@ -1140,7 +1403,7 @@ const PropertySettingsModal: React.FC<{
                           onClick={() =>
                             setPreviewImage({
                               src: img,
-                              desc: `说明图片 ${idx + 1}`,
+                              desc: `Note image ${idx + 1}`,
                             })
                           }
                         />
@@ -1151,7 +1414,7 @@ const PropertySettingsModal: React.FC<{
               )}
 
               <Text strong style={{ fontSize: '12px' }}>
-                检查区域：{' '}
+                Sections:{' '}
               </Text>
               {getActiveSections(prop).map(s => (
                 <Tag key={s.id} color='blue' style={{ marginBottom: '4px' }}>
@@ -1168,7 +1431,7 @@ const PropertySettingsModal: React.FC<{
               />
 
               <Text strong style={{ fontSize: '12px' }}>
-                参考图片：
+                Reference Images:
               </Text>
               <Row gutter={[12, 12]} style={{ marginTop: '8px' }}>
                 {getActiveSections(prop).map(section => {
@@ -1244,7 +1507,7 @@ const PropertySettingsModal: React.FC<{
                           </div>
                         ) : (
                           <Text type='secondary' style={{ fontSize: '10px' }}>
-                            暂无图片
+                            No images
                           </Text>
                         )}
                         <Upload
@@ -1259,7 +1522,7 @@ const PropertySettingsModal: React.FC<{
                             icon={<PlusOutlined />}
                             style={{ marginTop: '8px', width: '100%' }}
                           >
-                            {images.length > 0 ? '添加更多' : '上传图片'}
+                            {images.length > 0 ? 'Add more' : 'Upload image'}
                           </Button>
                         </Upload>
                       </div>
@@ -1272,7 +1535,7 @@ const PropertySettingsModal: React.FC<{
         )}
 
         <Modal
-          title='添加房产'
+          title='Add Property'
           open={isAddOpen}
           onCancel={() => {
             setIsAddOpen(false);
@@ -1287,20 +1550,20 @@ const PropertySettingsModal: React.FC<{
         >
           <Space direction='vertical' style={{ width: '100%' }} size={12}>
             <div>
-              <Text strong>名称 *</Text>
+              <Text strong>Name *</Text>
               <Input
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
-                placeholder='例如：UNIT-101'
+                placeholder='e.g. UNIT-101'
                 style={{ marginTop: '4px' }}
               />
             </div>
             <div>
-              <Text strong>地址</Text>
+              <Text strong>Address</Text>
               <Input
                 value={newAddress}
                 onChange={e => setNewAddress(e.target.value)}
-                placeholder='例如：123 Main St, Brisbane'
+                placeholder='e.g. 123 Main St, Brisbane'
                 style={{ marginTop: '4px' }}
               />
             </div>
@@ -1350,27 +1613,27 @@ const PropertySettingsModal: React.FC<{
             <div>
               <Text strong>
                 <InfoCircleOutlined style={{ marginRight: '4px' }} />
-                备注说明（中文版）
+                Property Notes (Chinese)
               </Text>
               <Input.TextArea
                 value={newNotesZh}
                 onChange={e => setNewNotesZh(e.target.value)}
-                placeholder='例如：🔑 取钥匙说明：&#10;1. 前往信箱室（穿过大堂走到底）&#10;2. 密码锁密码：3091&#10;3. 取出钥匙&#10;&#10;🚪 进入方式：&#10;1. 进入大堂（8 Margaret St）...'
+                placeholder='e.g. Key pickup instructions, lockbox location, entry method, and access code.'
                 rows={6}
                 style={{ marginTop: '4px' }}
               />
               <Text type='secondary' style={{ fontSize: '11px' }}>
-                填写中文版取钥匙方式、门禁密码、位置信息等，中文模式下清洁工看到此版本。
+                Chinese notes shown when cleaner uses Chinese UI.
               </Text>
               <div style={{ marginTop: '8px' }}>
                 <Text strong>
                   <InfoCircleOutlined style={{ marginRight: '4px' }} />
-                  备注说明（English版）
+                  Property Notes (English)
                 </Text>
                 <Input.TextArea
                   value={newNotes}
                   onChange={e => setNewNotes(e.target.value)}
-                  placeholder='e.g. 🔑 Key Access:&#10;1. Go to the lockbox at the mailroom.&#10;2. Code: 3091&#10;&#10;🚪 Entry:&#10;1. Enter the building lobby (8 Margaret St)...'
+                  placeholder='e.g. Key access: lockbox at mailroom, code 3091. Entry: building lobby.'
                   rows={6}
                   style={{ marginTop: '4px' }}
                 />
@@ -1388,9 +1651,9 @@ const PropertySettingsModal: React.FC<{
                   color: '#fa8c16',
                 }}
               >
-                💡 中英文各填一份，清洁工界面会根据语言自动切换显示对应版本。
+                Please fill both Chinese and English notes for bilingual output.
               </Text>
-              {/* 备注说明图片 */}
+              {/* Note images */}
               <div style={{ marginTop: '8px' }}>
                 <Text
                   strong
@@ -1401,7 +1664,7 @@ const PropertySettingsModal: React.FC<{
                   }}
                 >
                   <CameraOutlined style={{ marginRight: '4px' }} />
-                  说明图片（可选）
+                  Note Images (Optional)
                 </Text>
                 {newNoteImages.length > 0 && (
                   <div
@@ -1423,7 +1686,7 @@ const PropertySettingsModal: React.FC<{
                       >
                         <img
                           src={img}
-                          alt={`说明图${idx + 1}`}
+                          alt={`Note image ${idx + 1}`}
                           style={{
                             width: '80px',
                             height: '80px',
@@ -1435,7 +1698,7 @@ const PropertySettingsModal: React.FC<{
                           onClick={() =>
                             setPreviewImage({
                               src: img,
-                              desc: `说明图片 ${idx + 1}`,
+                              desc: `Note image ${idx + 1}`,
                             })
                           }
                         />
@@ -1487,12 +1750,12 @@ const PropertySettingsModal: React.FC<{
                     icon={<PlusOutlined />}
                     style={{ width: '100%' }}
                   >
-                    添加说明图片
+                    Add Note Images
                   </Button>
                 </Upload>
                 <Text type='secondary' style={{ fontSize: '11px' }}>
-                  上传钥匙位置、mail
-                  room、门禁等关键位置的照片，方便清洁工找到。
+                  Upload photos of key locations (lockbox, mailroom, entry
+                  points, etc.).
                 </Text>
               </div>
             </div>
@@ -1500,7 +1763,7 @@ const PropertySettingsModal: React.FC<{
         </Modal>
 
         <Modal
-          title={`编辑房产：${editingProperty?.name || ''}`}
+          title={`Edit Property: ${editingProperty?.name || ''}`}
           open={!!editingProperty}
           onCancel={() => setEditingProperty(null)}
           footer={null}
@@ -1508,7 +1771,7 @@ const PropertySettingsModal: React.FC<{
         >
           {editingProperty && (
             <div>
-              {/* ── Property Info Editing ── */}
+              {/* Property Info Editing */}
               <Card
                 size='small'
                 style={{
@@ -1519,12 +1782,12 @@ const PropertySettingsModal: React.FC<{
               >
                 <Title level={5} style={{ marginTop: 0 }}>
                   <EditOutlined style={{ marginRight: '6px' }} />
-                  房产信息
+                  Property Information
                 </Title>
                 <Row gutter={[12, 12]}>
                   <Col xs={24} sm={12}>
                     <Text strong style={{ fontSize: '12px' }}>
-                      名称 *
+                      Name *
                     </Text>
                     <Input
                       value={editingProperty.name}
@@ -1535,13 +1798,13 @@ const PropertySettingsModal: React.FC<{
                           e.target.value
                         )
                       }
-                      placeholder='例如：UNIT-101'
+                      placeholder='e.g. UNIT-101'
                       style={{ marginTop: '4px' }}
                     />
                   </Col>
                   <Col xs={24} sm={12}>
                     <Text strong style={{ fontSize: '12px' }}>
-                      地址
+                      Address
                     </Text>
                     <Input
                       value={editingProperty.address || ''}
@@ -1552,14 +1815,14 @@ const PropertySettingsModal: React.FC<{
                           e.target.value
                         )
                       }
-                      placeholder='例如：123 Main St, Brisbane'
+                      placeholder='e.g. 123 Main St, Brisbane'
                       style={{ marginTop: '4px' }}
                     />
                   </Col>
                   <Col xs={24}>
                     <Text strong style={{ fontSize: '12px' }}>
                       <InfoCircleOutlined style={{ marginRight: '4px' }} />
-                      备注说明（中文版）
+                      Property Notes (Chinese)
                     </Text>
                     <Input.TextArea
                       value={editingProperty.notesZh || ''}
@@ -1570,17 +1833,17 @@ const PropertySettingsModal: React.FC<{
                           e.target.value
                         )
                       }
-                      placeholder='例如：🔑 取钥匙说明：&#10;1. 前往信箱室（穿过大堂走到底）&#10;2. 密码锁密码：3091&#10;3. 取出钥匙'
+                      placeholder='e.g. Key pickup instructions, lockbox location, entry method, and access code.'
                       rows={6}
                       style={{ marginTop: '4px' }}
                     />
                     <Text type='secondary' style={{ fontSize: '11px' }}>
-                      中文版取钥匙方式、门禁密码、位置信息等，中文模式下清洁工看到此版本。
+                      Chinese notes shown when cleaner uses Chinese UI.
                     </Text>
                     <div style={{ marginTop: '8px' }}>
                       <Text strong style={{ fontSize: '12px' }}>
                         <InfoCircleOutlined style={{ marginRight: '4px' }} />
-                        备注说明（English版）
+                        Property Notes (English)
                       </Text>
                       <Input.TextArea
                         value={editingProperty.notes || ''}
@@ -1591,7 +1854,7 @@ const PropertySettingsModal: React.FC<{
                             e.target.value
                           )
                         }
-                        placeholder='e.g. 🔑 Key Access:&#10;1. Go to the lockbox at the mailroom.&#10;2. Code: 3091'
+                        placeholder='e.g. Key access: lockbox at mailroom, code 3091.'
                         rows={6}
                         style={{ marginTop: '4px' }}
                       />
@@ -1608,9 +1871,10 @@ const PropertySettingsModal: React.FC<{
                         color: '#fa8c16',
                       }}
                     >
-                      💡 中英文各填一份，清洁工界面会根据语言自动切换显示。
+                      Please fill both Chinese and English notes for bilingual
+                      output.
                     </Text>
-                    {/* 备注说明图片（编辑模式） */}
+                    {/* Note images (edit mode) */}
                     <div style={{ marginTop: '8px' }}>
                       <Text
                         strong
@@ -1621,7 +1885,7 @@ const PropertySettingsModal: React.FC<{
                         }}
                       >
                         <CameraOutlined style={{ marginRight: '4px' }} />
-                        说明图片
+                        Note Images
                       </Text>
                       {(editingProperty.noteImages || []).length > 0 && (
                         <div
@@ -1644,7 +1908,7 @@ const PropertySettingsModal: React.FC<{
                               >
                                 <img
                                   src={img}
-                                  alt={`说明图${idx + 1}`}
+                                  alt={`Note image ${idx + 1}`}
                                   style={{
                                     width: '100px',
                                     height: '100px',
@@ -1656,7 +1920,7 @@ const PropertySettingsModal: React.FC<{
                                   onClick={() =>
                                     setPreviewImage({
                                       src: img,
-                                      desc: `说明图片 ${idx + 1}`,
+                                      desc: `Note image ${idx + 1}`,
                                     })
                                   }
                                 />
@@ -1698,7 +1962,7 @@ const PropertySettingsModal: React.FC<{
                           size='small'
                           icon={<PlusOutlined />}
                         >
-                          添加说明图片
+                          Add Note Images
                         </Button>
                       </Upload>
                       <Text
@@ -1709,8 +1973,8 @@ const PropertySettingsModal: React.FC<{
                           marginTop: '4px',
                         }}
                       >
-                        上传钥匙位置、mail
-                        room、门禁等关键位置的照片，方便清洁工找到。
+                        Upload photos of key locations (lockbox, mailroom, entry
+                        points, etc.).
                       </Text>
                     </div>
                   </Col>
@@ -1719,7 +1983,7 @@ const PropertySettingsModal: React.FC<{
 
               <Divider style={{ margin: '12px 0' }} />
 
-              <Title level={5}>检查区域</Title>
+              <Title level={5}>Inspection Sections</Title>
               <Text
                 type='secondary'
                 style={{
@@ -1728,7 +1992,7 @@ const PropertySettingsModal: React.FC<{
                   fontSize: '12px',
                 }}
               >
-                拖动每个区域前的 <MenuOutlined /> 手柄可调整区域顺序
+                Drag the <MenuOutlined /> handle to reorder section sequence.
               </Text>
               <div
                 style={{
@@ -1857,7 +2121,7 @@ const PropertySettingsModal: React.FC<{
                   );
                 })}
               </div>
-              <Title level={5}>可选区域</Title>
+              <Title level={5}>Optional Sections</Title>
               <div style={{ marginBottom: '8px' }}>
                 <Space>
                   <Button
@@ -1867,7 +2131,7 @@ const PropertySettingsModal: React.FC<{
                       handleApplyOfficeSections(editingProperty.id)
                     }
                   >
-                    Add Office Areas / 一键添加办公室区域
+                    Add Office Areas
                   </Button>
                   <Button
                     size='small'
@@ -1877,7 +2141,7 @@ const PropertySettingsModal: React.FC<{
                       handleRemoveOfficeSectionsPreset(editingProperty.id)
                     }
                   >
-                    Remove Office Areas / 移除办公室区域
+                    Remove Office Areas
                   </Button>
                 </Space>
               </div>
@@ -1907,7 +2171,9 @@ const PropertySettingsModal: React.FC<{
                   </Tag>
                 ))}
                 {getAvailableOptionalSections(editingProperty).length === 0 && (
-                  <Text type='secondary'>所有可选区域均已添加</Text>
+                  <Text type='secondary'>
+                    All optional sections have been added
+                  </Text>
                 )}
               </div>
 
@@ -1916,7 +2182,7 @@ const PropertySettingsModal: React.FC<{
               {/* Checklist Template Editor */}
               <Title level={5}>
                 <CheckSquareOutlined style={{ marginRight: '8px' }} />
-                清单模板
+                Checklist Templates
               </Title>
               <Text
                 type='secondary'
@@ -1926,7 +2192,8 @@ const PropertySettingsModal: React.FC<{
                   fontSize: '12px',
                 }}
               >
-                自定义每个房间的检查清单项目。带相机图标的项目需要清洁工拍照。
+                Customize checklist items by section. Items with camera icon
+                require photo capture.
               </Text>
 
               <Collapse
@@ -1948,8 +2215,8 @@ const PropertySettingsModal: React.FC<{
                           style={{ fontSize: '11px' }}
                         >
                           {hasCustom
-                            ? `${checklistItems.length} 项`
-                            : '使用默认'}
+                            ? `${checklistItems.length} items`
+                            : 'Using defaults'}
                         </Tag>
                       </Space>
                     ),
@@ -1978,7 +2245,7 @@ const PropertySettingsModal: React.FC<{
                             }}
                             style={{ marginBottom: '12px' }}
                           >
-                            加载默认项目 ({defaultItems.length})
+                            Load default items ({defaultItems.length})
                           </Button>
                         )}
 
@@ -2019,13 +2286,13 @@ const PropertySettingsModal: React.FC<{
                                     updated
                                   );
                                 }}
-                                placeholder='中文'
+                                placeholder='Chinese label'
                                 prefix={
                                   <Text
                                     type='secondary'
                                     style={{ fontSize: '10px' }}
                                   >
-                                    中
+                                    CN
                                   </Text>
                                 }
                               />
@@ -2055,7 +2322,7 @@ const PropertySettingsModal: React.FC<{
                                 }
                               />
                             </div>
-                            <Tooltip title='需要拍照'>
+                            <Tooltip title='Requires photo'>
                               <Checkbox
                                 checked={item.requiredPhoto}
                                 onChange={e => {
@@ -2111,7 +2378,7 @@ const PropertySettingsModal: React.FC<{
                           }}
                           style={{ width: '100%', marginTop: '4px' }}
                         >
-                          添加检查项
+                          Add Checklist Item
                         </Button>
                       </div>
                     ),
@@ -2180,7 +2447,7 @@ const PropertySettingsModal: React.FC<{
   );
 };
 
-// ──────────────────────── Employee Management Modal ────────────────────────
+// Employee Management Modal
 
 /** EmployeesModal - CRUD for cleaning employees */
 const EmployeesModal: React.FC<{
@@ -2232,14 +2499,14 @@ const EmployeesModal: React.FC<{
   /** Save new employee */
   const handleAdd = () => {
     if (!formName.trim()) {
-      messageApi.warning('请输入员工姓名');
+      messageApi.warning('Please enter employee name');
       return;
     }
     const newEmp = buildEmployeeFromForm(`emp-${generateId()}`);
     onSave([...employees, newEmp]);
     setIsAddOpen(false);
     resetForm();
-    messageApi.success('员工已添加');
+    messageApi.success('Employee added');
   };
 
   /** Save edited employee */
@@ -2252,17 +2519,17 @@ const EmployeesModal: React.FC<{
     onSave(updated);
     setEditingEmployee(null);
     resetForm();
-    messageApi.success('已更新');
+    messageApi.success('Employee updated');
   };
 
   /** Delete an employee */
   const handleDelete = (id: string) => {
     Modal.confirm({
-      title: '确认删除',
-      content: '确定要删除这位员工吗？',
+      title: 'Confirm Delete',
+      content: 'Are you sure you want to delete this employee?',
       onOk: () => {
         onSave(employees.filter(e => e.id !== id));
-        messageApi.success('已删除');
+        messageApi.success('Employee deleted');
       },
     });
   };
@@ -2270,7 +2537,7 @@ const EmployeesModal: React.FC<{
   return (
     <>
       <Modal
-        title='员工管理'
+        title='Employee Management'
         open={open}
         onCancel={onClose}
         footer={null}
@@ -2283,11 +2550,11 @@ const EmployeesModal: React.FC<{
           onClick={handleOpenAdd}
           style={{ marginBottom: '16px' }}
         >
-          添加员工
+          Add Employee
         </Button>
 
         {employees.length === 0 ? (
-          <Empty description='暂无员工' />
+          <Empty description='No employees' />
         ) : (
           employees.map(emp => (
             <Card
@@ -2307,7 +2574,7 @@ const EmployeesModal: React.FC<{
                     icon={<EditOutlined />}
                     onClick={() => handleOpenEdit(emp)}
                   >
-                    编辑
+                    Edit
                   </Button>
                   <Button
                     type='text'
@@ -2324,7 +2591,7 @@ const EmployeesModal: React.FC<{
                   type='secondary'
                   style={{ fontSize: '12px', display: 'block' }}
                 >
-                  📱 {emp.phone}
+                  Phone: {emp.phone}
                 </Text>
               )}
               {emp.notes && (
@@ -2332,7 +2599,7 @@ const EmployeesModal: React.FC<{
                   type='secondary'
                   style={{ fontSize: '12px', display: 'block' }}
                 >
-                  📝 {emp.notes}
+                  Notes: {emp.notes}
                 </Text>
               )}
             </Card>
@@ -2341,7 +2608,7 @@ const EmployeesModal: React.FC<{
 
         {/* Add Employee Modal */}
         <Modal
-          title='添加员工'
+          title='Add Employee'
           open={isAddOpen}
           onCancel={() => {
             setIsAddOpen(false);
@@ -2351,38 +2618,38 @@ const EmployeesModal: React.FC<{
         >
           <Space direction='vertical' style={{ width: '100%' }} size={12}>
             <div>
-              <Text strong>姓名 *</Text>
+              <Text strong>Name *</Text>
               <Input
                 value={formName}
                 onChange={e => setFormName(e.target.value)}
-                placeholder='例如：张三'
+                placeholder='e.g. Zhang San'
                 style={{ marginTop: '4px' }}
               />
             </div>
             <div>
-              <Text strong>英文名</Text>
+              <Text strong>English Name</Text>
               <Input
                 value={formNameEn}
                 onChange={e => setFormNameEn(e.target.value)}
-                placeholder='例如：Zhang San'
+                placeholder='e.g. Zhang San'
                 style={{ marginTop: '4px' }}
               />
             </div>
             <div>
-              <Text strong>电话</Text>
+              <Text strong>Phone</Text>
               <Input
                 value={formPhone}
                 onChange={e => setFormPhone(e.target.value)}
-                placeholder='例如：0412345678'
+                placeholder='e.g. 0412345678'
                 style={{ marginTop: '4px' }}
               />
             </div>
             <div>
-              <Text strong>备注</Text>
+              <Text strong>Notes</Text>
               <Input.TextArea
                 value={formNotes}
                 onChange={e => setFormNotes(e.target.value)}
-                placeholder='备注信息...'
+                placeholder='Optional notes...'
                 rows={2}
                 style={{ marginTop: '4px' }}
               />
@@ -2392,7 +2659,7 @@ const EmployeesModal: React.FC<{
 
         {/* Edit Employee Modal */}
         <Modal
-          title='编辑员工'
+          title='Edit Employee'
           open={!!editingEmployee}
           onCancel={() => {
             setEditingEmployee(null);
@@ -2402,38 +2669,38 @@ const EmployeesModal: React.FC<{
         >
           <Space direction='vertical' style={{ width: '100%' }} size={12}>
             <div>
-              <Text strong>姓名 *</Text>
+              <Text strong>Name *</Text>
               <Input
                 value={formName}
                 onChange={e => setFormName(e.target.value)}
-                placeholder='例如：张三'
+                placeholder='e.g. Zhang San'
                 style={{ marginTop: '4px' }}
               />
             </div>
             <div>
-              <Text strong>英文名</Text>
+              <Text strong>English Name</Text>
               <Input
                 value={formNameEn}
                 onChange={e => setFormNameEn(e.target.value)}
-                placeholder='例如：Zhang San'
+                placeholder='e.g. Zhang San'
                 style={{ marginTop: '4px' }}
               />
             </div>
             <div>
-              <Text strong>电话</Text>
+              <Text strong>Phone</Text>
               <Input
                 value={formPhone}
                 onChange={e => setFormPhone(e.target.value)}
-                placeholder='例如：0412345678'
+                placeholder='e.g. 0412345678'
                 style={{ marginTop: '4px' }}
               />
             </div>
             <div>
-              <Text strong>备注</Text>
+              <Text strong>Notes</Text>
               <Input.TextArea
                 value={formNotes}
                 onChange={e => setFormNotes(e.target.value)}
-                placeholder='备注信息...'
+                placeholder='Optional notes...'
                 rows={2}
                 style={{ marginTop: '4px' }}
               />

@@ -6,6 +6,7 @@ import {
   InputNumber,
   message,
   Modal,
+  Popconfirm,
   Select,
   Space,
   Tabs,
@@ -50,6 +51,7 @@ interface DispatchAdminSetupModalProps {
   loading: boolean;
   onCancel: () => void;
   onSaveEmployee: (payload: UpsertDispatchEmployeePayload) => Promise<void>;
+  onDeleteEmployee: (employeeId: string) => Promise<void>;
   onReportEmployeeLocation: (
     employeeId: string,
     location: Omit<DispatchEmployeeLocation, 'updatedAt'> & {
@@ -72,6 +74,7 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
   loading,
   onCancel,
   onSaveEmployee,
+  onDeleteEmployee,
   onReportEmployeeLocation,
   onSaveCustomer,
   onMigrateLocalPeople,
@@ -88,6 +91,9 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
   const [manualLocationEmployee, setManualLocationEmployee] =
     React.useState<DispatchEmployee | null>(null);
   const [manualLocationSaving, setManualLocationSaving] = React.useState(false);
+  const [deletingEmployeeId, setDeletingEmployeeId] = React.useState<
+    string | null
+  >(null);
 
   const manualPlaceType = Form.useWatch('placeType', manualLocationForm);
 
@@ -224,6 +230,22 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
     }
   };
 
+  const handleDeleteEmployee = async (employeeId: string) => {
+    setDeletingEmployeeId(employeeId);
+    try {
+      await onDeleteEmployee(employeeId);
+      if (employeeForm.getFieldValue('id') === employeeId) {
+        employeeForm.resetFields();
+      }
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : 'Failed to delete employee'
+      );
+    } finally {
+      setDeletingEmployeeId(null);
+    }
+  };
+
   return (
     <Modal
       title='Dispatch Pre-setup (Employees & Customers)'
@@ -337,6 +359,22 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                             >
                               Manual Location
                             </Button>
+                            <Popconfirm
+                              title='Delete employee?'
+                              description='This will remove the employee from dispatch and inspection lists.'
+                              okText='Delete'
+                              cancelText='Cancel'
+                              okButtonProps={{ danger: true }}
+                              onConfirm={() => handleDeleteEmployee(emp.id)}
+                            >
+                              <Button
+                                size='small'
+                                danger
+                                loading={deletingEmployeeId === emp.id}
+                              >
+                                Delete
+                              </Button>
+                            </Popconfirm>
                           </Space>
                         </div>
                       </div>

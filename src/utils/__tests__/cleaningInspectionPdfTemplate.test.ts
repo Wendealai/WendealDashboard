@@ -64,6 +64,18 @@ describe('cleaningInspectionPdfTemplate', () => {
         name: '李四',
         nameEn: 'Leo Li',
       },
+      assignedEmployees: [
+        {
+          id: 'emp-1',
+          name: '李四',
+          nameEn: 'Leo Li',
+        },
+        {
+          id: 'emp-2',
+          name: '王五',
+          nameEn: 'Amy Chen',
+        },
+      ],
     };
 
     const html = await generateInspectionPdfHtml(inspection, 'en');
@@ -71,6 +83,7 @@ describe('cleaningInspectionPdfTemplate', () => {
     expect(html).toContain('Cleaning Inspection Report');
     expect(html).toContain('Company Information');
     expect(html).toContain('info@sparkery.com.au');
+    expect(html).toContain('Leo Li / Amy Chen');
     expect(html).toContain('Kitchen');
     expect(html).toContain('No grease stains on stove');
     expect(html).toContain('Key Return');

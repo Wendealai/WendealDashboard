@@ -14,6 +14,7 @@ import {
   assignDispatchJob,
   clearDispatchError,
   createDispatchJob,
+  deleteDispatchEmployee,
   deleteDispatchJob,
   exportDispatchBackup,
   fetchDispatchCustomerProfiles,
@@ -515,6 +516,15 @@ const DispatchDashboard: React.FC = () => {
     throw new Error('Failed to save employee');
   };
 
+  const handleDeleteEmployee = async (employeeId: string) => {
+    const result = await dispatch(deleteDispatchEmployee(employeeId));
+    if (deleteDispatchEmployee.fulfilled.match(result)) {
+      message.success('Employee deleted');
+      return;
+    }
+    throw new Error(extractThunkError(result, 'Failed to delete employee'));
+  };
+
   const handleReportEmployeeLocation = async (
     employeeId: string,
     location: Omit<DispatchEmployeeLocation, 'updatedAt'> & {
@@ -694,6 +704,7 @@ const DispatchDashboard: React.FC = () => {
         <DispatchMapPlanner
           jobs={jobs}
           employees={employees}
+          weekStart={selectedWeekStart}
           onAssignJobsToEmployee={handleAssignJobsToEmployee}
         />
       </Card>
@@ -718,6 +729,7 @@ const DispatchDashboard: React.FC = () => {
         customerProfiles={customerProfiles}
         onCancel={() => setAdminSetupOpen(false)}
         onSaveEmployee={handleSaveEmployee}
+        onDeleteEmployee={handleDeleteEmployee}
         onReportEmployeeLocation={handleReportEmployeeLocation}
         onSaveCustomer={handleAddCustomerProfile}
         onMigrateLocalPeople={handleMigrateLocalPeople}

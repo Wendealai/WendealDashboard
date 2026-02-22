@@ -654,7 +654,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                         style={{ width: '100%', marginTop: 2 }}
                         wrap
                       >
-                        <Space size={4} style={{ fontSize: 10 }}>
+                        <Space size={4} style={{ fontSize: 10 }} wrap>
                           <Text type='secondary' style={{ fontSize: 10 }}>
                             执行人:
                           </Text>
@@ -690,7 +690,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                             className='dispatch-assignee-select'
                             popupClassName='dispatch-assignee-select-popup'
                             style={{
-                              width: 152,
+                              width: 164,
                               fontSize: 10,
                             }}
                             value={job.assignedEmployeeIds || []}
@@ -720,28 +720,37 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                             ))}
                           </Select>
                         </Space>
-                        <Select
-                          size='small'
-                          style={{ minWidth: 92, fontSize: 10 }}
-                          value={job.status}
-                          onChange={value =>
-                            onStatusChange(job.id, value as DispatchJobStatus)
-                          }
-                        >
-                          <Select.Option value='pending'>Pending</Select.Option>
-                          <Select.Option value='assigned'>
-                            Assigned
-                          </Select.Option>
-                          <Select.Option value='in_progress'>
-                            In Progress
-                          </Select.Option>
-                          <Select.Option value='completed'>
-                            Completed
-                          </Select.Option>
-                          <Select.Option value='cancelled'>
-                            Cancelled
-                          </Select.Option>
-                        </Select>
+                        <Space size={4} style={{ fontSize: 10 }} wrap>
+                          <Text type='secondary' style={{ fontSize: 10 }}>
+                            Status
+                          </Text>
+                          <Select
+                            size='small'
+                            className='dispatch-status-select'
+                            popupClassName='dispatch-status-select-popup'
+                            style={{ minWidth: 120, fontSize: 10 }}
+                            value={job.status}
+                            onChange={value =>
+                              onStatusChange(job.id, value as DispatchJobStatus)
+                            }
+                          >
+                            <Select.Option value='pending'>
+                              Pending
+                            </Select.Option>
+                            <Select.Option value='assigned'>
+                              Assigned
+                            </Select.Option>
+                            <Select.Option value='in_progress'>
+                              In Progress
+                            </Select.Option>
+                            <Select.Option value='completed'>
+                              Completed
+                            </Select.Option>
+                            <Select.Option value='cancelled'>
+                              Cancelled
+                            </Select.Option>
+                          </Select>
+                        </Space>
                       </Space>
                       <div
                         onMouseDown={event => {

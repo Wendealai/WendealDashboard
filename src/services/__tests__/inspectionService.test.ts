@@ -162,6 +162,10 @@ describe('inspectionService (supabase)', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [{ id: 'prop-1' }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: 'prop-1' }],
       });
 
     const loaded = await loadPropertyTemplates();
@@ -187,8 +191,17 @@ describe('inspectionService (supabase)', () => {
         }),
       })
     );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/rest/v1/cleaning_inspection_properties?select=id'
+      ),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          apikey: 'anon-key',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(
         '/rest/v1/cleaning_inspection_properties?on_conflict=id'
       ),
@@ -202,6 +215,10 @@ describe('inspectionService (supabase)', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [{ id: 'emp-1', payload: {} }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: 'emp-1' }],
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -228,8 +245,17 @@ describe('inspectionService (supabase)', () => {
         }),
       })
     );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/rest/v1/cleaning_inspection_employees?select=id'
+      ),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          apikey: 'anon-key',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(
         '/rest/v1/cleaning_inspection_employees?on_conflict=id'
       ),

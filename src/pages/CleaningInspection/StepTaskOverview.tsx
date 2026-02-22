@@ -42,6 +42,12 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
     inspection.propertyAddress &&
     inspection.propertyAddress.length > 0
   );
+  const assignedEmployees =
+    inspection.assignedEmployees && inspection.assignedEmployees.length > 0
+      ? inspection.assignedEmployees
+      : inspection.assignedEmployee
+        ? [inspection.assignedEmployee]
+        : [];
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
@@ -264,7 +270,7 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
       </Card>
 
       {/* Assigned Employee (read-only) or Cleaner Name Input */}
-      {inspection.assignedEmployee ? (
+      {assignedEmployees.length > 0 ? (
         <Card
           size='small'
           style={{ borderRadius: '8px' }}
@@ -275,17 +281,27 @@ const StepTaskOverview: React.FC<StepTaskOverviewProps> = ({
             </span>
           }
         >
-          <Text strong style={{ fontSize: '16px' }}>
-            {inspection.assignedEmployee.name}
-          </Text>
-          {inspection.assignedEmployee.phone && (
-            <Text
-              type='secondary'
-              style={{ display: 'block', fontSize: '13px', marginTop: '4px' }}
-            >
-              {inspection.assignedEmployee.phone}
-            </Text>
-          )}
+          <div style={{ display: 'grid', gap: '8px' }}>
+            {assignedEmployees.map(emp => (
+              <div key={emp.id}>
+                <Text strong style={{ fontSize: '16px' }}>
+                  {emp.name}
+                </Text>
+                {emp.phone && (
+                  <Text
+                    type='secondary'
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      marginTop: '4px',
+                    }}
+                  >
+                    {emp.phone}
+                  </Text>
+                )}
+              </div>
+            ))}
+          </div>
         </Card>
       ) : (
         <Card

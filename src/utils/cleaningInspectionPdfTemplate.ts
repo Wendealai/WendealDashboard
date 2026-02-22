@@ -18,6 +18,7 @@ import type {
   DamageReport,
   CheckInOut,
   ChecklistItem,
+  Employee,
 } from '@/pages/CleaningInspection/types';
 import { reverseGeocode } from '@/pages/CleaningInspection/utils';
 
@@ -132,28 +133,34 @@ function toEnglishChecklistLabel(item: ChecklistItem): string {
   return toAsciiText(trailing || item.label, 'Checklist Item');
 }
 
+function normalizeEmployeeForEnglish(employee: Employee): Employee {
+  return {
+    ...employee,
+    name: toAsciiText(
+      employee.nameEn || extractTrailingEnglish(employee.name) || employee.name,
+      'Cleaner'
+    ),
+    ...(employee.nameEn
+      ? {
+          nameEn: toAsciiText(employee.nameEn, 'Cleaner'),
+        }
+      : {}),
+  };
+}
+
 function buildEnglishInspection(
   inspection: CleaningInspection
 ): CleaningInspection {
-  const assignedEmployee = inspection.assignedEmployee
-    ? {
-        ...inspection.assignedEmployee,
-        name: toAsciiText(
-          inspection.assignedEmployee.nameEn ||
-            extractTrailingEnglish(inspection.assignedEmployee.name) ||
-            inspection.assignedEmployee.name,
-          'Cleaner'
-        ),
-        ...(inspection.assignedEmployee.nameEn
-          ? {
-              nameEn: toAsciiText(
-                inspection.assignedEmployee.nameEn,
-                'Cleaner'
-              ),
-            }
-          : {}),
-      }
-    : undefined;
+  const sourceAssignedEmployees =
+    inspection.assignedEmployees && inspection.assignedEmployees.length > 0
+      ? inspection.assignedEmployees
+      : inspection.assignedEmployee
+        ? [inspection.assignedEmployee]
+        : [];
+  const assignedEmployees = sourceAssignedEmployees.map(
+    normalizeEmployeeForEnglish
+  );
+  const assignedEmployee = assignedEmployees[0];
 
   const sections = inspection.sections.map(section => ({
     ...section,
@@ -215,7 +222,9 @@ function buildEnglishInspection(
     damageReports,
     checkIn: normalizeCio(inspection.checkIn),
     checkOut: normalizeCio(inspection.checkOut),
-    ...(assignedEmployee ? { assignedEmployee } : {}),
+    ...(assignedEmployees.length > 0
+      ? { assignedEmployees, assignedEmployee }
+      : {}),
   };
 }
 
@@ -784,8 +793,18 @@ function generateCoverPage(
     0
   );
   const damageCount = (inspection.damageReports || []).length;
+  const assignedEmployees =
+    inspection.assignedEmployees && inspection.assignedEmployees.length > 0
+      ? inspection.assignedEmployees
+      : inspection.assignedEmployee
+        ? [inspection.assignedEmployee]
+        : [];
   const cleanerName =
-    inspection.assignedEmployee?.name || inspection.submitterName || 'N/A';
+    assignedEmployees.length > 0
+      ? assignedEmployees
+          .map(emp => emp.name || emp.nameEn || 'Cleaner')
+          .join(' / ')
+      : inspection.submitterName || 'N/A';
 
   let durationStr = 'N/A';
   if (inspection.checkIn?.timestamp && inspection.checkOut?.timestamp) {

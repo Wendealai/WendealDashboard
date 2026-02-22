@@ -43,6 +43,9 @@ const SparkeryDispatchPage = lazy(
 const DispatchLocationReportPage = lazy(
   () => import('@/pages/Sparkery/DispatchLocationReport')
 );
+const DispatchWeekPlanPage = lazy(
+  () => import('@/pages/Sparkery/DispatchWeekPlan')
+);
 
 // Bond Clean Quote Form (standalone public page)
 const BondCleanQuoteForm = lazy(
@@ -141,6 +144,16 @@ export const routes: RouteConfig[] = [
     element: DispatchLocationReportPage,
     meta: {
       title: 'Dispatch Location Report',
+      requiresAuth: false,
+      hideInMenu: true,
+    },
+  },
+  // Dispatch weekly plan page (public share link for mobile execution)
+  {
+    path: '/dispatch-week-plan',
+    element: DispatchWeekPlanPage,
+    meta: {
+      title: 'Dispatch Weekly Plan',
       requiresAuth: false,
       hideInMenu: true,
     },

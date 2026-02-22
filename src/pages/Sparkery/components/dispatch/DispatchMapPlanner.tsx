@@ -35,6 +35,7 @@ const GEO_CACHE_STORAGE_KEY = 'sparkery_dispatch_geocode_cache_v1';
 interface DispatchMapPlannerProps {
   jobs: DispatchJob[];
   employees: DispatchEmployee[];
+  weekStart: string;
   onAssignJobsToEmployee: (
     jobIds: string[],
     employeeId: string
@@ -142,6 +143,7 @@ const getLocationReportLink = (employeeId?: string): string => {
 const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
   jobs,
   employees,
+  weekStart,
   onAssignJobsToEmployee,
 }) => {
   const [messageApi, contextHolder] = message.useMessage();
@@ -831,6 +833,42 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
     );
   };
 
+  const handleGenerateWeeklyPlanLink = async () => {
+    if (!selectedEmployeeId) {
+      messageApi.warning('Please select an employee first');
+      return;
+    }
+
+    const orderedJobIds =
+      routeResult?.orderedJobIds && routeResult.orderedJobIds.length > 0
+        ? routeResult.orderedJobIds
+        : selectedJobIds;
+
+    if (orderedJobIds.length === 0) {
+      messageApi.warning('Please select at least one job first');
+      return;
+    }
+
+    const weekEnd = dayjs(weekStart).add(6, 'day').format('YYYY-MM-DD');
+    const params = new URLSearchParams({
+      employeeId: selectedEmployeeId,
+      jobIds: orderedJobIds.join(','),
+      weekStart,
+      weekEnd,
+    });
+
+    const url = `${window.location.origin}/dispatch-week-plan?${params.toString()}`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+    } catch {
+      // Ignore clipboard failures; still open link.
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+    messageApi.success('Weekly plan link generated');
+  };
+
   const geocodeFailurePreview = geocodeFailedJobs
     .slice(0, 2)
     .map(job => job.customerAddress)
@@ -1122,6 +1160,12 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
               disabled={!routeResult || !selectedEmployeeId}
             >
               Assign Jobs by Route
+            </Button>
+            <Button
+              onClick={handleGenerateWeeklyPlanLink}
+              disabled={!selectedEmployeeId || selectedJobIds.length === 0}
+            >
+              Generate Weekly Plan Link
             </Button>
             {routeError && <Alert type='error' showIcon message={routeError} />}
             {routeResult && (
