@@ -238,20 +238,80 @@ export const OPTIONAL_SECTIONS: SectionDefinition[] = [
   },
 ];
 
+const SECTION_INSTANCE_SUFFIX_RE = /__([1-9]\d*)$/;
+
+/** Normalize section instance ID to the base section type ID. */
+export function getSectionTypeId(sectionId: string): string {
+  if (!sectionId) return sectionId;
+  return sectionId.replace(SECTION_INSTANCE_SUFFIX_RE, '');
+}
+
+/** Build next instance ID for a section type (e.g. meeting-room__2). */
+export function buildNextSectionInstanceId(
+  sectionTypeId: string,
+  existingSectionIds: string[]
+): string {
+  const baseId = getSectionTypeId(sectionTypeId);
+  if (!baseId) return sectionTypeId;
+
+  let maxOrdinal = 0;
+  existingSectionIds.forEach(id => {
+    if (getSectionTypeId(id) !== baseId) return;
+    const match = id.match(SECTION_INSTANCE_SUFFIX_RE);
+    const ordinal = match ? Number.parseInt(match[1] || '1', 10) : 1;
+    if (ordinal > maxOrdinal) {
+      maxOrdinal = ordinal;
+    }
+  });
+
+  if (maxOrdinal === 0) {
+    return baseId;
+  }
+  return `${baseId}__${maxOrdinal + 1}`;
+}
+
 /** Get active sections from IDs list */
 export function getActiveSections(
   activeSectionIds: string[]
 ): SectionDefinition[] {
-  const activeIds = new Set(activeSectionIds);
-  return BASE_ROOM_SECTIONS.filter(s => activeIds.has(s.id)).concat(
-    OPTIONAL_SECTIONS.filter(s => activeIds.has(s.id))
+  const sectionMap = new Map(
+    [...BASE_ROOM_SECTIONS, ...OPTIONAL_SECTIONS].map(section => [
+      section.id,
+      section,
+    ])
   );
+  const sectionTypeCounts = new Map<string, number>();
+
+  return activeSectionIds
+    .map(sectionId => {
+      const typeId = getSectionTypeId(sectionId);
+      const base = sectionMap.get(typeId);
+      if (!base) {
+        return {
+          id: sectionId,
+          name: sectionId,
+          description: '',
+        };
+      }
+
+      const nextCount = (sectionTypeCounts.get(typeId) || 0) + 1;
+      sectionTypeCounts.set(typeId, nextCount);
+
+      return {
+        ...base,
+        id: sectionId,
+        name: nextCount > 1 ? `${base.name} (${nextCount})` : base.name,
+      };
+    })
+    .filter(Boolean);
 }
 
 /** Remove office-only section IDs from a section list */
 export function removeOfficeSections(sectionIds: string[]): string[] {
   const officeIds = new Set<string>(OFFICE_SECTION_IDS);
-  return sectionIds.filter(sectionId => !officeIds.has(sectionId));
+  return sectionIds.filter(
+    sectionId => !officeIds.has(getSectionTypeId(sectionId))
+  );
 }
 
 // ──────────────────────── Default Checklists ────────────────────
@@ -627,7 +687,7 @@ export const DEFAULT_CHECKLISTS: Record<
 export function getDefaultChecklistForSection(
   sectionId: string
 ): ChecklistItem[] {
-  const templates = DEFAULT_CHECKLISTS[sectionId] || [];
+  const templates = DEFAULT_CHECKLISTS[getSectionTypeId(sectionId)] || [];
   return templates.map((t, idx) => {
     const item: ChecklistItem = {
       id: `${sectionId}-item-${idx}`,

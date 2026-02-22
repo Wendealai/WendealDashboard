@@ -20,6 +20,7 @@ import type {
   ChecklistItem,
   Employee,
 } from '@/pages/CleaningInspection/types';
+import { getSectionTypeId } from '@/pages/CleaningInspection/types';
 import { reverseGeocode } from '@/pages/CleaningInspection/utils';
 
 export type InspectionReportLang = 'zh' | 'en';
@@ -120,7 +121,7 @@ function toEnglishKeyReturnMethod(
 }
 
 function toEnglishRoomName(section: RoomSection): string {
-  const mapped = SECTION_NAME_EN_BY_ID[section.id];
+  const mapped = SECTION_NAME_EN_BY_ID[getSectionTypeId(section.id)];
   if (mapped) return mapped;
   const trailing = extractTrailingEnglish(section.name);
   return toAsciiText(trailing || section.name, 'Room');

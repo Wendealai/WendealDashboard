@@ -41,6 +41,7 @@ import {
   getDefaultChecklistForSection,
   generateId,
   migrateChecklistItemLabel,
+  getSectionTypeId,
 } from './types';
 import { LangContext, createT, type Lang } from './i18n';
 
@@ -83,8 +84,11 @@ function buildSectionsFromTemplate(
 
     // Build checklist from template or defaults
     let checklist: ChecklistItem[] = [];
-    if (template.checklists?.[def.id]) {
-      checklist = template.checklists[def.id].map((t: any, idx: number) => ({
+    const checklistTemplate =
+      template.checklists?.[def.id] ||
+      template.checklists?.[getSectionTypeId(def.id)];
+    if (checklistTemplate) {
+      checklist = checklistTemplate.map((t: any, idx: number) => ({
         id: `${def.id}-item-${idx}`,
         label: t.label,
         checked: false,
@@ -96,7 +100,10 @@ function buildSectionsFromTemplate(
 
     return {
       ...def,
-      referenceImages: template.referenceImages?.[def.id] || [],
+      referenceImages:
+        template.referenceImages?.[def.id] ||
+        template.referenceImages?.[getSectionTypeId(def.id)] ||
+        [],
       photos: [],
       notes: '',
       checklist,

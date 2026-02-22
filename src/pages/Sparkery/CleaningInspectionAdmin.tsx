@@ -49,6 +49,8 @@ import {
   BASE_ROOM_SECTIONS,
   OPTIONAL_SECTIONS,
   getActiveSections as getActiveSectionDefs,
+  buildNextSectionInstanceId,
+  getSectionTypeId,
   DEFAULT_CHECKLISTS,
   getDefaultChecklistForSection,
   migratePropertyChecklists,
@@ -93,15 +95,8 @@ const generateId = () =>
   `${dayjs().format('YYYYMMDD')}-${Math.random().toString(36).substr(2, 9)}`;
 
 /** Get all available sections (base + optional) */
-const getAllSections = (activeSectionIds: string[]) => {
-  const allSections = [...BASE_ROOM_SECTIONS, ...OPTIONAL_SECTIONS];
-  const sectionMap = new Map(allSections.map(section => [section.id, section]));
-  return activeSectionIds
-    .map(sectionId => sectionMap.get(sectionId))
-    .filter((section): section is (typeof allSections)[number] =>
-      Boolean(section)
-    );
-};
+const getAllSections = (activeSectionIds: string[]) =>
+  getActiveSectionDefs(activeSectionIds);
 
 const cloneTemplateSnapshot = (
   templates: PropertyTemplate[]
@@ -454,7 +449,9 @@ const CleaningInspectionAdmin: React.FC = () => {
     const sections = getAllSections(activeSections).map(s => {
       // Build checklists: use property template checklists or defaults
       let checklist: any[] = [];
-      const sectionChecklist = property.checklists?.[s.id];
+      const sectionChecklist =
+        property.checklists?.[s.id] ||
+        property.checklists?.[getSectionTypeId(s.id)];
       if (sectionChecklist) {
         checklist = sectionChecklist.map((t: any, idx: number) => {
           const item: any = {
@@ -471,7 +468,10 @@ const CleaningInspectionAdmin: React.FC = () => {
       }
       return {
         ...s,
-        referenceImages: property.referenceImages?.[s.id] || [],
+        referenceImages:
+          property.referenceImages?.[s.id] ||
+          property.referenceImages?.[getSectionTypeId(s.id)] ||
+          [],
         photos: [],
         notes: '',
         checklist,
@@ -989,18 +989,19 @@ const PropertySettingsModal: React.FC<{
     const newProps = properties.map(p => {
       if (p.id === propertyId) {
         const sections = p.sections || BASE_ROOM_SECTIONS.map(s => s.id);
-        if (!sections.includes(sectionId)) {
-          // Also pre-populate default checklist for the new section
-          const defaultItems = DEFAULT_CHECKLISTS[sectionId] || [];
-          const checklists = { ...(p.checklists || {}) };
-          if (defaultItems.length > 0) {
-            checklists[sectionId] = defaultItems.map(d => ({
-              label: d.label,
-              requiredPhoto: d.requiredPhoto,
-            }));
-          }
-          return { ...p, sections: [...sections, sectionId], checklists };
+        const nextSectionId = buildNextSectionInstanceId(sectionId, sections);
+        const sectionTypeId = getSectionTypeId(nextSectionId);
+        // Pre-populate default checklist for the new section instance.
+        const defaultItems = DEFAULT_CHECKLISTS[sectionTypeId] || [];
+        const checklists = { ...(p.checklists || {}) };
+        if (defaultItems.length > 0) {
+          checklists[nextSectionId] = defaultItems.map(d => ({
+            label: d.label,
+            labelEn: d.labelEn,
+            requiredPhoto: d.requiredPhoto,
+          }));
         }
+        return { ...p, sections: [...sections, nextSectionId], checklists };
       }
       return p;
     });
@@ -1022,17 +1023,19 @@ const PropertySettingsModal: React.FC<{
       const nextSections = [...currentSections];
       const nextChecklists = { ...(p.checklists || {}) };
 
-      officeSectionIds.forEach(sectionId => {
-        if (!nextSections.includes(sectionId)) {
-          nextSections.push(sectionId);
-          const defaultItems = DEFAULT_CHECKLISTS[sectionId] || [];
-          if (defaultItems.length > 0) {
-            nextChecklists[sectionId] = defaultItems.map(item => ({
-              label: item.label,
-              labelEn: item.labelEn,
-              requiredPhoto: item.requiredPhoto,
-            }));
-          }
+      officeSectionIds.forEach(sectionTypeId => {
+        const nextSectionId = buildNextSectionInstanceId(
+          sectionTypeId,
+          nextSections
+        );
+        nextSections.push(nextSectionId);
+        const defaultItems = DEFAULT_CHECKLISTS[sectionTypeId] || [];
+        if (defaultItems.length > 0) {
+          nextChecklists[nextSectionId] = defaultItems.map(item => ({
+            label: item.label,
+            labelEn: item.labelEn,
+            requiredPhoto: item.requiredPhoto,
+          }));
         }
       });
 
@@ -1052,7 +1055,6 @@ const PropertySettingsModal: React.FC<{
   };
 
   const handleRemoveOfficeSectionsPreset = (propertyId: string) => {
-    const officeSectionIdSet = new Set<string>(OFFICE_SECTION_IDS);
     const newProps = properties.map(p => {
       if (p.id !== propertyId) {
         return p;
@@ -1062,10 +1064,17 @@ const PropertySettingsModal: React.FC<{
       const nextSections = removeOfficeSections(currentSections);
       const nextReferenceImages = { ...(p.referenceImages || {}) };
       const nextChecklists = { ...(p.checklists || {}) };
+      const officeSectionTypeSet = new Set<string>(OFFICE_SECTION_IDS);
 
-      OFFICE_SECTION_IDS.forEach(sectionId => {
-        delete nextReferenceImages[sectionId];
-        delete nextChecklists[sectionId];
+      Object.keys(nextReferenceImages).forEach(sectionId => {
+        if (officeSectionTypeSet.has(getSectionTypeId(sectionId))) {
+          delete nextReferenceImages[sectionId];
+        }
+      });
+      Object.keys(nextChecklists).forEach(sectionId => {
+        if (officeSectionTypeSet.has(getSectionTypeId(sectionId))) {
+          delete nextChecklists[sectionId];
+        }
       });
 
       return {
@@ -1286,12 +1295,7 @@ const PropertySettingsModal: React.FC<{
     return getAllSections(activeIds);
   };
 
-  const getAvailableOptionalSections = (prop: any) => {
-    const activeIds = new Set(
-      prop.sections || BASE_ROOM_SECTIONS.map(s => s.id)
-    );
-    return OPTIONAL_SECTIONS.filter(s => !activeIds.has(s.id));
-  };
+  const getAvailableOptionalSections = () => OPTIONAL_SECTIONS;
 
   return (
     <>
@@ -2153,7 +2157,7 @@ const PropertySettingsModal: React.FC<{
                   marginBottom: '16px',
                 }}
               >
-                {getAvailableOptionalSections(editingProperty).map(section => (
+                {getAvailableOptionalSections().map(section => (
                   <Tag
                     key={section.id}
                     color='default'
@@ -2170,7 +2174,7 @@ const PropertySettingsModal: React.FC<{
                     {section.name}
                   </Tag>
                 ))}
-                {getAvailableOptionalSections(editingProperty).length === 0 && (
+                {getAvailableOptionalSections().length === 0 && (
                   <Text type='secondary'>
                     All optional sections have been added
                   </Text>
@@ -2201,7 +2205,8 @@ const PropertySettingsModal: React.FC<{
                 items={getActiveSections(editingProperty).map(section => {
                   const checklistItems =
                     editingProperty.checklists?.[section.id] || [];
-                  const defaultItems = DEFAULT_CHECKLISTS[section.id] || [];
+                  const defaultItems =
+                    DEFAULT_CHECKLISTS[getSectionTypeId(section.id)] || [];
                   const hasCustom = checklistItems.length > 0;
 
                   return {
