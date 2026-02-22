@@ -76,6 +76,16 @@ interface GeocodeCacheRecord {
 
 type MapScope = 'today' | 'week';
 
+const compareJobsBySchedule = (a: DispatchJob, b: DispatchJob): number => {
+  if (a.scheduledDate !== b.scheduledDate) {
+    return a.scheduledDate.localeCompare(b.scheduledDate);
+  }
+  if (a.scheduledStartTime !== b.scheduledStartTime) {
+    return a.scheduledStartTime.localeCompare(b.scheduledStartTime);
+  }
+  return a.id.localeCompare(b.id);
+};
+
 const normalizeAddressKey = (value: string): string =>
   value.trim().toLowerCase();
 
@@ -168,6 +178,10 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
   const [mapScope, setMapScope] = useState<MapScope>('today');
 
   const todayText = dayjs().format('YYYY-MM-DD');
+  const weekEnd = useMemo(
+    () => dayjs(weekStart).add(6, 'day').format('YYYY-MM-DD'),
+    [weekStart]
+  );
 
   const executableJobs = useMemo(
     () => jobs.filter(job => mapJobStatusForExecution(job.status)),
@@ -244,6 +258,21 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
     () => getLocationReportLink(selectedEmployeeId),
     [selectedEmployeeId]
   );
+
+  const weeklyAssignedJobsForEmployee = useMemo(() => {
+    if (!selectedEmployeeId) {
+      return [] as DispatchJob[];
+    }
+    return jobs
+      .filter(
+        job =>
+          job.scheduledDate >= weekStart &&
+          job.scheduledDate <= weekEnd &&
+          mapJobStatusForExecution(job.status) &&
+          Boolean(job.assignedEmployeeIds?.includes(selectedEmployeeId))
+      )
+      .sort(compareJobsBySchedule);
+  }, [jobs, selectedEmployeeId, weekEnd, weekStart]);
 
   useEffect(() => {
     if (!isGoogleMapsConfigured()) {
@@ -839,17 +868,42 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
       return;
     }
 
-    const orderedJobIds =
-      routeResult?.orderedJobIds && routeResult.orderedJobIds.length > 0
-        ? routeResult.orderedJobIds
-        : selectedJobIds;
+    const assignedIds = weeklyAssignedJobsForEmployee.map(job => job.id);
+    const assignedIdSet = new Set(assignedIds);
+
+    const routeOrderedAssignedIds = (routeResult?.orderedJobIds || []).filter(
+      id => assignedIdSet.has(id)
+    );
+    const selectedAssignedIds = selectedJobIds.filter(id =>
+      assignedIdSet.has(id)
+    );
+
+    let orderedJobIds = Array.from(
+      new Set([
+        ...routeOrderedAssignedIds,
+        ...selectedAssignedIds,
+        ...assignedIds,
+      ])
+    );
+
+    if (orderedJobIds.length === 0) {
+      const fallbackSelectedIds =
+        routeResult?.orderedJobIds && routeResult.orderedJobIds.length > 0
+          ? routeResult.orderedJobIds
+          : selectedJobIds;
+      orderedJobIds = Array.from(new Set(fallbackSelectedIds));
+      if (orderedJobIds.length > 0) {
+        messageApi.info(
+          'No assigned weekly jobs found for this employee yet. Using currently selected jobs.'
+        );
+      }
+    }
 
     if (orderedJobIds.length === 0) {
       messageApi.warning('Please select at least one job first');
       return;
     }
 
-    const weekEnd = dayjs(weekStart).add(6, 'day').format('YYYY-MM-DD');
     const params = new URLSearchParams({
       employeeId: selectedEmployeeId,
       jobIds: orderedJobIds.join(','),
@@ -1062,6 +1116,8 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
             )}
 
             <Select
+              className='dispatch-map-planner-select'
+              popupClassName='dispatch-map-planner-select-popup'
               placeholder='Select employee (location required for route)'
               value={selectedEmployeeId}
               onChange={value => {
@@ -1069,12 +1125,15 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                 setRouteResult(null);
                 setRouteError('');
               }}
+              style={{ width: '100%' }}
               options={employees.map(employee => ({
                 value: employee.id,
                 label: `${employee.name}${employee.currentLocation ? ' (located)' : ' (no location)'}`,
               }))}
             />
             <Select
+              className='dispatch-map-planner-job-select'
+              popupClassName='dispatch-map-planner-job-select-popup'
               mode='multiple'
               placeholder='Select jobs to assign and route'
               value={selectedJobIds}
@@ -1083,6 +1142,8 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                 setRouteResult(null);
                 setRouteError('');
               }}
+              style={{ width: '100%' }}
+              popupMatchSelectWidth={false}
               maxTagCount='responsive'
               options={scopedExecutableJobs.map(job => ({
                 value: job.id,
@@ -1163,7 +1224,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
             </Button>
             <Button
               onClick={handleGenerateWeeklyPlanLink}
-              disabled={!selectedEmployeeId || selectedJobIds.length === 0}
+              disabled={!selectedEmployeeId}
             >
               Generate Weekly Plan Link
             </Button>

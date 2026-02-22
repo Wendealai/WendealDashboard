@@ -372,6 +372,9 @@ const compareJobsBySchedule = (a: DispatchJob, b: DispatchJob): number => {
   return a.id.localeCompare(b.id);
 };
 
+const isExecutableDispatchJob = (status: DispatchJob['status']): boolean =>
+  status !== 'completed' && status !== 'cancelled';
+
 const loadGeocodeCache = (): Record<string, GeocodeCacheRecord> => {
   const raw = localStorage.getItem(GEO_CACHE_STORAGE_KEY);
   if (!raw) {
@@ -809,7 +812,7 @@ const DispatchWeekPlan: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     const loadData = async () => {
-      if (!queryPayload.employeeId || queryPayload.jobIds.length === 0) {
+      if (!queryPayload.employeeId) {
         setLoading(false);
         return;
       }
@@ -840,10 +843,28 @@ const DispatchWeekPlan: React.FC = () => {
           .map(jobId => jobById.get(jobId))
           .filter((job): job is DispatchJob => Boolean(job));
 
+        const weeklyAssignedJobs = allJobs
+          .filter(
+            job =>
+              job.scheduledDate >= queryPayload.weekStart &&
+              job.scheduledDate <= queryPayload.weekEnd &&
+              isExecutableDispatchJob(job.status) &&
+              Boolean(
+                job.assignedEmployeeIds?.includes(queryPayload.employeeId)
+              )
+          )
+          .sort(compareJobsBySchedule);
+
+        const orderedWeeklyJobIds = new Set(orderedJobs.map(job => job.id));
+        const mergedJobs = [
+          ...orderedJobs,
+          ...weeklyAssignedJobs.filter(job => !orderedWeeklyJobIds.has(job.id)),
+        ].sort(compareJobsBySchedule);
+
         const notFoundIds = queryPayload.jobIds.filter(
           jobId => !jobById.has(jobId)
         );
-        setJobs(orderedJobs);
+        setJobs(mergedJobs);
         setMissingJobIds(notFoundIds);
         setCustomerProfiles(profiles);
         setPropertyTemplates(templates);
@@ -862,7 +883,13 @@ const DispatchWeekPlan: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [messageApi, queryPayload.employeeId, queryPayload.jobIds]);
+  }, [
+    messageApi,
+    queryPayload.employeeId,
+    queryPayload.jobIds,
+    queryPayload.weekEnd,
+    queryPayload.weekStart,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1141,8 +1168,7 @@ const DispatchWeekPlan: React.FC = () => {
     [customerProfileById, employee, jobs, messageApi, templateByJobId]
   );
 
-  const isInvalidQuery =
-    !queryPayload.employeeId || queryPayload.jobIds.length === 0;
+  const isInvalidQuery = !queryPayload.employeeId;
 
   return (
     <div
