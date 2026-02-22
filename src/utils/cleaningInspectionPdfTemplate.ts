@@ -21,6 +21,258 @@ import type {
 } from '@/pages/CleaningInspection/types';
 import { reverseGeocode } from '@/pages/CleaningInspection/utils';
 
+export type InspectionReportLang = 'zh' | 'en';
+
+const SECTION_NAME_EN_BY_ID: Record<string, string> = {
+  kitchen: 'Kitchen',
+  'living-room': 'Living Room',
+  'bedroom-1': 'Bedroom 1',
+  'bedroom-2': 'Bedroom 2',
+  'bedroom-3': 'Bedroom 3',
+  'bathroom-1': 'Bathroom 1',
+  'bathroom-2': 'Bathroom 2',
+  'bathroom-3': 'Bathroom 3',
+  toilet: 'Toilet',
+  laundry: 'Laundry',
+  balcony: 'Balcony',
+  garage: 'Garage',
+  garden: 'Garden',
+  'meeting-room': 'Meeting Room',
+  'office-area-1': 'Office Area 1',
+  'office-area-2': 'Office Area 2',
+  'archive-room': 'Archive Room',
+  pantry: 'Pantry',
+  restroom: 'Restroom',
+  'print-area': 'Print Area',
+};
+
+const KEY_RETURN_METHOD_EN_BY_VALUE: Record<string, string> = {
+  lockbox: 'Lockbox',
+  agent: 'Hand to Agent / Owner',
+  under_mat: 'Under Door Mat',
+  undermat: 'Under Door Mat',
+  letterbox: 'Letterbox',
+  other: 'Other',
+};
+
+const HAN_REGEX = /[\u3400-\u9fff\uf900-\ufaff]/g;
+const NON_ASCII_REGEX = /[^\x00-\x7F]/g;
+
+const SPARKERY_COMPANY_PROFILE = {
+  name: 'Sparkery Cleaning Services',
+  phone: '0478 540 915',
+  email: 'info@sparkery.com.au',
+  website: 'sparkery.com.au',
+  serviceArea: 'Brisbane, QLD',
+} as const;
+
+function extractTrailingEnglish(value: string): string {
+  const match = value.match(/[A-Za-z][A-Za-z0-9 /&().,'-]*$/);
+  return match ? match[0].trim() : '';
+}
+
+function toAsciiText(
+  value: string | null | undefined,
+  fallback = 'N/A'
+): string {
+  if (!value) return fallback;
+  const cleaned = value
+    .replace(HAN_REGEX, ' ')
+    .replace(NON_ASCII_REGEX, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || fallback;
+}
+
+function toFileToken(
+  value: string | null | undefined,
+  fallback: string
+): string {
+  const ascii = toAsciiText(value, fallback)
+    .replace(/[^A-Za-z0-9]+/g, ' ')
+    .trim();
+  if (!ascii) return fallback;
+
+  const words = ascii.split(/\s+/).filter(Boolean);
+  if (words.length === 1) {
+    return (words[0] || fallback).toUpperCase().slice(0, 10);
+  }
+
+  const initials = words
+    .map(part => part.charAt(0))
+    .join('')
+    .toUpperCase();
+  if (initials.length >= 3) {
+    return initials.slice(0, 10);
+  }
+
+  return words.join('').toUpperCase().slice(0, 10);
+}
+
+function toEnglishKeyReturnMethod(
+  value: string | undefined
+): string | undefined {
+  if (!value) return undefined;
+  const direct = KEY_RETURN_METHOD_EN_BY_VALUE[value.trim().toLowerCase()];
+  if (direct) return direct;
+  return toAsciiText(value, 'Other');
+}
+
+function toEnglishRoomName(section: RoomSection): string {
+  const mapped = SECTION_NAME_EN_BY_ID[section.id];
+  if (mapped) return mapped;
+  const trailing = extractTrailingEnglish(section.name);
+  return toAsciiText(trailing || section.name, 'Room');
+}
+
+function toEnglishChecklistLabel(item: ChecklistItem): string {
+  const preferred = item.labelEn?.trim();
+  if (preferred) return toAsciiText(preferred, 'Checklist Item');
+  const trailing = extractTrailingEnglish(item.label);
+  return toAsciiText(trailing || item.label, 'Checklist Item');
+}
+
+function buildEnglishInspection(
+  inspection: CleaningInspection
+): CleaningInspection {
+  const assignedEmployee = inspection.assignedEmployee
+    ? {
+        ...inspection.assignedEmployee,
+        name: toAsciiText(
+          inspection.assignedEmployee.nameEn ||
+            extractTrailingEnglish(inspection.assignedEmployee.name) ||
+            inspection.assignedEmployee.name,
+          'Cleaner'
+        ),
+        ...(inspection.assignedEmployee.nameEn
+          ? {
+              nameEn: toAsciiText(
+                inspection.assignedEmployee.nameEn,
+                'Cleaner'
+              ),
+            }
+          : {}),
+      }
+    : undefined;
+
+  const sections = inspection.sections.map(section => ({
+    ...section,
+    name: toEnglishRoomName(section),
+    description: toAsciiText(
+      extractTrailingEnglish(section.description) || section.description,
+      ''
+    ),
+    notes: toAsciiText(section.notes, ''),
+    checklist: (section.checklist || []).map(item => {
+      const englishLabel = toEnglishChecklistLabel(item);
+      return {
+        ...item,
+        label: englishLabel,
+        labelEn: englishLabel,
+      };
+    }),
+  }));
+
+  const damageReports = (inspection.damageReports || []).map(report => ({
+    ...report,
+    location: toAsciiText(
+      extractTrailingEnglish(report.location) || report.location,
+      'Unknown location'
+    ),
+    description: toAsciiText(report.description, ''),
+  }));
+
+  const normalizeCio = (cio: CheckInOut | null): CheckInOut | null => {
+    if (!cio) return null;
+    const normalizedKeyReturnMethod = toEnglishKeyReturnMethod(
+      cio.keyReturnMethod
+    );
+    return {
+      timestamp: cio.timestamp,
+      gpsLat: cio.gpsLat,
+      gpsLng: cio.gpsLng,
+      gpsAddress: toAsciiText(cio.gpsAddress, 'N/A'),
+      ...(cio.photo ? { photo: cio.photo } : {}),
+      ...(normalizedKeyReturnMethod
+        ? { keyReturnMethod: normalizedKeyReturnMethod }
+        : {}),
+    };
+  };
+
+  return {
+    ...inspection,
+    propertyId: toAsciiText(inspection.propertyId, 'N/A'),
+    propertyAddress: toAsciiText(inspection.propertyAddress, 'N/A'),
+    propertyNotes: toAsciiText(inspection.propertyNotes, ''),
+    submittedAt: inspection.submittedAt,
+    submitterName: inspection.submitterName
+      ? toAsciiText(inspection.submitterName, 'N/A')
+      : inspection.submitterName,
+    templateName: inspection.templateName
+      ? toAsciiText(inspection.templateName, '')
+      : inspection.templateName,
+    sections,
+    damageReports,
+    checkIn: normalizeCio(inspection.checkIn),
+    checkOut: normalizeCio(inspection.checkOut),
+    ...(assignedEmployee ? { assignedEmployee } : {}),
+  };
+}
+
+function localizePdfHtmlForEnglish(html: string): string {
+  const replacements: Array<[RegExp, string]> = [
+    [/lang="zh-CN"/g, 'lang="en"'],
+    [/<title>[\s\S]*?<\/title>/, '<title>Cleaning Inspection Report</title>'],
+    [/清洁检查报告/g, 'Cleaning Inspection Report'],
+    [/房产名称\s*\/\s*Property/g, 'Property'],
+    [/地址\s*\/\s*Address/g, 'Address'],
+    [/退房日期\s*\/\s*Check-out Date/g, 'Check-out Date'],
+    [/清洁人员\s*\/\s*Cleaner/g, 'Cleaner'],
+    [/清洁时长\s*\/\s*Duration/g, 'Duration'],
+    [/房间\s*\/\s*照片\s*\/\s*损坏/g, 'Rooms / Photos / Damage Reports'],
+    [/提交时间\s*\/\s*Submitted/g, 'Submitted'],
+    [/签到\s*\/\s*签退/g, 'Check-in / Check-out'],
+    [/签到\s*CHECK-IN/g, 'CHECK-IN'],
+    [/签退\s*CHECK-OUT/g, 'CHECK-OUT'],
+    [/房间概览/g, 'Room Overview'],
+    [
+      /清洁前损坏报告\s*\/\s*Pre-Clean Damage Report/g,
+      'Pre-Clean Damage Report',
+    ],
+    [/损坏照片/g, 'Damage Photo'],
+    [/损坏\s*#/g, 'Damage #'],
+    [/检查清单\s*\/\s*Checklist/g, 'Checklist'],
+    [/备注：/g, 'Notes:'],
+    [/钥匙归还:/g, 'Key Return:'],
+    [/未知位置/g, 'Unknown location'],
+    [/无描述/g, 'No description'],
+    [/已拍照/g, 'Photo attached'],
+    [/缺少照片/g, 'Missing photo'],
+    [/补充照片/g, 'Additional photo'],
+    [/通过/g, 'passed'],
+    [/完成/g, 'complete'],
+    [/(\\d+)小时\\s*(\\d+)分钟/g, '$1h $2m'],
+    [/(\\d+)\\s*个房间/g, '$1 rooms'],
+    [/(\\d+)\\s*张照片/g, '$1 photos'],
+    [/(\\d+)\\s*处损坏/g, '$1 damage reports'],
+    [
+      /第\s*\{PAGE_NUM\}\s*页\s*\/\s*共\s*\{TOTAL_PAGES\}\s*页/g,
+      'Page {PAGE_NUM} / {TOTAL_PAGES}',
+    ],
+    [/第\s*\{PAGE_NUM\}\s*页/g, 'Page {PAGE_NUM}'],
+    [/共\s*\{TOTAL_PAGES\}\s*页/g, '{TOTAL_PAGES}'],
+  ];
+
+  let output = html;
+  replacements.forEach(([pattern, value]) => {
+    output = output.replace(pattern, value);
+  });
+
+  // Final safeguard: strip all Han chars from English report output.
+  output = output.replace(HAN_REGEX, '');
+  return output;
+}
+
 /**
  * Ensure a CheckInOut record has a reverse-geocoded gpsAddress.
  * If gpsAddress is empty/missing but coords exist, perform reverse geocoding.
@@ -42,16 +294,20 @@ async function ensureGpsAddress(
  * Async because it may need to reverse-geocode GPS coordinates.
  */
 export async function generateInspectionPdfHtml(
-  inspection: CleaningInspection
+  inspection: CleaningInspection,
+  lang: InspectionReportLang = 'zh'
 ): Promise<string> {
+  const sourceInspection =
+    lang === 'en' ? buildEnglishInspection(inspection) : inspection;
+
   // Pre-process: reverse-geocode check-in/out GPS if addresses are missing
   const [enrichedCheckIn, enrichedCheckOut] = await Promise.all([
-    ensureGpsAddress(inspection.checkIn),
-    ensureGpsAddress(inspection.checkOut),
+    ensureGpsAddress(sourceInspection.checkIn),
+    ensureGpsAddress(sourceInspection.checkOut),
   ]);
   // Use enriched copy for rendering
   const enriched: CleaningInspection = {
-    ...inspection,
+    ...sourceInspection,
     checkIn: enrichedCheckIn,
     checkOut: enrichedCheckOut,
   };
@@ -102,14 +358,18 @@ export async function generateInspectionPdfHtml(
       .replace(/\{PAGE_NUM\}/g, String(idx + 1))
       .replace(/\{TOTAL_PAGES\}/g, String(totalPages))
   );
+  const reportTitle = generateInspectionFilename(enriched).replace(
+    /\.pdf$/i,
+    ''
+  );
 
-  return `
+  const html = `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>清洁检查报告 - ${enriched.id}</title>
+  <title>${reportTitle}</title>
   <style>
     ${generatePrintStyles()}
   </style>
@@ -130,6 +390,8 @@ export async function generateInspectionPdfHtml(
 </body>
 </html>
   `;
+
+  return lang === 'en' ? localizePdfHtmlForEnglish(html) : html;
 }
 
 /**
@@ -287,6 +549,40 @@ function generatePrintStyles(): string {
       color: #222;
       font-weight: 600;
       border-bottom: 0.5pt solid #f0f0f0;
+    }
+
+    .company-card {
+      border: 1pt solid #d9d9d9;
+      border-radius: 3px;
+      background: #fafafa;
+      padding: 3mm 4mm;
+      margin-bottom: 4mm;
+    }
+    .company-title {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #222;
+      margin-bottom: 2mm;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .company-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5mm 4mm;
+    }
+    .company-item {
+      font-size: 8.5pt;
+      color: #444;
+      line-height: 1.4;
+      min-height: 4mm;
+    }
+    .company-label {
+      color: #888;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-right: 1mm;
     }
 
     .section-heading {
@@ -515,6 +811,21 @@ function generateCoverPage(
     })
     .join('');
 
+  const companyInfoItems = [
+    ['Company', SPARKERY_COMPANY_PROFILE.name],
+    ['Phone', SPARKERY_COMPANY_PROFILE.phone],
+    ['Email', SPARKERY_COMPANY_PROFILE.email],
+    ['Website', SPARKERY_COMPANY_PROFILE.website],
+    ['Service Area', SPARKERY_COMPANY_PROFILE.serviceArea],
+    ['Report ID', inspection.id || 'N/A'],
+  ];
+  const companyInfoHtml = companyInfoItems
+    .map(
+      ([label, value]) =>
+        `<div class="company-item"><span class="company-label">${label}</span>${toAsciiText(value, 'N/A')}</div>`
+    )
+    .join('');
+
   return `
   <div class="page">
     <div class="cover-banner">
@@ -533,6 +844,12 @@ function generateCoverPage(
         <tr><td class="label-cell">房间 / 照片 / 损坏</td><td class="value-cell">${roomCount} 个房间 · ${totalPhotos} 张照片 · ${damageCount} 处损坏</td></tr>
         <tr><td class="label-cell">提交时间 / Submitted</td><td class="value-cell">${submittedAt}</td></tr>
       </table>
+      <div class="company-card">
+        <div class="company-title">Company Information</div>
+        <div class="company-grid">
+          ${companyInfoHtml}
+        </div>
+      </div>
 
       <div class="section-heading">签到 / 签退</div>
       <div class="cio-row">
@@ -727,5 +1044,9 @@ export function generateInspectionFilename(
   inspection: CleaningInspection
 ): string {
   const dateStr = dayjs(inspection.checkOutDate).format('YYYYMMDD');
-  return `Cleaning_Inspection_${dateStr}_${inspection.id}.pdf`;
+  const propertyShort = toFileToken(
+    inspection.propertyId || inspection.templateName,
+    'PROPERTY'
+  );
+  return `Sparkery_Cleaning_Report_${dateStr}_${propertyShort}.pdf`;
 }

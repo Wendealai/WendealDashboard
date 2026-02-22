@@ -24,7 +24,7 @@ import {
   PictureOutlined,
 } from '@ant-design/icons';
 import type { RoomSection, ChecklistItem } from './types';
-import PhotoCapture, { type PhotoCaptureRef } from './components/PhotoCapture';
+import PhotoCapture from './components/PhotoCapture';
 import ChecklistCard from './components/ChecklistCard';
 import { useLang } from './i18n';
 import { addWatermarkToImage, captureGPSWithAddress } from './utils';
@@ -62,16 +62,10 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
     desc: '',
   });
 
-  /** Currently active checklist item awaiting photo */
-  const [photoTargetItemId, setPhotoTargetItemId] = useState<string | null>(
-    null
-  );
-
-  /** Ref to hidden PhotoCapture for direct camera trigger */
-  const checklistCameraRef = useRef<PhotoCaptureRef>(null);
-
   /** Hidden file input ref for checklist file picker */
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** Hidden camera input ref for direct native camera app capture */
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileTargetItemIdRef = useRef<string | null>(null);
 
   /** Checklist progress */
@@ -93,44 +87,22 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
     [section, onUpdate]
   );
 
-  /** Handle photo capture for a checklist item (camera) */
-  const handleItemPhotoCapture = useCallback(
-    (dataUrl: string) => {
-      if (!photoTargetItemId) return;
+  /** Apply a data URL photo to one checklist item */
+  const applyPhotoToChecklistItem = useCallback(
+    (targetId: string, dataUrl: string) => {
       onUpdate({
         ...section,
         checklist: section.checklist.map(i =>
-          i.id === photoTargetItemId ? { ...i, photo: dataUrl } : i
+          i.id === targetId ? { ...i, photo: dataUrl } : i
         ),
       });
-      setPhotoTargetItemId(null);
     },
-    [section, onUpdate, photoTargetItemId]
+    [section, onUpdate]
   );
 
-  /** Directly open camera for a checklist item (no intermediate step) */
-  const handleCameraRequest = useCallback((itemId: string) => {
-    setPhotoTargetItemId(itemId);
-    // Use setTimeout(0) to ensure state is set before ref triggers
-    setTimeout(() => {
-      checklistCameraRef.current?.openCamera();
-    }, 0);
-  }, []);
-
-  /** Handle file picker for a checklist item */
-  const handleFileSelect = useCallback((itemId: string) => {
-    fileTargetItemIdRef.current = itemId;
-    fileInputRef.current?.click();
-  }, []);
-
-  /** Process the selected file and apply watermark */
-  const handleFileChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      const targetId = fileTargetItemIdRef.current;
-      if (!file || !targetId) return;
-
-      // Read file as data URL
+  /** Process selected file for checklist item (camera or gallery) */
+  const processChecklistItemFile = useCallback(
+    (file: File, targetId: string) => {
       const reader = new FileReader();
       reader.onload = async ev => {
         const dataUrl = ev.target?.result as string;
@@ -142,28 +114,55 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
             gps,
             address: geoAddr || propertyAddress,
           });
-          onUpdate({
-            ...section,
-            checklist: section.checklist.map(i =>
-              i.id === targetId ? { ...i, photo: watermarked } : i
-            ),
-          });
+          applyPhotoToChecklistItem(targetId, watermarked);
         } catch {
-          // Fallback: use without watermark
-          onUpdate({
-            ...section,
-            checklist: section.checklist.map(i =>
-              i.id === targetId ? { ...i, photo: dataUrl } : i
-            ),
-          });
+          // Fallback: keep original image if watermark/GPS fails.
+          applyPhotoToChecklistItem(targetId, dataUrl);
+        } finally {
+          fileTargetItemIdRef.current = null;
         }
-        fileTargetItemIdRef.current = null;
       };
       reader.readAsDataURL(file);
-      // Reset input so the same file can be re-selected
+    },
+    [applyPhotoToChecklistItem, propertyAddress]
+  );
+
+  /** Open native camera app for a checklist item */
+  const handleCameraRequest = useCallback((itemId: string) => {
+    fileTargetItemIdRef.current = itemId;
+    cameraInputRef.current?.click();
+  }, []);
+
+  /** Handle file picker for a checklist item */
+  const handleFileSelect = useCallback((itemId: string) => {
+    fileTargetItemIdRef.current = itemId;
+    fileInputRef.current?.click();
+  }, []);
+
+  /** Process the selected file and apply watermark */
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      const targetId = fileTargetItemIdRef.current;
+      if (!file || !targetId) return;
+      processChecklistItemFile(file, targetId);
+      // Reset input so the same file can be re-selected.
       e.target.value = '';
     },
-    [section, onUpdate, propertyAddress]
+    [processChecklistItemFile]
+  );
+
+  /** Process camera capture from native camera input */
+  const handleCameraFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      const targetId = fileTargetItemIdRef.current;
+      if (!file || !targetId) return;
+      processChecklistItemFile(file, targetId);
+      // Reset input so the same file can be re-selected.
+      e.target.value = '';
+    },
+    [processChecklistItemFile]
   );
 
   /** Handle additional room photo capture */
@@ -203,6 +202,16 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
 
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+      {/* Hidden camera input (opens native camera app on mobile) */}
+      <input
+        ref={cameraInputRef}
+        type='file'
+        accept='image/*'
+        capture='environment'
+        style={{ display: 'none' }}
+        onChange={handleCameraFileChange}
+      />
+
       {/* Hidden file input for checklist item file picker */}
       <input
         ref={fileInputRef}
@@ -315,14 +324,6 @@ const StepRoomInspection: React.FC<StepRoomInspectionProps> = ({
           ))}
         </Card>
       )}
-
-      {/* Hidden PhotoCapture for direct camera trigger from checklist icons */}
-      <PhotoCapture
-        ref={checklistCameraRef}
-        onCapture={handleItemPhotoCapture}
-        address={propertyAddress}
-        hideButtons
-      />
 
       <Divider style={{ margin: '12px 0' }} />
 

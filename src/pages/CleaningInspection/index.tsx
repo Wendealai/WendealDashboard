@@ -59,6 +59,7 @@ import {
   loadPropertyTemplates,
   loadEmployees,
 } from '@/services/inspectionService';
+import { buildInspectionShareUrl } from './shareLink';
 
 const { Text } = Typography;
 
@@ -158,8 +159,10 @@ const CleaningInspectionPage: React.FC = () => {
   );
   const urlInspectionId = searchParams.get('id');
   const urlPropertyName = searchParams.get('property') || '';
+  const urlPropertyAddress = searchParams.get('addr') || '';
   const urlDate = searchParams.get('date') || dayjs().format('YYYY-MM-DD');
   const urlEmployeeId = searchParams.get('employee') || '';
+  const urlTemplateId = searchParams.get('templateId') || '';
 
   // ── Core State ──
   const [inspection, setInspection] = useState<CleaningInspection | null>(null);
@@ -176,7 +179,7 @@ const CleaningInspectionPage: React.FC = () => {
     return {
       id: urlInspectionId || generateId('insp'),
       propertyId: urlPropertyName,
-      propertyAddress: '',
+      propertyAddress: urlPropertyAddress,
       propertyNotes: '',
       checkOutDate: urlDate,
       submittedAt: '',
@@ -188,7 +191,7 @@ const CleaningInspectionPage: React.FC = () => {
       checkOut: null,
       damageReports: [],
     };
-  }, [urlInspectionId, urlPropertyName, urlDate]);
+  }, [urlInspectionId, urlPropertyName, urlPropertyAddress, urlDate]);
 
   /**
    * Build a fresh "new" inspection from URL params + templates.
@@ -197,22 +200,26 @@ const CleaningInspectionPage: React.FC = () => {
   const buildNewInspection = useCallback(async () => {
     const id = urlInspectionId || generateId('insp');
     const templates = await loadPropertyTemplates();
-    const matchingTemplate = templates.find(
-      (p: any) => p.name === urlPropertyName
-    );
+    let matchingTemplate =
+      (urlTemplateId
+        ? templates.find((p: any) => p.id === urlTemplateId)
+        : undefined) || templates.find((p: any) => p.name === urlPropertyName);
 
     let sections: RoomSection[];
-    let propertyAddress = '';
+    let propertyAddress = urlPropertyAddress;
     let propertyNotes = '';
     let templateName: string | undefined;
+    const resolvedPropertyName =
+      urlPropertyName || matchingTemplate?.name || '';
 
     if (matchingTemplate) {
       sections = buildSectionsFromTemplate(matchingTemplate);
-      propertyAddress = matchingTemplate.address || '';
+      propertyAddress = urlPropertyAddress || matchingTemplate.address || '';
       propertyNotes = matchingTemplate.notes || '';
       templateName = matchingTemplate.name;
     } else {
       sections = buildDefaultSections();
+      templateName = resolvedPropertyName || undefined;
     }
 
     // Load assigned employee from Supabase if employee ID is in URL
@@ -228,7 +235,8 @@ const CleaningInspectionPage: React.FC = () => {
 
     const newInsp: CleaningInspection = {
       id,
-      propertyId: urlPropertyName,
+      ...(urlTemplateId ? { propertyTemplateId: urlTemplateId } : {}),
+      propertyId: resolvedPropertyName,
       propertyAddress,
       propertyNotes,
       checkOutDate: urlDate,
@@ -243,7 +251,14 @@ const CleaningInspectionPage: React.FC = () => {
       ...(assignedEmployee ? { assignedEmployee } : {}),
     };
     return newInsp;
-  }, [urlInspectionId, urlPropertyName, urlDate, urlEmployeeId]);
+  }, [
+    urlInspectionId,
+    urlPropertyName,
+    urlPropertyAddress,
+    urlDate,
+    urlEmployeeId,
+    urlTemplateId,
+  ]);
 
   // ── Initialize Inspection from Supabase ──
   useEffect(() => {
@@ -408,16 +423,23 @@ const CleaningInspectionPage: React.FC = () => {
   const handleGeneratePDF = useCallback(async () => {
     if (!inspection) return;
     try {
-      const html = await generateInspectionPdfHtml(inspection);
+      const html = await generateInspectionPdfHtml(inspection, lang);
       openInspectionPrintWindow(html);
     } catch {
       messageApi.error('Failed to generate PDF');
     }
-  }, [inspection, messageApi]);
+  }, [inspection, messageApi, lang]);
 
   const handleCopyLink = useCallback(() => {
     if (!inspection) return;
-    const url = `${window.location.origin}/cleaning-inspection?id=${inspection.id}`;
+    const url = buildInspectionShareUrl(window.location.origin, {
+      id: inspection.id,
+      propertyName: inspection.propertyId,
+      propertyAddress: inspection.propertyAddress,
+      checkOutDate: inspection.checkOutDate,
+      employeeId: inspection.assignedEmployee?.id,
+      templateId: inspection.propertyTemplateId,
+    });
     navigator.clipboard.writeText(url);
     messageApi.success('Link copied to clipboard!');
   }, [inspection, messageApi]);

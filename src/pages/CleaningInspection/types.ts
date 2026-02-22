@@ -95,6 +95,8 @@ export type InspectionStatus = 'pending' | 'in_progress' | 'submitted';
 /** Complete inspection record */
 export interface CleaningInspection {
   id: string;
+  /** Optional source property template ID used for share-link recovery */
+  propertyTemplateId?: string;
   propertyId: string;
   propertyAddress: string;
   /** Notes / remarks for cleaner — English version (key pickup, alarm codes, access instructions, etc.) */

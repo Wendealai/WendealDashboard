@@ -67,6 +67,7 @@ import {
   saveEmployees,
 } from '@/services/inspectionService';
 import { compressImage } from '@/pages/CleaningInspection/utils';
+import { buildInspectionShareUrl } from '@/pages/CleaningInspection/shareLink';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -117,16 +118,17 @@ const CleaningInspectionAdmin: React.FC = () => {
     let cancelled = false;
 
     const loadInitialData = async () => {
-      try {
-        const [rawTemplates, rawArchives, rawEmployees] = await Promise.all([
+      const [templatesResult, archivesResult, employeesResult] =
+        await Promise.allSettled([
           loadPropertyTemplates(),
           loadAllInspections(),
           loadEmployees(),
         ]);
 
-        if (cancelled) return;
+      if (cancelled) return;
 
-        const migratedTemplates = rawTemplates.map((p: any) => {
+      if (templatesResult.status === 'fulfilled') {
+        const migratedTemplates = templatesResult.value.map((p: any) => {
           if (!p.sections) {
             const newReferenceImages: Record<string, any[]> = {};
             const newSections: string[] = [
@@ -147,14 +149,25 @@ const CleaningInspectionAdmin: React.FC = () => {
           }
           return p;
         });
-
         setProperties(migratedTemplates.map(migratePropertyChecklists));
-        setArchives(rawArchives as InspectionArchive[]);
-        setEmployees(rawEmployees);
-      } catch {
-        if (!cancelled) {
-          messageApi.error('加载云端数据失败，请检查 Supabase 配置');
-        }
+      }
+
+      if (archivesResult.status === 'fulfilled') {
+        setArchives(archivesResult.value as InspectionArchive[]);
+      }
+
+      if (employeesResult.status === 'fulfilled') {
+        setEmployees(employeesResult.value);
+      }
+
+      if (
+        templatesResult.status === 'rejected' ||
+        archivesResult.status === 'rejected' ||
+        employeesResult.status === 'rejected'
+      ) {
+        messageApi.warning(
+          'Some cloud data failed to load. Please verify Supabase tables and RLS policies.'
+        );
       }
     };
 
@@ -163,6 +176,34 @@ const CleaningInspectionAdmin: React.FC = () => {
       cancelled = true;
     };
   }, [messageApi]);
+
+  React.useEffect(() => {
+    let disposed = false;
+
+    const refreshArchives = async () => {
+      try {
+        const latest = await loadAllInspections();
+        if (!disposed) {
+          setArchives(latest as InspectionArchive[]);
+        }
+      } catch {
+        // Keep current data when refresh fails.
+      }
+    };
+
+    const onFocus = () => {
+      refreshArchives();
+    };
+
+    const timer = window.setInterval(refreshArchives, 15000);
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
 
   /** Save employees to Supabase */
   const saveEmployeesToStorage = async (emps: Employee[]) => {
@@ -183,20 +224,19 @@ const CleaningInspectionAdmin: React.FC = () => {
     }
   };
 
-  const saveArchivesToStorage = async (archs: InspectionArchive[]) => {
-    setArchives(archs);
-    try {
-      await Promise.all(
-        archs.map(async archive => {
-          await submitInspection(archive as any);
-        })
-      );
-    } catch {
-      messageApi.error('检查记录同步失败，请稍后重试');
-    }
-  };
+  const buildShareUrl = (
+    archive: Partial<InspectionArchive> & { id: string }
+  ) =>
+    buildInspectionShareUrl(window.location.origin, {
+      id: archive.id,
+      propertyName: archive.propertyId || '',
+      propertyAddress: (archive as any).propertyAddress || '',
+      checkOutDate: (archive as any).checkOutDate || '',
+      employeeId: (archive as any).assignedEmployee?.id,
+      templateId: (archive as any).propertyTemplateId || '',
+    });
 
-  const handleGenerateLink = () => {
+  const handleGenerateLink = async () => {
     if (!selectedPropertyId) {
       messageApi.warning('请先选择房产');
       return;
@@ -208,16 +248,9 @@ const CleaningInspectionAdmin: React.FC = () => {
     }
 
     const inspectionId = `insp-${generateId()}`;
-    const baseUrl = window.location.origin;
-
-    // Build URL with optional employee param
-    let url = `${baseUrl}/cleaning-inspection?id=${inspectionId}&property=${encodeURIComponent(property.name)}`;
     const selectedEmployee = selectedEmployeeId
       ? employees.find(e => e.id === selectedEmployeeId)
       : undefined;
-    if (selectedEmployee) {
-      url += `&employee=${encodeURIComponent(selectedEmployee.id)}`;
-    }
 
     const activeSections =
       property.sections || BASE_ROOM_SECTIONS.map(s => s.id);
@@ -250,6 +283,8 @@ const CleaningInspectionAdmin: React.FC = () => {
 
     const newInspection: any = {
       id: inspectionId,
+      propertyTemplateId: property.id,
+      templateName: property.name,
       propertyId: property.name,
       propertyAddress: property.address,
       propertyNotes: property.notes || '',
@@ -269,17 +304,24 @@ const CleaningInspectionAdmin: React.FC = () => {
       newInspection.assignedEmployee = selectedEmployee;
     }
 
-    const newArchives = [newInspection, ...archives];
-    saveArchivesToStorage(newArchives);
+    setArchives(prev => [
+      newInspection,
+      ...prev.filter(item => item.id !== inspectionId),
+    ]);
 
-    // Submit to n8n server so the cleaner's device can load it
-    submitInspection(newInspection).catch(() => {
-      console.warn('[Admin] Failed to sync inspection to server');
-    });
+    const syncResult = await submitInspection(newInspection);
 
+    const url = buildShareUrl(newInspection);
     navigator.clipboard.writeText(url);
     window.open(url, '_blank');
-    messageApi.success('检查链接已复制到剪贴板！可以发送给清洁工。');
+
+    if (syncResult.source === 'supabase') {
+      messageApi.success('检查链接已复制到剪贴板，并已经同步到云端。');
+    } else {
+      messageApi.warning(
+        '链接已复制，但云端同步失败。当前只保存到本地，请稍后重试以确保云端归档。'
+      );
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -294,14 +336,14 @@ const CleaningInspectionAdmin: React.FC = () => {
       });
   };
 
-  const handleCopyLink = (id: string, propertyId: string) => {
-    const url = `${window.location.origin}/cleaning-inspection?id=${id}&property=${encodeURIComponent(propertyId)}`;
+  const handleCopyLink = (archive: InspectionArchive) => {
+    const url = buildShareUrl(archive);
     navigator.clipboard.writeText(url);
-    messageApi.success('链接已复制！');
+    messageApi.success('Link copied.');
   };
 
-  const handleOpen = (id: string, propertyId: string) => {
-    const url = `${window.location.origin}/cleaning-inspection?id=${id}&property=${encodeURIComponent(propertyId)}`;
+  const handleOpen = (archive: InspectionArchive) => {
+    const url = buildShareUrl(archive);
     window.open(url, '_blank');
   };
 
@@ -509,12 +551,12 @@ const CleaningInspectionAdmin: React.FC = () => {
                     <Button
                       type='text'
                       icon={<EyeOutlined />}
-                      onClick={() => handleOpen(item.id, item.propertyId)}
+                      onClick={() => handleOpen(item)}
                     />
                     <Button
                       type='text'
                       icon={<LinkOutlined />}
-                      onClick={() => handleCopyLink(item.id, item.propertyId)}
+                      onClick={() => handleCopyLink(item)}
                     />
                     <Popconfirm
                       title='确认删除？'
@@ -567,6 +609,9 @@ const PropertySettingsModal: React.FC<{
   const [newNotes, setNewNotes] = useState('');
   const [newNotesZh, setNewNotesZh] = useState('');
   const [newNoteImages, setNewNoteImages] = useState<string[]>([]);
+  const [newOptionalSectionIds, setNewOptionalSectionIds] = useState<string[]>(
+    []
+  );
   const [previewImage, setPreviewImage] = useState<{
     src: string;
     desc: string;
@@ -584,7 +629,9 @@ const PropertySettingsModal: React.FC<{
       messageApi.warning('请输入房产名称');
       return;
     }
-    const defaultSectionIds = BASE_ROOM_SECTIONS.map(s => s.id);
+    const defaultSectionIds = Array.from(
+      new Set([...BASE_ROOM_SECTIONS.map(s => s.id), ...newOptionalSectionIds])
+    );
     // Pre-populate default checklists for each section
     const defaultChecklists: Record<string, any[]> = {};
     defaultSectionIds.forEach(sId => {
@@ -617,6 +664,7 @@ const PropertySettingsModal: React.FC<{
     setNewNotes('');
     setNewNotesZh('');
     setNewNoteImages([]);
+    setNewOptionalSectionIds([]);
     messageApi.success('房产已添加');
   };
 
@@ -995,7 +1043,10 @@ const PropertySettingsModal: React.FC<{
         <Button
           type='primary'
           icon={<PlusOutlined />}
-          onClick={() => setIsAddOpen(true)}
+          onClick={() => {
+            setNewOptionalSectionIds([]);
+            setIsAddOpen(true);
+          }}
           style={{ marginBottom: '16px' }}
         >
           添加房产
@@ -1230,6 +1281,7 @@ const PropertySettingsModal: React.FC<{
             setNewNotes('');
             setNewNotesZh('');
             setNewNoteImages([]);
+            setNewOptionalSectionIds([]);
           }}
           onOk={handleAdd}
         >
@@ -1251,6 +1303,49 @@ const PropertySettingsModal: React.FC<{
                 placeholder='例如：123 Main St, Brisbane'
                 style={{ marginTop: '4px' }}
               />
+            </div>
+            <div>
+              <Text strong>Sections (optional)</Text>
+              <Text
+                type='secondary'
+                style={{ display: 'block', fontSize: '11px', marginTop: '4px' }}
+              >
+                Base sections are included by default. Add optional areas like
+                Meeting Room and Office Area.
+              </Text>
+              <Space size={8} wrap style={{ marginTop: '8px' }}>
+                <Button
+                  size='small'
+                  onClick={() =>
+                    setNewOptionalSectionIds(prev =>
+                      Array.from(new Set([...prev, ...OFFICE_SECTION_IDS]))
+                    )
+                  }
+                >
+                  Add office preset
+                </Button>
+                <Button
+                  size='small'
+                  onClick={() => setNewOptionalSectionIds([])}
+                >
+                  Clear optional
+                </Button>
+              </Space>
+              <div style={{ marginTop: '8px' }}>
+                <Checkbox.Group
+                  value={newOptionalSectionIds}
+                  onChange={vals => setNewOptionalSectionIds(vals as string[])}
+                  style={{ width: '100%' }}
+                >
+                  <Row gutter={[8, 8]}>
+                    {OPTIONAL_SECTIONS.map(section => (
+                      <Col key={section.id} xs={24} sm={12}>
+                        <Checkbox value={section.id}>{section.name}</Checkbox>
+                      </Col>
+                    ))}
+                  </Row>
+                </Checkbox.Group>
+              </div>
             </div>
             <div>
               <Text strong>
