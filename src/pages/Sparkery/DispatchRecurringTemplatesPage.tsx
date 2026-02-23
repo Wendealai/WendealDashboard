@@ -33,6 +33,7 @@ import type {
   DispatchWeekday,
   UpsertDispatchCustomerProfilePayload,
 } from './dispatch/types';
+import './sparkery.css';
 
 const { Title, Text } = Typography;
 
@@ -147,11 +148,13 @@ const profileToPayload = (
 
 const formatWeekdayTags = (weekdays: DispatchWeekday[]): React.ReactNode =>
   weekdays.length === 0 ? (
-    <Text type='secondary'>Not set</Text>
+    <Text type='secondary' className='dispatch-recurring-empty-text'>
+      Not set
+    </Text>
   ) : (
-    <Space size={4} wrap>
+    <Space size={[4, 4]} wrap className='dispatch-recurring-weekday-tags'>
       {weekdays.map(day => (
-        <Tag key={day}>
+        <Tag key={day} className='dispatch-recurring-weekday-tag'>
           {WEEKDAY_OPTIONS.find(option => option.value === day)?.label}
         </Tag>
       ))}
@@ -346,9 +349,18 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
       title: 'Customer',
       key: 'customer',
       render: (_, record) => (
-        <Space direction='vertical' size={0}>
-          <Text strong>{record.name}</Text>
-          <Text type='secondary' style={{ fontSize: 12 }}>
+        <Space
+          direction='vertical'
+          size={0}
+          className='dispatch-recurring-customer-cell'
+        >
+          <Text strong className='dispatch-recurring-customer-name'>
+            {record.name}
+          </Text>
+          <Text
+            type='secondary'
+            className='dispatch-muted-text dispatch-recurring-customer-address'
+          >
             {record.address || 'No address'}
           </Text>
         </Space>
@@ -366,7 +378,7 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
       key: 'time',
       width: 140,
       render: (_, record) => (
-        <Text>
+        <Text className='dispatch-recurring-time-text'>
           {record.recurringStartTime || '--:--'} -{' '}
           {record.recurringEndTime || '--:--'}
         </Text>
@@ -377,7 +389,9 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
       key: 'service',
       width: 130,
       render: (_, record) => (
-        <Tag>{record.recurringServiceType || 'regular'}</Tag>
+        <Tag className='dispatch-recurring-service-tag'>
+          {record.recurringServiceType || 'regular'}
+        </Tag>
       ),
     },
     {
@@ -385,15 +399,20 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
       key: 'priority',
       width: 90,
       align: 'center',
-      render: (_, record) => <Text>{record.recurringPriority || 3}</Text>,
+      render: (_, record) => (
+        <Text className='dispatch-recurring-priority-text'>
+          {record.recurringPriority || 3}
+        </Text>
+      ),
     },
     {
       title: 'Fixed Fee (AUD)',
       key: 'fee',
       width: 240,
       render: (_, record) => (
-        <Space>
+        <Space className='dispatch-recurring-fee-cell' size={8}>
           <InputNumber
+            className='dispatch-recurring-fee-input'
             min={0}
             precision={2}
             value={feeDrafts[record.id] ?? 0}
@@ -406,6 +425,7 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
           />
           <Button
             size='small'
+            className='dispatch-recurring-save-btn'
             loading={savingFeeId === record.id}
             onClick={() => handleQuickSaveFee(record)}
           >
@@ -419,7 +439,11 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
       key: 'actions',
       width: 110,
       render: (_, record) => (
-        <Button size='small' onClick={() => openEdit(record)}>
+        <Button
+          size='small'
+          className='dispatch-recurring-edit-btn'
+          onClick={() => openEdit(record)}
+        >
           Edit
         </Button>
       ),
@@ -427,14 +451,10 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
   ];
 
   return (
-    <div className='dispatch-dashboard-page' style={{ padding: 12 }}>
+    <div className='dispatch-dashboard-page dispatch-dashboard-shell'>
       <div className='dispatch-dashboard-header'>
         <div>
-          <Title
-            level={4}
-            className='dispatch-dashboard-title'
-            style={{ marginBottom: 4 }}
-          >
+          <Title level={4} className='dispatch-dashboard-title'>
             Recurring Task Templates
           </Title>
           <Text className='dispatch-dashboard-subtitle' type='secondary'>
@@ -452,16 +472,25 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
         </Space>
       </div>
 
-      <Card size='small' style={{ marginBottom: 12 }}>
-        <Space wrap>
-          <Text type='secondary'>Week Start</Text>
+      <Card
+        size='small'
+        className='dispatch-dashboard-section-card dispatch-recurring-week-card'
+      >
+        <Space wrap className='dispatch-recurring-week-bar'>
+          <Text type='secondary' className='dispatch-recurring-week-label'>
+            Week Start
+          </Text>
           <Input
             type='date'
+            className='dispatch-recurring-week-input'
             value={selectedWeekStart}
-            onChange={event =>
-              dispatch(setSelectedWeekStart(event.target.value))
-            }
-            style={{ width: 180 }}
+            onChange={event => {
+              const nextWeekStart = event.target.value;
+              if (!nextWeekStart) {
+                return;
+              }
+              dispatch(setSelectedWeekStart(nextWeekStart));
+            }}
           />
           <Button onClick={handleRefresh}>Refresh Templates</Button>
           <Button type='primary' loading={autoFilling} onClick={handleAutoFill}>
@@ -472,18 +501,23 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
 
       {error && (
         <Alert
+          className='dispatch-dashboard-alert'
           type='error'
           message={error}
           closable
           onClose={() => dispatch(clearDispatchError())}
-          style={{ marginBottom: 12 }}
         />
       )}
 
-      <Card size='small' title={`Recurring Templates (${templates.length})`}>
+      <Card
+        size='small'
+        title={`Recurring Templates (${templates.length})`}
+        className='dispatch-recurring-table-card'
+      >
         <Table<DispatchCustomerProfile>
           rowKey='id'
           size='small'
+          className='dispatch-recurring-table'
           loading={Boolean(isLoading)}
           pagination={{ pageSize: 10 }}
           columns={columns}
@@ -591,7 +625,11 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
             </Select>
           </Form.Item>
           <Form.Item label='Recurring Fixed Fee (AUD)' name='recurringFee'>
-            <InputNumber min={0} precision={2} style={{ width: '100%' }} />
+            <InputNumber
+              className='dispatch-form-number-full-width'
+              min={0}
+              precision={2}
+            />
           </Form.Item>
           <Form.Item label='Default Task Title' name='defaultJobTitle'>
             <Input />

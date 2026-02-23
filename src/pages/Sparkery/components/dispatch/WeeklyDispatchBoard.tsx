@@ -236,6 +236,10 @@ const getGivenName = (fullName: string): string => {
   return given || trimmed;
 };
 
+const cssVars = (
+  variables: Record<`--${string}`, string | number>
+): React.CSSProperties => variables as React.CSSProperties;
+
 const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
   jobsByDate,
   employees,
@@ -350,64 +354,44 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
   };
 
   return (
-    <Card title='Weekly Dispatch Board (Mon-Sun, 07:00-24:00)' size='small'>
+    <Card
+      className='dispatch-board-card'
+      title='Weekly Dispatch Board (Mon-Sun, 07:00-24:00)'
+      size='small'
+    >
       <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '72px repeat(7, minmax(140px, 1fr))',
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          overflowX: 'auto',
-        }}
+        className='dispatch-weekly-grid'
+        style={cssVars({
+          '--dispatch-weekly-board-height': `${boardHeight}px`,
+          '--dispatch-weekly-slot-height': `${SLOT_HEIGHT}px`,
+        })}
       >
-        <div
-          style={{ borderRight: '1px solid #f0f0f0', background: '#fafafa' }}
-        />
+        <div className='dispatch-weekly-grid-corner' />
         {weekDates.map(date => {
           const isToday = date === todayDateKey;
           return (
             <div
               key={`header-${date}`}
-              style={{
-                padding: '8px 6px',
-                textAlign: 'center',
-                borderRight: '1px solid #f0f0f0',
-                borderBottom: '1px solid #f0f0f0',
-                background: isToday ? '#fff7e6' : '#fafafa',
-                color: isToday ? '#ad6800' : undefined,
-                boxShadow: isToday ? 'inset 0 -2px 0 #fa8c16' : undefined,
-                fontWeight: 600,
-                minWidth: 140,
-              }}
+              className={`dispatch-weekly-header-cell${
+                isToday ? ' dispatch-weekly-header-cell-today' : ''
+              }`}
             >
               {getDayHeader(date)}
               {isToday && (
-                <div style={{ fontSize: 10, marginTop: 2, fontWeight: 600 }}>
-                  Today
-                </div>
+                <div className='dispatch-weekly-header-today-label'>Today</div>
               )}
             </div>
           );
         })}
 
-        <div
-          style={{
-            height: boardHeight,
-            borderRight: '1px solid #f0f0f0',
-            position: 'relative',
-            background: '#fcfcfc',
-          }}
-        >
+        <div className='dispatch-weekly-time-column'>
           {hourLabels.map((label, index) => (
             <div
               key={label}
-              style={{
-                position: 'absolute',
-                top: index * SLOT_HEIGHT * 2 - 8,
-                right: 6,
-                fontSize: 11,
-                color: '#8c8c8c',
-              }}
+              className='dispatch-weekly-hour-label'
+              style={cssVars({
+                '--dispatch-weekly-hour-top': `${index * SLOT_HEIGHT * 2 - 8}px`,
+              })}
             >
               {label}
             </div>
@@ -421,13 +405,9 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
           return (
             <div
               key={`col-${date}`}
-              style={{
-                height: boardHeight,
-                position: 'relative',
-                borderRight: '1px solid #f0f0f0',
-                background: isToday ? '#fffdf5' : '#fff',
-                minWidth: 140,
-              }}
+              className={`dispatch-weekly-day-column${
+                isToday ? ' dispatch-weekly-day-column-today' : ''
+              }`}
               onDragOver={event => {
                 event.preventDefault();
                 if (!draggingJob) return;
@@ -460,36 +440,24 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
               {Array.from({ length: totalSlots + 1 }).map((_, slotIndex) => (
                 <div
                   key={`line-${date}-${slotIndex}`}
-                  style={{
-                    position: 'absolute',
-                    top: slotIndex * SLOT_HEIGHT,
-                    left: 0,
-                    right: 0,
-                    borderTop:
-                      slotIndex % 2 === 0
-                        ? '1px solid rgba(0,0,0,0.08)'
-                        : '1px dashed rgba(0,0,0,0.05)',
-                  }}
+                  className={`dispatch-weekly-slot-line ${
+                    slotIndex % 2 === 0
+                      ? 'dispatch-weekly-slot-line-major'
+                      : 'dispatch-weekly-slot-line-minor'
+                  }`}
+                  style={cssVars({
+                    '--dispatch-weekly-slot-top': `${slotIndex * SLOT_HEIGHT}px`,
+                  })}
                 />
               ))}
 
               {dropPreview && dropPreview.date === date && (
                 <div
-                  style={{
-                    position: 'absolute',
-                    left: 4,
-                    right: 4,
-                    top:
-                      ((dropPreview.startMinutes - START_HOUR * 60) /
-                        SLOT_MINUTES) *
-                      SLOT_HEIGHT,
-                    height: SLOT_HEIGHT * 2 - 4,
-                    background: 'rgba(24, 144, 255, 0.15)',
-                    border: '1px dashed #1890ff',
-                    borderRadius: 6,
-                    pointerEvents: 'none',
-                    zIndex: 1,
-                  }}
+                  className='dispatch-weekly-drop-preview'
+                  style={cssVars({
+                    '--dispatch-weekly-drop-top': `${((dropPreview.startMinutes - START_HOUR * 60) / SLOT_MINUTES) * SLOT_HEIGHT}px`,
+                    '--dispatch-weekly-drop-height': `${SLOT_HEIGHT * 2 - 4}px`,
+                  })}
                 />
               )}
 
@@ -529,47 +497,97 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                     key={job.id}
                     placement='rightTop'
                     content={
-                      <div style={{ maxWidth: 320 }}>
-                        <div style={{ marginBottom: 6 }}>
+                      <div className='dispatch-weekly-popover-content'>
+                        <div className='dispatch-weekly-popover-title'>
                           <strong>{job.title}</strong>
                         </div>
-                        <div>
-                          <strong>Time:</strong> {job.scheduledDate}{' '}
-                          {job.scheduledStartTime} - {job.scheduledEndTime}
+                        <div className='dispatch-weekly-popover-row dispatch-weekly-popover-row-tight'>
+                          <Text
+                            strong
+                            className='dispatch-weekly-popover-label'
+                          >
+                            Time
+                          </Text>
+                          <Text className='dispatch-weekly-popover-value'>
+                            {job.scheduledDate} {job.scheduledStartTime} -{' '}
+                            {job.scheduledEndTime}
+                          </Text>
                         </div>
-                        <div style={{ marginTop: 6 }}>
-                          <strong>Finance:</strong> Base $
-                          {Number(job.baseFee || 0).toFixed(2)} | Adj $
-                          {Number(job.manualAdjustment || 0).toFixed(2)} | Total
-                          ${Number(job.receivableTotal || 0).toFixed(2)}
+                        <div className='dispatch-weekly-popover-row'>
+                          <Text
+                            strong
+                            className='dispatch-weekly-popover-label'
+                          >
+                            Finance
+                          </Text>
+                          <div className='dispatch-weekly-popover-finance-values'>
+                            <Text
+                              type='secondary'
+                              className='dispatch-weekly-popover-value'
+                            >
+                              Base ${Number(job.baseFee || 0).toFixed(2)} | Adj
+                              ${Number(job.manualAdjustment || 0).toFixed(2)}
+                            </Text>
+                            <Text className='dispatch-weekly-popover-total'>
+                              Total $
+                              {Number(job.receivableTotal || 0).toFixed(2)}
+                            </Text>
+                          </div>
                         </div>
-                        <div style={{ marginTop: 6 }}>
-                          <strong>Accounting:</strong>{' '}
-                          {job.financeConfirmedAt
-                            ? `Confirmed ${job.financeConfirmedAt}`
-                            : 'Pending confirmation'}
+                        <div className='dispatch-weekly-popover-row'>
+                          <Text
+                            strong
+                            className='dispatch-weekly-popover-label'
+                          >
+                            Accounting
+                          </Text>
+                          <Text
+                            type='secondary'
+                            className='dispatch-weekly-popover-value'
+                          >
+                            {job.financeConfirmedAt
+                              ? `Confirmed ${job.financeConfirmedAt}`
+                              : 'Pending confirmation'}
+                          </Text>
                         </div>
                         {job.description && (
-                          <div style={{ marginTop: 6 }}>
-                            <strong>Task:</strong> {job.description}
+                          <div className='dispatch-weekly-popover-row'>
+                            <Text
+                              strong
+                              className='dispatch-weekly-popover-label'
+                            >
+                              Task
+                            </Text>
+                            <Text className='dispatch-weekly-popover-value'>
+                              {job.description}
+                            </Text>
                           </div>
                         )}
                         {job.notes && (
-                          <div style={{ marginTop: 6 }}>
-                            <strong>Notes:</strong> {job.notes}
+                          <div className='dispatch-weekly-popover-row'>
+                            <Text
+                              strong
+                              className='dispatch-weekly-popover-label'
+                            >
+                              Notes
+                            </Text>
+                            <Text
+                              type='secondary'
+                              className='dispatch-weekly-popover-value'
+                            >
+                              {job.notes}
+                            </Text>
                           </div>
                         )}
                         {job.imageUrls && job.imageUrls.length > 0 && (
-                          <div style={{ marginTop: 8 }}>
-                            <strong>Images:</strong>
-                            <div
-                              style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(3, 1fr)',
-                                gap: 4,
-                                marginTop: 4,
-                              }}
+                          <div className='dispatch-weekly-popover-images'>
+                            <Text
+                              strong
+                              className='dispatch-weekly-popover-label'
                             >
+                              Images
+                            </Text>
+                            <div className='dispatch-weekly-image-grid'>
                               {job.imageUrls.slice(0, 6).map(url => (
                                 <img
                                   key={url}
@@ -582,12 +600,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                       index: (job.imageUrls || []).indexOf(url),
                                     });
                                   }}
-                                  style={{
-                                    width: '100%',
-                                    height: 56,
-                                    objectFit: 'cover',
-                                    cursor: 'zoom-in',
-                                  }}
+                                  className='dispatch-weekly-image-thumb'
                                 />
                               ))}
                             </div>
@@ -597,6 +610,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                     }
                   >
                     <div
+                      className='dispatch-weekly-job-card'
                       draggable={!isResizing && !isFinanceLocked}
                       onDragStart={event => {
                         if (isFinanceLocked) {
@@ -610,33 +624,21 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                         setDraggingJob(null);
                         setDropPreview(null);
                       }}
-                      style={{
-                        position: 'absolute',
-                        left: `calc(${left}% + 4px)`,
-                        width: `calc(${columnWidthPercent}% - 8px)`,
-                        top: item.top,
-                        height: effectiveHeight,
-                        background: `${color}22`,
-                        borderLeft: `4px solid ${color}`,
-                        borderRadius: 6,
-                        padding: '4px 6px',
-                        overflow: 'hidden',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                        zIndex: draggingJob?.id === job.id ? 3 : 2,
-                        cursor: 'grab',
-                      }}
+                      style={cssVars({
+                        '--dispatch-weekly-card-left': `calc(${left}% + 4px)`,
+                        '--dispatch-weekly-card-width': `calc(${columnWidthPercent}% - 8px)`,
+                        '--dispatch-weekly-card-top': `${item.top}px`,
+                        '--dispatch-weekly-card-height': `${effectiveHeight}px`,
+                        '--dispatch-weekly-card-bg': `${color}22`,
+                        '--dispatch-weekly-card-border': color,
+                        '--dispatch-weekly-card-z':
+                          draggingJob?.id === job.id ? 3 : 2,
+                      })}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start',
-                          gap: 6,
-                        }}
-                      >
+                      <div className='dispatch-weekly-job-header'>
                         <Text
                           strong
-                          style={{ fontSize: 10, lineHeight: '14px' }}
+                          className='dispatch-weekly-job-title'
                           ellipsis={{ tooltip: titleWithSchedule }}
                         >
                           {titleWithSchedule}
@@ -645,24 +647,14 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                           {isFinanceLocked && (
                             <Tag
                               color='gold'
-                              style={{
-                                marginInlineEnd: 0,
-                                fontSize: 10,
-                                lineHeight: '16px',
-                                padding: '0 4px',
-                              }}
+                              className='dispatch-weekly-tag-compact dispatch-weekly-tag-locked'
                             >
                               Locked
                             </Tag>
                           )}
                           <Tag
                             color='processing'
-                            style={{
-                              marginInlineEnd: 0,
-                              fontSize: 10,
-                              lineHeight: '16px',
-                              padding: '0 4px',
-                            }}
+                            className='dispatch-weekly-tag-compact dispatch-weekly-tag-service'
                           >
                             {job.serviceType}
                           </Tag>
@@ -675,21 +667,24 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                             }
                             content={
                               <div
-                                style={{
-                                  width: 338,
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: 8,
-                                }}
+                                className='dispatch-weekly-options-content'
                                 onClick={event => event.stopPropagation()}
                               >
-                                <Text type='secondary' style={{ fontSize: 12 }}>
+                                <Text
+                                  type='secondary'
+                                  className='dispatch-weekly-options-label'
+                                >
                                   Assignees
                                 </Text>
                                 <Select
+                                  className='dispatch-assignee-select dispatch-weekly-options-select'
+                                  classNames={{
+                                    popup: {
+                                      root: 'dispatch-assignee-select-popup',
+                                    },
+                                  }}
                                   mode='multiple'
                                   size='small'
-                                  style={{ width: '100%', fontSize: 11 }}
                                   value={job.assignedEmployeeIds || []}
                                   placeholder='Select assignees'
                                   disabled={isFinanceLocked}
@@ -698,13 +693,8 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                     setOptionsOpenJobId(null);
                                   }}
                                   maxTagCount='responsive'
-                                  listHeight={320}
+                                  listHeight={360}
                                   dropdownMatchSelectWidth={false}
-                                  dropdownStyle={{
-                                    minWidth: 320,
-                                    maxWidth: 360,
-                                    maxHeight: 340,
-                                  }}
                                 >
                                   {employees.map(emp => (
                                     <Select.Option
@@ -712,23 +702,25 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                       value={emp.id}
                                       title={emp.name}
                                     >
-                                      <span
-                                        style={{
-                                          display: 'block',
-                                          fontSize: 11,
-                                          lineHeight: '18px',
-                                          whiteSpace: 'normal',
-                                        }}
-                                      >
+                                      <span className='dispatch-weekly-assignee-option'>
                                         {emp.name}
                                       </span>
                                     </Select.Option>
                                   ))}
                                 </Select>
-                                <Text type='secondary' style={{ fontSize: 12 }}>
+                                <Text
+                                  type='secondary'
+                                  className='dispatch-weekly-options-label'
+                                >
                                   Status
                                 </Text>
                                 <Select
+                                  className='dispatch-status-select'
+                                  classNames={{
+                                    popup: {
+                                      root: 'dispatch-status-select-popup',
+                                    },
+                                  }}
                                   size='small'
                                   value={job.status}
                                   disabled={isFinanceLocked}
@@ -759,6 +751,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                 <Space>
                                   <Button
                                     size='small'
+                                    className='dispatch-weekly-option-btn'
                                     disabled={isFinanceLocked}
                                     onClick={() => {
                                       setOptionsOpenJobId(null);
@@ -770,6 +763,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                   <Button
                                     size='small'
                                     danger
+                                    className='dispatch-weekly-option-btn dispatch-weekly-option-btn-danger'
                                     disabled={isFinanceLocked}
                                     onClick={() => {
                                       handleDeleteWithConfirm(job);
@@ -781,7 +775,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                 {isFinanceLocked && (
                                   <Text
                                     type='secondary'
-                                    style={{ fontSize: 11 }}
+                                    className='dispatch-weekly-options-note'
                                   >
                                     Finance locked job can only be viewed.
                                   </Text>
@@ -790,98 +784,54 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                             }
                           >
                             <Button
+                              className='dispatch-weekly-options-button'
                               size='small'
                               icon={<EllipsisOutlined />}
                               onClick={event => event.stopPropagation()}
-                              style={{
-                                width: 22,
-                                height: 22,
-                                padding: 0,
-                                minWidth: 22,
-                              }}
                             />
                           </Popover>
                         </Space>
                       </div>
                       {isResizing && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: -26,
-                            left: 8,
-                            background: '#262626',
-                            color: '#fff',
-                            borderRadius: 4,
-                            padding: '2px 6px',
-                            fontSize: 11,
-                            lineHeight: '16px',
-                            whiteSpace: 'nowrap',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-                          }}
-                        >
+                        <div className='dispatch-weekly-resize-tip'>
                           {liveStartText} - {liveEndText} ({liveDurationText})
                         </div>
                       )}
-                      <Space
-                        size={4}
-                        style={{ width: '100%', marginTop: 2 }}
-                        wrap
-                      >
+                      <Space size={4} className='dispatch-weekly-tag-row' wrap>
                         <Tag
                           color='green'
-                          style={{
-                            marginInlineEnd: 0,
-                            fontSize: 10,
-                            lineHeight: '16px',
-                            padding: '0 4px',
-                          }}
+                          className='dispatch-weekly-tag-compact dispatch-weekly-tag-money'
                         >
                           ${Number(job.receivableTotal || 0).toFixed(2)}
                         </Tag>
                         <Tag
                           color={JOB_STATUS_META[job.status].color}
-                          style={{
-                            marginInlineEnd: 0,
-                            fontSize: 10,
-                            lineHeight: '16px',
-                            padding: '0 4px',
-                          }}
+                          className='dispatch-weekly-tag-compact dispatch-weekly-tag-status'
                         >
                           {JOB_STATUS_META[job.status].label}
                         </Tag>
                         {assignedEmployees.length > 0 ? (
-                          <Space size={2}>
+                          <Space
+                            size={2}
+                            className='dispatch-weekly-assignee-group'
+                          >
                             {assignedEmployees.map(emp => (
                               <Tag
                                 key={emp.id}
-                                style={{
-                                  marginInlineEnd: 0,
-                                  fontSize: 10,
-                                  padding: '0 4px',
-                                  lineHeight: '16px',
-                                  color: '#0958d9',
-                                  borderColor: '#69b1ff',
-                                  background: '#e6f4ff',
-                                }}
+                                className='dispatch-weekly-assignee-tag'
                               >
                                 {getGivenName(emp.name)}
                               </Tag>
                             ))}
                           </Space>
                         ) : (
-                          <Tag
-                            style={{
-                              marginInlineEnd: 0,
-                              fontSize: 10,
-                              lineHeight: '16px',
-                              padding: '0 4px',
-                            }}
-                          >
+                          <Tag className='dispatch-weekly-tag-compact dispatch-weekly-tag-unassigned'>
                             Unassigned
                           </Tag>
                         )}
                       </Space>
                       <div
+                        className='dispatch-weekly-resize-handle'
                         onMouseDown={event => {
                           if (isFinanceLocked) {
                             return;
@@ -897,15 +847,6 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                             originEndMinutes: endMinutes,
                           });
                         }}
-                        style={{
-                          position: 'absolute',
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          height: 8,
-                          cursor: 'ns-resize',
-                          background: 'transparent',
-                        }}
                       />
                     </div>
                   </Popover>
@@ -918,6 +859,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
 
       <Modal
         open={Boolean(previewState)}
+        className='dispatch-weekly-preview-modal'
         title='Task Image Preview'
         footer={
           previewState ? (
@@ -956,7 +898,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
           <img
             src={previewState.urls[previewState.index]}
             alt='preview'
-            style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+            className='dispatch-weekly-preview-image'
           />
         )}
       </Modal>

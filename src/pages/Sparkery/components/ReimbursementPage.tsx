@@ -1,20 +1,55 @@
-/**
+﻿/**
  * Reimbursement Page Component
  */
 
 import React from 'react';
-import { Card, Typography } from 'antd';
+import { Card, Space, Tag, Typography } from 'antd';
+import '../sparkery.css';
 
-const { Title, Text } = Typography;
+const { Paragraph, Text, Title } = Typography;
 
 const ReimbursementPage: React.FC = () => {
   return (
-    <div style={{ padding: '20px' }}>
-      <Card>
-        <Title level={4}>Reimbursement 工作流</Title>
-        <Text>企业采购报销记录系统 - 功能完整</Text>
-        <br />
-        <Text type='secondary'>可以从左侧导航栏的"Sparkery"选项访问</Text>
+    <div className='sparkery-reimbursement-page sparkery-reimbursement-shell'>
+      <Card className='sparkery-reimbursement-card'>
+        <Space
+          direction='vertical'
+          size={12}
+          className='sparkery-reimbursement-content'
+        >
+          <Space size={[6, 6]} wrap className='sparkery-reimbursement-tags'>
+            <Tag className='sparkery-reimbursement-tag sparkery-reimbursement-tag-ready'>
+              Ready
+            </Tag>
+            <Tag className='sparkery-reimbursement-tag'>Sparkery Internal</Tag>
+          </Space>
+          <Title level={4} className='sparkery-reimbursement-title'>
+            Reimbursement Workspace
+          </Title>
+          <Paragraph className='sparkery-reimbursement-description'>
+            This page is reserved for internal reimbursement workflows and
+            reporting.
+          </Paragraph>
+          <div className='sparkery-reimbursement-notes'>
+            <Text strong className='sparkery-reimbursement-notes-title'>
+              Planned modules
+            </Text>
+            <Text type='secondary' className='sparkery-reimbursement-note-item'>
+              1. Submit reimbursement request
+            </Text>
+            <Text type='secondary' className='sparkery-reimbursement-note-item'>
+              2. Approval status tracking
+            </Text>
+            <Text type='secondary' className='sparkery-reimbursement-note-item'>
+              3. Export monthly reimbursement summary
+            </Text>
+          </div>
+        </Space>
+      </Card>
+      <Card className='sparkery-reimbursement-card sparkery-reimbursement-card-tip'>
+        <Text type='secondary' className='sparkery-reimbursement-tip'>
+          You can access this page from the Sparkery navigation menu.
+        </Text>
       </Card>
     </div>
   );

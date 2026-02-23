@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Brisbane Cleaning Quote Calculator
  * 布里斯班清洁报价计算器 - 针对多种清洁类型的报价生成器
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   Typography,
@@ -15,7 +15,6 @@ import {
   Col,
   InputNumber,
   Divider,
-  Alert,
   Tag,
   Modal,
   Form,
@@ -23,8 +22,8 @@ import {
   Select,
   DatePicker,
   message,
+  type InputNumberProps,
 } from 'antd';
-import type { InputNumberProps } from 'antd';
 import {
   CalculatorOutlined,
   DollarOutlined,
@@ -38,7 +37,8 @@ import {
   PrinterOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { useQuoteDraft } from './index';
+import { useQuoteDraft } from './quoteDraftContext';
+import './sparkery.css';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -423,7 +423,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       };
       // 确保 workTypes 始终使用最新默认配置（包含 pricingType 等必要字段）
       mergedConfig.workTypes = DEFAULT_CONFIG.workTypes;
-      // 确保 roomTypes 有 steamCarpetPrice 字段
+      // 确保 roomTypes 具备 steamCarpetPrice 字段
       if (parsed.roomTypes) {
         mergedConfig.roomTypes = DEFAULT_CONFIG.roomTypes.map(defaultRoom => {
           const savedRoom = parsed.roomTypes.find(
@@ -552,18 +552,21 @@ const BrisbaneQuoteCalculator: React.FC = () => {
   >([]);
 
   // 单位选项定义（中英文）
-  const unitOptions = [
-    { value: '次', label: '次', labelEN: 'time' },
-    { value: '小时', label: '小时', labelEN: 'hour' },
-    { value: '间', label: '间', labelEN: 'room' },
-    { value: '月', label: '月', labelEN: 'month' },
-    { value: '平米', label: '平米', labelEN: 'sqm' },
-    { value: '小时/周', label: '小时/周', labelEN: 'hour/week' },
-    { value: '次/月', label: '次/月', labelEN: 'time/month' },
-    { value: '项', label: '项', labelEN: 'item' },
-    { value: '套', label: '套', labelEN: 'set' },
-    { value: 'visit', label: 'visit', labelEN: 'visit' },
-  ];
+  const unitOptions = React.useMemo(
+    () => [
+      { value: '次', label: '次', labelEN: 'time' },
+      { value: '小时', label: '小时', labelEN: 'hour' },
+      { value: '间', label: '间', labelEN: 'room' },
+      { value: '月', label: '月', labelEN: 'month' },
+      { value: '平米', label: '平米', labelEN: 'sqm' },
+      { value: '小时/周', label: '小时/周', labelEN: 'hour/week' },
+      { value: '次/月', label: '次/月', labelEN: 'time/month' },
+      { value: '项', label: '项', labelEN: 'item' },
+      { value: '套', label: '套', labelEN: 'set' },
+      { value: 'visit', label: 'visit', labelEN: 'visit' },
+    ],
+    []
+  );
 
   // 添加服务项目
   const addServiceItem = () => {
@@ -708,6 +711,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       .quote-footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 11px; color: #666; }
       .quote-notes { margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 4px; }
       .quote-notes-title { font-weight: bold; margin-bottom: 10px; }
+      .sparkery-page-break { page-break-after: always; break-after: page; }
     `;
   };
 
@@ -795,7 +799,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       }
 
       // Clear draft data after applying
-      message.success('已从报价申请自动填充表单数据，请审核后生成报价');
+      message.success('已从报价申请自动填充表单数据，请审核后生成报价。');
       setDraftData(null);
     }
   }, [draftData, setDraftData]);
@@ -841,7 +845,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     let addonTotal = 0;
 
     if (isServicePackage) {
-      // 服务包报价模式 - 基础价为0，所有金额来自服务项目
+      // 服务包报价模式 - 基础价为 0，所有金额来自服务项目
       basePrice = 0;
       adjustments = 0;
     } else if (workType?.pricingType === 'sqm') {
@@ -897,7 +901,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         // Bond清洁：所有房产类型都使用bondMultiplier系数
         // 地毯勾选后加到基础价，然后应用系数
         if (selectedWorkType === 'bond' && propertyType) {
-          // 地毯勾选后加到基础价（steamCarpetPrice is total for room type, not per-room）
+          // 地毯勾选后加到基础价（steamCarpetPrice 为房型总价，不是按房间）
           if (includeSteamCarpet && roomType) {
             basePrice += roomType.steamCarpetPrice;
           }
@@ -906,11 +910,11 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             basePrice = basePrice * propertyType.bondMultiplier;
           }
         } else if (propertyType) {
-          // 非Bond清洁使用绝对值加成
+          // 非 Bond 清洁使用绝对值加成
           adjustments += propertyType.additionalPrice;
         }
 
-        // House层数加成（仅House类型）
+        // House 层数加成（仅 House 类型）
         if (selectedPropertyType === 'house' && houseLevel) {
           adjustments += houseLevel.additionalPrice;
         }
@@ -977,7 +981,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             addonTotal += addon.price * quantity;
           }
 
-          // 生成HTML行 - 使用占位符，稍后根据语言替换
+          // 生成HTML琛?- 使用占位符，稍后根据语言替换
           // Note: item-detail with Chinese will be handled in generateQuoteHTML based on language
           rows += `
             <tr>
@@ -1019,7 +1023,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       });
     }
 
-    // 计算服务包总价
+    // 璁＄畻鏈嶅姟鍖呮€讳环
     let servicePackageTotal = 0;
     if (isServicePackage) {
       servicePackageTotal = serviceItems.reduce(
@@ -1098,77 +1102,81 @@ const BrisbaneQuoteCalculator: React.FC = () => {
 
   const quote = calculateQuote();
 
-  // 生成HTML内容的辅助函数
-  const generateQuoteHTML = (lang: 'en' | 'cn') => {
-    const currentDate = new Date().toLocaleDateString('en-AU', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-    const validDate = new Date(
-      Date.now() + 30 * 24 * 60 * 60 * 1000
-    ).toLocaleDateString('en-AU', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
+  // 生成 HTML 内容的辅助函数
+  const generateQuoteHTML = useCallback(
+    (lang: 'en' | 'cn') => {
+      const currentDate = new Date().toLocaleDateString('en-AU', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      const validDate = new Date(
+        Date.now() + 30 * 24 * 60 * 60 * 1000
+      ).toLocaleDateString('en-AU', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
 
-    const workTypeName =
-      config.workTypes.find(w => w.id === selectedWorkType)?.name || '';
-    const roomTypeObj = config.roomTypes.find(r => r.id === selectedRoomType);
-    const roomTypeName =
-      selectedRoomType === 'custom' ? customRoomType : roomTypeObj?.name || '';
-    const roomTypeMatch = roomTypeName.match(/(\d+)\s*Bed.*(\d+)\s*Bath/);
-    const shortRoomType = roomTypeMatch
-      ? `${roomTypeMatch[1]}B${roomTypeMatch[2]}B`
-      : roomTypeName;
+      const workTypeName =
+        config.workTypes.find(w => w.id === selectedWorkType)?.name || '';
+      const roomTypeObj = config.roomTypes.find(r => r.id === selectedRoomType);
+      const roomTypeName =
+        selectedRoomType === 'custom'
+          ? customRoomType
+          : roomTypeObj?.name || '';
+      const roomTypeMatch = roomTypeName.match(/(\d+)\s*Bed.*(\d+)\s*Bath/);
+      const shortRoomType = roomTypeMatch
+        ? `${roomTypeMatch[1]}B${roomTypeMatch[2]}B`
+        : roomTypeName;
 
-    const propertyTypeName =
-      config.propertyTypes.find(p => p.id === selectedPropertyType)?.name || '';
+      const propertyTypeName =
+        config.propertyTypes.find(p => p.id === selectedPropertyType)?.name ||
+        '';
 
-    // 判断是否为服务包模式
-    const isServicePackage = quote.isServicePackage;
+      // 判断是否为服务包模式
+      const isServicePackage = quote.isServicePackage;
 
-    // 根据不同模式生成表格内容
-    let tableContent = '';
-    let serviceItemRows = '';
+      // 根据不同模式生成表格内容
+      let tableContent = '';
+      let serviceItemRows = '';
 
-    if (isServicePackage) {
-      // Service package mode - list service items
-      serviceItems.forEach(item => {
-        // Handle line breaks in description
-        const formattedDescription = (item.description || '-')
-          .replace(/\n/g, '<br>')
-          .replace(/\r\n/g, '<br>');
-        // Get English label for unit
-        const unitLabel =
-          unitOptions.find(u => u.value === item.unit)?.labelEN ||
-          item.unit ||
-          'time';
+      if (isServicePackage) {
+        // Service package mode - list service items
+        serviceItems.forEach(item => {
+          // Handle line breaks in description
+          const formattedDescription = (item.description || '-')
+            .replace(/\n/g, '<br>')
+            .replace(/\r\n/g, '<br>');
+          // Get English label for unit
+          const unitLabel =
+            unitOptions.find(u => u.value === item.unit)?.labelEN ||
+            item.unit ||
+            'time';
 
-        serviceItemRows += `
+          serviceItemRows += `
           <tr>
             <td class="col-desc">
               <span class="item-name">${item.title || 'Service Item'}</span>
-              <span class="item-detail" style="white-space: pre-wrap; word-wrap: break-word; line-height: 1.5;">${formattedDescription}</span>
+              <span class="item-detail">${formattedDescription}</span>
             </td>
             <td class="col-type">${unitLabel}</td>
             <td class="col-hours">-</td>
             <td class="col-amount">$${item.amount.toFixed(2)}</td>
           </tr>
         `;
-      });
-      tableContent = serviceItemRows;
-    } else {
-      // 标准模式 - 原有逻辑
-      // 基础服务
-      let baseServiceRow = '';
-      if (
-        selectedWorkType !== 'office' &&
-        selectedWorkType !== 'construction' &&
-        selectedWorkType !== 'commercial'
-      ) {
-        baseServiceRow = `
+        });
+        tableContent = serviceItemRows;
+      } else {
+        // 标准模式 - 原有逻辑
+        // 基础服务
+        let baseServiceRow = '';
+        if (
+          selectedWorkType !== 'office' &&
+          selectedWorkType !== 'construction' &&
+          selectedWorkType !== 'commercial'
+        ) {
+          baseServiceRow = `
           <tr>
             <td class="col-desc">
               <span class="item-name">${lang === 'cn' ? '退租清洁服务 (End of Lease)' : 'Bond Cleaning Service (End of Lease)'}</span>
@@ -1182,15 +1190,15 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             <td class="col-amount">$${quote.basePrice.toFixed(2)}</td>
           </tr>
         `;
-      } else {
-        // 平米计价模式
-        baseServiceRow = `
+        } else {
+          // 平米计价模式
+          baseServiceRow = `
           <tr>
             <td class="col-desc">
               <span class="item-name">${workTypeName}</span>
               <span class="item-detail">
-                ${lang === 'cn' ? '面积:' : 'Area:'} ${sqmArea} sqm × $${sqmPrice}/${lang === 'cn' ? '平米' : 'sqm'}
-                ${sqmMultiplier !== 1 ? `<br>${lang === 'cn' ? '系数:' : 'Multiplier:'} ×${sqmMultiplier}` : ''}
+                ${lang === 'cn' ? '面积:' : 'Area:'} ${sqmArea} sqm 脳 $${sqmPrice}/${lang === 'cn' ? '平米' : 'sqm'}
+                ${sqmMultiplier !== 1 ? `<br>${lang === 'cn' ? '系数:' : 'Multiplier:'} 脳${sqmMultiplier}` : ''}
               </span>
             </td>
             <td class="col-type">${lang === 'cn' ? '平米计价' : 'SQM Pricing'}</td>
@@ -1198,12 +1206,12 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             <td class="col-amount">$${quote.basePrice.toFixed(2)}</td>
           </tr>
         `;
-      }
+        }
 
-      // 地毯清洁
-      const steamCarpetRow =
-        quote.workHours.steamCarpet > 0
-          ? `
+        // 地毯清洁
+        const steamCarpetRow =
+          quote.workHours.steamCarpet > 0
+            ? `
         <tr>
           <td class="col-desc">
             <span class="item-name">${lang === 'cn' ? '地毯蒸汽清洁' : 'Carpet Steam Cleaning'}</span>
@@ -1214,12 +1222,12 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           <td class="col-amount">(Included)</td>
         </tr>
       `
-          : '';
+            : '';
 
-      // 额外房间调整
-      const adjustmentRow =
-        quote.adjustments > 0
-          ? `
+        // 额外房间调整
+        const adjustmentRow =
+          quote.adjustments > 0
+            ? `
         <tr>
           <td class="col-desc">
             <span class="item-name">${lang === 'cn' ? '额外房间调整' : 'Extra Rooms Adjustment'}</span>
@@ -1229,25 +1237,25 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           <td class="col-amount">$${quote.adjustments.toFixed(2)}</td>
         </tr>
       `
-          : '';
+            : '';
 
-      // 附加服务
-      const addonRows = (quote.htmlRows || '')
-        .replace(/__ADDON_TYPE__/g, lang === 'cn' ? '附加服务' : 'Add-on')
-        .replace(
-          /<span class="item-detail" data-cn="([^"]*)"><\/span>/g,
-          lang === 'cn' ? '<span class="item-detail">$1</span>' : ''
-        );
+        // 附加服务
+        const addonRows = (quote.htmlRows || '')
+          .replace(/__ADDON_TYPE__/g, lang === 'cn' ? '附加服务' : 'Add-on')
+          .replace(
+            /<span class="item-detail" data-cn="([^"]*)"><\/span>/g,
+            lang === 'cn' ? '<span class="item-detail">$1</span>' : ''
+          );
 
-      tableContent =
-        baseServiceRow + steamCarpetRow + adjustmentRow + addonRows;
-    }
+        tableContent =
+          baseServiceRow + steamCarpetRow + adjustmentRow + addonRows;
+      }
 
-    // 根据不同模式生成总计区域
-    let totalSection = '';
-    if (isServicePackage) {
-      // Service package mode total
-      totalSection = `
+      // 根据不同模式生成总计区域
+      let totalSection = '';
+      if (isServicePackage) {
+        // Service package mode total
+        totalSection = `
         <div class="total-section">
           <div class="total-row">
             <span>Services Subtotal</span>
@@ -1256,7 +1264,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           ${
             quote.discount > 0
               ? `
-          <div class="total-row" style="color: #005901;">
+          <div class="total-row total-row-discount">
             <span>${quote.discountType === 'new' ? 'New Customer Discount' : quote.discountType === 'returning' ? 'Returning Customer Discount' : 'Referral Discount'} (${quote.discountPercent}%)</span>
             <span>-$${quote.discount.toFixed(2)}</span>
           </div>`
@@ -1265,7 +1273,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           ${
             includeGST
               ? `
-          <div class="total-row" style="color: #666;">
+          <div class="total-row total-row-gst">
             <span>GST (10%)</span>
             <span>$${quote.gst.toFixed(2)}</span>
           </div>`
@@ -1277,9 +1285,9 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           </div>
         </div>
       `;
-    } else {
-      // Standard mode total
-      totalSection = `
+      } else {
+        // Standard mode total
+        totalSection = `
         <div class="total-section">
           <div class="total-row">
             <span>${lang === 'cn' ? '小计' : 'Subtotal'}</span>
@@ -1288,7 +1296,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           ${
             quote.discount > 0
               ? `
-          <div class="total-row" style="color: #005901;">
+          <div class="total-row total-row-discount">
             <span>${quote.discountType === 'new' ? (lang === 'cn' ? '新客优惠' : 'New Customer Discount') : quote.discountType === 'returning' ? (lang === 'cn' ? '回头客优惠' : 'Returning Customer Discount') : lang === 'cn' ? '介绍优惠' : 'Referral Discount'} (${quote.discountPercent}%)</span>
             <span>-$${quote.discount.toFixed(2)}</span>
           </div>`
@@ -1297,13 +1305,13 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           ${
             includeGST
               ? `
-          <div class="total-row" style="color: #666;">
+          <div class="total-row total-row-gst">
             <span>${lang === 'cn' ? '消费税 (10%)' : 'GST (10%)'}</span>
             <span>$${quote.gst.toFixed(2)}</span>
           </div>`
               : ''
           }
-          <div class="total-row" style="color: #005901; font-weight: 600;">
+          <div class="total-row total-row-hours">
             <span>${lang === 'cn' ? '总工时' : 'Total Hours'}</span>
             <span>${quote.workHours.total.toFixed(1)} hrs</span>
           </div>
@@ -1313,9 +1321,9 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           </div>
         </div>
       `;
-    }
+      }
 
-    return `<!DOCTYPE html>
+      return `<!DOCTYPE html>
 <html lang="${lang === 'cn' ? 'zh-CN' : 'en'}">
 <head>
     <meta charset="UTF-8">
@@ -1430,6 +1438,8 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         .col-type { width: 15%; color: #666; font-size: 12px; }
         .col-hours { width: 15%; text-align: center; color: #666; font-size: 12px; }
         .col-amount { width: 20%; text-align: right; font-weight: 600; }
+        .th-hours { text-align: center !important; }
+        .th-amount { text-align: right !important; }
         .item-name { font-weight: 600; display: block; }
         .item-detail { font-size: 12px; color: #888; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; }
         .total-section {
@@ -1444,6 +1454,9 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             margin-bottom: 8px;
             font-size: 14px;
         }
+        .total-row-discount { color: #005901; }
+        .total-row-gst { color: #666; }
+        .total-row-hours { color: #005901; font-weight: 600; }
         .grand-total {
             font-size: 20px;
             font-weight: 700;
@@ -1465,6 +1478,14 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             margin-top: 10px;
             font-weight: 600;
             color: #333;
+        }
+        .terms-list {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        .sparkery-page-break {
+            page-break-after: always;
+            break-after: page;
         }
         .page-footer {
             position: absolute;
@@ -1525,8 +1546,8 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             <tr>
                 <th>${isServicePackage ? 'Description' : lang === 'cn' ? '服务项目' : 'Description'}</th>
                 <th>${isServicePackage ? 'Unit' : lang === 'cn' ? '单位' : 'Unit'}</th>
-                <th style="text-align: center;">${isServicePackage ? 'Hours' : lang === 'cn' ? '工时' : 'Hours'}</th>
-                <th style="text-align: right;">${isServicePackage ? 'Amount (AUD)' : lang === 'cn' ? '金额 (澳元)' : 'Amount (AUD)'}</th>
+                <th class="th-hours">${isServicePackage ? 'Hours' : lang === 'cn' ? '工时' : 'Hours'}</th>
+                <th class="th-amount">${isServicePackage ? 'Amount (AUD)' : lang === 'cn' ? '金额 (澳元)' : 'Amount (AUD)'}</th>
             </tr>
         </thead>
         <tbody>
@@ -1538,7 +1559,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     <!-- Footer Notes -->
     <div class="footer-note">
         <strong>${isServicePackage ? 'Terms & Conditions:' : lang === 'cn' ? '条款与条件:' : 'Terms & Conditions:'}</strong>
-        <ul style="margin: 5px 0; padding-left: 20px;">
+        <ul class="terms-list">
             <li><strong>${isServicePackage ? 'Satisfaction Guarantee:' : lang === 'cn' ? '押金保障承诺:' : 'Bond Back Guarantee:'}</strong> ${isServicePackage ? 'We pride ourselves on quality. If you are dissatisfied with any aspect of our service, please notify us within 24 hours, and we will return to rectify the issue at no extra charge.' : lang === 'cn' ? '如中介验收时提出整改要求，我们将在72小时内免费上门处理。' : 'We offer a 72-hour rectification guarantee for any cleaning issues raised by your agent.'}</li>
             <li><strong>${isServicePackage ? 'Access & Security:' : lang === 'cn' ? '进场要求:' : 'Access:'}</strong> ${isServicePackage ? 'Client to provide necessary keys/access cards and alarm codes. All keys are held securely and coded for anonymity.' : lang === 'cn' ? '请确保房屋电源及热水正常供应。' : 'Please ensure electricity and hot water are connected.'}</li>
         </ul>
@@ -1556,16 +1577,35 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     <div class="page-footer">
         ${isServicePackage ? 'Thank you for choosing Sparkery - Making Brisbane Sparkle!' : lang === 'cn' ? '感谢您选择 Sparkery - 让布里斯班焕然一新！' : 'Thank you for choosing Sparkery - Making Brisbane Sparkle!'}
     </div>
-</div>
+    </div>
 </body>
 </html>`;
-  };
+    },
+    [
+      config,
+      selectedWorkType,
+      selectedRoomType,
+      selectedPropertyType,
+      customRoomType,
+      quote,
+      serviceItems,
+      unitOptions,
+      customerName,
+      customerAddress,
+      quoteId,
+      sqmArea,
+      sqmPrice,
+      sqmMultiplier,
+      includeGST,
+    ]
+  );
 
   /**
-   * 生成 Invoice 页面的 HTML（风格与报价单一致，表头可选 Sparkery 或自定义）
-   * @param lang 语言 'en' | 'cn'
-   * @returns 完整 Invoice HTML 字符串
+   * ?? Invoice ??? HTML?????????????? Sparkery ?????
+   * @param lang ?? 'en' | 'cn'
+   * @returns ?? Invoice HTML ???
    */
+
   const generateInvoiceHTML = (lang: 'en' | 'cn') => {
     const invoiceDateFormatted = invoiceDate
       ? dayjs(invoiceDate).format('DD MMM YYYY')
@@ -1602,7 +1642,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           <tr>
             <td class="col-desc">
               <span class="item-name">${item.title || 'Service Item'}</span>
-              <span class="item-detail" style="white-space: pre-wrap; word-wrap: break-word; line-height: 1.5;">${formattedDescription}</span>
+              <span class="item-detail">${formattedDescription}</span>
             </td>
             <td class="col-type">${unitLabel}</td>
             <td class="col-hours">-</td>
@@ -1638,8 +1678,8 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             <td class="col-desc">
               <span class="item-name">${workTypeName}</span>
               <span class="item-detail">
-                ${lang === 'cn' ? '面积:' : 'Area:'} ${sqmArea} sqm × $${sqmPrice}/${lang === 'cn' ? '平米' : 'sqm'}
-                ${sqmMultiplier !== 1 ? `<br>${lang === 'cn' ? '系数:' : 'Multiplier:'} ×${sqmMultiplier}` : ''}
+                ${lang === 'cn' ? '面积:' : 'Area:'} ${sqmArea} sqm 脳 $${sqmPrice}/${lang === 'cn' ? '平米' : 'sqm'}
+                ${sqmMultiplier !== 1 ? `<br>${lang === 'cn' ? '系数:' : 'Multiplier:'} 脳${sqmMultiplier}` : ''}
               </span>
             </td>
             <td class="col-type">${lang === 'cn' ? '平米计价' : 'SQM Pricing'}</td>
@@ -1696,7 +1736,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           ${
             quote.discount > 0
               ? `
-          <div class="total-row" style="color: #005901;">
+          <div class="total-row total-row-discount">
             <span>${quote.discountType === 'new' ? 'New Customer Discount' : quote.discountType === 'returning' ? 'Returning Customer Discount' : 'Referral Discount'} (${quote.discountPercent}%)</span>
             <span>-$${quote.discount.toFixed(2)}</span>
           </div>`
@@ -1705,7 +1745,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           ${
             includeGST
               ? `
-          <div class="total-row" style="color: #666;">
+          <div class="total-row total-row-gst">
             <span>GST (10%)</span>
             <span>$${quote.gst.toFixed(2)}</span>
           </div>`
@@ -1727,7 +1767,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           ${
             quote.discount > 0
               ? `
-          <div class="total-row" style="color: #005901;">
+          <div class="total-row total-row-discount">
             <span>${quote.discountType === 'new' ? (lang === 'cn' ? '新客优惠' : 'New Customer Discount') : quote.discountType === 'returning' ? (lang === 'cn' ? '回头客优惠' : 'Returning Customer Discount') : lang === 'cn' ? '介绍优惠' : 'Referral Discount'} (${quote.discountPercent}%)</span>
             <span>-$${quote.discount.toFixed(2)}</span>
           </div>`
@@ -1736,13 +1776,13 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           ${
             includeGST
               ? `
-          <div class="total-row" style="color: #666;">
+          <div class="total-row total-row-gst">
             <span>${lang === 'cn' ? '消费税 (10%)' : 'GST (10%)'}</span>
             <span>$${quote.gst.toFixed(2)}</span>
           </div>`
               : ''
           }
-          <div class="total-row" style="color: #005901; font-weight: 600;">
+          <div class="total-row total-row-hours">
             <span>${lang === 'cn' ? '总工时' : 'Total Hours'}</span>
             <span>${quote.workHours.total.toFixed(1)} hrs</span>
           </div>
@@ -1772,7 +1812,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     </header>`
         : `
     <header>
-        <div class="company-details" style="width: 100%;">
+        <div class="company-details company-details-full">
             ${customInvoiceHeader.companyName ? `<div class="company-name">${customInvoiceHeader.companyName}</div>` : ''}
             ${customInvoiceHeader.abn ? `<div>ABN: ${customInvoiceHeader.abn}</div>` : ''}
             ${customInvoiceHeader.address ? `<div>${customInvoiceHeader.address}</div>` : ''}
@@ -1821,13 +1861,21 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         .col-type { width: 15%; color: #666; font-size: 12px; }
         .col-hours { width: 15%; text-align: center; color: #666; font-size: 12px; }
         .col-amount { width: 20%; text-align: right; font-weight: 600; }
+        .th-hours { text-align: center !important; }
+        .th-amount { text-align: right !important; }
         .item-name { font-weight: 600; display: block; }
         .item-detail { font-size: 12px; color: #888; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; }
+        .company-details-full { width: 100%; }
         .total-section { width: 40%; margin-left: auto; border-top: 2px solid #005901; padding-top: 10px; }
         .total-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .total-row-discount { color: #005901; }
+        .total-row-gst { color: #666; }
+        .total-row-hours { color: #005901; font-weight: 600; }
         .grand-total { font-size: 20px; font-weight: 700; color: #005901; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
         .footer-note { margin-top: 50px; padding: 20px; background-color: #f9f9f9; border-radius: 5px; font-size: 12px; color: #666; line-height: 1.6; }
         .bank-details { margin-top: 10px; font-weight: 600; color: #333; }
+        .terms-list { margin: 5px 0; padding-left: 20px; }
+        .sparkery-page-break { page-break-after: always; break-after: page; }
         .page-footer { position: absolute; bottom: 15mm; left: 20mm; right: 20mm; text-align: center; font-size: 11px; color: #aaa; border-top: 1px solid #eee; padding-top: 10px; }
     </style>
 </head>
@@ -1862,8 +1910,8 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             <tr>
                 <th>${lang === 'cn' ? '服务项目' : 'Description'}</th>
                 <th>${lang === 'cn' ? '单位' : 'Unit'}</th>
-                <th style="text-align: center;">${lang === 'cn' ? '工时' : 'Hours'}</th>
-                <th style="text-align: right;">${lang === 'cn' ? '金额 (澳元)' : 'Amount (AUD)'}</th>
+                <th class="th-hours">${lang === 'cn' ? '工时' : 'Hours'}</th>
+                <th class="th-amount">${lang === 'cn' ? '金额 (澳元)' : 'Amount (AUD)'}</th>
             </tr>
         </thead>
         <tbody>${tableContent}</tbody>
@@ -1872,7 +1920,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
 
     <div class="footer-note">
         <strong>${lang === 'cn' ? '付款方式:' : 'Payment Terms:'}</strong>
-        <ul style="margin: 5px 0; padding-left: 20px;">
+        <ul class="terms-list">
             <li>${lang === 'cn' ? '请于付款期限内完成付款。' : 'Please pay by the due date.'}</li>
         </ul>
         ${
@@ -1922,7 +1970,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     if (language === 'both') {
       html =
         generateInvoiceHTML('cn') +
-        '<div style="page-break-after: always;"></div>' +
+        '<div class="sparkery-page-break"></div>' +
         generateInvoiceHTML('en');
     } else if (language === 'cn') {
       html = generateInvoiceHTML('cn');
@@ -1977,7 +2025,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       // 双语版本：中文在上，英文在下
       html =
         generateQuoteHTML('cn') +
-        '<div style="page-break-after: always;"></div>' +
+        '<div class="sparkery-page-break"></div>' +
         generateQuoteHTML('en');
     } else if (pdfLanguage === 'cn') {
       html = generateQuoteHTML('cn');
@@ -2003,26 +2051,30 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     sqmArea,
     sqmPrice,
     sqmMultiplier,
+    generateQuoteHTML,
   ]);
 
   return (
-    <div style={{ padding: '20px' }}>
-      <Title level={3}>
-        <CalculatorOutlined style={{ marginRight: '8px' }} />
+    <div className='sparkery-tool-page sparkery-quote-calculator-page sparkery-quote-calc-shell'>
+      <Title level={3} className='sparkery-tool-page-title'>
+        <CalculatorOutlined className='sparkery-quote-calc-title-icon' />
         Brisbane Cleaning Quote Calculator
       </Title>
-      <Text type='secondary'>
+      <Text className='sparkery-tool-page-subtitle' type='secondary'>
         Professional cleaning quote generator for Brisbane market
       </Text>
 
-      <Row gutter={24} style={{ marginTop: '20px' }}>
+      <Row gutter={24} className='sparkery-quote-calc-main-row'>
         {/* 左侧：选择区域 */}
         <Col xs={24} lg={16}>
-          <Card title='Quote Configuration' style={{ marginBottom: '16px' }}>
+          <Card
+            title='Quote Configuration'
+            className='sparkery-quote-calc-config-card'
+          >
             {/* 客户信息 */}
-            <Row gutter={16} style={{ marginBottom: '16px' }}>
+            <Row gutter={16} className='sparkery-quote-calc-row-gap'>
               <Col xs={24} sm={12}>
-                <div style={{ marginBottom: '8px' }}>
+                <div className='sparkery-quote-calc-field-gap'>
                   <Text strong>Customer Name</Text>
                   <Input
                     placeholder='Enter customer name'
@@ -2032,7 +2084,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 </div>
               </Col>
               <Col xs={24} sm={12}>
-                <div style={{ marginBottom: '8px' }}>
+                <div className='sparkery-quote-calc-field-gap'>
                   <Text strong>Address</Text>
                   <Input
                     placeholder='Enter address'
@@ -2046,7 +2098,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             <Divider />
 
             {/* 工作类型 */}
-            <div style={{ marginBottom: '16px' }}>
+            <div className='sparkery-quote-calc-section'>
               <Text strong>Work Type</Text>
               <Radio.Group
                 value={selectedWorkType}
@@ -2071,25 +2123,17 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     }
                   }
                 }}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                  gap: '8px',
-                  marginTop: '8px',
-                }}
+                className='sparkery-quote-calc-worktype-grid'
               >
                 {config.workTypes.map(workType => (
                   <Radio
                     key={workType.id}
                     value={workType.id}
-                    style={{ margin: 0 }}
+                    className='sparkery-quote-calc-radio-no-margin'
                   >
                     {workType.name}
                     {workType.isResidential && (
-                      <Tag
-                        color='blue'
-                        style={{ marginLeft: '4px', fontSize: '10px' }}
-                      >
+                      <Tag color='blue' className='sparkery-quote-calc-res-tag'>
                         Res
                       </Tag>
                     )}
@@ -2104,18 +2148,12 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 <Divider />
 
                 {/* 房型选择 */}
-                <div style={{ marginBottom: '16px' }}>
+                <div className='sparkery-quote-calc-section'>
                   <Text strong>Base Room Type</Text>
                   <Radio.Group
                     value={selectedRoomType}
                     onChange={e => setSelectedRoomType(e.target.value)}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns:
-                        'repeat(auto-fill, minmax(90px, 1fr))',
-                      gap: '8px',
-                      marginTop: '8px',
-                    }}
+                    className='sparkery-quote-calc-roomtype-grid'
                   >
                     {config.roomTypes.map(roomType => {
                       const match = roomType.name.match(
@@ -2128,7 +2166,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         <Radio.Button
                           key={roomType.id}
                           value={roomType.id}
-                          style={{ textAlign: 'center' }}
+                          className='sparkery-quote-calc-roomtype-btn'
                         >
                           {shortName}
                         </Radio.Button>
@@ -2136,7 +2174,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     })}
                     <Radio.Button
                       value='custom'
-                      style={{ textAlign: 'center', borderStyle: 'dashed' }}
+                      className='sparkery-quote-calc-roomtype-btn sparkery-quote-calc-roomtype-btn-custom'
                     >
                       + 自定义
                     </Radio.Button>
@@ -2147,28 +2185,31 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         placeholder='例如: 5 Bed 2 Bath'
                         value={customRoomType}
                         onChange={e => setCustomRoomType(e.target.value)}
-                        style={{ marginTop: '8px', width: '200px' }}
+                        className='sparkery-quote-calc-custom-room-input'
                       />
                       <InputNumber
                         placeholder='自定义价格'
                         min={0}
+                        precision={2}
                         value={
-                          customBasePrice > 0
-                            ? (customBasePrice as number)
-                            : null
+                          Number.isFinite(customBasePrice) ? customBasePrice : 0
                         }
-                        onChange={val =>
-                          setCustomBasePrice((val as number) || 0)
+                        onChange={value =>
+                          setCustomBasePrice(
+                            typeof value === 'number' && Number.isFinite(value)
+                              ? value
+                              : 0
+                          )
                         }
-                        style={{ marginLeft: '8px', width: '120px' }}
+                        className='sparkery-quote-calc-custom-price-input'
                         prefix='$'
                       />
                     </>
                   )}
-                  {/* 地毯勾选 - 仅Bond清洁显示 */}
+                  {/* 地毯勾选 - 仅 Bond 清洁显示 */}
                   {selectedWorkType === 'bond' &&
                     selectedRoomType !== 'custom' && (
-                      <div style={{ marginTop: '8px' }}>
+                      <div className='sparkery-quote-calc-inline-note'>
                         <Checkbox
                           checked={includeSteamCarpet}
                           onChange={e =>
@@ -2176,7 +2217,10 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                           }
                         >
                           <Text>包含地毯蒸洗</Text>
-                          <Text type='secondary' style={{ marginLeft: '8px' }}>
+                          <Text
+                            type='secondary'
+                            className='sparkery-quote-calc-inline-secondary'
+                          >
                             (+$
                             {
                               config.roomTypes.find(
@@ -2190,7 +2234,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     )}
                   <Text
                     type='secondary'
-                    style={{ marginTop: '4px', display: 'block' }}
+                    className='sparkery-quote-calc-helper-text'
                   >
                     Base Price: $
                     {selectedRoomType === 'custom'
@@ -2224,7 +2268,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     {' | '}
                     {selectedRoomType !== 'custom' && (
                       <>
-                        <ClockCircleOutlined style={{ marginRight: '4px' }} />
+                        <ClockCircleOutlined className='sparkery-quote-calc-icon-gap' />
                         {
                           config.roomTypes.find(r => r.id === selectedRoomType)
                             ?.workHours[
@@ -2238,12 +2282,12 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 </div>
 
                 {/* 房产类型 */}
-                <div style={{ marginBottom: '16px' }}>
+                <div className='sparkery-quote-calc-section'>
                   <Text strong>Property Type</Text>
                   <Radio.Group
                     value={selectedPropertyType}
                     onChange={e => setSelectedPropertyType(e.target.value)}
-                    style={{ display: 'flex', gap: '8px', marginTop: '8px' }}
+                    className='sparkery-quote-calc-radio-row'
                   >
                     {config.propertyTypes.map(propertyType => (
                       <Radio.Button
@@ -2253,12 +2297,18 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         {propertyType.name}
                         {selectedWorkType === 'bond'
                           ? propertyType.bondMultiplier > 1.0 && (
-                              <Tag color='blue' style={{ marginLeft: '4px' }}>
-                                ×{propertyType.bondMultiplier}
+                              <Tag
+                                color='blue'
+                                className='sparkery-quote-calc-tag-inline'
+                              >
+                                脳{propertyType.bondMultiplier}
                               </Tag>
                             )
                           : propertyType.additionalPrice > 0 && (
-                              <Tag color='orange' style={{ marginLeft: '4px' }}>
+                              <Tag
+                                color='orange'
+                                className='sparkery-quote-calc-tag-inline'
+                              >
                                 +${propertyType.additionalPrice}
                               </Tag>
                             )}
@@ -2269,18 +2319,21 @@ const BrisbaneQuoteCalculator: React.FC = () => {
 
                 {/* House层数选择 */}
                 {selectedPropertyType === 'house' && (
-                  <div style={{ marginBottom: '16px' }}>
+                  <div className='sparkery-quote-calc-section'>
                     <Text strong>Storey</Text>
                     <Radio.Group
                       value={selectedHouseLevel}
                       onChange={e => setSelectedHouseLevel(e.target.value)}
-                      style={{ display: 'flex', gap: '8px', marginTop: '8px' }}
+                      className='sparkery-quote-calc-radio-row'
                     >
                       {config.houseLevels.map(level => (
                         <Radio.Button key={level.id} value={level.id}>
                           {level.name}
                           {level.additionalPrice > 0 && (
-                            <Tag color='red' style={{ marginLeft: '4px' }}>
+                            <Tag
+                              color='red'
+                              className='sparkery-quote-calc-tag-inline'
+                            >
                               +${level.additionalPrice}
                             </Tag>
                           )}
@@ -2298,33 +2351,33 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 <Divider />
 
                 {/* 面积输入 */}
-                <div style={{ marginBottom: '16px' }}>
+                <div className='sparkery-quote-calc-section'>
                   <Text strong>Area (Square Meters)</Text>
                   <InputNumber
                     min={0}
                     value={sqmArea}
                     onChange={value => setSqmArea(value || 0)}
-                    style={{ width: '100%', marginTop: '8px' }}
+                    className='sparkery-quote-calc-input-block'
                     placeholder='Enter area in square meters'
                     addonAfter='sqm'
                   />
                 </div>
 
                 {/* 平米单价 */}
-                <div style={{ marginBottom: '16px' }}>
+                <div className='sparkery-quote-calc-section'>
                   <Text strong>Price per Square Meter</Text>
                   <InputNumber
                     min={0}
                     value={sqmPrice}
                     onChange={value => setSqmPrice(value || 0)}
-                    style={{ width: '100%', marginTop: '8px' }}
+                    className='sparkery-quote-calc-input-block'
                     addonBefore='$'
                     addonAfter='/sqm'
                   />
                 </div>
 
                 {/* 系数输入 */}
-                <div style={{ marginBottom: '16px' }}>
+                <div className='sparkery-quote-calc-section'>
                   <Text strong>Multiplier</Text>
                   <InputNumber
                     min={0.1}
@@ -2332,28 +2385,34 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     step={0.1}
                     value={sqmMultiplier}
                     onChange={value => setSqmMultiplier(value || 1)}
-                    style={{ width: '100%', marginTop: '8px' }}
+                    className='sparkery-quote-calc-input-block'
                     placeholder='e.g., 1.0 for standard, 1.5 for heavy soiling'
                   />
-                  <Text type='secondary' style={{ fontSize: '12px' }}>
+                  <Text
+                    type='secondary'
+                    className='sparkery-quote-calc-text-xs'
+                  >
                     Adjust for job complexity (e.g., 1.0 standard, 1.5 heavy
                     soiling)
                   </Text>
                 </div>
 
                 {/* 人工调整 */}
-                <div style={{ marginBottom: '16px' }}>
+                <div className='sparkery-quote-calc-section'>
                   <Text strong>Manual Adjustment</Text>
                   <InputNumber
                     min={-1000}
                     max={1000}
                     value={manualAdjustment}
                     onChange={value => setManualAdjustment(value || 0)}
-                    style={{ width: '100%', marginTop: '8px' }}
+                    className='sparkery-quote-calc-input-block'
                     addonBefore='$'
                     placeholder='Additional adjustment amount'
                   />
-                  <Text type='secondary' style={{ fontSize: '12px' }}>
+                  <Text
+                    type='secondary'
+                    className='sparkery-quote-calc-text-xs'
+                  >
                     Positive or negative adjustment to the calculated price
                   </Text>
                 </div>
@@ -2365,20 +2424,13 @@ const BrisbaneQuoteCalculator: React.FC = () => {
               <>
                 <Divider />
 
-                <div style={{ marginBottom: '16px' }}>
-                  <Text
-                    strong
-                    style={{
-                      fontSize: '16px',
-                      display: 'block',
-                      marginBottom: '12px',
-                    }}
-                  >
-                    📋 Service Items List
+                <div className='sparkery-quote-calc-section'>
+                  <Text strong className='sparkery-quote-calc-section-title'>
+                    Service Items List
                   </Text>
                   <Text
                     type='secondary'
-                    style={{ display: 'block', marginBottom: '12px' }}
+                    className='sparkery-quote-calc-section-subtitle'
                   >
                     Add service items, each with independent title, description,
                     amount, and unit
@@ -2400,10 +2452,10 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                           Delete
                         </Button>
                       }
-                      style={{ marginBottom: '12px', borderRadius: '8px' }}
+                      className='sparkery-quote-calc-card-soft'
                     >
                       <Row gutter={12}>
-                        <Col span={24} style={{ marginBottom: '8px' }}>
+                        <Col span={24} className='sparkery-quote-calc-gap-8'>
                           <Text>Service Title</Text>
                           <Input
                             placeholder='e.g., Regular Cleaning Service'
@@ -2417,7 +2469,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                             }
                           />
                         </Col>
-                        <Col span={24} style={{ marginBottom: '8px' }}>
+                        <Col span={24} className='sparkery-quote-calc-gap-8'>
                           <Text>Service Description</Text>
                           <Input.TextArea
                             rows={10}
@@ -2432,11 +2484,15 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                             }
                           />
                         </Col>
-                        <Col xs={24} sm={12} style={{ marginBottom: '8px' }}>
+                        <Col
+                          xs={24}
+                          sm={12}
+                          className='sparkery-quote-calc-gap-8'
+                        >
                           <Text>Amount (AUD)</Text>
                           <InputNumber
                             min={0}
-                            style={{ width: '100%' }}
+                            className='sparkery-quote-calc-full-width'
                             addonBefore='$'
                             value={item.amount}
                             onChange={value =>
@@ -2444,14 +2500,18 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                             }
                           />
                         </Col>
-                        <Col xs={24} sm={12} style={{ marginBottom: '8px' }}>
+                        <Col
+                          xs={24}
+                          sm={12}
+                          className='sparkery-quote-calc-gap-8'
+                        >
                           <Text>Unit</Text>
                           <Select
                             value={item.unit}
                             onChange={value =>
                               updateServiceItem(item.id, 'unit', value)
                             }
-                            style={{ width: '100%' }}
+                            className='sparkery-quote-calc-full-width'
                             options={unitOptions.map(u => ({
                               value: u.value,
                               label: u.labelEN,
@@ -2459,7 +2519,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                           />
                         </Col>
                       </Row>
-                      <div style={{ marginTop: '8px', textAlign: 'right' }}>
+                      <div className='sparkery-quote-calc-right-summary'>
                         <Text strong>
                           Subtotal: ${item.amount.toFixed(2)}{' '}
                           {unitOptions.find(u => u.value === item.unit)
@@ -2481,25 +2541,20 @@ const BrisbaneQuoteCalculator: React.FC = () => {
 
                   {/* Service items total */}
                   {serviceItems.length > 0 && (
-                    <div
-                      style={{
-                        marginTop: '16px',
-                        padding: '16px',
-                        background: '#f6ffed',
-                        borderRadius: '8px',
-                        border: '1px solid #b7eb8f',
-                      }}
-                    >
+                    <div className='sparkery-quote-calc-service-total'>
                       <Row justify='space-between' align='middle'>
                         <Col>
-                          <Text strong style={{ fontSize: '16px' }}>
+                          <Text
+                            strong
+                            className='sparkery-quote-calc-service-total-label'
+                          >
                             Service Items Total:
                           </Text>
                         </Col>
                         <Col>
                           <Text
                             strong
-                            style={{ fontSize: '24px', color: '#52c41a' }}
+                            className='sparkery-quote-calc-service-total-value'
                           >
                             $
                             {serviceItems
@@ -2517,34 +2572,22 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             <Divider />
 
             {/* 附加选项 - 重新整理布局 */}
-            <div style={{ marginBottom: '16px' }}>
-              <Text
-                strong
-                style={{
-                  fontSize: '16px',
-                  marginBottom: '12px',
-                  display: 'block',
-                }}
-              >
+            <div className='sparkery-quote-calc-section'>
+              <Text strong className='sparkery-quote-calc-section-title'>
                 附加服务
               </Text>
 
               {/* 常规附加服务 - 简单勾选 */}
               <Card
                 size='small'
-                title='✨ 常规服务'
+                title='常规服务'
                 extra={<Tag color='green'>固定价格</Tag>}
-                style={{ marginBottom: '12px', borderRadius: '8px' }}
+                className='sparkery-quote-calc-card-soft'
               >
                 <Checkbox.Group
                   value={selectedAddons}
                   onChange={values => setSelectedAddons(values as string[])}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fill, minmax(180px, 1fr))',
-                    gap: '8px',
-                  }}
+                  className='sparkery-quote-calc-addon-grid'
                 >
                   {config.addonOptions
                     .filter(a =>
@@ -2556,16 +2599,19 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                       <Checkbox
                         key={addon.id}
                         value={addon.id}
-                        style={{ margin: 0 }}
+                        className='sparkery-quote-calc-checkbox-tight'
                       >
                         <Space size={4}>
                           <Text>{addon.nameCN}</Text>
-                          <Text type='secondary' style={{ fontSize: '11px' }}>
+                          <Text
+                            type='secondary'
+                            className='sparkery-quote-calc-text-sm'
+                          >
                             +${addon.price}
                           </Text>
                           <Text
                             type='secondary'
-                            style={{ fontSize: '10px', color: '#999' }}
+                            className='sparkery-quote-calc-addon-meta'
                           >
                             <ClockCircleOutlined /> {addon.hours}h
                           </Text>
@@ -2575,28 +2621,16 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 </Checkbox.Group>
               </Card>
 
-              {/* 特殊服务 - 需要输入数量 */}
+              {/* 特殊服务 - 闇€瑕佽緭鍏ユ暟閲?*/}
               <Card
                 size='small'
-                title='📐 计量服务'
+                title='计量服务'
                 extra={<Tag color='orange'>按量计价</Tag>}
-                style={{ marginBottom: '12px', borderRadius: '8px' }}
+                className='sparkery-quote-calc-card-soft'
               >
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '12px',
-                  }}
-                >
-                  {/* 落地窗/玻璃门 */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
+                <div className='sparkery-quote-calc-measurement-grid'>
+                  {/* 钀藉湴绐?鐜荤拑闂?*/}
+                  <div className='sparkery-quote-calc-addon-item'>
                     <Checkbox
                       checked={selectedAddons.includes('glass_door_window')}
                       onChange={e => {
@@ -2610,16 +2644,22 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     >
                       <Space size={4}>
                         <Text>落地窗/玻璃门</Text>
-                        <Tag color='cyan' style={{ fontSize: '10px' }}>
+                        <Tag
+                          color='cyan'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           +$
                           {
                             config.addonOptions.find(
                               a => a.id === 'glass_door_window'
                             )?.price
                           }
-                          /扇
+                          /鎵?
                         </Tag>
-                        <Text type='secondary' style={{ fontSize: '10px' }}>
+                        <Text
+                          type='secondary'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           <ClockCircleOutlined />{' '}
                           {
                             config.addonOptions.find(
@@ -2636,20 +2676,14 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         max={20}
                         value={glassDoorWindowCount}
                         onChange={value => setGlassDoorWindowCount(value || 1)}
-                        style={{ width: '100%' }}
+                        className='sparkery-quote-calc-full-width'
                         addonAfter='扇'
                       />
                     )}
                   </div>
 
                   {/* 墙面污渍 */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
+                  <div className='sparkery-quote-calc-addon-item'>
                     <Checkbox
                       checked={selectedAddons.includes('wall_stains')}
                       onChange={e => {
@@ -2661,16 +2695,22 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     >
                       <Space size={4}>
                         <Text>墙面污渍清洁</Text>
-                        <Tag color='cyan' style={{ fontSize: '10px' }}>
+                        <Tag
+                          color='cyan'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           +$
                           {
                             config.addonOptions.find(
                               a => a.id === 'wall_stains'
                             )?.price
                           }
-                          /处
+                          /澶?
                         </Tag>
-                        <Text type='secondary' style={{ fontSize: '10px' }}>
+                        <Text
+                          type='secondary'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           <ClockCircleOutlined />{' '}
                           {
                             config.addonOptions.find(
@@ -2687,20 +2727,14 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         max={10}
                         value={wallStainsCount}
                         onChange={value => setWallStainsCount(value || 1)}
-                        style={{ width: '100%' }}
+                        className='sparkery-quote-calc-full-width'
                         addonAfter='处'
                       />
                     )}
                   </div>
 
                   {/* 空调滤网 */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
+                  <div className='sparkery-quote-calc-addon-item'>
                     <Checkbox
                       checked={selectedAddons.includes('ac_filter')}
                       onChange={e => {
@@ -2712,15 +2746,21 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     >
                       <Space size={4}>
                         <Text>空调滤网清洁</Text>
-                        <Tag color='cyan' style={{ fontSize: '10px' }}>
+                        <Tag
+                          color='cyan'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           +$
                           {
                             config.addonOptions.find(a => a.id === 'ac_filter')
                               ?.price
                           }
-                          /个
+                          /涓?
                         </Tag>
-                        <Text type='secondary' style={{ fontSize: '10px' }}>
+                        <Text
+                          type='secondary'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           <ClockCircleOutlined />{' '}
                           {
                             config.addonOptions.find(a => a.id === 'ac_filter')
@@ -2736,20 +2776,14 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         max={10}
                         value={acFilterCount}
                         onChange={value => setAcFilterCount(value || 1)}
-                        style={{ width: '100%' }}
+                        className='sparkery-quote-calc-full-width'
                         addonAfter='个'
                       />
                     )}
                   </div>
 
-                  {/* 百叶窗 */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
+                  {/* 鐧惧彾绐?*/}
+                  <div className='sparkery-quote-calc-addon-item'>
                     <Checkbox
                       checked={selectedAddons.includes('blinds')}
                       onChange={e => {
@@ -2761,15 +2795,21 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     >
                       <Space size={4}>
                         <Text>百叶窗清洁</Text>
-                        <Tag color='cyan' style={{ fontSize: '10px' }}>
+                        <Tag
+                          color='cyan'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           +$
                           {
                             config.addonOptions.find(a => a.id === 'blinds')
                               ?.price
                           }
-                          /扇
+                          /鎵?
                         </Tag>
-                        <Text type='secondary' style={{ fontSize: '10px' }}>
+                        <Text
+                          type='secondary'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           <ClockCircleOutlined />{' '}
                           {
                             config.addonOptions.find(a => a.id === 'blinds')
@@ -2785,20 +2825,14 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         max={20}
                         value={blindsCount}
                         onChange={value => setBlindsCount(value || 1)}
-                        style={{ width: '100%' }}
+                        className='sparkery-quote-calc-full-width'
                         addonAfter='扇'
                       />
                     )}
                   </div>
 
                   {/* 除霉 */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
+                  <div className='sparkery-quote-calc-addon-item'>
                     <Checkbox
                       checked={selectedAddons.includes('mold')}
                       onChange={e => {
@@ -2810,15 +2844,21 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     >
                       <Space size={4}>
                         <Text>除霉处理</Text>
-                        <Tag color='cyan' style={{ fontSize: '10px' }}>
+                        <Tag
+                          color='cyan'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           +$
                           {
                             config.addonOptions.find(a => a.id === 'mold')
                               ?.price
                           }
-                          /处
+                          /澶?
                         </Tag>
-                        <Text type='secondary' style={{ fontSize: '10px' }}>
+                        <Text
+                          type='secondary'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           <ClockCircleOutlined />{' '}
                           {
                             config.addonOptions.find(a => a.id === 'mold')
@@ -2834,20 +2874,14 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         max={10}
                         value={moldCount}
                         onChange={value => setMoldCount(value || 1)}
-                        style={{ width: '100%' }}
+                        className='sparkery-quote-calc-full-width'
                         addonAfter='处'
                       />
                     )}
                   </div>
 
                   {/* 特脏加费 */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
+                  <div className='sparkery-quote-calc-addon-item'>
                     <Checkbox
                       checked={selectedAddons.includes('heavy_soiling')}
                       onChange={e => {
@@ -2859,16 +2893,22 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     >
                       <Space size={4}>
                         <Text>特脏加费</Text>
-                        <Tag color='cyan' style={{ fontSize: '10px' }}>
+                        <Tag
+                          color='cyan'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           +$
                           {
                             config.addonOptions.find(
                               a => a.id === 'heavy_soiling'
                             )?.price
                           }
-                          /次
+                          /娆?
                         </Tag>
-                        <Text type='secondary' style={{ fontSize: '10px' }}>
+                        <Text
+                          type='secondary'
+                          className='sparkery-quote-calc-text-xxs'
+                        >
                           <ClockCircleOutlined />{' '}
                           {
                             config.addonOptions.find(
@@ -2882,15 +2922,8 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   </div>
                 </div>
 
-                <Divider style={{ margin: '16px 0 12px' }} />
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '8px',
-                  }}
-                >
+                <Divider className='sparkery-quote-calc-divider-wide' />
+                <div className='sparkery-quote-calc-manual-addon-header'>
                   <Text strong>Manual Add-on / 手动增项</Text>
                   <Button
                     type='dashed'
@@ -2903,7 +2936,10 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 </div>
 
                 {manualMeasurementAddons.length === 0 ? (
-                  <Text type='secondary' style={{ fontSize: '12px' }}>
+                  <Text
+                    type='secondary'
+                    className='sparkery-quote-calc-text-xs'
+                  >
                     No manual add-ons yet. Add one when you need a custom
                     charge.
                   </Text>
@@ -2920,11 +2956,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                       <Card
                         key={item.id}
                         size='small'
-                        style={{
-                          marginTop: '8px',
-                          borderRadius: '8px',
-                          background: '#fafafa',
-                        }}
+                        className='sparkery-quote-calc-manual-addon-card'
                       >
                         <Row gutter={[8, 8]} align='middle'>
                           <Col xs={24} md={8}>
@@ -2947,7 +2979,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                                   price: Number(value || 0),
                                 })
                               }
-                              style={{ width: '100%' }}
+                              className='sparkery-quote-calc-full-width'
                               prefix='$'
                             />
                           </Col>
@@ -2976,14 +3008,18 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                                     quantity: Math.max(1, Number(value || 1)),
                                   })
                                 }
-                                style={{ width: '100%' }}
+                                className='sparkery-quote-calc-full-width'
                                 addonAfter='x'
                               />
                             ) : (
                               <Text type='secondary'>x1</Text>
                             )}
                           </Col>
-                          <Col xs={12} md={2} style={{ textAlign: 'right' }}>
+                          <Col
+                            xs={12}
+                            md={2}
+                            className='sparkery-quote-calc-text-right'
+                          >
                             <Button
                               type='text'
                               danger
@@ -2994,7 +3030,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                             />
                           </Col>
                         </Row>
-                        <div style={{ marginTop: '6px', textAlign: 'right' }}>
+                        <div className='sparkery-quote-calc-right-summary-sm'>
                           <Text type='secondary'>
                             Line Total: ${lineTotal.toFixed(2)}
                           </Text>
@@ -3007,11 +3043,11 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             </div>
 
             {/* 折扣选项 */}
-            <div style={{ marginBottom: '16px' }}>
+            <div className='sparkery-quote-calc-section'>
               <Checkbox
                 checked={discountEnabled}
                 onChange={e => setDiscountEnabled(e.target.checked)}
-                style={{ marginBottom: '8px' }}
+                className='sparkery-quote-calc-gap-8'
               >
                 <Text strong>Apply Discount</Text>
               </Checkbox>
@@ -3021,12 +3057,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   <Radio.Group
                     value={discountType}
                     onChange={e => setDiscountType(e.target.value)}
-                    style={{
-                      display: 'flex',
-                      gap: '8px',
-                      marginBottom: '8px',
-                      flexWrap: 'wrap',
-                    }}
+                    className='sparkery-quote-calc-radio-wrap'
                   >
                     <Radio value='new'>New Customer / 新客优惠</Radio>
                     <Radio value='returning'>
@@ -3041,7 +3072,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                       max={100}
                       value={discountPercent}
                       onChange={value => setDiscountPercent(value || 0)}
-                      style={{ width: '100%', marginTop: '4px' }}
+                      className='sparkery-quote-calc-discount-input'
                       addonAfter='%'
                     />
                   </div>
@@ -3050,7 +3081,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             </div>
 
             {/* 备注 */}
-            <div style={{ marginBottom: '16px' }}>
+            <div className='sparkery-quote-calc-section'>
               <Text strong>Notes</Text>
               <Input.TextArea
                 rows={9}
@@ -3066,13 +3097,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         <Col xs={24} lg={8}>
           <Card
             title={
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
+              <div className='sparkery-quote-calc-summary-title'>
                 <span>
                   <DollarOutlined /> Quote Summary
                 </span>
@@ -3085,42 +3110,60 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 </Button>
               </div>
             }
-            style={{ position: 'sticky', top: '20px' }}
+            className='sparkery-quote-calc-sticky-card'
           >
-            <div style={{ marginBottom: '16px' }}>
+            <div className='sparkery-quote-calc-section'>
               <Row justify='space-between'>
                 <Text>Base Price:</Text>
                 <Text>${quote.basePrice.toFixed(2)}</Text>
               </Row>
 
               {quote.adjustments > 0 && (
-                <Row justify='space-between' style={{ marginTop: '8px' }}>
+                <Row
+                  justify='space-between'
+                  className='sparkery-quote-calc-top-8'
+                >
                   <Text type='secondary'>Adjustments:</Text>
                   <Text type='secondary'>+${quote.adjustments.toFixed(2)}</Text>
                 </Row>
               )}
 
               {quote.addons > 0 && (
-                <Row justify='space-between' style={{ marginTop: '8px' }}>
+                <Row
+                  justify='space-between'
+                  className='sparkery-quote-calc-top-8'
+                >
                   <Text type='secondary'>Add-ons:</Text>
                   <Text type='secondary'>+${quote.addons.toFixed(2)}</Text>
                 </Row>
               )}
 
               {quote.discount > 0 && (
-                <Row justify='space-between' style={{ marginTop: '8px' }}>
-                  <Text type='secondary' style={{ color: '#52c41a' }}>
+                <Row
+                  justify='space-between'
+                  className='sparkery-quote-calc-top-8'
+                >
+                  <Text
+                    type='secondary'
+                    className='sparkery-quote-calc-discount-text'
+                  >
                     Discount ({quote.discountPercent}%):
                   </Text>
-                  <Text type='secondary' style={{ color: '#52c41a' }}>
+                  <Text
+                    type='secondary'
+                    className='sparkery-quote-calc-discount-text'
+                  >
                     -${quote.discount.toFixed(2)}
                   </Text>
                 </Row>
               )}
 
-              <Divider style={{ margin: '12px 0' }} />
+              <Divider className='sparkery-quote-calc-divider' />
 
-              <Row justify='space-between' style={{ marginTop: '8px' }}>
+              <Row
+                justify='space-between'
+                className='sparkery-quote-calc-top-8'
+              >
                 <Text strong>Total Work Hours:</Text>
                 <Text strong>{quote.workHours.total.toFixed(1)} hrs</Text>
               </Row>
@@ -3128,43 +3171,41 @@ const BrisbaneQuoteCalculator: React.FC = () => {
               <Checkbox
                 checked={includeGST}
                 onChange={e => setIncludeGST(e.target.checked)}
-                style={{ marginBottom: '8px' }}
+                className='sparkery-quote-calc-gap-8'
               >
                 <Text>Include GST (10%)</Text>
               </Checkbox>
 
               {includeGST && (
-                <Row justify='space-between' style={{ marginTop: '8px' }}>
+                <Row
+                  justify='space-between'
+                  className='sparkery-quote-calc-top-8'
+                >
                   <Text type='secondary'>GST (10%):</Text>
                   <Text type='secondary'>${quote.gst.toFixed(2)}</Text>
                 </Row>
               )}
 
-              <Row justify='space-between' style={{ marginTop: '8px' }}>
-                <Text type='secondary'>GST (10%):</Text>
-                <Text type='secondary'>${quote.gst.toFixed(2)}</Text>
-              </Row>
-
-              <Divider style={{ margin: '12px 0' }} />
+              <Divider className='sparkery-quote-calc-divider' />
 
               <Row justify='space-between'>
-                <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
+                <Title level={3} className='sparkery-quote-calc-total-title'>
                   Total:
                 </Title>
-                <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
+                <Title level={3} className='sparkery-quote-calc-total-title'>
                   ${quote.total.toFixed(2)}
                 </Title>
               </Row>
             </div>
 
-            <div style={{ marginBottom: '8px' }}>
-              <Text strong style={{ display: 'block', marginBottom: '4px' }}>
+            <div className='sparkery-quote-calc-gap-8'>
+              <Text strong className='sparkery-quote-calc-label-compact'>
                 Report Language
               </Text>
               <Select
                 value={pdfLanguage}
                 onChange={value => setPdfLanguage(value)}
-                style={{ width: '100%', marginBottom: '8px' }}
+                className='sparkery-quote-calc-full-width sparkery-quote-calc-gap-8'
                 options={[
                   { value: 'en', label: 'English' },
                   { value: 'cn', label: '中文' },
@@ -3184,18 +3225,11 @@ const BrisbaneQuoteCalculator: React.FC = () => {
 
             <Divider />
 
-            <div style={{ marginBottom: '8px' }}>
-              <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+            <div className='sparkery-quote-calc-gap-8'>
+              <Text strong className='sparkery-quote-calc-label'>
                 Invoice / 发票
               </Text>
-              <Text
-                type='secondary'
-                style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '12px',
-                }}
-              >
+              <Text type='secondary' className='sparkery-quote-calc-caption'>
                 Invoice Date / 发票日期
               </Text>
               <DatePicker
@@ -3207,16 +3241,9 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   )
                 }
                 format='YYYY-MM-DD'
-                style={{ width: '100%', marginBottom: '8px' }}
+                className='sparkery-quote-calc-full-width sparkery-quote-calc-gap-8'
               />
-              <Text
-                type='secondary'
-                style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '12px',
-                }}
-              >
+              <Text type='secondary' className='sparkery-quote-calc-caption'>
                 Due Date / 付款期限
               </Text>
               <DatePicker
@@ -3228,35 +3255,21 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   )
                 }
                 format='YYYY-MM-DD'
-                style={{ width: '100%', marginBottom: '8px' }}
+                className='sparkery-quote-calc-full-width sparkery-quote-calc-gap-8'
               />
-              <Text
-                type='secondary'
-                style={{
-                  display: 'block',
-                  marginBottom: '6px',
-                  fontSize: '12px',
-                }}
-              >
+              <Text type='secondary' className='sparkery-quote-calc-caption-lg'>
                 Invoice header
               </Text>
               <Radio.Group
                 value={invoiceHeaderMode}
                 onChange={e => setInvoiceHeaderMode(e.target.value)}
-                style={{ display: 'block', marginBottom: '8px' }}
+                className='sparkery-quote-calc-radio-block'
               >
                 <Radio value='sparkery'>Sparkery (default)</Radio>
                 <Radio value='custom'>Custom / 自定义（如个人名义）</Radio>
               </Radio.Group>
               {invoiceHeaderMode === 'custom' && (
-                <div
-                  style={{
-                    marginTop: '8px',
-                    padding: '8px',
-                    background: '#fafafa',
-                    borderRadius: '4px',
-                  }}
-                >
+                <div className='sparkery-quote-calc-panel-soft'>
                   <Input
                     placeholder='Company / Name'
                     value={customInvoiceHeader.companyName}
@@ -3266,7 +3279,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         companyName: e.target.value,
                       })
                     }
-                    style={{ marginBottom: '6px' }}
+                    className='sparkery-quote-calc-gap-6'
                   />
                   <Input
                     placeholder='ABN (optional)'
@@ -3277,7 +3290,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         abn: e.target.value,
                       })
                     }
-                    style={{ marginBottom: '6px' }}
+                    className='sparkery-quote-calc-gap-6'
                   />
                   <Input
                     placeholder='Address'
@@ -3288,7 +3301,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         address: e.target.value,
                       })
                     }
-                    style={{ marginBottom: '6px' }}
+                    className='sparkery-quote-calc-gap-6'
                   />
                   <Input
                     placeholder='Email'
@@ -3299,7 +3312,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         email: e.target.value,
                       })
                     }
-                    style={{ marginBottom: '6px' }}
+                    className='sparkery-quote-calc-gap-6'
                   />
                   <Input
                     placeholder='Phone'
@@ -3310,7 +3323,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         phone: e.target.value,
                       })
                     }
-                    style={{ marginBottom: '6px' }}
+                    className='sparkery-quote-calc-gap-6'
                   />
                   <Input
                     placeholder='Website'
@@ -3321,16 +3334,12 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         website: e.target.value,
                       })
                     }
-                    style={{ marginBottom: '6px' }}
+                    className='sparkery-quote-calc-gap-6'
                   />
-                  <Divider style={{ margin: '8px 0' }} />
+                  <Divider className='sparkery-quote-calc-divider-compact' />
                   <Text
                     type='secondary'
-                    style={{
-                      fontSize: '12px',
-                      display: 'block',
-                      marginBottom: '6px',
-                    }}
+                    className='sparkery-quote-calc-caption-lg'
                   >
                     Bank transfer details (个人时可修改)
                   </Text>
@@ -3343,7 +3352,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         accountName: e.target.value,
                       })
                     }
-                    style={{ marginBottom: '6px' }}
+                    className='sparkery-quote-calc-gap-6'
                   />
                   <Input
                     placeholder='BSB'
@@ -3354,7 +3363,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         bsb: e.target.value,
                       })
                     }
-                    style={{ marginBottom: '6px' }}
+                    className='sparkery-quote-calc-gap-6'
                   />
                   <Input
                     placeholder='Account Number'
@@ -3374,7 +3383,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 block
                 icon={<PrinterOutlined />}
                 onClick={() => generateInvoicePDF(pdfLanguage)}
-                style={{ marginTop: '8px' }}
+                className='sparkery-quote-calc-top-8'
               >
                 {pdfLanguage === 'cn' ? '打印发票' : 'Print Invoice'}
               </Button>
@@ -3429,31 +3438,17 @@ const BrisbaneQuoteCalculator: React.FC = () => {
               Reset Form
             </Button>
           </Card>
-
-          <Alert
-            message='Quote Validity'
-            description='This quote is valid for 30 days. Final price may vary based on actual property condition.'
-            type='info'
-            style={{ marginTop: '16px' }}
-          />
         </Col>
       </Row>
 
       {/* 实时HTML预览 */}
-      <div style={{ marginTop: '30px' }}>
+      <div className='sparkery-quote-calc-preview-section'>
         <Title level={4}>
           <EyeOutlined /> Live Preview
         </Title>
         <div
           dangerouslySetInnerHTML={{ __html: livePreviewHTML }}
-          style={{
-            width: '210mm',
-            minHeight: '297mm',
-            margin: '0 auto',
-            background: '#fff',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            overflow: 'auto',
-          }}
+          className='sparkery-quote-calc-preview-paper'
         />
       </div>
 
@@ -3482,7 +3477,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   <Row
                     key={field.key}
                     gutter={8}
-                    style={{ marginBottom: '8px', alignItems: 'flex-end' }}
+                    className='sparkery-quote-calc-config-row'
                   >
                     <Col span={4}>
                       <Form.Item
@@ -3501,7 +3496,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                       >
                         <InputNumber
                           min={0}
-                          style={{ width: '100%' }}
+                          className='sparkery-quote-calc-full-width'
                           size='small'
                         />
                       </Form.Item>
@@ -3515,7 +3510,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         <InputNumber
                           min={0}
                           step={0.5}
-                          style={{ width: '100%' }}
+                          className='sparkery-quote-calc-full-width'
                           size='small'
                         />
                       </Form.Item>
@@ -3528,7 +3523,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                       >
                         <InputNumber
                           min={0}
-                          style={{ width: '100%' }}
+                          className='sparkery-quote-calc-full-width'
                           size='small'
                         />
                       </Form.Item>
@@ -3542,7 +3537,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         <InputNumber
                           min={0}
                           step={0.5}
-                          style={{ width: '100%' }}
+                          className='sparkery-quote-calc-full-width'
                           size='small'
                         />
                       </Form.Item>
@@ -3555,7 +3550,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                       >
                         <InputNumber
                           min={0}
-                          style={{ width: '100%' }}
+                          className='sparkery-quote-calc-full-width'
                           size='small'
                         />
                       </Form.Item>
@@ -3569,7 +3564,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         <InputNumber
                           min={0}
                           step={0.5}
-                          style={{ width: '100%' }}
+                          className='sparkery-quote-calc-full-width'
                           size='small'
                         />
                       </Form.Item>
@@ -3590,7 +3585,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   <Row
                     key={field.key}
                     gutter={12}
-                    style={{ marginBottom: '8px' }}
+                    className='sparkery-quote-calc-gap-8'
                   >
                     <Col span={6}>
                       <Form.Item
@@ -3618,7 +3613,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                       >
                         <InputNumber
                           min={0}
-                          style={{ width: '100%' }}
+                          className='sparkery-quote-calc-full-width'
                           size='small'
                         />
                       </Form.Item>
@@ -3632,7 +3627,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         <InputNumber
                           min={0}
                           step={0.25}
-                          style={{ width: '100%' }}
+                          className='sparkery-quote-calc-full-width'
                           size='small'
                         />
                       </Form.Item>
@@ -3667,7 +3662,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   <Row
                     key={field.key}
                     gutter={16}
-                    style={{ marginBottom: '8px' }}
+                    className='sparkery-quote-calc-gap-8'
                   >
                     <Col span={8}>
                       <Form.Item
@@ -3685,7 +3680,10 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         label='Add. Price ($)'
                         tooltip='Additional price for non-bond cleaning types (Airbnb, Regular)'
                       >
-                        <InputNumber min={0} style={{ width: '100%' }} />
+                        <InputNumber
+                          min={0}
+                          className='sparkery-quote-calc-full-width'
+                        />
                       </Form.Item>
                     </Col>
                     <Col span={8}>
@@ -3699,7 +3697,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                           min={1}
                           max={3}
                           step={0.1}
-                          style={{ width: '100%' }}
+                          className='sparkery-quote-calc-full-width'
                         />
                       </Form.Item>
                     </Col>
@@ -3718,7 +3716,10 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 name='extraBedroomPrice'
                 label='Extra Bedroom Price ($)'
               >
-                <InputNumber min={0} style={{ width: '100%' }} />
+                <InputNumber
+                  min={0}
+                  className='sparkery-quote-calc-full-width'
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -3726,7 +3727,10 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 name='extraBathroomPrice'
                 label='Extra Bathroom Price ($)'
               >
-                <InputNumber min={0} style={{ width: '100%' }} />
+                <InputNumber
+                  min={0}
+                  className='sparkery-quote-calc-full-width'
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -3740,7 +3744,10 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 name={['sqmDefaultPrices', 'office']}
                 label='Office ($/sqm)'
               >
-                <InputNumber min={0} style={{ width: '100%' }} />
+                <InputNumber
+                  min={0}
+                  className='sparkery-quote-calc-full-width'
+                />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -3748,7 +3755,10 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 name={['sqmDefaultPrices', 'construction']}
                 label='Construction ($/sqm)'
               >
-                <InputNumber min={0} style={{ width: '100%' }} />
+                <InputNumber
+                  min={0}
+                  className='sparkery-quote-calc-full-width'
+                />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -3756,12 +3766,15 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 name={['sqmDefaultPrices', 'commercial']}
                 label='Commercial ($/sqm)'
               >
-                <InputNumber min={0} style={{ width: '100%' }} />
+                <InputNumber
+                  min={0}
+                  className='sparkery-quote-calc-full-width'
+                />
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item style={{ marginTop: '24px' }}>
+          <Form.Item className='sparkery-quote-calc-submit-item'>
             <Button type='primary' htmlType='submit' block size='large'>
               Save Configuration
             </Button>

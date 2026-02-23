@@ -253,23 +253,37 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
       onCancel={onCancel}
       footer={null}
       width={920}
+      className='dispatch-admin-modal'
       destroyOnHidden
     >
-      <Space style={{ marginBottom: 12 }} wrap>
-        <Button loading={loading} onClick={onMigrateLocalPeople}>
+      <Space className='dispatch-admin-toolbar' wrap>
+        <Button
+          loading={loading}
+          className='dispatch-admin-toolbar-btn'
+          onClick={onMigrateLocalPeople}
+        >
           Migrate Local Data to Supabase
         </Button>
-        <Button onClick={onResetMigrationPrompt}>Reset Migration Prompt</Button>
-        <Button loading={loading} onClick={onExportBackup}>
+        <Button
+          className='dispatch-admin-toolbar-btn'
+          onClick={onResetMigrationPrompt}
+        >
+          Reset Migration Prompt
+        </Button>
+        <Button
+          loading={loading}
+          className='dispatch-admin-toolbar-btn'
+          onClick={onExportBackup}
+        >
           Export JSON Backup
         </Button>
-        <Button loading={loading}>
-          <label style={{ cursor: 'pointer' }}>
+        <Button loading={loading} className='dispatch-admin-toolbar-btn'>
+          <label className='dispatch-admin-import-label'>
             Import JSON Backup
             <input
               type='file'
               accept='application/json'
-              style={{ display: 'none' }}
+              className='dispatch-admin-hidden-input'
               onChange={async event => {
                 const file = event.target.files?.[0];
                 if (!file) return;
@@ -282,41 +296,48 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
       </Space>
 
       <Tabs
+        className='dispatch-admin-tabs'
         items={[
           {
             key: 'employees',
             label: 'Employees',
             children: (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 16,
-                }}
-              >
+              <div className='dispatch-admin-grid'>
                 <div>
-                  <Text strong>Current Employees</Text>
-                  <div
-                    style={{ marginTop: 8, maxHeight: 320, overflow: 'auto' }}
-                  >
+                  <div className='dispatch-admin-panel-head'>
+                    <Text strong className='dispatch-admin-panel-title'>
+                      Current Employees
+                    </Text>
+                    <Text
+                      type='secondary'
+                      className='dispatch-admin-panel-subtitle'
+                    >
+                      Manage dispatch staff and location status.
+                    </Text>
+                  </div>
+                  <div className='dispatch-admin-scroll'>
                     {employees.map(emp => (
-                      <div
-                        key={emp.id}
-                        style={{
-                          padding: 10,
-                          border: '1px solid #f0f0f0',
-                          borderRadius: 6,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <Space>
+                      <div key={emp.id} className='dispatch-admin-list-item'>
+                        <Space
+                          wrap
+                          size={[6, 6]}
+                          className='dispatch-admin-item-head'
+                        >
                           <Text strong>{emp.name}</Text>
-                          <Tag>{emp.status}</Tag>
-                          <Tag color={emp.currentLocation ? 'green' : 'orange'}>
+                          <Tag className='dispatch-admin-status-tag'>
+                            {emp.status}
+                          </Tag>
+                          <Tag
+                            color={emp.currentLocation ? 'green' : 'orange'}
+                            className='dispatch-admin-location-tag'
+                          >
                             {emp.currentLocation ? 'Located' : 'Unlocated'}
                           </Tag>
                           {emp.currentLocation && (
-                            <Tag color='green'>
+                            <Tag
+                              color='green'
+                              className='dispatch-admin-coord-tag'
+                            >
                               {emp.currentLocation.lat.toFixed(4)},{' '}
                               {emp.currentLocation.lng.toFixed(4)}
                             </Tag>
@@ -332,16 +353,18 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                             </Text>
                           </div>
                         )}
-                        <div style={{ marginTop: 6 }}>
-                          <Space size={8}>
+                        <div className='dispatch-admin-item-actions'>
+                          <Space size={[8, 6]} wrap>
                             <Button
                               size='small'
+                              className='dispatch-admin-action-btn'
                               onClick={() => employeeForm.setFieldsValue(emp)}
                             >
                               Edit
                             </Button>
                             <Button
                               size='small'
+                              className='dispatch-admin-action-btn'
                               loading={reportingEmployeeId === emp.id}
                               onClick={() => reportBrowserLocation(emp.id)}
                             >
@@ -349,12 +372,14 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                             </Button>
                             <Button
                               size='small'
+                              className='dispatch-admin-action-btn'
                               onClick={() => copyLocationReportLink(emp.id)}
                             >
                               Copy Location Link
                             </Button>
                             <Button
                               size='small'
+                              className='dispatch-admin-action-btn'
                               onClick={() => openManualLocation(emp)}
                             >
                               Manual Location
@@ -370,6 +395,7 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                               <Button
                                 size='small'
                                 danger
+                                className='dispatch-admin-action-btn'
                                 loading={deletingEmployeeId === emp.id}
                               >
                                 Delete
@@ -382,11 +408,21 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                   </div>
                 </div>
                 <div>
-                  <Text strong>Add / Edit Employee</Text>
+                  <div className='dispatch-admin-panel-head'>
+                    <Text strong className='dispatch-admin-panel-title'>
+                      Add / Edit Employee
+                    </Text>
+                    <Text
+                      type='secondary'
+                      className='dispatch-admin-panel-subtitle'
+                    >
+                      Keep skills and status current for scheduling.
+                    </Text>
+                  </div>
                   <Form
                     form={employeeForm}
                     layout='vertical'
-                    style={{ marginTop: 8 }}
+                    className='dispatch-admin-form'
                     initialValues={{ status: 'available', skills: ['regular'] }}
                     onFinish={async values => {
                       await onSaveEmployee(values);
@@ -432,7 +468,12 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                         <Select.Option value='off'>Off</Select.Option>
                       </Select>
                     </Form.Item>
-                    <Button type='primary' htmlType='submit' block>
+                    <Button
+                      type='primary'
+                      htmlType='submit'
+                      block
+                      className='dispatch-admin-submit-btn'
+                    >
                       Save Employee
                     </Button>
                   </Form>
@@ -444,27 +485,24 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
             key: 'customers',
             label: 'Customers',
             children: (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 16,
-                }}
-              >
+              <div className='dispatch-admin-grid'>
                 <div>
-                  <Text strong>Long-term Customers</Text>
-                  <div
-                    style={{ marginTop: 8, maxHeight: 320, overflow: 'auto' }}
-                  >
+                  <div className='dispatch-admin-panel-head'>
+                    <Text strong className='dispatch-admin-panel-title'>
+                      Long-term Customers
+                    </Text>
+                    <Text
+                      type='secondary'
+                      className='dispatch-admin-panel-subtitle'
+                    >
+                      Recurring profiles used by weekly auto-fill.
+                    </Text>
+                  </div>
+                  <div className='dispatch-admin-scroll'>
                     {customerProfiles.map(customer => (
                       <div
                         key={customer.id}
-                        style={{
-                          padding: 10,
-                          border: '1px solid #f0f0f0',
-                          borderRadius: 6,
-                          marginBottom: 8,
-                        }}
+                        className='dispatch-admin-list-item'
                       >
                         <Text strong>{customer.name}</Text>
                         <div>
@@ -476,9 +514,10 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                             {Number(customer.recurringFee || 0).toFixed(2)}
                           </Text>
                         </div>
-                        <div style={{ marginTop: 6 }}>
+                        <div className='dispatch-admin-item-actions'>
                           <Button
                             size='small'
+                            className='dispatch-admin-action-btn'
                             onClick={() =>
                               customerForm.setFieldsValue({
                                 ...customer,
@@ -500,11 +539,21 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                   </div>
                 </div>
                 <div>
-                  <Text strong>Add / Edit Customer</Text>
+                  <div className='dispatch-admin-panel-head'>
+                    <Text strong className='dispatch-admin-panel-title'>
+                      Add / Edit Customer
+                    </Text>
+                    <Text
+                      type='secondary'
+                      className='dispatch-admin-panel-subtitle'
+                    >
+                      Configure default task details and recurring rules.
+                    </Text>
+                  </div>
                   <Form
                     form={customerForm}
                     layout='vertical'
-                    style={{ marginTop: 8 }}
+                    className='dispatch-admin-form'
                     initialValues={{
                       recurringEnabled: false,
                       recurringWeekday: 1,
@@ -641,12 +690,17 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                       name='recurringFee'
                     >
                       <InputNumber
+                        className='dispatch-form-number-full-width'
                         min={0}
                         precision={2}
-                        style={{ width: '100%' }}
                       />
                     </Form.Item>
-                    <Button type='primary' htmlType='submit' block>
+                    <Button
+                      type='primary'
+                      htmlType='submit'
+                      block
+                      className='dispatch-admin-submit-btn'
+                    >
                       Save Customer
                     </Button>
                   </Form>
@@ -667,6 +721,7 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
         onCancel={() => closeManualLocation()}
         onOk={() => manualLocationForm.submit()}
         confirmLoading={manualLocationSaving}
+        className='dispatch-admin-manual-location-modal'
         destroyOnHidden
       >
         <Form
@@ -698,27 +753,28 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
           <Form.Item label='Address' name='address'>
             <Input placeholder='Home address or today departure address' />
           </Form.Item>
-          <Text type='secondary'>
+          <Text type='secondary' className='dispatch-admin-manual-location-tip'>
             If address cannot be geocoded, enter latitude/longitude directly.
           </Text>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 8,
-              marginTop: 8,
-            }}
-          >
-            <Form.Item label='Latitude' name='lat' style={{ marginBottom: 0 }}>
+          <div className='dispatch-location-grid'>
+            <Form.Item
+              label='Latitude'
+              name='lat'
+              className='dispatch-admin-compact-form-item'
+            >
               <InputNumber
-                style={{ width: '100%' }}
+                className='dispatch-form-number-full-width'
                 placeholder='-27.4705'
                 step={0.000001}
               />
             </Form.Item>
-            <Form.Item label='Longitude' name='lng' style={{ marginBottom: 0 }}>
+            <Form.Item
+              label='Longitude'
+              name='lng'
+              className='dispatch-admin-compact-form-item'
+            >
               <InputNumber
-                style={{ width: '100%' }}
+                className='dispatch-form-number-full-width'
                 placeholder='153.0260'
                 step={0.000001}
               />

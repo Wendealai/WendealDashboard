@@ -9,6 +9,7 @@ import {
   InputNumber,
   Select,
   Space,
+  Tag,
   Typography,
   message,
 } from 'antd';
@@ -22,6 +23,7 @@ import type {
   DispatchEmployee,
   DispatchEmployeeLocation,
 } from './dispatch/types';
+import './sparkery.css';
 
 const { Title, Text } = Typography;
 
@@ -194,33 +196,37 @@ const DispatchLocationReport: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        background:
-          'linear-gradient(135deg, rgba(248,250,252,1) 0%, rgba(241,245,249,1) 100%)',
-        padding: 16,
-      }}
-    >
+    <div className='dispatch-location-report-page dispatch-location-report-shell'>
       {contextHolder}
-      <Card style={{ width: '100%', maxWidth: 520 }}>
-        <Space direction='vertical' size={12} style={{ width: '100%' }}>
-          <Title level={4} style={{ marginBottom: 0 }}>
-            <EnvironmentOutlined style={{ marginRight: 8 }} />
+      <Card className='dispatch-location-report-card'>
+        <Space
+          direction='vertical'
+          size={12}
+          className='dispatch-location-report-content'
+        >
+          <Title level={4} className='dispatch-location-report-title'>
+            <EnvironmentOutlined className='dispatch-location-report-title-icon' />
             Dispatch Location Report
           </Title>
           <Text type='secondary'>
             Employee check-in / departure location reporting page
           </Text>
+          <Space size={[6, 6]} wrap className='dispatch-location-report-tags'>
+            <Tag className='dispatch-location-report-tag'>
+              Employees: {employees.length}
+            </Tag>
+            <Tag className='dispatch-location-report-tag dispatch-location-report-tag-selected'>
+              Selected: {selectedEmployeeId || 'None'}
+            </Tag>
+          </Space>
           <Alert
             type='info'
             showIcon
-            message='Open this page on mobile or WeChat, choose your name, then tap “Report Current Location”.'
+            className='dispatch-location-report-alert dispatch-location-report-alert-info'
+            message='Open this page on mobile or WeChat, choose your name, then tap "Report Current Location".'
           />
           <Select
+            className='dispatch-location-report-select'
             loading={loadingEmployees}
             placeholder='Select employee'
             value={selectedEmployeeId}
@@ -233,16 +239,20 @@ const DispatchLocationReport: React.FC = () => {
           <Button
             type='primary'
             size='large'
+            className='dispatch-location-report-btn dispatch-location-report-btn-primary'
             loading={reporting}
             onClick={reportCurrentLocation}
           >
             Report Current Location
           </Button>
-          <Divider style={{ margin: '4px 0' }} />
-          <Text strong>Manual Location (Address / Departure Point)</Text>
+          <Divider className='dispatch-location-report-divider-compact' />
+          <Text strong className='dispatch-location-report-manual-title'>
+            Manual Location (Address / Departure Point)
+          </Text>
           <Form
             form={manualForm}
             layout='vertical'
+            className='dispatch-location-report-form'
             initialValues={{ placeType: 'departure' }}
             onFinish={reportManualLocation}
           >
@@ -271,27 +281,20 @@ const DispatchLocationReport: React.FC = () => {
             <Form.Item label='Address' name='address'>
               <Input placeholder='Home address or today departure address' />
             </Form.Item>
-            <Text type='secondary'>
+            <Text type='secondary' className='dispatch-location-report-tip'>
               If address fails geocoding, fill coordinates directly.
             </Text>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 8,
-                marginTop: 8,
-              }}
-            >
+            <div className='dispatch-location-grid'>
               <Form.Item label='Latitude' name='lat'>
                 <InputNumber
-                  style={{ width: '100%' }}
+                  className='dispatch-form-number-full-width'
                   placeholder='-27.4705'
                   step={0.000001}
                 />
               </Form.Item>
               <Form.Item label='Longitude' name='lng'>
                 <InputNumber
-                  style={{ width: '100%' }}
+                  className='dispatch-form-number-full-width'
                   placeholder='153.0260'
                   step={0.000001}
                 />
@@ -301,6 +304,7 @@ const DispatchLocationReport: React.FC = () => {
               type='default'
               block
               htmlType='submit'
+              className='dispatch-location-report-btn'
               loading={manualReporting}
             >
               Report Manual Location
@@ -310,6 +314,7 @@ const DispatchLocationReport: React.FC = () => {
             <Alert
               type='success'
               showIcon
+              className='dispatch-location-report-alert dispatch-location-report-alert-success'
               message={`Last report: ${lastReport.lat.toFixed(6)}, ${lastReport.lng.toFixed(6)}`}
               description={`Updated at ${new Date(lastReport.updatedAt).toLocaleString()}`}
             />

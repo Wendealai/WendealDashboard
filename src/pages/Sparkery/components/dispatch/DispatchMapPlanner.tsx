@@ -496,12 +496,12 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
           return;
         }
         const html = `
-          <div style="min-width:220px">
-            <div style="font-weight:600;margin-bottom:4px">${escapeHtml(job.title)}</div>
+          <div class="dispatch-map-infowindow">
+            <div class="dispatch-map-infowindow-title">${escapeHtml(job.title)}</div>
             <div><strong>Customer:</strong> ${escapeHtml(job.customerName || 'N/A')}</div>
             <div><strong>Time:</strong> ${escapeHtml(job.scheduledStartTime)} - ${escapeHtml(job.scheduledEndTime)}</div>
             <div><strong>Type:</strong> ${escapeHtml(job.serviceType)}</div>
-            <div style="margin-top:4px"><strong>Address:</strong> ${escapeHtml(job.customerAddress || '')}</div>
+            <div class="dispatch-map-infowindow-row-top"><strong>Address:</strong> ${escapeHtml(job.customerAddress || '')}</div>
           </div>
         `;
         infoWindowRef.current.setContent(html);
@@ -551,12 +551,12 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
           return;
         }
         const html = `
-          <div style="min-width:220px">
-            <div style="font-weight:600;margin-bottom:4px">${escapeHtml(employee.name)}</div>
+          <div class="dispatch-map-infowindow">
+            <div class="dispatch-map-infowindow-title">${escapeHtml(employee.name)}</div>
             <div><strong>Status:</strong> ${escapeHtml(employee.status)}</div>
             <div><strong>Updated:</strong> ${escapeHtml(dayjs(location.updatedAt).format('YYYY-MM-DD HH:mm:ss'))}</div>
             <div><strong>Source:</strong> ${escapeHtml(location.source)}</div>
-            <div style="margin-top:4px"><strong>Coordinate:</strong> ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</div>
+            <div class="dispatch-map-infowindow-row-top"><strong>Coordinate:</strong> ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</div>
           </div>
         `;
         infoWindowRef.current.setContent(html);
@@ -946,11 +946,13 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
   return (
     <Card
       size='small'
+      className='dispatch-map-planner-card'
       title='Dispatch Map Planner (MVP)'
       extra={
-        <Space size={8} wrap>
+        <Space size={8} wrap className='dispatch-map-planner-top-tags'>
           <Segmented
             size='small'
+            className='dispatch-map-planner-scope-toggle'
             value={mapScope}
             options={[
               { label: 'Today', value: 'today' },
@@ -958,8 +960,10 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
             ]}
             onChange={value => setMapScope(value as MapScope)}
           />
-          <Tag color='blue'>Jobs in scope: {scopedExecutableJobs.length}</Tag>
-          <Tag color='green'>
+          <Tag color='blue' className='dispatch-map-planner-top-tag'>
+            Jobs in scope: {scopedExecutableJobs.length}
+          </Tag>
+          <Tag color='green' className='dispatch-map-planner-top-tag'>
             Employees located: {employeesWithLocation.length}
           </Tag>
         </Space>
@@ -968,23 +972,24 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
       {contextHolder}
       {!isGoogleMapsConfigured() && (
         <Alert
+          className='dispatch-map-planner-alert dispatch-map-planner-alert-warning'
           type='warning'
           showIcon
           message='Google Maps is not configured'
           description='Set VITE_GOOGLE_MAPS_API_KEY, then refresh the page to enable map pins and routing.'
-          style={{ marginBottom: 12 }}
         />
       )}
       {mapError && (
         <Alert
+          className='dispatch-map-planner-alert dispatch-map-planner-alert-error'
           type='error'
           showIcon
           message={mapError}
-          style={{ marginBottom: 12 }}
         />
       )}
       {mapScope === 'today' && dateFilteredOutJobs.length > 0 && (
         <Alert
+          className='dispatch-map-planner-alert dispatch-map-planner-alert-info'
           type='info'
           showIcon
           message={`Today view hides ${dateFilteredOutJobs.length} jobs scheduled on other dates`}
@@ -993,20 +998,20 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
               Show Week
             </Button>
           }
-          style={{ marginBottom: 12 }}
         />
       )}
       {executableJobsWithoutAddress.length > 0 && (
         <Alert
+          className='dispatch-map-planner-alert dispatch-map-planner-alert-warning'
           type='warning'
           showIcon
           message={`${executableJobsWithoutAddress.length} executable jobs do not have customer address`}
           description='Jobs without an address cannot be pinned on the map.'
-          style={{ marginBottom: 12 }}
         />
       )}
       {geocodeFailedJobs.length > 0 && (
         <Alert
+          className='dispatch-map-planner-alert dispatch-map-planner-alert-error'
           type='error'
           showIcon
           message={`${geocodeFailedJobs.length} jobs failed geocoding`}
@@ -1025,54 +1030,63 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
               </Button>
             </Space>
           }
-          style={{ marginBottom: 12 }}
         />
       )}
-      <Row gutter={12}>
+      <Row gutter={12} className='dispatch-map-planner-row'>
         <Col xs={24} xl={15}>
-          <div
-            ref={mapContainerRef}
-            style={{
-              minHeight: 420,
-              borderRadius: 8,
-              border: '1px solid #e5e7eb',
-              background:
-                'linear-gradient(135deg, rgba(249,250,251,1) 0%, rgba(243,244,246,1) 100%)',
-            }}
-          />
-          <div style={{ marginTop: 8 }}>
-            <Text type='secondary'>
+          <div ref={mapContainerRef} className='dispatch-map-planner-canvas' />
+          <div className='dispatch-map-planner-stats'>
+            <Text type='secondary' className='dispatch-map-planner-stats-text'>
               Scope jobs: {scopedExecutableJobs.length} | Pinned:{' '}
               {jobsWithCoords.length} | Waiting geocode:{' '}
               {jobsWithoutCoords.length}
             </Text>
             {geocodeLoading && (
-              <Text type='secondary' style={{ marginLeft: 8 }}>
+              <Text type='secondary' className='dispatch-map-planner-geocode'>
                 Geocoding addresses...
               </Text>
             )}
           </div>
         </Col>
         <Col xs={24} xl={9}>
-          <Space direction='vertical' size={10} style={{ width: '100%' }}>
+          <Space
+            direction='vertical'
+            size={10}
+            className='dispatch-map-planner-side'
+          >
             <Alert
               type='info'
               showIcon
+              className='dispatch-map-planner-onboarding-alert'
               message='Employee location onboarding'
               description={
-                <Space direction='vertical' size={6} style={{ width: '100%' }}>
-                  <Text type='secondary'>
+                <Space
+                  direction='vertical'
+                  size={6}
+                  className='dispatch-map-planner-side-content'
+                >
+                  <Text
+                    type='secondary'
+                    className='dispatch-map-planner-onboarding-step'
+                  >
                     1) Send the location-report link to employee phone.
                   </Text>
-                  <Text type='secondary'>
+                  <Text
+                    type='secondary'
+                    className='dispatch-map-planner-onboarding-step'
+                  >
                     2) Employee opens the page and taps Report Current Location.
                   </Text>
-                  <Text type='secondary'>
+                  <Text
+                    type='secondary'
+                    className='dispatch-map-planner-onboarding-step'
+                  >
                     3) Refresh employees to see real-time map marker.
                   </Text>
                   <Space wrap>
                     <Button
                       size='small'
+                      className='dispatch-map-planner-link-btn'
                       onClick={() => handleCopyLocationLink(selectedEmployeeId)}
                     >
                       Copy Location Link
@@ -1083,6 +1097,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                       href={selectedEmployeeLocationUrl}
                       target='_blank'
                       rel='noreferrer'
+                      className='dispatch-map-planner-link-open'
                     >
                       Open Location Page
                     </Button>
@@ -1092,16 +1107,23 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
             />
 
             {employeesWithoutLocation.length > 0 && (
-              <Card size='small' title='Employees without location'>
+              <Card
+                size='small'
+                title='Employees without location'
+                className='dispatch-map-planner-unlocated-card'
+              >
                 <List
                   size='small'
+                  className='dispatch-map-planner-unlocated-list'
                   dataSource={employeesWithoutLocation}
                   renderItem={employee => (
                     <List.Item
+                      className='dispatch-map-planner-unlocated-item'
                       actions={[
                         <Button
                           key='copy'
                           size='small'
+                          className='dispatch-map-planner-link-btn'
                           onClick={() => handleCopyLocationLink(employee.id)}
                         >
                           Copy Link
@@ -1116,8 +1138,10 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
             )}
 
             <Select
-              className='dispatch-map-planner-select'
-              popupClassName='dispatch-map-planner-select-popup'
+              className='dispatch-map-planner-select dispatch-map-planner-full-width dispatch-map-planner-employee-select'
+              classNames={{
+                popup: { root: 'dispatch-map-planner-select-popup' },
+              }}
               placeholder='Select employee (location required for route)'
               value={selectedEmployeeId}
               onChange={value => {
@@ -1125,15 +1149,16 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                 setRouteResult(null);
                 setRouteError('');
               }}
-              style={{ width: '100%' }}
               options={employees.map(employee => ({
                 value: employee.id,
                 label: `${employee.name}${employee.currentLocation ? ' (located)' : ' (no location)'}`,
               }))}
             />
             <Select
-              className='dispatch-map-planner-job-select'
-              popupClassName='dispatch-map-planner-job-select-popup'
+              className='dispatch-map-planner-job-select dispatch-map-planner-full-width dispatch-map-planner-job-picker'
+              classNames={{
+                popup: { root: 'dispatch-map-planner-job-select-popup' },
+              }}
               mode='multiple'
               placeholder='Select jobs to assign and route'
               value={selectedJobIds}
@@ -1142,7 +1167,6 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                 setRouteResult(null);
                 setRouteError('');
               }}
-              style={{ width: '100%' }}
               popupMatchSelectWidth={false}
               maxTagCount='responsive'
               options={scopedExecutableJobs.map(job => ({
@@ -1152,29 +1176,32 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                 } | ${job.customerAddress}${jobCoords[job.id] ? '' : ' (waiting geocode)'}`,
               }))}
             />
-            <Card size='small' title='Selectable Jobs'>
+            <Card
+              size='small'
+              title='Selectable Jobs'
+              className='dispatch-map-planner-jobs-card'
+            >
               {scopedExecutableJobs.length === 0 ? (
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                   description='No jobs in current scope'
                 />
               ) : (
-                <div style={{ maxHeight: 220, overflow: 'auto' }}>
+                <div className='dispatch-map-planner-job-scroll'>
                   <Space
                     direction='vertical'
                     size={6}
-                    style={{ width: '100%' }}
+                    className='dispatch-map-planner-job-list'
                   >
                     {scopedExecutableJobs.map(job => (
                       <div
                         key={job.id}
-                        style={{
-                          border: '1px solid #f0f0f0',
-                          borderRadius: 6,
-                          padding: '6px 8px',
-                        }}
+                        className='dispatch-map-planner-job-item'
                       >
-                        <Space align='start'>
+                        <Space
+                          align='start'
+                          className='dispatch-map-planner-job-line'
+                        >
                           <Checkbox
                             checked={selectedJobIds.includes(job.id)}
                             onChange={event =>
@@ -1183,11 +1210,27 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                           />
                           <div>
                             <Space size={6} wrap>
-                              <Text strong>{job.title}</Text>
-                              <Tag color='blue'>{job.scheduledDate}</Tag>
-                              <Tag color='cyan'>{job.scheduledStartTime}</Tag>
+                              <Text
+                                strong
+                                className='dispatch-map-planner-job-title'
+                              >
+                                {job.title}
+                              </Text>
+                              <Tag
+                                color='blue'
+                                className='dispatch-map-planner-job-tag'
+                              >
+                                {job.scheduledDate}
+                              </Tag>
+                              <Tag
+                                color='cyan'
+                                className='dispatch-map-planner-job-tag'
+                              >
+                                {job.scheduledStartTime}
+                              </Tag>
                               <Tag
                                 color={jobCoords[job.id] ? 'green' : 'orange'}
+                                className='dispatch-map-planner-job-tag'
                               >
                                 {jobCoords[job.id]
                                   ? 'Pinned'
@@ -1195,7 +1238,10 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                               </Tag>
                             </Space>
                             <div>
-                              <Text type='secondary'>
+                              <Text
+                                type='secondary'
+                                className='dispatch-map-planner-job-meta'
+                              >
                                 {job.customerName || 'Customer'} |{' '}
                                 {job.customerAddress}
                               </Text>
@@ -1210,6 +1256,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
             </Card>
             <Button
               type='primary'
+              className='dispatch-map-planner-action-btn dispatch-map-planner-action-btn-primary'
               onClick={handleCalculateRoute}
               loading={planningRoute}
               disabled={!isGoogleMapsConfigured()}
@@ -1217,23 +1264,33 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
               Calculate Recommended Route
             </Button>
             <Button
+              className='dispatch-map-planner-action-btn'
               onClick={handleAssignWithRoute}
               disabled={!routeResult || !selectedEmployeeId}
             >
               Assign Jobs by Route
             </Button>
             <Button
+              className='dispatch-map-planner-action-btn'
               onClick={handleGenerateWeeklyPlanLink}
               disabled={!selectedEmployeeId}
             >
               Generate Weekly Plan Link
             </Button>
-            {routeError && <Alert type='error' showIcon message={routeError} />}
+            {routeError && (
+              <Alert
+                type='error'
+                showIcon
+                className='dispatch-map-planner-route-alert dispatch-map-planner-route-alert-error'
+                message={routeError}
+              />
+            )}
             {routeResult && (
               <>
                 <Alert
                   type='info'
                   showIcon
+                  className='dispatch-map-planner-route-alert dispatch-map-planner-route-alert-info'
                   message={`Next commute: ${routeResult.nextCommuteDistanceText} / ${routeResult.nextCommuteDurationText}`}
                   description={`Total route: ${routeResult.totalDistanceKm.toFixed(1)} km, around ${Math.round(routeResult.totalDurationMin)} mins`}
                 />
@@ -1243,17 +1300,19 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                     href={routeResult.overviewNavigationUrl}
                     target='_blank'
                     rel='noreferrer'
-                    style={{ paddingInline: 0 }}
+                    className='dispatch-link-button-inline'
                   >
                     Open Full Navigation
                   </Button>
                 </Space>
-                <Divider style={{ margin: '8px 0' }} />
+                <Divider className='dispatch-divider-compact' />
                 <List
                   size='small'
+                  className='dispatch-map-planner-route-list'
                   dataSource={routeResult.steps}
                   renderItem={(step, index) => (
                     <List.Item
+                      className='dispatch-map-planner-route-item'
                       actions={[
                         <a
                           key='nav'
@@ -1267,26 +1326,62 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                     >
                       <List.Item.Meta
                         title={
-                          <Space size={6}>
-                            <Tag color='geekblue'>#{index + 1}</Tag>
-                            <span>{step.title}</span>
+                          <Space
+                            size={6}
+                            className='dispatch-map-planner-route-item-title'
+                          >
+                            <Tag
+                              color='geekblue'
+                              className='dispatch-map-planner-route-step-tag'
+                            >
+                              #{index + 1}
+                            </Tag>
+                            <span className='dispatch-map-planner-route-item-name'>
+                              {step.title}
+                            </span>
                           </Space>
                         }
                         description={
-                          <Space direction='vertical' size={0}>
-                            <Text type='secondary'>
-                              {step.customerName} | {step.serviceType} |{' '}
-                              {step.scheduledTime}
+                          <div className='dispatch-map-planner-route-item-desc'>
+                            <Space
+                              size={[6, 4]}
+                              wrap
+                              className='dispatch-map-planner-route-item-meta'
+                            >
+                              <Text className='dispatch-map-planner-route-item-customer'>
+                                {step.customerName}
+                              </Text>
+                              <Tag className='dispatch-map-planner-route-item-service-tag'>
+                                {step.serviceType}
+                              </Tag>
+                              <Tag className='dispatch-map-planner-route-item-time-tag'>
+                                {step.scheduledTime}
+                              </Tag>
+                            </Space>
+                            <Text
+                              type='secondary'
+                              className='dispatch-map-planner-route-item-address'
+                            >
+                              {step.customerAddress}
                             </Text>
-                            <Text type='secondary'>{step.customerAddress}</Text>
-                            <Text type='secondary'>
-                              From: {step.fromAddress}
-                            </Text>
-                            <Text type='secondary'>To: {step.toAddress}</Text>
-                            <Text>
+                            <div className='dispatch-map-planner-route-item-leg'>
+                              <Text
+                                type='secondary'
+                                className='dispatch-map-planner-route-item-leg-from'
+                              >
+                                From: {step.fromAddress}
+                              </Text>
+                              <Text
+                                type='secondary'
+                                className='dispatch-map-planner-route-item-leg-to'
+                              >
+                                To: {step.toAddress}
+                              </Text>
+                            </div>
+                            <Text className='dispatch-map-planner-route-item-commute'>
                               Commute: {step.distanceText} / {step.durationText}
                             </Text>
-                          </Space>
+                          </div>
                         }
                       />
                     </List.Item>
@@ -1295,7 +1390,10 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
               </>
             )}
             {!routeResult && selectedJobs.length > 0 && (
-              <Text type='secondary'>
+              <Text
+                type='secondary'
+                className='dispatch-map-planner-selection-hint'
+              >
                 Selected {selectedJobs.length} jobs for route planning.
               </Text>
             )}

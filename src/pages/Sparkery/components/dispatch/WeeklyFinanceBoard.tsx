@@ -40,6 +40,24 @@ type FinanceRow = {
 const toMoney = (value: number | undefined): string =>
   `$${Number(value || 0).toFixed(2)}`;
 
+const formatStatusLabel = (status: DispatchJob['status']): string =>
+  status.replace('_', ' ');
+
+const getStatusTagColor = (status: DispatchJob['status']): string => {
+  switch (status) {
+    case 'completed':
+      return 'green';
+    case 'in_progress':
+      return 'processing';
+    case 'assigned':
+      return 'blue';
+    case 'cancelled':
+      return 'red';
+    default:
+      return 'default';
+  }
+};
+
 const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
   jobs,
   employees,
@@ -100,9 +118,15 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       key: 'dateTime',
       width: 140,
       render: (_, row) => (
-        <Space direction='vertical' size={0}>
-          <Text>{row.job.scheduledDate}</Text>
-          <Text type='secondary' style={{ fontSize: 12 }}>
+        <Space
+          direction='vertical'
+          size={0}
+          className='dispatch-finance-date-block'
+        >
+          <Text className='dispatch-finance-date-primary'>
+            {row.job.scheduledDate}
+          </Text>
+          <Text type='secondary' className='dispatch-finance-muted-text'>
             {row.job.scheduledStartTime} - {row.job.scheduledEndTime}
           </Text>
         </Space>
@@ -112,9 +136,15 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       title: 'Task',
       key: 'task',
       render: (_, row) => (
-        <Space direction='vertical' size={2}>
-          <Text strong>{row.job.title}</Text>
-          <Text type='secondary' style={{ fontSize: 12 }}>
+        <Space
+          direction='vertical'
+          size={2}
+          className='dispatch-finance-task-block'
+        >
+          <Text strong className='dispatch-finance-task-title'>
+            {row.job.title}
+          </Text>
+          <Text type='secondary' className='dispatch-finance-muted-text'>
             {row.job.customerName || row.job.customerAddress || 'No customer'}
           </Text>
         </Space>
@@ -129,12 +159,18 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
           row.job.assignedEmployeeIds?.includes(employee.id)
         );
         if (assigned.length === 0) {
-          return <Text type='secondary'>Unassigned</Text>;
+          return (
+            <Text type='secondary' className='dispatch-finance-muted-text'>
+              Unassigned
+            </Text>
+          );
         }
         return (
-          <Space direction='vertical' size={2}>
+          <Space size={[4, 4]} wrap>
             {assigned.map(employee => (
-              <Text key={employee.id}>{employee.name}</Text>
+              <Tag key={employee.id} className='dispatch-assignee-name-tag'>
+                {employee.name}
+              </Tag>
             ))}
           </Space>
         );
@@ -145,8 +181,11 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       key: 'status',
       width: 120,
       render: (_, row) => (
-        <Tag color={row.job.status === 'completed' ? 'green' : 'default'}>
-          {row.job.status}
+        <Tag
+          color={getStatusTagColor(row.job.status)}
+          className='dispatch-finance-status-tag'
+        >
+          {formatStatusLabel(row.job.status)}
         </Tag>
       ),
     },
@@ -154,7 +193,11 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       title: 'Base',
       key: 'baseFee',
       width: 92,
-      render: (_, row) => <Text>{toMoney(row.job.baseFee)}</Text>,
+      render: (_, row) => (
+        <Text className='dispatch-finance-money-base'>
+          {toMoney(row.job.baseFee)}
+        </Text>
+      ),
     },
     {
       title: 'Adjustment',
@@ -163,7 +206,13 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       render: (_, row) => {
         const value = Number(row.job.manualAdjustment || 0);
         return (
-          <Text type={value >= 0 ? 'success' : 'danger'}>
+          <Text
+            className={
+              value >= 0
+                ? 'dispatch-finance-adjust-text dispatch-finance-adjust-text-positive'
+                : 'dispatch-finance-adjust-text dispatch-finance-adjust-text-negative'
+            }
+          >
             {value >= 0 ? '+' : ''}
             {toMoney(value)}
           </Text>
@@ -175,7 +224,9 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       key: 'receivable',
       width: 108,
       render: (_, row) => (
-        <Text strong>{toMoney(row.job.receivableTotal)}</Text>
+        <Text strong className='dispatch-finance-money-receivable'>
+          {toMoney(row.job.receivableTotal)}
+        </Text>
       ),
     },
     {
@@ -186,17 +237,27 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
         if (row.job.financeConfirmedAt) {
           return (
             <Space direction='vertical' size={2}>
-              <Tag color='gold'>Locked</Tag>
-              <Text type='secondary' style={{ fontSize: 11 }}>
+              <Tag color='gold' className='dispatch-finance-lock-tag'>
+                Locked
+              </Tag>
+              <Text type='secondary' className='dispatch-finance-date-text'>
                 {row.job.financeConfirmedAt.slice(0, 10)}
               </Text>
             </Space>
           );
         }
         if (row.job.status === 'completed') {
-          return <Tag color='orange'>Pending Confirm</Tag>;
+          return (
+            <Tag color='orange' className='dispatch-finance-pending-tag'>
+              Pending Confirm
+            </Tag>
+          );
         }
-        return <Tag>Not Completed</Tag>;
+        return (
+          <Tag className='dispatch-finance-not-completed-tag'>
+            Not Completed
+          </Tag>
+        );
       },
     },
     {
@@ -211,6 +272,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
         return (
           <Space direction='vertical' size={2}>
             <Checkbox
+              className='dispatch-finance-payment-check'
               checked={paymentChecked}
               disabled={!canTrackPayment}
               onChange={async event => {
@@ -220,7 +282,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
               {'\u5df2\u6536\u6b3e'}
             </Checkbox>
             {paymentChecked && row.job.paymentReceivedAt && (
-              <Text type='secondary' style={{ fontSize: 11 }}>
+              <Text type='secondary' className='dispatch-finance-date-text'>
                 {row.job.paymentReceivedAt.slice(0, 10)}
               </Text>
             )}
@@ -243,10 +305,10 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
             : 0;
 
         return (
-          <Space wrap>
+          <Space wrap className='dispatch-finance-action-row'>
             <InputNumber
               size='small'
-              style={{ width: 100 }}
+              className='dispatch-finance-adjust-input'
               precision={2}
               disabled={isLocked}
               placeholder='+/-'
@@ -260,6 +322,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
             />
             <Button
               size='small'
+              className='dispatch-finance-action-btn dispatch-finance-action-apply'
               disabled={isLocked || deltaAmount === 0}
               onClick={async () => {
                 await onApplyAdjustment(row.id, deltaAmount);
@@ -274,6 +337,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
             <Button
               size='small'
               type='primary'
+              className='dispatch-finance-action-btn dispatch-finance-action-confirm'
               disabled={isLocked || row.job.status !== 'completed'}
               onClick={async () => {
                 await onConfirmFinance(row.id);
@@ -289,34 +353,58 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
 
   return (
     <Card
+      className='dispatch-finance-board-card'
       size='small'
       title={title || `Weekly Finance (${weekStart} to ${weekEnd})`}
       extra={
-        <Space size={16}>
-          <Text>
-            Scheduled: <Text strong>{toMoney(allScheduledAmount)}</Text>
+        <Space size={[16, 6]} wrap className='dispatch-finance-extra-metrics'>
+          <Text className='dispatch-finance-extra-metric'>
+            Scheduled:{' '}
+            <Text strong className='dispatch-finance-extra-metric-value'>
+              {toMoney(allScheduledAmount)}
+            </Text>
           </Text>
-          <Text>
-            Completed: <Text strong>{toMoney(completedAmount)}</Text>
+          <Text className='dispatch-finance-extra-metric'>
+            Completed:{' '}
+            <Text strong className='dispatch-finance-extra-metric-value'>
+              {toMoney(completedAmount)}
+            </Text>
           </Text>
-          <Text>
-            Confirmed: <Text strong>{toMoney(confirmedAmount)}</Text>
+          <Text className='dispatch-finance-extra-metric'>
+            Confirmed:{' '}
+            <Text strong className='dispatch-finance-extra-metric-value'>
+              {toMoney(confirmedAmount)}
+            </Text>
           </Text>
-          <Text>
-            Paid: <Text strong>{toMoney(paidAmount)}</Text>
+          <Text className='dispatch-finance-extra-metric'>
+            Paid:{' '}
+            <Text strong className='dispatch-finance-extra-metric-value'>
+              {toMoney(paidAmount)}
+            </Text>
           </Text>
         </Space>
       }
     >
-      <Space size={16} style={{ marginBottom: 10 }}>
-        <Tag color='blue'>All Jobs: {rows.length}</Tag>
-        <Tag color='green'>Completed: {completedRows.length}</Tag>
-        <Tag color='orange'>Pending Finance: {completedPendingRows.length}</Tag>
-        <Tag color='gold'>Confirmed/Locked: {confirmedRows.length}</Tag>
-        <Tag color='cyan'>Paid: {paidRows.length}</Tag>
+      <Space className='dispatch-finance-summary-tags' size={16} wrap>
+        <Tag className='dispatch-finance-pill dispatch-finance-pill-all'>
+          All Jobs: {rows.length}
+        </Tag>
+        <Tag className='dispatch-finance-pill dispatch-finance-pill-completed'>
+          Completed: {completedRows.length}
+        </Tag>
+        <Tag className='dispatch-finance-pill dispatch-finance-pill-pending'>
+          Pending Finance: {completedPendingRows.length}
+        </Tag>
+        <Tag className='dispatch-finance-pill dispatch-finance-pill-confirmed'>
+          Confirmed/Locked: {confirmedRows.length}
+        </Tag>
+        <Tag className='dispatch-finance-pill dispatch-finance-pill-paid'>
+          Paid: {paidRows.length}
+        </Tag>
       </Space>
 
       <Table<FinanceRow>
+        className='dispatch-finance-table'
         rowKey='id'
         size='small'
         pagination={false}

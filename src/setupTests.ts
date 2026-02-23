@@ -40,6 +40,11 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
+// jsdom does not implement pseudo-element argument in getComputedStyle.
+const nativeGetComputedStyle = window.getComputedStyle.bind(window);
+window.getComputedStyle = ((elt: Element) =>
+  nativeGetComputedStyle(elt)) as typeof window.getComputedStyle;
+
 // Mock window.ResizeObserver
 global.ResizeObserver = jest.fn().mockImplementation(() => ({
   observe: jest.fn(),
@@ -95,12 +100,14 @@ Object.defineProperty(URL, 'revokeObjectURL', {
 });
 
 // Suppress console warnings in tests
+/* eslint-disable no-console */
 const originalError = console.error;
 beforeAll(() => {
   console.error = (...args: any[]) => {
     if (
       typeof args[0] === 'string' &&
-      args[0].includes('Warning: ReactDOM.render is no longer supported')
+      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
+        args[0].includes('not wrapped in act(...)'))
     ) {
       return;
     }
@@ -111,6 +118,7 @@ beforeAll(() => {
 afterAll(() => {
   console.error = originalError;
 });
+/* eslint-enable no-console */
 
 // Global test utilities
 global.testUtils = {

@@ -8,6 +8,7 @@ import {
   Modal,
   Row,
   Space,
+  Tag,
   Typography,
 } from 'antd';
 import {
@@ -60,6 +61,7 @@ import {
   syncDispatchWeekToGoogleCalendar,
 } from '@/services/googleCalendarService';
 import { useNavigate } from 'react-router-dom';
+import './sparkery.css';
 
 const { Title, Text } = Typography;
 const DISPATCH_LOCAL_STORAGE_KEY = 'sparkery_dispatch_storage_v1';
@@ -703,47 +705,85 @@ const DispatchDashboard: React.FC = () => {
   };
 
   return (
-    <div className='dispatch-dashboard-page' style={{ padding: 12 }}>
+    <div className='dispatch-dashboard-page dispatch-dashboard-shell'>
       <div className='dispatch-dashboard-header'>
         <div>
-          <Title
-            level={4}
-            className='dispatch-dashboard-title'
-            style={{ marginBottom: 4 }}
-          >
+          <Title level={4} className='dispatch-dashboard-title'>
             Sparkery Dispatch Dashboard
           </Title>
           <Text className='dispatch-dashboard-subtitle' type='secondary'>
             Weekly scheduling and assignment board
           </Text>
+          <Space
+            size={[6, 6]}
+            wrap
+            className='dispatch-dashboard-header-status'
+          >
+            <Tag
+              className={
+                supabaseConfigured
+                  ? 'dispatch-dashboard-status-tag dispatch-dashboard-status-tag-online'
+                  : 'dispatch-dashboard-status-tag dispatch-dashboard-status-tag-local'
+              }
+            >
+              Supabase: {supabaseConfigured ? 'Connected' : 'Local only'}
+            </Tag>
+            <Tag
+              className={
+                googleCalendarConfigured
+                  ? 'dispatch-dashboard-status-tag dispatch-dashboard-status-tag-online'
+                  : 'dispatch-dashboard-status-tag dispatch-dashboard-status-tag-warning'
+              }
+            >
+              Google Calendar:{' '}
+              {googleCalendarConfigured ? 'Enabled' : 'Disabled'}
+            </Tag>
+          </Space>
         </div>
         <Space className='dispatch-dashboard-actions' wrap>
           <Button
+            className='dispatch-dashboard-action-btn dispatch-dashboard-action-btn-sync'
             onClick={handleSyncGoogleCalendar}
             loading={syncingGoogleCalendar}
             disabled={!googleCalendarConfigured}
           >
             Sync Week to Google Calendar
           </Button>
-          <Button onClick={() => setAdminSetupOpen(true)}>
+          <Button
+            className='dispatch-dashboard-action-btn'
+            onClick={() => setAdminSetupOpen(true)}
+          >
             Edit Employees & Customers
           </Button>
-          <Button onClick={() => navigate('/sparkery/recurring')}>
+          <Button
+            className='dispatch-dashboard-action-btn'
+            onClick={() => navigate('/sparkery/recurring')}
+          >
             Recurring Templates
           </Button>
-          <Button onClick={() => navigate('/sparkery/finance')}>
+          <Button
+            className='dispatch-dashboard-action-btn'
+            onClick={() => navigate('/sparkery/finance')}
+          >
             Open Finance Panel
           </Button>
-          <Button onClick={handleAutoFillRecurringJobs}>
+          <Button
+            className='dispatch-dashboard-action-btn dispatch-dashboard-action-btn-auto'
+            onClick={handleAutoFillRecurringJobs}
+          >
             Auto Fill Recurring Tasks
           </Button>
-          <Button type='primary' onClick={() => setModalOpen(true)}>
+          <Button
+            type='primary'
+            className='dispatch-dashboard-action-btn dispatch-dashboard-action-btn-primary'
+            onClick={() => setModalOpen(true)}
+          >
             Create Job
           </Button>
         </Space>
       </div>
 
-      <Card size='small' style={{ marginBottom: 12 }}>
+      <Card size='small' className='dispatch-dashboard-section-card'>
         <DispatchFiltersBar
           weekStart={selectedWeekStart}
           filters={filters}
@@ -755,9 +795,9 @@ const DispatchDashboard: React.FC = () => {
 
       {!supabaseConfigured && (
         <Alert
+          className='dispatch-dashboard-alert dispatch-dashboard-alert-warning'
           type='warning'
           showIcon
-          style={{ marginBottom: 12 }}
           message='Supabase is not configured'
           description='Dispatch data is currently stored in browser local storage only. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to persist tasks to cloud.'
         />
@@ -765,9 +805,9 @@ const DispatchDashboard: React.FC = () => {
 
       {!googleCalendarConfigured && (
         <Alert
+          className='dispatch-dashboard-alert dispatch-dashboard-alert-info'
           type='info'
           showIcon
-          style={{ marginBottom: 12 }}
           message='Google Calendar sync is not configured'
           description='Set VITE_GOOGLE_CALENDAR_CLIENT_ID to enable one-click Google Calendar sync.'
         />
@@ -775,11 +815,11 @@ const DispatchDashboard: React.FC = () => {
 
       {error && (
         <Alert
+          className='dispatch-dashboard-alert dispatch-dashboard-alert-error'
           type='error'
           message={error}
           closable
           onClose={() => dispatch(clearDispatchError())}
-          style={{ marginBottom: 12 }}
         />
       )}
 
@@ -798,7 +838,10 @@ const DispatchDashboard: React.FC = () => {
         </Col>
       </Row>
 
-      <Card size='small' style={{ marginTop: 12 }}>
+      <Card
+        size='small'
+        className='dispatch-dashboard-section-card dispatch-dashboard-section-card-top'
+      >
         <DispatchMapPlanner
           jobs={jobs}
           employees={employees}
@@ -807,7 +850,7 @@ const DispatchDashboard: React.FC = () => {
         />
       </Card>
 
-      <div style={{ marginTop: 12 }}>
+      <div className='dispatch-dashboard-section-top'>
         <WeeklyFinanceBoard
           jobs={jobs}
           employees={employees}

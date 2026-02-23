@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   Button,
   Form,
@@ -51,20 +51,23 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
   const recurringEnabled = Form.useWatch('recurringEnabled', form);
   const MAX_IMAGE_SIZE_MB = 2;
   const MAX_IMAGE_COUNT = 8;
-  const defaultFormValues: CreateDispatchJobPayload = {
-    title: '',
-    serviceType: 'bond',
-    priority: 3,
-    scheduledDate: getTodayDateKey(),
-    scheduledStartTime: '09:00',
-    scheduledEndTime: '12:00',
-    recurringEnabled: false,
-    recurringWeekdays: [],
-    pricingMode: 'one_time_manual',
-    feeCurrency: 'AUD',
-    baseFee: 0,
-    manualAdjustment: 0,
-  };
+  const defaultFormValues = React.useMemo<CreateDispatchJobPayload>(
+    () => ({
+      title: '',
+      serviceType: 'bond',
+      priority: 3,
+      scheduledDate: getTodayDateKey(),
+      scheduledStartTime: '09:00',
+      scheduledEndTime: '12:00',
+      recurringEnabled: false,
+      recurringWeekdays: [],
+      pricingMode: 'one_time_manual',
+      feeCurrency: 'AUD',
+      baseFee: 0,
+      manualAdjustment: 0,
+    }),
+    []
+  );
   const weekdayOptions: Array<{ value: DispatchWeekday; label: string }> = [
     { value: 1, label: 'Monday' },
     { value: 2, label: 'Tuesday' },
@@ -252,7 +255,7 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
       return;
     }
     form.setFieldsValue(defaultFormValues);
-  }, [open, initialValue, form]);
+  }, [open, initialValue, form, defaultFormValues]);
 
   return (
     <Modal
@@ -261,11 +264,13 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
       onCancel={onCancel}
       onOk={() => form.submit()}
       confirmLoading={Boolean(loading)}
+      className='dispatch-job-form-modal'
       destroyOnHidden
     >
       <Form
         form={form}
         layout='vertical'
+        className='dispatch-job-form'
         initialValues={defaultFormValues}
         onFinish={async values => {
           const normalized = { ...values };
@@ -303,9 +308,34 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           await onSubmit(normalized);
         }}
       >
+        <div className='dispatch-job-form-section-title'>Job Details</div>
         <Form.Item label='Title' name='title' rules={[{ required: true }]}>
           <Input placeholder='Job title' />
         </Form.Item>
+        <Form.Item
+          label='Service Type'
+          name='serviceType'
+          rules={[{ required: true }]}
+        >
+          <Select>
+            <Select.Option value='bond'>Bond</Select.Option>
+            <Select.Option value='airbnb'>Airbnb</Select.Option>
+            <Select.Option value='regular'>Regular</Select.Option>
+            <Select.Option value='commercial'>Commercial</Select.Option>
+          </Select>
+        </Form.Item>
+        <Form.Item
+          label='Priority'
+          name='priority'
+          rules={[{ required: true }]}
+        >
+          <InputNumber
+            className='dispatch-form-number-full-width'
+            min={1}
+            max={5}
+          />
+        </Form.Item>
+        <div className='dispatch-job-form-section-title'>Customer</div>
         <Form.Item label='Customer Library' name='customerProfileId'>
           <Select
             placeholder='Select recurring customer'
@@ -329,14 +359,14 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           <Input.TextArea
             autoSize={{ minRows: 3, maxRows: 10 }}
             placeholder='Task content/description'
-            style={{ resize: 'vertical' }}
+            className='dispatch-textarea-vertical'
           />
         </Form.Item>
         <Form.Item label='Notes' name='notes'>
           <Input.TextArea
             autoSize={{ minRows: 4, maxRows: 12 }}
-            placeholder='注意事项 / notes'
-            style={{ resize: 'vertical' }}
+            placeholder='Important notes / special requirements'
+            className='dispatch-textarea-vertical'
           />
         </Form.Item>
         <Form.Item label='Address' name='customerAddress'>
@@ -346,87 +376,85 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           <Input placeholder='Customer phone' />
         </Form.Item>
         <Form.Item>
-          <Button onClick={handleAddLongTermCustomer} block>
+          <Button
+            onClick={handleAddLongTermCustomer}
+            block
+            className='dispatch-job-form-secondary-btn'
+          >
             Add to Long-term Customer List
           </Button>
         </Form.Item>
-        <Form.Item
-          label='Service Type'
-          name='serviceType'
-          rules={[{ required: true }]}
-        >
-          <Select>
-            <Select.Option value='bond'>Bond</Select.Option>
-            <Select.Option value='airbnb'>Airbnb</Select.Option>
-            <Select.Option value='regular'>Regular</Select.Option>
-            <Select.Option value='commercial'>Commercial</Select.Option>
-          </Select>
-        </Form.Item>
-        <Form.Item
-          label='Priority'
-          name='priority'
-          rules={[{ required: true }]}
-        >
-          <InputNumber min={1} max={5} style={{ width: '100%' }} />
-        </Form.Item>
-        <Form.Item
-          label='Pricing Mode'
-          name='pricingMode'
-          tooltip='Recurring jobs should use recurring fixed fee.'
-        >
-          <Select>
-            <Select.Option value='one_time_manual'>
-              One-time Manual
-            </Select.Option>
-            <Select.Option value='recurring_fixed'>
-              Recurring Fixed
-            </Select.Option>
-          </Select>
-        </Form.Item>
-        <Form.Item
-          label='Base Cleaning Fee (AUD)'
-          name='baseFee'
-          rules={[{ required: true, message: 'Please input base fee' }]}
-        >
-          <InputNumber
-            min={0}
-            precision={2}
-            style={{ width: '100%' }}
-            placeholder='e.g. 180'
-          />
-        </Form.Item>
-        <Form.Item
-          label='Initial Adjustment (optional)'
-          name='manualAdjustment'
-          tooltip='Use positive value for extra charge, negative for discount.'
-        >
-          <InputNumber
-            precision={2}
-            style={{ width: '100%' }}
-            placeholder='e.g. +25 or -10'
-          />
-        </Form.Item>
-        <Form.Item
-          label='Date'
-          name='scheduledDate'
-          rules={[{ required: true }]}
-        >
-          <Input type='date' />
-        </Form.Item>
-        <Form.Item
-          label='Start Time'
-          name='scheduledStartTime'
-          rules={[{ required: true }]}
-        >
-          <Input type='time' />
-        </Form.Item>
-        <Form.Item
-          label='End Time'
-          name='scheduledEndTime'
-          rules={[{ required: true }]}
-        >
-          <Input type='time' />
-        </Form.Item>
+        <div className='dispatch-job-form-section-title'>Pricing</div>
+        <div className='dispatch-job-form-pricing-grid'>
+          <Form.Item
+            label='Pricing Mode'
+            name='pricingMode'
+            tooltip='Recurring jobs should use recurring fixed fee.'
+            className='dispatch-job-form-pricing-item'
+          >
+            <Select>
+              <Select.Option value='one_time_manual'>
+                One-time Manual
+              </Select.Option>
+              <Select.Option value='recurring_fixed'>
+                Recurring Fixed
+              </Select.Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            label='Base Cleaning Fee (AUD)'
+            name='baseFee'
+            rules={[{ required: true, message: 'Please input base fee' }]}
+            className='dispatch-job-form-pricing-item'
+          >
+            <InputNumber
+              className='dispatch-form-number-full-width'
+              min={0}
+              precision={2}
+              placeholder='e.g. 180'
+            />
+          </Form.Item>
+          <Form.Item
+            label='Initial Adjustment (optional)'
+            name='manualAdjustment'
+            tooltip='Use positive value for extra charge, negative for discount.'
+            className='dispatch-job-form-pricing-item'
+          >
+            <InputNumber
+              className='dispatch-form-number-full-width'
+              precision={2}
+              placeholder='e.g. +25 or -10'
+            />
+          </Form.Item>
+        </div>
+        <div className='dispatch-job-form-section-title'>Schedule</div>
+        <div className='dispatch-job-form-time-grid'>
+          <Form.Item
+            label='Date'
+            name='scheduledDate'
+            rules={[{ required: true }]}
+            className='dispatch-job-form-time-item'
+          >
+            <Input type='date' />
+          </Form.Item>
+          <Form.Item
+            label='Start Time'
+            name='scheduledStartTime'
+            rules={[{ required: true }]}
+            className='dispatch-job-form-time-item'
+          >
+            <Input type='time' />
+          </Form.Item>
+          <Form.Item
+            label='End Time'
+            name='scheduledEndTime'
+            rules={[{ required: true }]}
+            className='dispatch-job-form-time-item'
+          >
+            <Input type='time' />
+          </Form.Item>
+        </div>
+        <div className='dispatch-job-form-section-title'>Recurring Rules</div>
         <Form.Item
           label='Recurring Weekly Task'
           name='recurringEnabled'
@@ -463,6 +491,7 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
             maxTagCount={3}
           />
         </Form.Item>
+        <div className='dispatch-job-form-section-title'>Images</div>
         <Form.Item
           label='Images'
           name='imageUrls'
@@ -471,6 +500,7 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           getValueFromEvent={e => (Array.isArray(e) ? e : e?.fileList || [])}
         >
           <Upload
+            className='dispatch-job-form-upload'
             listType='picture-card'
             beforeUpload={file => {
               const isTooLarge = file.size / 1024 / 1024 > MAX_IMAGE_SIZE_MB;
@@ -486,6 +516,9 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
             + Upload
           </Upload>
         </Form.Item>
+        <div className='dispatch-job-form-help'>
+          Up to {MAX_IMAGE_COUNT} images, each {'<='} {MAX_IMAGE_SIZE_MB}MB.
+        </div>
       </Form>
     </Modal>
   );

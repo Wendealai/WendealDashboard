@@ -57,7 +57,7 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import jsPDF from 'jspdf';
+import JsPDF from 'jspdf';
 import {
   generatePdfHtml,
   openPrintWindow,
@@ -77,6 +77,7 @@ import {
   renameDraft as renameDraftInCloud,
   getDailySequence as getDailySequenceFromCloud,
 } from '@/services/chinaProcurementService';
+import './sparkery.css';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -810,7 +811,6 @@ const ChinaProcurementReport: React.FC = () => {
       );
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(String(err));
-      console.error('[RecognizeOrders] Failed:', error);
       messageApi.error(`订单识别失败: ${error.message}`);
     } finally {
       setRecognizing(false);
@@ -860,12 +860,16 @@ const ChinaProcurementReport: React.FC = () => {
         content: (
           <div>
             {missingFieldsText && (
-              <p style={{ color: '#ff4d4f' }}>{missingFieldsText}</p>
+              <p className='sparkery-procurement-missing-warning'>
+                {missingFieldsText}
+              </p>
             )}
             {missingSectionsText && (
-              <p style={{ color: '#ff4d4f' }}>{missingSectionsText}</p>
+              <p className='sparkery-procurement-missing-warning'>
+                {missingSectionsText}
+              </p>
             )}
-            <p style={{ marginTop: '12px' }}>
+            <p className='sparkery-procurement-missing-confirm'>
               Do you want to continue generating PDF?
             </p>
           </div>
@@ -913,7 +917,7 @@ const ChinaProcurementReport: React.FC = () => {
       const dailySeq = await getDailySequenceFromCloud(dateStr);
       const dailySeqStr = dailySeq.toString().padStart(3, '0');
 
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdf = new JsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 15;
@@ -1153,9 +1157,9 @@ const ChinaProcurementReport: React.FC = () => {
       pdf.save(fileName);
 
       messageApi.success(`PDF generated: ${fileName}`);
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      messageApi.error('PDF generation failed');
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : String(err);
+      messageApi.error(`PDF generation failed: ${error}`);
     } finally {
       setPdfGenerating(false);
     }
@@ -1212,9 +1216,9 @@ const ChinaProcurementReport: React.FC = () => {
           'Unable to open print window. Please check popup blocker settings.'
         );
       }
-    } catch (error) {
-      console.error('HTML PDF generation error:', error);
-      messageApi.error('PDF generation failed');
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err.message : String(err);
+      messageApi.error(`PDF generation failed: ${error}`);
     } finally {
       setPdfGenerating(false);
     }
@@ -1240,12 +1244,16 @@ const ChinaProcurementReport: React.FC = () => {
         content: (
           <div>
             {missingFieldsText && (
-              <p style={{ color: '#ff4d4f' }}>{missingFieldsText}</p>
+              <p className='sparkery-procurement-missing-warning'>
+                {missingFieldsText}
+              </p>
             )}
             {missingSectionsText && (
-              <p style={{ color: '#ff4d4f' }}>{missingSectionsText}</p>
+              <p className='sparkery-procurement-missing-warning'>
+                {missingSectionsText}
+              </p>
             )}
-            <p style={{ marginTop: '12px' }}>
+            <p className='sparkery-procurement-missing-confirm'>
               Do you want to continue generating PDF?
             </p>
           </div>
@@ -1280,47 +1288,30 @@ const ChinaProcurementReport: React.FC = () => {
   const storagePercent = 0;
 
   return (
-    <div style={{ padding: '12px' }}>
+    <div className='sparkery-tool-page sparkery-procurement-page'>
       {contextHolder}
 
       {/* ═══════════ Draft Management Toolbar ═══════════ */}
       <Card
         size='small'
-        style={{
-          marginBottom: '16px',
-          background: currentDraftId ? '#f6ffed' : '#fafafa',
-          borderColor: currentDraftId ? '#b7eb8f' : '#d9d9d9',
-        }}
-        bodyStyle={{ padding: '10px 16px' }}
+        className={`sparkery-procurement-draft-toolbar${currentDraftId ? ' sparkery-procurement-draft-toolbar-active' : ''}`}
       >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '8px',
-          }}
-        >
+        <div className='sparkery-procurement-toolbar-row'>
           {/* Left: Status */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              flexWrap: 'wrap',
-            }}
-          >
+          <div className='sparkery-procurement-toolbar-status'>
             {currentDraftId ? (
               <>
                 <Tag icon={<EditOutlined />} color='green'>
                   Editing Draft
                 </Tag>
-                <Text strong style={{ fontSize: '13px' }}>
+                <Text strong className='sparkery-procurement-meta-text'>
                   {currentDraftName}
                 </Text>
                 {hasUnsavedChanges && (
-                  <Tag color='orange' style={{ margin: 0 }}>
+                  <Tag
+                    color='orange'
+                    className='sparkery-procurement-unsaved-tag'
+                  >
                     Unsaved Changes
                   </Tag>
                 )}
@@ -1330,7 +1321,10 @@ const ChinaProcurementReport: React.FC = () => {
                 <Tag icon={<FileAddOutlined />} color='blue'>
                   New Report
                 </Tag>
-                <Text type='secondary' style={{ fontSize: '13px' }}>
+                <Text
+                  type='secondary'
+                  className='sparkery-procurement-meta-text'
+                >
                   Not saved as draft yet
                 </Text>
               </>
@@ -1341,14 +1335,14 @@ const ChinaProcurementReport: React.FC = () => {
           <Space size='small' wrap>
             <Tooltip title='Save current form as draft / 保存为草稿'>
               <Button
+                className={
+                  hasUnsavedChanges
+                    ? 'sparkery-procurement-save-btn sparkery-procurement-save-btn-active'
+                    : 'sparkery-procurement-save-btn'
+                }
                 icon={<SaveOutlined />}
                 type={hasUnsavedChanges ? 'primary' : 'default'}
                 onClick={() => handleSaveDraft(false)}
-                style={
-                  hasUnsavedChanges
-                    ? { background: '#52c41a', borderColor: '#52c41a' }
-                    : {}
-                }
               >
                 Save Draft
               </Button>
@@ -1375,7 +1369,7 @@ const ChinaProcurementReport: React.FC = () => {
       {/* ═══════════ Drafts Drawer ═══════════ */}
       <Drawer
         title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className='sparkery-procurement-drawer-title'>
             <FolderOpenOutlined />
             <span>Saved Drafts / 已保存的草稿</span>
             <Tag>{draftIndex.length}</Tag>
@@ -1386,19 +1380,13 @@ const ChinaProcurementReport: React.FC = () => {
         open={draftDrawerOpen}
         onClose={() => setDraftDrawerOpen(false)}
         footer={
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <Text type='secondary' style={{ fontSize: '12px' }}>
-              <CloudOutlined style={{ marginRight: '4px' }} />
+          <div className='sparkery-procurement-drawer-footer'>
+            <Text type='secondary' className='sparkery-procurement-drawer-note'>
+              <CloudOutlined className='sparkery-procurement-drawer-icon' />
               Cloud drafts enabled / 云端草稿已启用
             </Text>
             {storagePercent > 80 && (
-              <Text type='danger' style={{ fontSize: '12px' }}>
+              <Text type='danger' className='sparkery-procurement-drawer-note'>
                 Storage nearly full!
               </Text>
             )}
@@ -1411,30 +1399,16 @@ const ChinaProcurementReport: React.FC = () => {
             description='No saved drafts / 暂无保存的草稿'
           />
         ) : (
-          <div
-            style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
-          >
+          <div className='sparkery-procurement-draft-list'>
             {draftIndex.map(draft => (
               <Card
                 key={draft.id}
                 size='small'
-                style={{
-                  borderColor:
-                    currentDraftId === draft.id ? '#52c41a' : '#d9d9d9',
-                  background: currentDraftId === draft.id ? '#f6ffed' : '#fff',
-                  cursor: 'pointer',
-                }}
-                bodyStyle={{ padding: '12px' }}
+                className={`sparkery-procurement-draft-card${currentDraftId === draft.id ? ' sparkery-procurement-draft-card-current' : ''}`}
                 onClick={() => handleLoadDraft(draft.id)}
               >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                <div className='sparkery-procurement-draft-item-row'>
+                  <div className='sparkery-procurement-draft-main'>
                     {renamingDraftId === draft.id ? (
                       <Input
                         size='small'
@@ -1446,27 +1420,15 @@ const ChinaProcurementReport: React.FC = () => {
                         onBlur={() => handleRenameDraft(draft.id, renameValue)}
                         onClick={e => e.stopPropagation()}
                         autoFocus
-                        style={{ marginBottom: '4px', maxWidth: '260px' }}
+                        className='sparkery-procurement-draft-rename-input'
                       />
                     ) : (
-                      <Text
-                        strong
-                        style={{
-                          fontSize: '14px',
-                          display: 'block',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
+                      <Text strong className='sparkery-procurement-draft-name'>
                         {draft.name}
                         {currentDraftId === draft.id && (
                           <Tag
                             color='green'
-                            style={{
-                              marginLeft: '8px',
-                              verticalAlign: 'middle',
-                            }}
+                            className='sparkery-procurement-draft-current-tag'
                           >
                             Current
                           </Tag>
@@ -1474,71 +1436,54 @@ const ChinaProcurementReport: React.FC = () => {
                       </Text>
                     )}
 
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: '12px',
-                        marginTop: '4px',
-                        flexWrap: 'wrap',
-                      }}
-                    >
+                    <div className='sparkery-procurement-draft-meta-row'>
                       {draft.supplierName && (
-                        <Text type='secondary' style={{ fontSize: '12px' }}>
+                        <Text
+                          type='secondary'
+                          className='sparkery-procurement-draft-meta-text'
+                        >
                           Supplier: {draft.supplierName}
                         </Text>
                       )}
                       {draft.productName && (
-                        <Text type='secondary' style={{ fontSize: '12px' }}>
+                        <Text
+                          type='secondary'
+                          className='sparkery-procurement-draft-meta-text'
+                        >
                           Product: {draft.productName}
                         </Text>
                       )}
                     </div>
 
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: '10px',
-                        marginTop: '6px',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Tag style={{ margin: 0 }}>
-                        <FileImageOutlined style={{ marginRight: '4px' }} />
+                    <div className='sparkery-procurement-draft-stats-row'>
+                      <Tag className='sparkery-procurement-draft-stat-tag'>
+                        <FileImageOutlined className='sparkery-procurement-draft-stat-icon' />
                         {draft.imageCount} images
                       </Tag>
-                      <Tag style={{ margin: 0 }}>
-                        <ShoppingCartOutlined style={{ marginRight: '4px' }} />
+                      <Tag className='sparkery-procurement-draft-stat-tag'>
+                        <ShoppingCartOutlined className='sparkery-procurement-draft-stat-icon' />
                         {draft.itemCount} items
                       </Tag>
                       <Progress
                         percent={draft.progress}
                         size='small'
-                        style={{ width: '80px', margin: 0 }}
+                        className='sparkery-procurement-draft-progress'
                         strokeColor='#52c41a'
                       />
                     </div>
 
                     <Text
                       type='secondary'
-                      style={{
-                        fontSize: '11px',
-                        marginTop: '4px',
-                        display: 'block',
-                      }}
+                      className='sparkery-procurement-draft-updated'
                     >
-                      <ClockCircleOutlined style={{ marginRight: '4px' }} />
+                      <ClockCircleOutlined className='sparkery-procurement-draft-updated-icon' />
                       Updated: {draft.updatedAt}
                     </Text>
                   </div>
 
                   {/* Actions */}
                   <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                      marginLeft: '8px',
-                    }}
+                    className='sparkery-procurement-draft-actions'
                     onClick={e => e.stopPropagation()}
                   >
                     <Tooltip title='Open / 打开'>
@@ -1547,10 +1492,7 @@ const ChinaProcurementReport: React.FC = () => {
                         size='small'
                         icon={<FolderOpenOutlined />}
                         onClick={() => handleLoadDraft(draft.id)}
-                        style={{
-                          background: '#52c41a',
-                          borderColor: '#52c41a',
-                        }}
+                        className='sparkery-procurement-draft-open-btn'
                       />
                     </Tooltip>
                     <Tooltip title='Rename / 重命名'>
@@ -1583,25 +1525,25 @@ const ChinaProcurementReport: React.FC = () => {
         )}
       </Drawer>
 
-      <Title level={3}>
-        <ShoppingCartOutlined style={{ marginRight: '8px' }} />
+      <Title level={3} className='sparkery-tool-page-title'>
+        <ShoppingCartOutlined className='sparkery-procurement-page-icon' />
         China Procurement Documentation
       </Title>
-      <Text type='secondary'>
+      <Text className='sparkery-tool-page-subtitle' type='secondary'>
         Complete ATO-compliant purchase documentation system with 10-section
         structure
       </Text>
 
-      <div style={{ marginTop: '20px' }}>
+      <div className='sparkery-procurement-main'>
         {/* Basic Info Card */}
         <Card
           title='Basic Information'
           size='small'
-          style={{ marginBottom: '16px' }}
+          className='sparkery-procurement-basic-card'
         >
           <Row gutter={16}>
             <Col xs={24} sm={12} md={8}>
-              <div style={{ marginBottom: '12px' }}>
+              <div className='sparkery-procurement-field'>
                 <Text strong>Purchase Date *</Text>
                 <Input
                   type='date'
@@ -1616,10 +1558,10 @@ const ChinaProcurementReport: React.FC = () => {
               </div>
             </Col>
             <Col xs={24} sm={12} md={8}>
-              <div style={{ marginBottom: '12px' }}>
+              <div className='sparkery-procurement-field'>
                 <Text strong>Platform *</Text>
                 <Select
-                  style={{ width: '100%' }}
+                  className='sparkery-procurement-full-width'
                   value={currentRecord.supplierPlatform || null}
                   onChange={val =>
                     setCurrentRecord(prev => ({
@@ -1637,10 +1579,10 @@ const ChinaProcurementReport: React.FC = () => {
               </div>
             </Col>
             <Col xs={24} sm={12} md={8}>
-              <div style={{ marginBottom: '12px' }}>
+              <div className='sparkery-procurement-field'>
                 <Text strong>Category *</Text>
                 <Select
-                  style={{ width: '100%' }}
+                  className='sparkery-procurement-full-width'
                   value={currentRecord.category || null}
                   onChange={val =>
                     setCurrentRecord(prev => ({ ...prev, category: val }))
@@ -1658,7 +1600,7 @@ const ChinaProcurementReport: React.FC = () => {
 
           <Row gutter={16}>
             <Col xs={24} sm={12}>
-              <div style={{ marginBottom: '12px' }}>
+              <div className='sparkery-procurement-field'>
                 <Text strong>Supplier Name *</Text>
                 <Input
                   placeholder='e.g., Shanghai Trading Co.'
@@ -1673,7 +1615,7 @@ const ChinaProcurementReport: React.FC = () => {
               </div>
             </Col>
             <Col xs={24} sm={12}>
-              <div style={{ marginBottom: '12px' }}>
+              <div className='sparkery-procurement-field'>
                 <Text strong>Product Name *</Text>
                 <Input
                   placeholder='e.g., Microfiber Cloths 1000pcs'
@@ -1691,10 +1633,10 @@ const ChinaProcurementReport: React.FC = () => {
 
           <Row gutter={16}>
             <Col xs={24} sm={8}>
-              <div style={{ marginBottom: '12px' }}>
+              <div className='sparkery-procurement-field'>
                 <Text strong>Amount (CNY) *</Text>
                 <InputNumber
-                  style={{ width: '100%' }}
+                  className='sparkery-procurement-full-width'
                   min={0}
                   value={currentRecord.amountCNY || null}
                   onChange={val => {
@@ -1709,10 +1651,10 @@ const ChinaProcurementReport: React.FC = () => {
               </div>
             </Col>
             <Col xs={24} sm={8}>
-              <div style={{ marginBottom: '12px' }}>
+              <div className='sparkery-procurement-field'>
                 <Text strong>Exchange Rate (CNY→AUD)</Text>
                 <InputNumber
-                  style={{ width: '100%' }}
+                  className='sparkery-procurement-full-width'
                   step={0.01}
                   value={currentRecord.exchangeRate || null}
                   onChange={val => {
@@ -1727,17 +1669,11 @@ const ChinaProcurementReport: React.FC = () => {
               </div>
             </Col>
             <Col xs={24} sm={8}>
-              <div style={{ marginBottom: '12px' }}>
-                <Text strong style={{ color: '#722ed1' }}>
+              <div className='sparkery-procurement-field'>
+                <Text strong className='sparkery-procurement-aud-label'>
                   Amount (AUD)
                 </Text>
-                <div
-                  style={{
-                    fontSize: '20px',
-                    fontWeight: 'bold',
-                    color: '#722ed1',
-                  }}
-                >
+                <div className='sparkery-procurement-aud-amount'>
                   $
                   {currentRecord.amountAUD?.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
@@ -1747,7 +1683,7 @@ const ChinaProcurementReport: React.FC = () => {
             </Col>
           </Row>
 
-          <div style={{ marginBottom: '12px' }}>
+          <div className='sparkery-procurement-field'>
             <Text strong>Notes</Text>
             <TextArea
               rows={2}
@@ -1761,14 +1697,8 @@ const ChinaProcurementReport: React.FC = () => {
         </Card>
 
         {/* Progress */}
-        <Card size='small' style={{ marginBottom: '16px' }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
+        <Card size='small' className='sparkery-procurement-progress-card'>
+          <div className='sparkery-procurement-progress-row'>
             <Text strong>Documentation Progress</Text>
             <Text>{calculateProgress()}%</Text>
           </div>
@@ -1782,7 +1712,7 @@ const ChinaProcurementReport: React.FC = () => {
         <Card
           title='Purchase Details'
           size='small'
-          style={{ marginBottom: '16px' }}
+          className='sparkery-procurement-purchase-card'
           extra={
             <Space>
               <Button
@@ -1796,77 +1726,33 @@ const ChinaProcurementReport: React.FC = () => {
             </Space>
           }
         >
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className='sparkery-procurement-table-wrap'>
+            <table className='sparkery-procurement-table'>
               <thead>
-                <tr style={{ background: '#f5f5f5' }}>
-                  <th
-                    style={{
-                      padding: '8px',
-                      border: '1px solid #d9d9d9',
-                      textAlign: 'left',
-                      width: '5%',
-                    }}
-                  >
+                <tr className='sparkery-procurement-table-head-row'>
+                  <th className='sparkery-procurement-th sparkery-procurement-th-index'>
                     #
                   </th>
-                  <th
-                    style={{
-                      padding: '8px',
-                      border: '1px solid #d9d9d9',
-                      textAlign: 'left',
-                      width: '35%',
-                    }}
-                  >
+                  <th className='sparkery-procurement-th sparkery-procurement-th-name'>
                     Product Name
                   </th>
-                  <th
-                    style={{
-                      padding: '8px',
-                      border: '1px solid #d9d9d9',
-                      textAlign: 'right',
-                      width: '20%',
-                    }}
-                  >
+                  <th className='sparkery-procurement-th sparkery-procurement-th-price'>
                     Unit Price (CNY)
                   </th>
-                  <th
-                    style={{
-                      padding: '8px',
-                      border: '1px solid #d9d9d9',
-                      textAlign: 'center',
-                      width: '15%',
-                    }}
-                  >
+                  <th className='sparkery-procurement-th sparkery-procurement-th-qty'>
                     Quantity
                   </th>
-                  <th
-                    style={{
-                      padding: '8px',
-                      border: '1px solid #d9d9d9',
-                      textAlign: 'right',
-                      width: '20%',
-                    }}
-                  >
+                  <th className='sparkery-procurement-th sparkery-procurement-th-subtotal'>
                     Subtotal (CNY)
                   </th>
-                  <th
-                    style={{
-                      padding: '8px',
-                      border: '1px solid #d9d9d9',
-                      textAlign: 'center',
-                      width: '5%',
-                    }}
-                  ></th>
+                  <th className='sparkery-procurement-th sparkery-procurement-th-actions'></th>
                 </tr>
               </thead>
               <tbody>
                 {purchaseItems.map((item, index) => (
                   <tr key={item.id}>
-                    <td style={{ padding: '8px', border: '1px solid #d9d9d9' }}>
-                      {index + 1}
-                    </td>
-                    <td style={{ padding: '8px', border: '1px solid #d9d9d9' }}>
+                    <td className='sparkery-procurement-td'>{index + 1}</td>
+                    <td className='sparkery-procurement-td'>
                       <Input
                         placeholder='Enter product name'
                         value={item.productName}
@@ -1880,9 +1766,9 @@ const ChinaProcurementReport: React.FC = () => {
                         size='small'
                       />
                     </td>
-                    <td style={{ padding: '8px', border: '1px solid #d9d9d9' }}>
+                    <td className='sparkery-procurement-td'>
                       <InputNumber
-                        style={{ width: '100%' }}
+                        className='sparkery-procurement-full-width'
                         min={0}
                         step={0.01}
                         value={item.unitPrice}
@@ -1896,9 +1782,9 @@ const ChinaProcurementReport: React.FC = () => {
                         size='small'
                       />
                     </td>
-                    <td style={{ padding: '8px', border: '1px solid #d9d9d9' }}>
+                    <td className='sparkery-procurement-td'>
                       <InputNumber
-                        style={{ width: '100%' }}
+                        className='sparkery-procurement-full-width'
                         min={1}
                         value={item.quantity}
                         onChange={val =>
@@ -1911,26 +1797,14 @@ const ChinaProcurementReport: React.FC = () => {
                         size='small'
                       />
                     </td>
-                    <td
-                      style={{
-                        padding: '8px',
-                        border: '1px solid #d9d9d9',
-                        textAlign: 'right',
-                      }}
-                    >
+                    <td className='sparkery-procurement-td sparkery-procurement-td-right'>
                       <Text strong>
                         {calculateItemSubtotal(item).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                         })}
                       </Text>
                     </td>
-                    <td
-                      style={{
-                        padding: '8px',
-                        border: '1px solid #d9d9d9',
-                        textAlign: 'center',
-                      }}
-                    >
+                    <td className='sparkery-procurement-td sparkery-procurement-td-center'>
                       <Button
                         type='text'
                         danger
@@ -1946,7 +1820,7 @@ const ChinaProcurementReport: React.FC = () => {
           </div>
 
           {/* Summary Section */}
-          <Divider style={{ margin: '16px 0' }} />
+          <Divider className='sparkery-procurement-summary-divider' />
           <Row gutter={[16, 8]}>
             <Col xs={24} sm={12}>
               <Space>
@@ -1955,17 +1829,17 @@ const ChinaProcurementReport: React.FC = () => {
                     type='checkbox'
                     checked={gstEnabled}
                     onChange={e => setGstEnabled(e.target.checked)}
-                    style={{ marginRight: '8px' }}
+                    className='sparkery-procurement-gst-checkbox'
                   />
                   Enable GST (10%)
                 </label>
               </Space>
             </Col>
             <Col xs={24} sm={12}>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ marginBottom: '8px' }}>
+              <div className='sparkery-procurement-summary'>
+                <div className='sparkery-procurement-summary-row'>
                   <Text type='secondary'>Subtotal (excl. GST): </Text>
-                  <Text strong style={{ marginLeft: '8px' }}>
+                  <Text strong className='sparkery-procurement-summary-value'>
                     CNY{' '}
                     {calculateTotalSubtotal().toLocaleString(undefined, {
                       minimumFractionDigits: 2,
@@ -1973,9 +1847,9 @@ const ChinaProcurementReport: React.FC = () => {
                   </Text>
                 </div>
                 {gstEnabled && (
-                  <div style={{ marginBottom: '8px' }}>
+                  <div className='sparkery-procurement-summary-row'>
                     <Text type='secondary'>GST (10%): </Text>
-                    <Text style={{ marginLeft: '8px' }}>
+                    <Text className='sparkery-procurement-summary-value'>
                       CNY{' '}
                       {calculateGstAmount().toLocaleString(undefined, {
                         minimumFractionDigits: 2,
@@ -1983,18 +1857,11 @@ const ChinaProcurementReport: React.FC = () => {
                     </Text>
                   </div>
                 )}
-                <div style={{ marginBottom: '8px' }}>
-                  <Text strong style={{ fontSize: '16px' }}>
+                <div className='sparkery-procurement-summary-row'>
+                  <Text strong className='sparkery-procurement-total-label'>
                     Total:{' '}
                   </Text>
-                  <Text
-                    strong
-                    style={{
-                      fontSize: '18px',
-                      color: '#1890ff',
-                      marginLeft: '8px',
-                    }}
-                  >
+                  <Text strong className='sparkery-procurement-total-value'>
                     CNY{' '}
                     {calculateTotalWithGst().toLocaleString(undefined, {
                       minimumFractionDigits: 2,
@@ -2017,17 +1884,14 @@ const ChinaProcurementReport: React.FC = () => {
                 <Card
                   size='small'
                   title={
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
+                    <div className='sparkery-procurement-section-title-row'>
                       <span>
                         {index + 1}. {section.title}
                         {section.required && (
-                          <Text type='danger' style={{ marginLeft: '8px' }}>
+                          <Text
+                            type='danger'
+                            className='sparkery-procurement-required-mark'
+                          >
                             *
                           </Text>
                         )}
@@ -2040,10 +1904,13 @@ const ChinaProcurementReport: React.FC = () => {
                     </div>
                   }
                 >
-                  <div style={{ marginBottom: '12px' }}>
+                  <div className='sparkery-procurement-section-desc'>
                     <Text type='secondary'>{section.description}</Text>
                     <br />
-                    <Text type='secondary' style={{ fontSize: '12px' }}>
+                    <Text
+                      type='secondary'
+                      className='sparkery-procurement-folder-note'
+                    >
                       Folder: {section.folderName}/
                     </Text>
                   </div>
@@ -2055,7 +1922,7 @@ const ChinaProcurementReport: React.FC = () => {
                     }
                     accept='image/*'
                     multiple
-                    style={{ marginBottom: '12px' }}
+                    className='sparkery-procurement-upload-dragger'
                   >
                     <p className='ant-upload-drag-icon'>
                       <UploadOutlined />
@@ -2073,21 +1940,11 @@ const ChinaProcurementReport: React.FC = () => {
                       <Row gutter={[8, 8]}>
                         {section.images.map((img, imgIndex) => (
                           <Col span={12} key={img.id}>
-                            <div
-                              style={{
-                                border: '1px solid #d9d9d9',
-                                padding: '4px',
-                                borderRadius: '4px',
-                              }}
-                            >
+                            <div className='sparkery-procurement-image-card'>
                               <Image
                                 src={img.file}
                                 alt={img.name}
-                                style={{
-                                  width: '100%',
-                                  height: '60px',
-                                  objectFit: 'cover',
-                                }}
+                                className='sparkery-procurement-image-thumb'
                                 preview={{ src: img.file }}
                               />
                               <Input
@@ -2101,14 +1958,14 @@ const ChinaProcurementReport: React.FC = () => {
                                     e.target.value
                                   )
                                 }
-                                style={{ marginTop: '4px', fontSize: '11px' }}
+                                className='sparkery-procurement-image-desc-input'
                               />
                               <Button
                                 type='text'
                                 danger
                                 size='small'
                                 icon={<DeleteOutlined />}
-                                style={{ width: '100%', marginTop: '4px' }}
+                                className='sparkery-procurement-image-delete-btn'
                                 onClick={() =>
                                   handleDeleteImage(section.id, img.id)
                                 }
@@ -2130,12 +1987,7 @@ const ChinaProcurementReport: React.FC = () => {
                         icon={<ScanOutlined />}
                         loading={recognizing}
                         onClick={handleRecognizeOrders}
-                        style={{
-                          marginTop: '12px',
-                          width: '100%',
-                          background: '#52c41a',
-                          borderColor: '#52c41a',
-                        }}
+                        className='sparkery-procurement-recognize-btn'
                       >
                         {recognizing
                           ? '正在识别...'
@@ -2149,7 +2001,7 @@ const ChinaProcurementReport: React.FC = () => {
         </Card>
 
         {/* Actions */}
-        <Card size='small' style={{ marginTop: '16px' }}>
+        <Card size='small' className='sparkery-procurement-actions-card'>
           <Space wrap>
             <Tooltip title='Professional HTML template with one-image-per-page layout, optimized for browser printing'>
               <Button
@@ -2158,7 +2010,7 @@ const ChinaProcurementReport: React.FC = () => {
                 icon={<PrinterOutlined />}
                 onClick={handleGeneratePDFViaHTML}
                 loading={pdfGenerating}
-                style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                className='sparkery-procurement-primary-action'
               >
                 Generate PDF (HTML Template)
               </Button>
@@ -2205,14 +2057,7 @@ const ChinaProcurementReport: React.FC = () => {
                   Modal.info({
                     title: 'Recommended Folder Structure',
                     content: (
-                      <pre
-                        style={{
-                          fontSize: '11px',
-                          background: '#f5f5f5',
-                          padding: '12px',
-                          borderRadius: '4px',
-                        }}
-                      >
+                      <pre className='sparkery-procurement-folder-structure-pre'>
                         {structure}
                       </pre>
                     ),
@@ -2270,7 +2115,7 @@ const ChinaProcurementReport: React.FC = () => {
           </div>
         }
         type='info'
-        style={{ marginTop: '20px' }}
+        className='sparkery-procurement-instruction-alert'
       />
     </div>
   );

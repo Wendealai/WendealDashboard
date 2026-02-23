@@ -20,12 +20,6 @@ export default {
   // TypeScript configuration
   preset: 'ts-jest/presets/default-esm',
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
-  globals: {
-    'ts-jest': {
-      useESM: true,
-      tsconfig: 'tsconfig.jest.json'
-    }
-  },
 
   // Test file patterns
   testMatch: [
@@ -62,6 +56,7 @@ export default {
 
   // Module directories
   moduleDirectories: ['node_modules', '<rootDir>/src'],
+  modulePathIgnorePatterns: ['<rootDir>/.worktrees/'],
 
   // Handle static assets and path aliases
   moduleNameMapper: {

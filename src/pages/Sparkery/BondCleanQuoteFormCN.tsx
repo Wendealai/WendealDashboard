@@ -33,6 +33,7 @@ import {
   markFormShareLinkUsed,
   type BondQuoteFormType,
 } from '@/services/bondQuoteSubmissionService';
+import './sparkery.css';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -241,31 +242,20 @@ const BondCleanQuoteFormCN: React.FC = () => {
 
   if (submitted) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          background: 'linear-gradient(135deg, #f5f7f0 0%, #e8f5e9 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '24px',
-        }}
-      >
-        <Card style={{ maxWidth: 500, textAlign: 'center', padding: '40px' }}>
-          <CheckCircleOutlined
-            style={{ fontSize: 64, color: '#005901', marginBottom: 24 }}
-          />
-          <Title level={2} style={{ color: '#005901' }}>
+      <div className='sparkery-quote-form-page sparkery-quote-form-success-layout'>
+        <Card className='sparkery-quote-form-success-card'>
+          <CheckCircleOutlined className='sparkery-quote-form-success-icon' />
+          <Title level={2} className='sparkery-quote-form-success-title'>
             感谢您！
           </Title>
-          <Paragraph style={{ fontSize: 16, color: '#666' }}>
+          <Paragraph className='sparkery-quote-form-success-text'>
             您的退租清洁报价请求已成功提交。
           </Paragraph>
-          <Paragraph style={{ fontSize: 16, color: '#666' }}>
+          <Paragraph className='sparkery-quote-form-success-text'>
             我们将审核您的房产信息，并在24小时内为您提供详细报价。
           </Paragraph>
           <Divider />
-          <Paragraph style={{ fontSize: 14, color: '#888' }}>
+          <Paragraph className='sparkery-quote-form-success-help'>
             如有任何紧急问题，请联系我们：
             <br />
             <strong>电话：</strong>0478 540 915
@@ -273,12 +263,8 @@ const BondCleanQuoteFormCN: React.FC = () => {
             <strong>邮箱：</strong>info@sparkery.com.au
           </Paragraph>
           <Button
+            className='sparkery-quote-form-primary-btn'
             type='primary'
-            style={{
-              backgroundColor: '#005901',
-              borderColor: '#005901',
-              marginTop: 16,
-            }}
             onClick={() => {
               setSubmitted(false);
               form.resetFields();
@@ -292,38 +278,16 @@ const BondCleanQuoteFormCN: React.FC = () => {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #f5f7f0 0%, #e8f5e9 100%)',
-      }}
-    >
+    <div className='sparkery-quote-form-page'>
       {/* Header - Simplified for mobile */}
-      <div
-        style={{
-          background: '#005901',
-          padding: '12px 0',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 900,
-            margin: '0 auto',
-            padding: '0 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '8px',
-          }}
-        >
+      <div className='sparkery-quote-form-header'>
+        <div className='sparkery-quote-form-header-inner'>
           <img
+            className='sparkery-quote-form-header-logo'
             src='https://sparkery.com.au/wp-content/uploads/2025/11/logo.png'
             alt='Sparkery Logo'
-            style={{ height: 40 }}
           />
-          <div style={{ textAlign: 'right', color: '#fff', fontSize: 12 }}>
+          <div className='sparkery-quote-form-header-contact'>
             <div>
               <PhoneOutlined /> 0478 540 915
             </div>
@@ -335,15 +299,15 @@ const BondCleanQuoteFormCN: React.FC = () => {
       </div>
 
       {/* Form Content */}
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
+      <div className='sparkery-quote-form-content'>
         {!isStandaloneRoute && (
-          <div style={{ marginBottom: 16 }}>
-            <Space wrap style={{ width: '100%', justifyContent: 'flex-end' }}>
+          <div className='sparkery-quote-form-share-tools'>
+            <Space wrap className='sparkery-quote-form-share-actions'>
               <Button
+                className='sparkery-quote-form-outline-btn'
                 icon={<LinkOutlined />}
                 onClick={generateShareLink}
                 loading={shareLinkLoading}
-                style={{ borderColor: '#005901', color: '#005901' }}
               >
                 生成专属链接
               </Button>
@@ -358,15 +322,15 @@ const BondCleanQuoteFormCN: React.FC = () => {
             </Space>
             {generatedShareLink && (
               <Input
+                className='sparkery-quote-form-share-link'
                 value={generatedShareLink}
                 readOnly
-                style={{ marginTop: 8 }}
               />
             )}
           </div>
         )}
         {isStandaloneRoute && (
-          <div style={{ marginBottom: 16 }}>
+          <div className='sparkery-quote-form-link-status'>
             {linkValidationLoading && (
               <Alert type='info' showIcon message='正在校验专属链接...' />
             )}
@@ -383,18 +347,12 @@ const BondCleanQuoteFormCN: React.FC = () => {
           </div>
         )}
 
-        <Card
-          style={{
-            marginBottom: 24,
-            borderRadius: 12,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-          }}
-        >
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <Title level={2} style={{ color: '#005901', marginBottom: 8 }}>
+        <Card className='sparkery-quote-form-card'>
+          <div className='sparkery-quote-form-center-header'>
+            <Title level={2} className='sparkery-quote-form-title'>
               退租清洁报价申请表
             </Title>
-            <Text style={{ fontSize: 16, color: '#666' }}>
+            <Text className='sparkery-quote-form-subtitle'>
               请填写您的房产信息，我们将为您提供详细报价
             </Text>
           </div>
@@ -423,15 +381,8 @@ const BondCleanQuoteFormCN: React.FC = () => {
               }}
             >
               {/* Customer Information */}
-              <Title
-                level={4}
-                style={{
-                  color: '#005901',
-                  borderBottom: '2px solid #005901',
-                  paddingBottom: 8,
-                }}
-              >
-                <HomeOutlined style={{ marginRight: 8 }} />
+              <Title level={4} className='sparkery-quote-form-section-title'>
+                <HomeOutlined className='sparkery-quote-form-icon-gap-8' />
                 联系信息
               </Title>
 
@@ -493,7 +444,7 @@ const BondCleanQuoteFormCN: React.FC = () => {
                       <strong>我是 Sparkery 新客户</strong>
                       <Text
                         type='success'
-                        style={{ marginLeft: 8, fontSize: 12 }}
+                        className='sparkery-quote-form-inline-success'
                       >
                         (新用户可享折扣！)
                       </Text>
@@ -507,14 +458,9 @@ const BondCleanQuoteFormCN: React.FC = () => {
               {/* Property Details */}
               <Title
                 level={4}
-                style={{
-                  color: '#005901',
-                  borderBottom: '2px solid #005901',
-                  paddingBottom: 8,
-                  marginTop: 16,
-                }}
+                className='sparkery-quote-form-section-title sparkery-quote-form-section-title-spaced'
               >
-                <EnvironmentOutlined style={{ marginRight: 8 }} />
+                <EnvironmentOutlined className='sparkery-quote-form-icon-gap-8' />
                 房产详情
               </Title>
 
@@ -629,18 +575,13 @@ const BondCleanQuoteFormCN: React.FC = () => {
               {/* Additional Services */}
               <Title
                 level={4}
-                style={{
-                  color: '#005901',
-                  borderBottom: '2px solid #005901',
-                  paddingBottom: 8,
-                  marginTop: 16,
-                }}
+                className='sparkery-quote-form-section-title sparkery-quote-form-section-title-spaced'
               >
                 附加服务（可选）
               </Title>
               <Text
                 type='secondary'
-                style={{ display: 'block', marginBottom: 16 }}
+                className='sparkery-quote-form-section-hint'
               >
                 请选择您需要的附加服务
               </Text>
@@ -655,20 +596,23 @@ const BondCleanQuoteFormCN: React.FC = () => {
                   </Form.Item>
                   <Text
                     type='secondary'
-                    style={{ fontSize: 12, marginLeft: 24, display: 'block' }}
+                    className='sparkery-quote-form-addon-help'
                   >
-                    <InfoCircleOutlined style={{ marginRight: 4 }} />
+                    <InfoCircleOutlined className='sparkery-quote-form-icon-gap-4' />
                     车库、阳台或院子区域的清扫和拖地
                   </Text>
                 </Col>
 
                 {/* Glass Door/Window - with quantity */}
                 <Col xs={24} md={12}>
-                  <Space direction='vertical' style={{ width: '100%' }}>
+                  <Space
+                    direction='vertical'
+                    className='sparkery-quote-form-full-width'
+                  >
                     <Form.Item
                       name='glassDoorWindow'
                       valuePropName='checked'
-                      style={{ marginBottom: 4 }}
+                      className='sparkery-quote-form-item-tight'
                     >
                       <Checkbox>
                         <strong>落地窗 / 玻璃门清洁</strong>
@@ -676,16 +620,19 @@ const BondCleanQuoteFormCN: React.FC = () => {
                     </Form.Item>
                     <Text
                       type='secondary'
-                      style={{ fontSize: 12, marginLeft: 24 }}
+                      className='sparkery-quote-form-addon-help-inline'
                     >
-                      <InfoCircleOutlined style={{ marginRight: 4 }} />
+                      <InfoCircleOutlined className='sparkery-quote-form-icon-gap-4' />
                       室内玻璃面板和推拉门清洁
                     </Text>
                     <Form.Item
                       name='glassDoorWindowCount'
-                      style={{ marginLeft: 24, marginBottom: 8 }}
+                      className='sparkery-quote-form-addon-qty'
                     >
-                      <Select size='small' style={{ width: 120 }}>
+                      <Select
+                        size='small'
+                        className='sparkery-quote-form-select-120'
+                      >
                         {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
                           <Option key={n} value={n}>
                             {n} 扇
@@ -705,9 +652,9 @@ const BondCleanQuoteFormCN: React.FC = () => {
                   </Form.Item>
                   <Text
                     type='secondary'
-                    style={{ fontSize: 12, marginLeft: 24, display: 'block' }}
+                    className='sparkery-quote-form-addon-help'
                   >
-                    <InfoCircleOutlined style={{ marginRight: 4 }} />
+                    <InfoCircleOutlined className='sparkery-quote-form-icon-gap-4' />
                     烤箱内部、烤架和门的深度清洁
                   </Text>
                 </Col>
@@ -721,20 +668,23 @@ const BondCleanQuoteFormCN: React.FC = () => {
                   </Form.Item>
                   <Text
                     type='secondary'
-                    style={{ fontSize: 12, marginLeft: 24, display: 'block' }}
+                    className='sparkery-quote-form-addon-help'
                   >
-                    <InfoCircleOutlined style={{ marginRight: 4 }} />
+                    <InfoCircleOutlined className='sparkery-quote-form-icon-gap-4' />
                     冰箱内外清洁
                   </Text>
                 </Col>
 
                 {/* Wall Stains - with quantity */}
                 <Col xs={24} md={12}>
-                  <Space direction='vertical' style={{ width: '100%' }}>
+                  <Space
+                    direction='vertical'
+                    className='sparkery-quote-form-full-width'
+                  >
                     <Form.Item
                       name='wallStains'
                       valuePropName='checked'
-                      style={{ marginBottom: 4 }}
+                      className='sparkery-quote-form-item-tight'
                     >
                       <Checkbox>
                         <strong>墙面污渍清洁</strong>
@@ -742,16 +692,19 @@ const BondCleanQuoteFormCN: React.FC = () => {
                     </Form.Item>
                     <Text
                       type='secondary'
-                      style={{ fontSize: 12, marginLeft: 24 }}
+                      className='sparkery-quote-form-addon-help-inline'
                     >
-                      <InfoCircleOutlined style={{ marginRight: 4 }} />
+                      <InfoCircleOutlined className='sparkery-quote-form-icon-gap-4' />
                       墙面可见污渍和痕迹的局部清洁
                     </Text>
                     <Form.Item
                       name='wallStainsCount'
-                      style={{ marginLeft: 24, marginBottom: 8 }}
+                      className='sparkery-quote-form-addon-qty'
                     >
-                      <Select size='small' style={{ width: 120 }}>
+                      <Select
+                        size='small'
+                        className='sparkery-quote-form-select-120'
+                      >
                         {[0, 1, 2, 3, 4, 5].map(n => (
                           <Option key={n} value={n}>
                             {n} 处
@@ -764,11 +717,14 @@ const BondCleanQuoteFormCN: React.FC = () => {
 
                 {/* AC Filter - with quantity */}
                 <Col xs={24} md={12}>
-                  <Space direction='vertical' style={{ width: '100%' }}>
+                  <Space
+                    direction='vertical'
+                    className='sparkery-quote-form-full-width'
+                  >
                     <Form.Item
                       name='acFilter'
                       valuePropName='checked'
-                      style={{ marginBottom: 4 }}
+                      className='sparkery-quote-form-item-tight'
                     >
                       <Checkbox>
                         <strong>空调滤网清洁</strong>
@@ -776,16 +732,19 @@ const BondCleanQuoteFormCN: React.FC = () => {
                     </Form.Item>
                     <Text
                       type='secondary'
-                      style={{ fontSize: 12, marginLeft: 24 }}
+                      className='sparkery-quote-form-addon-help-inline'
                     >
-                      <InfoCircleOutlined style={{ marginRight: 4 }} />
+                      <InfoCircleOutlined className='sparkery-quote-form-icon-gap-4' />
                       空调滤网和出风口的清洁
                     </Text>
                     <Form.Item
                       name='acFilterCount'
-                      style={{ marginLeft: 24, marginBottom: 8 }}
+                      className='sparkery-quote-form-addon-qty'
                     >
-                      <Select size='small' style={{ width: 120 }}>
+                      <Select
+                        size='small'
+                        className='sparkery-quote-form-select-120'
+                      >
                         {[0, 1, 2, 3, 4, 5, 6].map(n => (
                           <Option key={n} value={n}>
                             {n} 台
@@ -798,11 +757,14 @@ const BondCleanQuoteFormCN: React.FC = () => {
 
                 {/* Blinds - with quantity */}
                 <Col xs={24} md={12}>
-                  <Space direction='vertical' style={{ width: '100%' }}>
+                  <Space
+                    direction='vertical'
+                    className='sparkery-quote-form-full-width'
+                  >
                     <Form.Item
                       name='blinds'
                       valuePropName='checked'
-                      style={{ marginBottom: 4 }}
+                      className='sparkery-quote-form-item-tight'
                     >
                       <Checkbox>
                         <strong>百叶窗清洁</strong>
@@ -810,16 +772,19 @@ const BondCleanQuoteFormCN: React.FC = () => {
                     </Form.Item>
                     <Text
                       type='secondary'
-                      style={{ fontSize: 12, marginLeft: 24 }}
+                      className='sparkery-quote-form-addon-help-inline'
                     >
-                      <InfoCircleOutlined style={{ marginRight: 4 }} />
+                      <InfoCircleOutlined className='sparkery-quote-form-icon-gap-4' />
                       百叶窗的除尘和擦拭
                     </Text>
                     <Form.Item
                       name='blindsCount'
-                      style={{ marginLeft: 24, marginBottom: 8 }}
+                      className='sparkery-quote-form-addon-qty'
                     >
-                      <Select size='small' style={{ width: 120 }}>
+                      <Select
+                        size='small'
+                        className='sparkery-quote-form-select-120'
+                      >
                         {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(n => (
                           <Option key={n} value={n}>
                             {n} 组
@@ -832,11 +797,14 @@ const BondCleanQuoteFormCN: React.FC = () => {
 
                 {/* Mold Removal - with quantity */}
                 <Col xs={24} md={12}>
-                  <Space direction='vertical' style={{ width: '100%' }}>
+                  <Space
+                    direction='vertical'
+                    className='sparkery-quote-form-full-width'
+                  >
                     <Form.Item
                       name='mold'
                       valuePropName='checked'
-                      style={{ marginBottom: 4 }}
+                      className='sparkery-quote-form-item-tight'
                     >
                       <Checkbox>
                         <strong>除霉</strong>
@@ -844,16 +812,19 @@ const BondCleanQuoteFormCN: React.FC = () => {
                     </Form.Item>
                     <Text
                       type='secondary'
-                      style={{ fontSize: 12, marginLeft: 24 }}
+                      className='sparkery-quote-form-addon-help-inline'
                     >
-                      <InfoCircleOutlined style={{ marginRight: 4 }} />
+                      <InfoCircleOutlined className='sparkery-quote-form-icon-gap-4' />
                       浴室和潮湿区域的霉斑处理和清除
                     </Text>
                     <Form.Item
                       name='moldCount'
-                      style={{ marginLeft: 24, marginBottom: 8 }}
+                      className='sparkery-quote-form-addon-qty'
                     >
-                      <Select size='small' style={{ width: 120 }}>
+                      <Select
+                        size='small'
+                        className='sparkery-quote-form-select-120'
+                      >
                         {[0, 1, 2, 3, 4, 5].map(n => (
                           <Option key={n} value={n}>
                             {n} 处
@@ -873,9 +844,9 @@ const BondCleanQuoteFormCN: React.FC = () => {
                   </Form.Item>
                   <Text
                     type='secondary'
-                    style={{ fontSize: 12, marginLeft: 24, display: 'block' }}
+                    className='sparkery-quote-form-addon-help'
                   >
-                    <InfoCircleOutlined style={{ marginRight: 4 }} />
+                    <InfoCircleOutlined className='sparkery-quote-form-icon-gap-4' />
                     如房产因长期未清洁需要额外深度清洁，请选择此项
                   </Text>
                 </Col>
@@ -891,16 +862,16 @@ const BondCleanQuoteFormCN: React.FC = () => {
                   </Form.Item>
                   <Text
                     type='secondary'
-                    style={{ fontSize: 12, marginLeft: 24, display: 'block' }}
+                    className='sparkery-quote-form-addon-help'
                   >
-                    <InfoCircleOutlined style={{ marginRight: 4 }} />
+                    <InfoCircleOutlined className='sparkery-quote-form-icon-gap-4' />
                     清理房产内遗留的废弃物品
                   </Text>
                   {showRubbishNotes && (
                     <Form.Item
                       name='rubbishRemovalNotes'
                       label='请描述需要清理的物品'
-                      style={{ marginLeft: 24, marginTop: 8 }}
+                      className='sparkery-quote-form-addon-notes'
                     >
                       <TextArea
                         rows={2}
@@ -916,12 +887,7 @@ const BondCleanQuoteFormCN: React.FC = () => {
               {/* Additional Information */}
               <Title
                 level={4}
-                style={{
-                  color: '#005901',
-                  borderBottom: '2px solid #005901',
-                  paddingBottom: 8,
-                  marginTop: 16,
-                }}
+                className='sparkery-quote-form-section-title sparkery-quote-form-section-title-spaced'
               >
                 其他信息
               </Title>
@@ -934,9 +900,7 @@ const BondCleanQuoteFormCN: React.FC = () => {
                       <span>
                         预约服务日期
                         <Tooltip title='如果您有多个可接受的日期，请在下方备注中列出'>
-                          <InfoCircleOutlined
-                            style={{ marginLeft: 8, color: '#888' }}
-                          />
+                          <InfoCircleOutlined className='sparkery-quote-form-tooltip-icon' />
                         </Tooltip>
                       </span>
                     }
@@ -958,20 +922,14 @@ const BondCleanQuoteFormCN: React.FC = () => {
               </Form.Item>
 
               {/* Submit Button */}
-              <Form.Item style={{ marginTop: 32 }}>
+              <Form.Item className='sparkery-quote-form-submit-wrap'>
                 <Button
+                  className='sparkery-quote-form-submit'
                   type='primary'
                   htmlType='submit'
                   size='large'
                   block
                   disabled={requiresGeneratedLink && !canSubmitFromLink}
-                  style={{
-                    backgroundColor: '#005901',
-                    borderColor: '#005901',
-                    height: 50,
-                    fontSize: 18,
-                    fontWeight: 600,
-                  }}
                 >
                   提交报价请求
                 </Button>
@@ -981,14 +939,17 @@ const BondCleanQuoteFormCN: React.FC = () => {
         </Card>
 
         {/* Footer */}
-        <div style={{ textAlign: 'center', padding: '24px 0', color: '#666' }}>
-          <Paragraph style={{ marginBottom: 8 }}>
+        <div className='sparkery-quote-form-footer'>
+          <Paragraph className='sparkery-quote-form-footer-line'>
             <strong>Sparkery (Wendeal Pty Ltd)</strong> | ABN: 23632257535
           </Paragraph>
-          <Paragraph style={{ marginBottom: 8 }}>
+          <Paragraph className='sparkery-quote-form-footer-line'>
             52 Wecker Road, Mansfield QLD 4122
           </Paragraph>
-          <Paragraph type='secondary' style={{ fontSize: 12 }}>
+          <Paragraph
+            type='secondary'
+            className='sparkery-quote-form-footer-muted'
+          >
             © {new Date().getFullYear()} Sparkery. 保留所有权利。
           </Paragraph>
         </div>

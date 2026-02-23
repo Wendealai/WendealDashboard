@@ -30,14 +30,14 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { useQuoteDraft } from './index';
-import type { QuoteDraftData } from './index';
+import { useQuoteDraft, type QuoteDraftData } from './quoteDraftContext';
 import {
   listSubmissions,
   updateSubmissionStatus,
   deleteSubmission as deleteSubmissionFromCloud,
   type BondQuoteStatus,
 } from '@/services/bondQuoteSubmissionService';
+import './sparkery.css';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -322,7 +322,9 @@ const BondCleanQuoteSubmissions: React.FC = () => {
       render: (_, record) => (
         <div>
           <div>{record.phone}</div>
-          <div style={{ fontSize: 12, color: '#888' }}>{record.email}</div>
+          <div className='sparkery-submissions-contact-email'>
+            {record.email}
+          </div>
         </div>
       ),
     },
@@ -422,12 +424,12 @@ const BondCleanQuoteSubmissions: React.FC = () => {
           </Descriptions.Item>
           <Descriptions.Item label='Status'>
             <Select
+              className='sparkery-submissions-status-select'
               value={selectedSubmission.status}
               onChange={async value => {
                 await updateStatus(selectedSubmission.id, value);
                 setSelectedSubmission({ ...selectedSubmission, status: value });
               }}
-              style={{ width: 120 }}
             >
               <Option value='new'>New</Option>
               <Option value='contacted'>Contacted</Option>
@@ -519,22 +521,26 @@ const BondCleanQuoteSubmissions: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Title level={3}>
-        <FileTextOutlined style={{ marginRight: 8 }} />
-        Bond Clean Quote Submissions
-      </Title>
-      <Text type='secondary'>View and manage customer quote requests</Text>
+    <div className='sparkery-submissions-page sparkery-submissions-shell'>
+      <div className='sparkery-submissions-header'>
+        <Title level={3} className='sparkery-submissions-title'>
+          <FileTextOutlined className='sparkery-submissions-title-icon' />
+          Bond Clean Quote Submissions
+        </Title>
+        <Text className='sparkery-submissions-subtitle' type='secondary'>
+          View and manage customer quote requests
+        </Text>
+      </div>
 
       {/* Statistics */}
-      <Row gutter={16} style={{ marginTop: 24, marginBottom: 24 }}>
+      <Row gutter={16} className='sparkery-submissions-stats-row'>
         <Col xs={12} sm={8} md={4}>
-          <Card>
+          <Card className='sparkery-stat-card'>
             <Statistic title='Total' value={stats.total} />
           </Card>
         </Col>
         <Col xs={12} sm={8} md={4}>
-          <Card>
+          <Card className='sparkery-stat-card'>
             <Statistic
               title='New'
               value={stats.new}
@@ -543,7 +549,7 @@ const BondCleanQuoteSubmissions: React.FC = () => {
           </Card>
         </Col>
         <Col xs={12} sm={8} md={4}>
-          <Card>
+          <Card className='sparkery-stat-card'>
             <Statistic
               title='Contacted'
               value={stats.contacted}
@@ -552,7 +558,7 @@ const BondCleanQuoteSubmissions: React.FC = () => {
           </Card>
         </Col>
         <Col xs={12} sm={8} md={4}>
-          <Card>
+          <Card className='sparkery-stat-card'>
             <Statistic
               title='Quoted'
               value={stats.quoted}
@@ -561,7 +567,7 @@ const BondCleanQuoteSubmissions: React.FC = () => {
           </Card>
         </Col>
         <Col xs={12} sm={8} md={4}>
-          <Card>
+          <Card className='sparkery-stat-card'>
             <Statistic
               title='Confirmed'
               value={stats.confirmed}
@@ -570,7 +576,7 @@ const BondCleanQuoteSubmissions: React.FC = () => {
           </Card>
         </Col>
         <Col xs={12} sm={8} md={4}>
-          <Card>
+          <Card className='sparkery-stat-card'>
             <Statistic
               title='Completed'
               value={stats.completed}
@@ -581,7 +587,7 @@ const BondCleanQuoteSubmissions: React.FC = () => {
       </Row>
 
       {/* Filters */}
-      <Card style={{ marginBottom: 16 }}>
+      <Card className='sparkery-filter-card'>
         <Row gutter={16} align='middle'>
           <Col xs={24} sm={8} md={6}>
             <Input
@@ -594,9 +600,9 @@ const BondCleanQuoteSubmissions: React.FC = () => {
           </Col>
           <Col xs={24} sm={8} md={4}>
             <Select
+              className='sparkery-submissions-filter-select'
               value={statusFilter}
               onChange={setStatusFilter}
-              style={{ width: '100%' }}
             >
               <Option value='all'>All Status</Option>
               <Option value='new'>New</Option>
@@ -609,16 +615,21 @@ const BondCleanQuoteSubmissions: React.FC = () => {
           </Col>
           <Col xs={24} sm={8} md={4}>
             <Select
+              className='sparkery-submissions-filter-select'
               value={formTypeFilter}
               onChange={setFormTypeFilter}
-              style={{ width: '100%' }}
             >
               <Option value='all'>All Forms</Option>
               <Option value='bond_clean_quote_request'>English</Option>
               <Option value='bond_clean_quote_request_cn'>Chinese</Option>
             </Select>
           </Col>
-          <Col xs={24} sm={24} md={10} style={{ textAlign: 'right' }}>
+          <Col
+            xs={24}
+            sm={24}
+            md={10}
+            className='sparkery-submissions-filter-actions'
+          >
             <Space>
               <Button
                 icon={<ReloadOutlined />}
@@ -643,7 +654,7 @@ const BondCleanQuoteSubmissions: React.FC = () => {
       </Card>
 
       {/* Table */}
-      <Card>
+      <Card className='sparkery-table-card'>
         <Table
           columns={columns}
           dataSource={filteredSubmissions}

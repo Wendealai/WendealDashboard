@@ -1,4 +1,3 @@
-import js from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import importPlugin from 'eslint-plugin-import';
@@ -7,7 +6,21 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 
 export default [
   {
-    ignores: ['dist', 'node_modules', '.spec-workflow', 'coverage']
+    ignores: ['dist', 'node_modules', '.spec-workflow', 'coverage'],
+  },
+  {
+    files: ['src/**/*.{test,spec}.{ts,tsx}', 'src/**/__tests__/**/*.{ts,tsx}'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 2020,
+        sourceType: 'module',
+        ecmaFeatures: {
+          jsx: true,
+        },
+        project: './tsconfig.jest.json',
+      },
+    },
   },
   {
     files: ['src/**/*.{ts,tsx}'],
@@ -19,26 +32,23 @@ export default [
         ecmaFeatures: {
           jsx: true,
         },
-        project: './tsconfig.app.json',
+        project: ['./tsconfig.app.json', './tsconfig.jest.json'],
       },
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
-      'import': importPlugin,
+      import: importPlugin,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       'no-console': 'warn',
       'no-debugger': 'error',
       'no-duplicate-imports': 'error',
 
-      // TypeScript导出相关规则
+      // TypeScript export consistency rules
       '@typescript-eslint/consistent-type-exports': 'error',
       '@typescript-eslint/consistent-type-imports': [
         'error',
@@ -51,7 +61,7 @@ export default [
       '@typescript-eslint/no-duplicate-type-constituents': 'error',
       '@typescript-eslint/no-import-type-side-effects': 'error',
 
-      // 导出一致性规则
+      // Export consistency rules
       'import/no-duplicates': 'error',
       'import/export': 'error',
       'import/no-named-as-default': 'warn',
@@ -73,21 +83,18 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
-      'import': importPlugin,
+      import: importPlugin,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       'no-console': 'warn',
       'no-debugger': 'error',
       'no-duplicate-imports': 'error',
 
-      // 导出一致性规则 (不使用类型感知规则)
+      // Export consistency rules without type-aware checks
       'import/no-duplicates': 'error',
       'import/export': 'error',
       'import/no-named-as-default': 'warn',
@@ -102,10 +109,7 @@ export default [
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       'no-console': 'warn',
       'no-debugger': 'error',
       'no-duplicate-imports': 'error',

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Cleaning Inspection Admin Panel - Enhanced with Checklist Templates & Dynamic Sections
  */
 
@@ -54,11 +54,11 @@ import {
   DEFAULT_CHECKLISTS,
   getDefaultChecklistForSection,
   migratePropertyChecklists,
+  type Employee,
   type PropertyTemplate,
   OFFICE_SECTION_IDS,
   removeOfficeSections,
 } from '@/pages/CleaningInspection/types';
-import type { Employee } from '@/pages/CleaningInspection/types';
 import {
   submitInspection,
   loadAllInspections,
@@ -77,6 +77,7 @@ import {
 } from '@/services/inspectionService';
 import { compressImage } from '@/pages/CleaningInspection/utils';
 import { buildInspectionShareUrl } from '@/pages/CleaningInspection/shareLink';
+import './sparkery.css';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -589,11 +590,11 @@ const CleaningInspectionAdmin: React.FC = () => {
     : 'Never';
 
   return (
-    <div style={{ padding: '12px' }}>
+    <div className='sparkery-tool-page sparkery-inspection-admin-page'>
       {contextHolder}
-      <div style={{ marginBottom: '16px' }}>
-        <Title level={3}>
-          <HomeOutlined style={{ marginRight: '8px' }} />
+      <div className='sparkery-inspection-header'>
+        <Title level={3} className='sparkery-tool-page-title'>
+          <HomeOutlined className='sparkery-inspection-icon-8' />
           Cleaning Inspection Admin
         </Title>
         <Space wrap>
@@ -625,52 +626,28 @@ const CleaningInspectionAdmin: React.FC = () => {
           </Button>
           <Tag color={supabaseTagColor}>{supabaseTagText}</Tag>
           {supabaseStatusMessage ? (
-            <Text type='secondary' style={{ fontSize: '12px' }}>
+            <Text type='secondary' className='sparkery-inspection-status-note'>
               {supabaseStatusMessage}
             </Text>
           ) : null}
         </Space>
-        <div
-          style={{
-            marginTop: '8px',
-            display: 'flex',
-            gap: '16px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <Text type='secondary' style={{ fontSize: '12px' }}>
+        <div className='sparkery-inspection-cloud-meta'>
+          <Text type='secondary' className='sparkery-inspection-status-note'>
             Storage bucket: {storageBucket}
           </Text>
-          <Text type='secondary' style={{ fontSize: '12px' }}>
+          <Text type='secondary' className='sparkery-inspection-status-note'>
             Last cloud write: {formattedLastCloudWriteAt}
           </Text>
         </div>
       </div>
 
       {/* Quick Start Wizard: select property + date, then start inspection */}
-      <Card
-        size='small'
-        style={{
-          marginBottom: '16px',
-          background: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)',
-          border: 'none',
-          borderRadius: '12px',
-        }}
-      >
-        <div style={{ marginBottom: '12px' }}>
-          <Text
-            strong
-            style={{
-              color: '#fff',
-              fontSize: '18px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
+      <Card size='small' className='sparkery-inspection-quick-card'>
+        <div className='sparkery-inspection-quick-header'>
+          <Text strong className='sparkery-inspection-quick-title'>
             <FormOutlined /> Quick Inspection Link
           </Text>
-          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: '13px' }}>
+          <Text className='sparkery-inspection-quick-description'>
             Select property and date, then click Start Inspection to generate a
             unique share link. The link opens in a new tab and can be sent to
             assigned cleaners immediately.
@@ -679,23 +656,18 @@ const CleaningInspectionAdmin: React.FC = () => {
 
         <Row gutter={[12, 12]} align='bottom'>
           <Col xs={24} sm={10}>
-            <Text
-              strong
-              style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
-            >
+            <Text strong className='sparkery-inspection-quick-label'>
               Property *
             </Text>
-            <div style={{ marginTop: '4px' }}>
+            <div className='sparkery-inspection-quick-field'>
               {properties.length === 0 ? (
-                <Text
-                  style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}
-                >
+                <Text className='sparkery-inspection-quick-help'>
                   No property templates yet. Add one in "Property Templates"
                   first.
                 </Text>
               ) : (
                 <Select
-                  style={{ width: '100%' }}
+                  className='sparkery-inspection-full-width'
                   placeholder='Select property'
                   value={selectedPropertyId || null}
                   onChange={(val: string) => setSelectedPropertyId(val)}
@@ -710,29 +682,23 @@ const CleaningInspectionAdmin: React.FC = () => {
             </div>
           </Col>
           <Col xs={24} sm={5}>
-            <Text
-              strong
-              style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
-            >
+            <Text strong className='sparkery-inspection-quick-label'>
               Check-out Date
             </Text>
             <Input
               type='date'
               value={checkOutDate}
               onChange={e => setCheckOutDate(e.target.value)}
-              style={{ marginTop: '4px' }}
+              className='sparkery-inspection-quick-field'
             />
           </Col>
           <Col xs={24} sm={5}>
-            <Text
-              strong
-              style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
-            >
+            <Text strong className='sparkery-inspection-quick-label'>
               Assigned Employees
             </Text>
-            <div style={{ marginTop: '4px' }}>
+            <div className='sparkery-inspection-quick-field'>
               <Select
-                style={{ width: '100%' }}
+                className='sparkery-inspection-full-width'
                 placeholder='Optional'
                 mode='multiple'
                 value={selectedEmployeeIds}
@@ -755,16 +721,7 @@ const CleaningInspectionAdmin: React.FC = () => {
               icon={<RocketOutlined />}
               onClick={handleQuickStartWithProperty}
               disabled={!selectedPropertyId || properties.length === 0}
-              style={{
-                width: '100%',
-                fontWeight: 600,
-                height: '44px',
-                borderRadius: '8px',
-                background: '#fff',
-                color: '#389e0d',
-                border: 'none',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              }}
+              className='sparkery-inspection-quick-start-btn'
             >
               <RocketOutlined /> Start Inspection
             </Button>
@@ -772,7 +729,7 @@ const CleaningInspectionAdmin: React.FC = () => {
         </Row>
       </Card>
 
-      <Card size='small' style={{ marginBottom: '16px' }}>
+      <Card size='small' className='sparkery-inspection-search-card'>
         <Input
           placeholder='Search by property name or inspection ID'
           value={searchText}
@@ -782,21 +739,24 @@ const CleaningInspectionAdmin: React.FC = () => {
       </Card>
 
       {filteredArchives.length > 0 ? (
-        <div style={{ display: 'grid', gap: '12px' }}>
+        <div className='sparkery-inspection-archive-list'>
           {filteredArchives.map(item => (
             <Card key={item.id} size='small'>
               <Row align='middle' justify='space-between'>
                 <Col xs={24} sm={16}>
                   <Text strong>{item.propertyId || 'Unnamed'}</Text>
                   <div>
-                    <Text type='secondary' style={{ fontSize: '12px' }}>
+                    <Text
+                      type='secondary'
+                      className='sparkery-inspection-text-12'
+                    >
                       {item.checkOutDate} |{' '}
                       {dayjs(item.submittedAt).format('YYYY-MM-DD HH:mm')}
                     </Text>
                   </div>
                   <Text
                     type='secondary'
-                    style={{ fontSize: '11px', fontFamily: 'monospace' }}
+                    className='sparkery-inspection-id-text'
                   >
                     {item.id}
                   </Text>
@@ -833,8 +793,8 @@ const CleaningInspectionAdmin: React.FC = () => {
           ))}
         </div>
       ) : (
-        <Card style={{ textAlign: 'center', padding: '48px' }}>
-          <HomeOutlined style={{ fontSize: '48px', color: '#bfbfbf' }} />
+        <Card className='sparkery-inspection-empty-card'>
+          <HomeOutlined className='sparkery-inspection-empty-icon' />
           <Title level={4} type='secondary'>
             No inspections yet.
           </Title>
@@ -1158,31 +1118,13 @@ const PropertySettingsModal: React.FC<{
         return { ...p, sections: reorderedSections };
       }
 
-      console.log('[handleSectionReorder] Property:', pid);
-      console.log(
-        '[handleSectionReorder] Old index:',
-        oldIndex,
-        '-> New index:',
-        newIndex,
-        '-> Reordered:',
-        reorderedSections
-      );
-
       return p;
     });
 
     const updated = newProps.find(p => p.id === pid);
     if (updated) {
-      console.log(
-        '[handleSectionReorder] Updating property:',
-        pid,
-        updated.name
-      );
       setEditingProperty({ ...updated });
     } else {
-      console.log(
-        '[handleSectionReorder] Updated property not found, using first matching one'
-      );
       setEditingProperty(newProps[0]);
     }
   };
@@ -1314,7 +1256,7 @@ const PropertySettingsModal: React.FC<{
             setNewOptionalSectionIds([]);
             setIsAddOpen(true);
           }}
-          style={{ marginBottom: '16px' }}
+          className='sparkery-inspection-gap-16'
         >
           Add Property
         </Button>
@@ -1326,7 +1268,7 @@ const PropertySettingsModal: React.FC<{
             <Card
               key={prop.id}
               size='small'
-              style={{ marginBottom: '16px' }}
+              className='sparkery-inspection-gap-16'
               title={
                 <Space>
                   {prop.name} <Text type='secondary'>- {prop.address}</Text>
@@ -1356,54 +1298,33 @@ const PropertySettingsModal: React.FC<{
               {(prop.notes ||
                 prop.notesZh ||
                 (prop.noteImages && prop.noteImages.length > 0)) && (
-                <div style={{ marginBottom: '10px' }}>
-                  <Text strong style={{ fontSize: '12px' }}>
-                    <InfoCircleOutlined style={{ marginRight: '4px' }} />
+                <div className='sparkery-inspection-gap-10'>
+                  <Text strong className='sparkery-inspection-text-12'>
+                    <InfoCircleOutlined className='sparkery-inspection-icon-4' />
                     Notes:
                   </Text>
                   {prop.notesZh && (
-                    <Text
-                      style={{
-                        fontSize: '12px',
-                        color: '#595959',
-                        display: 'block',
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
+                    <Text className='sparkery-inspection-note-text'>
                       {prop.notesZh.length > 60
                         ? prop.notesZh.substring(0, 60) + '...'
                         : prop.notesZh}
                     </Text>
                   )}
                   {prop.notes && !prop.notesZh && (
-                    <Text style={{ fontSize: '12px', color: '#595959' }}>
+                    <Text className='sparkery-inspection-note-text-inline'>
                       {prop.notes.length > 60
                         ? prop.notes.substring(0, 60) + '...'
                         : prop.notes}
                     </Text>
                   )}
                   {prop.noteImages && prop.noteImages.length > 0 && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: '6px',
-                        flexWrap: 'wrap',
-                        marginTop: '6px',
-                      }}
-                    >
+                    <div className='sparkery-inspection-thumb-row'>
                       {prop.noteImages.map((img: string, idx: number) => (
                         <img
                           key={idx}
                           src={img}
                           alt={`Note ${idx + 1}`}
-                          style={{
-                            width: '48px',
-                            height: '48px',
-                            objectFit: 'cover',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            border: '1px solid #d9d9d9',
-                          }}
+                          className='sparkery-inspection-thumb-48'
                           onClick={() =>
                             setPreviewImage({
                               src: img,
@@ -1417,60 +1338,40 @@ const PropertySettingsModal: React.FC<{
                 </div>
               )}
 
-              <Text strong style={{ fontSize: '12px' }}>
+              <Text strong className='sparkery-inspection-text-12'>
                 Sections:{' '}
               </Text>
               {getActiveSections(prop).map(s => (
-                <Tag key={s.id} color='blue' style={{ marginBottom: '4px' }}>
+                <Tag
+                  key={s.id}
+                  color='blue'
+                  className='sparkery-inspection-section-tag-gap'
+                >
                   {s.name}
                 </Tag>
               ))}
 
-              <div
-                style={{
-                  height: '1px',
-                  background: '#f0f0f0',
-                  margin: '12px 0',
-                }}
-              />
+              <div className='sparkery-inspection-divider-soft' />
 
-              <Text strong style={{ fontSize: '12px' }}>
+              <Text strong className='sparkery-inspection-text-12'>
                 Reference Images:
               </Text>
-              <Row gutter={[12, 12]} style={{ marginTop: '8px' }}>
+              <Row gutter={[12, 12]} className='sparkery-inspection-top-8'>
                 {getActiveSections(prop).map(section => {
                   const images = prop.referenceImages?.[section.id] || [];
                   return (
                     <Col xs={12} sm={8} md={6} key={section.id}>
-                      <div
-                        style={{
-                          border: '1px solid #d9d9d9',
-                          padding: '10px',
-                          textAlign: 'center',
-                          background: '#fafafa',
-                          borderRadius: '8px',
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontSize: '11px',
-                            display: 'block',
-                            marginBottom: '6px',
-                          }}
-                        >
+                      <div className='sparkery-inspection-ref-card'>
+                        <Text className='sparkery-inspection-ref-label'>
                           {section.name} ({images.length})
                         </Text>
                         {images.length > 0 ? (
-                          <div
-                            style={{
-                              display: 'flex',
-                              flexWrap: 'wrap',
-                              gap: '4px',
-                              justifyContent: 'center',
-                            }}
-                          >
+                          <div className='sparkery-inspection-ref-grid'>
                             {images.map((imgData: any, idx: number) => (
-                              <div key={idx} style={{ position: 'relative' }}>
+                              <div
+                                key={idx}
+                                className='sparkery-inspection-thumb-wrap'
+                              >
                                 <img
                                   src={imgData.image}
                                   alt={`${section.name} ${idx + 1}`}
@@ -1480,14 +1381,7 @@ const PropertySettingsModal: React.FC<{
                                       desc: imgData.description,
                                     })
                                   }
-                                  style={{
-                                    width: '45px',
-                                    height: '45px',
-                                    objectFit: 'cover',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    border: '2px solid #52c41a',
-                                  }}
+                                  className='sparkery-inspection-thumb-45'
                                 />
                                 <Button
                                   type='text'
@@ -1497,20 +1391,16 @@ const PropertySettingsModal: React.FC<{
                                   onClick={() =>
                                     handleDeleteImage(prop.id, section.id, idx)
                                   }
-                                  style={{
-                                    position: 'absolute',
-                                    top: '-8px',
-                                    right: '-8px',
-                                    padding: '2px',
-                                    background: '#fff',
-                                    borderRadius: '50%',
-                                  }}
+                                  className='sparkery-inspection-thumb-delete'
                                 />
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <Text type='secondary' style={{ fontSize: '10px' }}>
+                          <Text
+                            type='secondary'
+                            className='sparkery-inspection-text-10'
+                          >
                             No images
                           </Text>
                         )}
@@ -1524,7 +1414,7 @@ const PropertySettingsModal: React.FC<{
                             type={images.length > 0 ? 'default' : 'dashed'}
                             size='small'
                             icon={<PlusOutlined />}
-                            style={{ marginTop: '8px', width: '100%' }}
+                            className='sparkery-inspection-full-width sparkery-inspection-top-8'
                           >
                             {images.length > 0 ? 'Add more' : 'Upload image'}
                           </Button>
@@ -1552,14 +1442,18 @@ const PropertySettingsModal: React.FC<{
           }}
           onOk={handleAdd}
         >
-          <Space direction='vertical' style={{ width: '100%' }} size={12}>
+          <Space
+            direction='vertical'
+            className='sparkery-inspection-full-width'
+            size={12}
+          >
             <div>
               <Text strong>Name *</Text>
               <Input
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 placeholder='e.g. UNIT-101'
-                style={{ marginTop: '4px' }}
+                className='sparkery-inspection-top-4'
               />
             </div>
             <div>
@@ -1568,19 +1462,16 @@ const PropertySettingsModal: React.FC<{
                 value={newAddress}
                 onChange={e => setNewAddress(e.target.value)}
                 placeholder='e.g. 123 Main St, Brisbane'
-                style={{ marginTop: '4px' }}
+                className='sparkery-inspection-top-4'
               />
             </div>
             <div>
               <Text strong>Sections (optional)</Text>
-              <Text
-                type='secondary'
-                style={{ display: 'block', fontSize: '11px', marginTop: '4px' }}
-              >
+              <Text type='secondary' className='sparkery-inspection-help-text'>
                 Base sections are included by default. Add optional areas like
                 Meeting Room and Office Area.
               </Text>
-              <Space size={8} wrap style={{ marginTop: '8px' }}>
+              <Space size={8} wrap className='sparkery-inspection-top-8'>
                 <Button
                   size='small'
                   onClick={() =>
@@ -1598,11 +1489,11 @@ const PropertySettingsModal: React.FC<{
                   Clear optional
                 </Button>
               </Space>
-              <div style={{ marginTop: '8px' }}>
+              <div className='sparkery-inspection-top-8'>
                 <Checkbox.Group
                   value={newOptionalSectionIds}
                   onChange={vals => setNewOptionalSectionIds(vals as string[])}
-                  style={{ width: '100%' }}
+                  className='sparkery-inspection-full-width'
                 >
                   <Row gutter={[8, 8]}>
                     {OPTIONAL_SECTIONS.map(section => (
@@ -1616,7 +1507,7 @@ const PropertySettingsModal: React.FC<{
             </div>
             <div>
               <Text strong>
-                <InfoCircleOutlined style={{ marginRight: '4px' }} />
+                <InfoCircleOutlined className='sparkery-inspection-icon-4' />
                 Property Notes (Chinese)
               </Text>
               <Input.TextArea
@@ -1624,14 +1515,14 @@ const PropertySettingsModal: React.FC<{
                 onChange={e => setNewNotesZh(e.target.value)}
                 placeholder='e.g. Key pickup instructions, lockbox location, entry method, and access code.'
                 rows={6}
-                style={{ marginTop: '4px' }}
+                className='sparkery-inspection-top-4'
               />
-              <Text type='secondary' style={{ fontSize: '11px' }}>
+              <Text type='secondary' className='sparkery-inspection-text-11'>
                 Chinese notes shown when cleaner uses Chinese UI.
               </Text>
-              <div style={{ marginTop: '8px' }}>
+              <div className='sparkery-inspection-top-8'>
                 <Text strong>
-                  <InfoCircleOutlined style={{ marginRight: '4px' }} />
+                  <InfoCircleOutlined className='sparkery-inspection-icon-4' />
                   Property Notes (English)
                 </Text>
                 <Input.TextArea
@@ -1639,66 +1530,36 @@ const PropertySettingsModal: React.FC<{
                   onChange={e => setNewNotes(e.target.value)}
                   placeholder='e.g. Key access: lockbox at mailroom, code 3091. Entry: building lobby.'
                   rows={6}
-                  style={{ marginTop: '4px' }}
+                  className='sparkery-inspection-top-4'
                 />
-                <Text type='secondary' style={{ fontSize: '11px' }}>
+                <Text type='secondary' className='sparkery-inspection-text-11'>
                   English version of key pickup, access code, etc. Shown when
                   cleaner switches to English.
                 </Text>
               </div>
               <Text
                 type='secondary'
-                style={{
-                  fontSize: '11px',
-                  display: 'block',
-                  marginTop: '4px',
-                  color: '#fa8c16',
-                }}
+                className='sparkery-inspection-bilingual-warning'
               >
                 Please fill both Chinese and English notes for bilingual output.
               </Text>
               {/* Note images */}
-              <div style={{ marginTop: '8px' }}>
-                <Text
-                  strong
-                  style={{
-                    fontSize: '12px',
-                    display: 'block',
-                    marginBottom: '6px',
-                  }}
-                >
-                  <CameraOutlined style={{ marginRight: '4px' }} />
+              <div className='sparkery-inspection-top-8'>
+                <Text strong className='sparkery-inspection-subtitle'>
+                  <CameraOutlined className='sparkery-inspection-icon-4' />
                   Note Images (Optional)
                 </Text>
                 {newNoteImages.length > 0 && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '8px',
-                      marginBottom: '8px',
-                    }}
-                  >
+                  <div className='sparkery-inspection-note-image-grid'>
                     {newNoteImages.map((img, idx) => (
                       <div
                         key={idx}
-                        style={{
-                          position: 'relative',
-                          width: '80px',
-                          height: '80px',
-                        }}
+                        className='sparkery-inspection-note-image-wrap-80'
                       >
                         <img
                           src={img}
                           alt={`Note image ${idx + 1}`}
-                          style={{
-                            width: '80px',
-                            height: '80px',
-                            objectFit: 'cover',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            border: '1px solid #d9d9d9',
-                          }}
+                          className='sparkery-inspection-note-image-80'
                           onClick={() =>
                             setPreviewImage({
                               src: img,
@@ -1716,15 +1577,7 @@ const PropertySettingsModal: React.FC<{
                               prev.filter((_, i) => i !== idx)
                             )
                           }
-                          style={{
-                            position: 'absolute',
-                            top: '-6px',
-                            right: '-6px',
-                            padding: '2px',
-                            background: '#fff',
-                            borderRadius: '50%',
-                            boxShadow: '0 1px 3px rgba(0,0,0,.2)',
-                          }}
+                          className='sparkery-inspection-note-image-delete'
                         />
                       </div>
                     ))}
@@ -1752,12 +1605,12 @@ const PropertySettingsModal: React.FC<{
                     type='dashed'
                     size='small'
                     icon={<PlusOutlined />}
-                    style={{ width: '100%' }}
+                    className='sparkery-inspection-full-width'
                   >
                     Add Note Images
                   </Button>
                 </Upload>
-                <Text type='secondary' style={{ fontSize: '11px' }}>
+                <Text type='secondary' className='sparkery-inspection-text-11'>
                   Upload photos of key locations (lockbox, mailroom, entry
                   points, etc.).
                 </Text>
@@ -1778,19 +1631,15 @@ const PropertySettingsModal: React.FC<{
               {/* Property Info Editing */}
               <Card
                 size='small'
-                style={{
-                  marginBottom: '16px',
-                  background: '#fafafa',
-                  borderRadius: '8px',
-                }}
+                className='sparkery-inspection-gap-16 sparkery-inspection-card-soft'
               >
-                <Title level={5} style={{ marginTop: 0 }}>
-                  <EditOutlined style={{ marginRight: '6px' }} />
+                <Title level={5} className='sparkery-inspection-title-no-top'>
+                  <EditOutlined className='sparkery-inspection-icon-6' />
                   Property Information
                 </Title>
                 <Row gutter={[12, 12]}>
                   <Col xs={24} sm={12}>
-                    <Text strong style={{ fontSize: '12px' }}>
+                    <Text strong className='sparkery-inspection-text-12'>
                       Name *
                     </Text>
                     <Input
@@ -1803,11 +1652,11 @@ const PropertySettingsModal: React.FC<{
                         )
                       }
                       placeholder='e.g. UNIT-101'
-                      style={{ marginTop: '4px' }}
+                      className='sparkery-inspection-top-4'
                     />
                   </Col>
                   <Col xs={24} sm={12}>
-                    <Text strong style={{ fontSize: '12px' }}>
+                    <Text strong className='sparkery-inspection-text-12'>
                       Address
                     </Text>
                     <Input
@@ -1820,12 +1669,12 @@ const PropertySettingsModal: React.FC<{
                         )
                       }
                       placeholder='e.g. 123 Main St, Brisbane'
-                      style={{ marginTop: '4px' }}
+                      className='sparkery-inspection-top-4'
                     />
                   </Col>
                   <Col xs={24}>
-                    <Text strong style={{ fontSize: '12px' }}>
-                      <InfoCircleOutlined style={{ marginRight: '4px' }} />
+                    <Text strong className='sparkery-inspection-text-12'>
+                      <InfoCircleOutlined className='sparkery-inspection-icon-4' />
                       Property Notes (Chinese)
                     </Text>
                     <Input.TextArea
@@ -1839,14 +1688,17 @@ const PropertySettingsModal: React.FC<{
                       }
                       placeholder='e.g. Key pickup instructions, lockbox location, entry method, and access code.'
                       rows={6}
-                      style={{ marginTop: '4px' }}
+                      className='sparkery-inspection-top-4'
                     />
-                    <Text type='secondary' style={{ fontSize: '11px' }}>
+                    <Text
+                      type='secondary'
+                      className='sparkery-inspection-text-11'
+                    >
                       Chinese notes shown when cleaner uses Chinese UI.
                     </Text>
-                    <div style={{ marginTop: '8px' }}>
-                      <Text strong style={{ fontSize: '12px' }}>
-                        <InfoCircleOutlined style={{ marginRight: '4px' }} />
+                    <div className='sparkery-inspection-top-8'>
+                      <Text strong className='sparkery-inspection-text-12'>
+                        <InfoCircleOutlined className='sparkery-inspection-icon-4' />
                         Property Notes (English)
                       </Text>
                       <Input.TextArea
@@ -1860,67 +1712,40 @@ const PropertySettingsModal: React.FC<{
                         }
                         placeholder='e.g. Key access: lockbox at mailroom, code 3091.'
                         rows={6}
-                        style={{ marginTop: '4px' }}
+                        className='sparkery-inspection-top-4'
                       />
-                      <Text type='secondary' style={{ fontSize: '11px' }}>
+                      <Text
+                        type='secondary'
+                        className='sparkery-inspection-text-11'
+                      >
                         English version shown when language is set to English.
                       </Text>
                     </div>
                     <Text
                       type='secondary'
-                      style={{
-                        fontSize: '11px',
-                        display: 'block',
-                        marginTop: '4px',
-                        color: '#fa8c16',
-                      }}
+                      className='sparkery-inspection-bilingual-warning'
                     >
                       Please fill both Chinese and English notes for bilingual
                       output.
                     </Text>
                     {/* Note images (edit mode) */}
-                    <div style={{ marginTop: '8px' }}>
-                      <Text
-                        strong
-                        style={{
-                          fontSize: '12px',
-                          display: 'block',
-                          marginBottom: '6px',
-                        }}
-                      >
-                        <CameraOutlined style={{ marginRight: '4px' }} />
+                    <div className='sparkery-inspection-top-8'>
+                      <Text strong className='sparkery-inspection-subtitle'>
+                        <CameraOutlined className='sparkery-inspection-icon-4' />
                         Note Images
                       </Text>
                       {(editingProperty.noteImages || []).length > 0 && (
-                        <div
-                          style={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '8px',
-                            marginBottom: '8px',
-                          }}
-                        >
+                        <div className='sparkery-inspection-note-image-grid'>
                           {(editingProperty.noteImages || []).map(
                             (img: string, idx: number) => (
                               <div
                                 key={idx}
-                                style={{
-                                  position: 'relative',
-                                  width: '100px',
-                                  height: '100px',
-                                }}
+                                className='sparkery-inspection-note-image-wrap-100'
                               >
                                 <img
                                   src={img}
                                   alt={`Note image ${idx + 1}`}
-                                  style={{
-                                    width: '100px',
-                                    height: '100px',
-                                    objectFit: 'cover',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    border: '1px solid #d9d9d9',
-                                  }}
+                                  className='sparkery-inspection-note-image-100'
                                   onClick={() =>
                                     setPreviewImage({
                                       src: img,
@@ -1939,15 +1764,7 @@ const PropertySettingsModal: React.FC<{
                                       idx
                                     )
                                   }
-                                  style={{
-                                    position: 'absolute',
-                                    top: '-6px',
-                                    right: '-6px',
-                                    padding: '2px',
-                                    background: '#fff',
-                                    borderRadius: '50%',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,.2)',
-                                  }}
+                                  className='sparkery-inspection-note-image-delete'
                                 />
                               </div>
                             )
@@ -1971,11 +1788,7 @@ const PropertySettingsModal: React.FC<{
                       </Upload>
                       <Text
                         type='secondary'
-                        style={{
-                          fontSize: '11px',
-                          display: 'block',
-                          marginTop: '4px',
-                        }}
+                        className='sparkery-inspection-help-text'
                       >
                         Upload photos of key locations (lockbox, mailroom, entry
                         points, etc.).
@@ -1985,77 +1798,43 @@ const PropertySettingsModal: React.FC<{
                 </Row>
               </Card>
 
-              <Divider style={{ margin: '12px 0' }} />
+              <Divider className='sparkery-inspection-divider' />
 
               <Title level={5}>Inspection Sections</Title>
-              <Text
-                type='secondary'
-                style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '12px',
-                }}
-              >
+              <Text type='secondary' className='sparkery-inspection-hint'>
                 Drag the <MenuOutlined /> handle to reorder section sequence.
               </Text>
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '8px',
-                  marginBottom: '16px',
-                }}
-              >
+              <div className='sparkery-inspection-chip-row'>
                 {getActiveSections(editingProperty).map((section, idx) => {
                   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
                     e.preventDefault();
-                    console.log(
-                      '[Drop] Current editingProperty.id:',
-                      editingProperty.id
-                    );
 
                     const sourceData = e.dataTransfer.getData('text/plain');
-                    console.log('[Drop] sourceData:', sourceData);
 
                     if (!sourceData) {
-                      console.log('[Drop] No sourceData, returning');
                       return;
                     }
                     const sourceIdxFromData = Number.parseInt(sourceData, 10);
                     const sourceIdx = Number.isNaN(sourceIdxFromData)
                       ? dragSectionIndexRef.current
                       : sourceIdxFromData;
-                    console.log('[Drop] sourceIdx:', sourceIdx);
 
                     if (sourceIdx === null) {
-                      console.log('[Drop] sourceIdx is null, returning');
                       return;
                     }
                     if (sourceIdx !== idx) {
                       const pid = editingProperty.id;
-                      console.log('[Drop] Calling handleSectionReorder:', {
-                        pid,
-                        sourceIdx,
-                        targetIdx: idx,
-                      });
                       handleSectionReorder(pid, sourceIdx, idx);
-                      console.log('[Drop] handleSectionReorder completed');
-                    } else {
-                      console.log(
-                        '[Drop] sourceIdx === idx, no reordering needed'
-                      );
                     }
                     dragSectionIndexRef.current = null;
                     setDragSectionIndex(null);
                     setDragOverSectionIndex(null);
-                    console.log('[Drop] Drag state cleared');
                   };
                   return (
                     <div
                       key={section.id}
                       draggable
                       onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-                        console.log('[DragStart] Setting source to idx:', idx);
                         dragSectionIndexRef.current = idx;
                         setDragSectionIndex(idx);
                         e.dataTransfer.effectAllowed = 'move';
@@ -2074,17 +1853,15 @@ const PropertySettingsModal: React.FC<{
                         }, 0);
                       }}
                       onDrop={handleDrop}
-                      style={{
-                        cursor: 'move',
-                        userSelect: 'none',
-                        opacity: dragSectionIndex === idx ? 0.6 : 1,
-                        outline:
-                          dragOverSectionIndex === idx &&
-                          dragSectionIndex !== idx
-                            ? '1px dashed #1677ff'
-                            : 'none',
-                        borderRadius: '6px',
-                      }}
+                      className={`sparkery-inspection-draggable-chip${
+                        dragSectionIndex === idx
+                          ? ' sparkery-inspection-draggable-chip-dragging'
+                          : ''
+                      }${
+                        dragOverSectionIndex === idx && dragSectionIndex !== idx
+                          ? ' sparkery-inspection-draggable-chip-over'
+                          : ''
+                      }`}
                     >
                       <Space size={4}>
                         <Button
@@ -2113,11 +1890,9 @@ const PropertySettingsModal: React.FC<{
                           onClose={() =>
                             handleRemoveSection(editingProperty.id, section.id)
                           }
-                          style={{ padding: '4px 8px', fontSize: '13px' }}
+                          className='sparkery-inspection-section-tag'
                         >
-                          <MenuOutlined
-                            style={{ marginRight: '6px', color: '#8c8c8c' }}
-                          />
+                          <MenuOutlined className='sparkery-inspection-drag-icon' />
                           {section.name}
                         </Tag>
                       </Space>
@@ -2126,7 +1901,7 @@ const PropertySettingsModal: React.FC<{
                 })}
               </div>
               <Title level={5}>Optional Sections</Title>
-              <div style={{ marginBottom: '8px' }}>
+              <div className='sparkery-inspection-gap-8'>
                 <Space>
                   <Button
                     size='small'
@@ -2149,24 +1924,13 @@ const PropertySettingsModal: React.FC<{
                   </Button>
                 </Space>
               </div>
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '8px',
-                  marginBottom: '16px',
-                }}
-              >
+              <div className='sparkery-inspection-chip-row'>
                 {getAvailableOptionalSections().map(section => (
                   <Tag
                     key={section.id}
                     color='default'
                     icon={<PlusCircleOutlined />}
-                    style={{
-                      padding: '4px 8px',
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                    }}
+                    className='sparkery-inspection-optional-tag'
                     onClick={() =>
                       handleAddSection(editingProperty.id, section.id)
                     }
@@ -2185,16 +1949,12 @@ const PropertySettingsModal: React.FC<{
 
               {/* Checklist Template Editor */}
               <Title level={5}>
-                <CheckSquareOutlined style={{ marginRight: '8px' }} />
+                <CheckSquareOutlined className='sparkery-inspection-icon-8' />
                 Checklist Templates
               </Title>
               <Text
                 type='secondary'
-                style={{
-                  display: 'block',
-                  marginBottom: '12px',
-                  fontSize: '12px',
-                }}
+                className='sparkery-inspection-hint-compact'
               >
                 Customize checklist items by section. Items with camera icon
                 require photo capture.
@@ -2217,7 +1977,7 @@ const PropertySettingsModal: React.FC<{
                         {section.name}
                         <Tag
                           color={hasCustom ? 'green' : 'default'}
-                          style={{ fontSize: '11px' }}
+                          className='sparkery-inspection-text-11'
                         >
                           {hasCustom
                             ? `${checklistItems.length} items`
@@ -2248,7 +2008,7 @@ const PropertySettingsModal: React.FC<{
                                 items
                               );
                             }}
-                            style={{ marginBottom: '12px' }}
+                            className='sparkery-inspection-gap-12'
                           >
                             Load default items ({defaultItems.length})
                           </Button>
@@ -2258,24 +2018,9 @@ const PropertySettingsModal: React.FC<{
                         {checklistItems.map((item: any, idx: number) => (
                           <div
                             key={idx}
-                            style={{
-                              display: 'flex',
-                              gap: '6px',
-                              alignItems: 'center',
-                              marginBottom: '6px',
-                              padding: '6px 8px',
-                              background: '#fafafa',
-                              borderRadius: '4px',
-                            }}
+                            className='sparkery-inspection-checklist-item'
                           >
-                            <div
-                              style={{
-                                flex: 1,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '4px',
-                              }}
-                            >
+                            <div className='sparkery-inspection-checklist-fields'>
                               <Input
                                 size='small'
                                 value={item.label}
@@ -2295,7 +2040,7 @@ const PropertySettingsModal: React.FC<{
                                 prefix={
                                   <Text
                                     type='secondary'
-                                    style={{ fontSize: '10px' }}
+                                    className='sparkery-inspection-text-10'
                                   >
                                     CN
                                   </Text>
@@ -2320,7 +2065,7 @@ const PropertySettingsModal: React.FC<{
                                 prefix={
                                   <Text
                                     type='secondary'
-                                    style={{ fontSize: '10px' }}
+                                    className='sparkery-inspection-text-10'
                                   >
                                     EN
                                   </Text>
@@ -2381,7 +2126,7 @@ const PropertySettingsModal: React.FC<{
                               updated
                             );
                           }}
-                          style={{ width: '100%', marginTop: '4px' }}
+                          className='sparkery-inspection-full-width sparkery-inspection-top-4'
                         >
                           Add Checklist Item
                         </Button>
@@ -2400,22 +2145,15 @@ const PropertySettingsModal: React.FC<{
         onCancel={() => setPreviewImage(null)}
         footer={null}
         width='auto'
-        style={{ maxWidth: '90vw' }}
+        className='sparkery-inspection-preview-modal'
         closable
         closeIcon={
-          <CloseOutlined style={{ color: '#fff', fontSize: '20px' }} />
+          <CloseOutlined className='sparkery-inspection-preview-close' />
         }
         maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.85)' }}
       >
         <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '200px',
-            maxHeight: '80vh',
-          }}
+          className='sparkery-inspection-preview-shell'
           onClick={e => {
             if (e.target === e.currentTarget) setPreviewImage(null);
           }}
@@ -2425,22 +2163,10 @@ const PropertySettingsModal: React.FC<{
               <img
                 src={previewImage.src}
                 alt='Preview'
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '60vh',
-                  objectFit: 'contain',
-                  borderRadius: '8px',
-                }}
+                className='sparkery-inspection-preview-image'
               />
               {previewImage.desc && (
-                <Paragraph
-                  style={{
-                    color: '#fff',
-                    marginTop: '12px',
-                    maxWidth: '600px',
-                    textAlign: 'center',
-                  }}
-                >
+                <Paragraph className='sparkery-inspection-preview-desc'>
                   {previewImage.desc}
                 </Paragraph>
               )}
@@ -2553,7 +2279,7 @@ const EmployeesModal: React.FC<{
           type='primary'
           icon={<PlusOutlined />}
           onClick={handleOpenAdd}
-          style={{ marginBottom: '16px' }}
+          className='sparkery-inspection-gap-16'
         >
           Add Employee
         </Button>
@@ -2565,7 +2291,7 @@ const EmployeesModal: React.FC<{
             <Card
               key={emp.id}
               size='small'
-              style={{ marginBottom: '10px' }}
+              className='sparkery-inspection-gap-10'
               title={
                 <Space>
                   <Text strong>{emp.name}</Text>
@@ -2594,7 +2320,7 @@ const EmployeesModal: React.FC<{
               {emp.phone && (
                 <Text
                   type='secondary'
-                  style={{ fontSize: '12px', display: 'block' }}
+                  className='sparkery-inspection-text-12-block'
                 >
                   Phone: {emp.phone}
                 </Text>
@@ -2602,7 +2328,7 @@ const EmployeesModal: React.FC<{
               {emp.notes && (
                 <Text
                   type='secondary'
-                  style={{ fontSize: '12px', display: 'block' }}
+                  className='sparkery-inspection-text-12-block'
                 >
                   Notes: {emp.notes}
                 </Text>
@@ -2621,14 +2347,18 @@ const EmployeesModal: React.FC<{
           }}
           onOk={handleAdd}
         >
-          <Space direction='vertical' style={{ width: '100%' }} size={12}>
+          <Space
+            direction='vertical'
+            className='sparkery-inspection-full-width'
+            size={12}
+          >
             <div>
               <Text strong>Name *</Text>
               <Input
                 value={formName}
                 onChange={e => setFormName(e.target.value)}
                 placeholder='e.g. Zhang San'
-                style={{ marginTop: '4px' }}
+                className='sparkery-inspection-top-4'
               />
             </div>
             <div>
@@ -2637,7 +2367,7 @@ const EmployeesModal: React.FC<{
                 value={formNameEn}
                 onChange={e => setFormNameEn(e.target.value)}
                 placeholder='e.g. Zhang San'
-                style={{ marginTop: '4px' }}
+                className='sparkery-inspection-top-4'
               />
             </div>
             <div>
@@ -2646,7 +2376,7 @@ const EmployeesModal: React.FC<{
                 value={formPhone}
                 onChange={e => setFormPhone(e.target.value)}
                 placeholder='e.g. 0412345678'
-                style={{ marginTop: '4px' }}
+                className='sparkery-inspection-top-4'
               />
             </div>
             <div>
@@ -2656,7 +2386,7 @@ const EmployeesModal: React.FC<{
                 onChange={e => setFormNotes(e.target.value)}
                 placeholder='Optional notes...'
                 rows={2}
-                style={{ marginTop: '4px' }}
+                className='sparkery-inspection-top-4'
               />
             </div>
           </Space>
@@ -2672,14 +2402,18 @@ const EmployeesModal: React.FC<{
           }}
           onOk={handleSaveEdit}
         >
-          <Space direction='vertical' style={{ width: '100%' }} size={12}>
+          <Space
+            direction='vertical'
+            className='sparkery-inspection-full-width'
+            size={12}
+          >
             <div>
               <Text strong>Name *</Text>
               <Input
                 value={formName}
                 onChange={e => setFormName(e.target.value)}
                 placeholder='e.g. Zhang San'
-                style={{ marginTop: '4px' }}
+                className='sparkery-inspection-top-4'
               />
             </div>
             <div>
@@ -2688,7 +2422,7 @@ const EmployeesModal: React.FC<{
                 value={formNameEn}
                 onChange={e => setFormNameEn(e.target.value)}
                 placeholder='e.g. Zhang San'
-                style={{ marginTop: '4px' }}
+                className='sparkery-inspection-top-4'
               />
             </div>
             <div>
@@ -2697,7 +2431,7 @@ const EmployeesModal: React.FC<{
                 value={formPhone}
                 onChange={e => setFormPhone(e.target.value)}
                 placeholder='e.g. 0412345678'
-                style={{ marginTop: '4px' }}
+                className='sparkery-inspection-top-4'
               />
             </div>
             <div>
@@ -2707,7 +2441,7 @@ const EmployeesModal: React.FC<{
                 onChange={e => setFormNotes(e.target.value)}
                 placeholder='Optional notes...'
                 rows={2}
-                style={{ marginTop: '4px' }}
+                className='sparkery-inspection-top-4'
               />
             </div>
           </Space>

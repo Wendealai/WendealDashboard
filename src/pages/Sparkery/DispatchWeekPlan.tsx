@@ -15,16 +15,14 @@ import {
   message,
 } from 'antd';
 import dayjs from 'dayjs';
-import type {
-  CleaningInspection,
-  Employee as InspectionEmployee,
-  PropertyTemplate,
-  RoomSection,
-} from '@/pages/CleaningInspection/types';
 import {
   BASE_ROOM_SECTIONS,
   getActiveSections,
   getDefaultChecklistForSection,
+  type CleaningInspection,
+  type Employee as InspectionEmployee,
+  type PropertyTemplate,
+  type RoomSection,
 } from '@/pages/CleaningInspection/types';
 import { buildInspectionShareUrl } from '@/pages/CleaningInspection/shareLink';
 import type {
@@ -42,6 +40,7 @@ import {
   loadPropertyTemplates,
   submitInspection,
 } from '@/services/inspectionService';
+import './sparkery.css';
 
 const { Title, Text } = Typography;
 const GEO_CACHE_STORAGE_KEY = 'sparkery_dispatch_geocode_cache_v1';
@@ -1171,35 +1170,50 @@ const DispatchWeekPlan: React.FC = () => {
   const isInvalidQuery = !queryPayload.employeeId;
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background:
-          'linear-gradient(135deg, rgba(248,250,252,1) 0%, rgba(241,245,249,1) 100%)',
-        padding: 16,
-      }}
-    >
+    <div className='dispatch-week-plan-page dispatch-week-plan-shell'>
       {contextHolder}
-      <div style={{ maxWidth: 1120, margin: '0 auto' }}>
-        <Space direction='vertical' size={12} style={{ width: '100%' }}>
-          <Card>
-            <Space direction='vertical' size={10} style={{ width: '100%' }}>
-              <Title level={4} style={{ marginBottom: 0 }}>
+      <div className='dispatch-week-plan-container'>
+        <Space
+          direction='vertical'
+          size={12}
+          className='dispatch-week-plan-root-space'
+        >
+          <Card className='dispatch-week-plan-header-card'>
+            <Space
+              direction='vertical'
+              size={10}
+              className='dispatch-week-plan-header-space'
+            >
+              <Title level={4} className='dispatch-week-plan-title'>
                 Dispatch Weekly Plan
               </Title>
-              <Space wrap>
-                <Tag color='blue'>
+              <Space wrap className='dispatch-week-plan-header-tags'>
+                <Tag
+                  color='blue'
+                  className='dispatch-week-plan-pill dispatch-week-plan-pill-week'
+                >
                   Week: {displayWeekStart} to {displayWeekEnd}
                 </Tag>
-                <Tag color='geekblue'>Jobs: {jobs.length}</Tag>
-                <Tag color='cyan'>
+                <Tag
+                  color='geekblue'
+                  className='dispatch-week-plan-pill dispatch-week-plan-pill-jobs'
+                >
+                  Jobs: {jobs.length}
+                </Tag>
+                <Tag
+                  color='cyan'
+                  className='dispatch-week-plan-pill dispatch-week-plan-pill-route'
+                >
                   Route days: {Object.keys(routeResultByDate).length}
                 </Tag>
-                <Tag color='green'>
+                <Tag
+                  color='green'
+                  className='dispatch-week-plan-pill dispatch-week-plan-pill-enabled'
+                >
                   Inspection enabled:{' '}
                   {inspectionAvailabilitySummary.enabledCount}
                 </Tag>
-                <Tag color='default'>
+                <Tag className='dispatch-week-plan-pill dispatch-week-plan-pill-disabled'>
                   Inspection disabled:{' '}
                   {inspectionAvailabilitySummary.disabledCount}
                 </Tag>
@@ -1216,19 +1230,26 @@ const DispatchWeekPlan: React.FC = () => {
             <Alert
               type='warning'
               showIcon
+              className='dispatch-week-plan-alert dispatch-week-plan-alert-warning'
               message='Invalid weekly plan link'
               description='Please regenerate the link from Dispatch Map Planner.'
             />
           )}
 
           {!isInvalidQuery && loading && (
-            <Alert type='info' showIcon message='Loading weekly plan...' />
+            <Alert
+              type='info'
+              showIcon
+              className='dispatch-week-plan-alert dispatch-week-plan-alert-info'
+              message='Loading weekly plan...'
+            />
           )}
 
           {!isInvalidQuery && !loading && !employee && (
             <Alert
               type='error'
               showIcon
+              className='dispatch-week-plan-alert dispatch-week-plan-alert-error'
               message='Employee not found'
               description='Please regenerate the weekly plan link from dispatch board.'
             />
@@ -1238,6 +1259,7 @@ const DispatchWeekPlan: React.FC = () => {
             <Alert
               type='info'
               showIcon
+              className='dispatch-week-plan-alert dispatch-week-plan-alert-info dispatch-week-plan-alert-employee'
               message={`Employee: ${employee.name}`}
               description={
                 employee.currentLocation
@@ -1251,24 +1273,39 @@ const DispatchWeekPlan: React.FC = () => {
             <Alert
               type='warning'
               showIcon
+              className='dispatch-week-plan-alert dispatch-week-plan-alert-warning'
               message={`${missingJobIds.length} jobs are missing`}
               description={`Missing IDs: ${missingJobIds.join(', ')}`}
             />
           )}
 
           {!isInvalidQuery && !loading && routeGeneralError && (
-            <Alert type='error' showIcon message={routeGeneralError} />
+            <Alert
+              type='error'
+              showIcon
+              className='dispatch-week-plan-alert dispatch-week-plan-alert-error'
+              message={routeGeneralError}
+            />
           )}
 
           {!isInvalidQuery && !loading && routeErrorEntries.length > 0 && (
             <Alert
               type='warning'
               showIcon
+              className='dispatch-week-plan-alert dispatch-week-plan-alert-warning'
               message='Some daily routes are unavailable'
               description={
-                <Space direction='vertical' size={2}>
+                <Space
+                  direction='vertical'
+                  size={2}
+                  className='dispatch-week-plan-alert-list'
+                >
                   {routeErrorEntries.map(([date, error]) => (
-                    <Text key={date} type='secondary'>
+                    <Text
+                      key={date}
+                      type='secondary'
+                      className='dispatch-week-plan-alert-item'
+                    >
                       {dayjs(date).format('dddd')} ({date}): {error}
                     </Text>
                   ))}
@@ -1291,12 +1328,12 @@ const DispatchWeekPlan: React.FC = () => {
               <Col xs={24} xl={16}>
                 <Card
                   title='Weekly Jobs (Mon-Sun)'
-                  bodyStyle={{ paddingTop: 10 }}
+                  className='dispatch-week-plan-jobs-card'
                 >
                   <Space
                     direction='vertical'
                     size={10}
-                    style={{ width: '100%' }}
+                    className='dispatch-week-plan-jobs-space'
                   >
                     {daySections.map(section => {
                       const dayRoute = routeResultByDate[section.date];
@@ -1306,7 +1343,7 @@ const DispatchWeekPlan: React.FC = () => {
                           key={section.date}
                           size='small'
                           type='inner'
-                          bodyStyle={{ paddingTop: 8 }}
+                          className='dispatch-week-plan-day-card'
                           title={
                             <Space size={6} wrap>
                               <Tag
@@ -1315,11 +1352,17 @@ const DispatchWeekPlan: React.FC = () => {
                                     ? 'volcano'
                                     : 'blue'
                                 }
+                                className='dispatch-week-plan-pill dispatch-week-plan-pill-day'
                               >
                                 {dayjs(section.date).format('dddd')}
                               </Tag>
-                              <Tag>{section.date}</Tag>
-                              <Tag color='geekblue'>
+                              <Tag className='dispatch-week-plan-pill dispatch-week-plan-pill-date'>
+                                {section.date}
+                              </Tag>
+                              <Tag
+                                color='geekblue'
+                                className='dispatch-week-plan-pill dispatch-week-plan-pill-count'
+                              >
                                 Jobs: {section.jobs.length}
                               </Tag>
                             </Space>
@@ -1332,7 +1375,7 @@ const DispatchWeekPlan: React.FC = () => {
                                 href={dayRoute.overviewNavigationUrl}
                                 target='_blank'
                                 rel='noreferrer'
-                                style={{ paddingInline: 0 }}
+                                className='dispatch-link-button-inline'
                               >
                                 Open Day Navigation
                               </Button>
@@ -1361,6 +1404,7 @@ const DispatchWeekPlan: React.FC = () => {
                                 <Button
                                   key='navigate'
                                   size='small'
+                                  className='dispatch-week-plan-action-btn dispatch-week-plan-action-btn-nav'
                                   disabled={!step?.navigationUrl}
                                   onClick={() => {
                                     if (!step?.navigationUrl) {
@@ -1387,6 +1431,7 @@ const DispatchWeekPlan: React.FC = () => {
                                     <Button
                                       size='small'
                                       type='primary'
+                                      className='dispatch-week-plan-action-btn dispatch-week-plan-action-btn-primary'
                                       disabled={!inspectionAvailability.enabled}
                                       loading={
                                         creatingInspectionJobId === job.id
@@ -1407,6 +1452,7 @@ const DispatchWeekPlan: React.FC = () => {
                                   <Button
                                     key='open-inspection'
                                     type='link'
+                                    className='dispatch-week-plan-action-link'
                                     href={inspectionLink}
                                     target='_blank'
                                     rel='noreferrer'
@@ -1417,78 +1463,161 @@ const DispatchWeekPlan: React.FC = () => {
                               }
 
                               return (
-                                <List.Item actions={actionNodes}>
+                                <List.Item
+                                  actions={actionNodes}
+                                  className='dispatch-week-plan-job-item'
+                                >
                                   <List.Item.Meta
                                     title={
-                                      <Space size={6} wrap>
-                                        <Tag color='geekblue'>#{index + 1}</Tag>
-                                        <span>{job.title}</span>
-                                        <Tag>{job.serviceType}</Tag>
-                                        <Tag color='blue'>
-                                          {job.scheduledStartTime}-
-                                          {job.scheduledEndTime}
-                                        </Tag>
-                                        {profile?.recurringEnabled ? (
-                                          <Tag color='green'>Recurring</Tag>
-                                        ) : (
-                                          <Tag color='default'>One-off</Tag>
-                                        )}
-                                      </Space>
+                                      <div className='dispatch-week-plan-job-title'>
+                                        <div className='dispatch-week-plan-job-title-row'>
+                                          <Tag
+                                            color='geekblue'
+                                            className='dispatch-week-plan-pill dispatch-week-plan-pill-order'
+                                          >
+                                            #{index + 1}
+                                          </Tag>
+                                          <Text
+                                            strong
+                                            ellipsis={{ tooltip: job.title }}
+                                            className='dispatch-week-plan-job-title-text'
+                                          >
+                                            {job.title || 'Untitled job'}
+                                          </Text>
+                                        </div>
+                                        <Space
+                                          size={[6, 6]}
+                                          wrap
+                                          className='dispatch-week-plan-job-title-meta'
+                                        >
+                                          <Tag className='dispatch-week-plan-pill dispatch-week-plan-pill-service'>
+                                            {job.serviceType}
+                                          </Tag>
+                                          <Tag
+                                            color='blue'
+                                            className='dispatch-week-plan-pill dispatch-week-plan-pill-time'
+                                          >
+                                            {job.scheduledStartTime}-
+                                            {job.scheduledEndTime}
+                                          </Tag>
+                                          {profile?.recurringEnabled ? (
+                                            <Tag
+                                              color='green'
+                                              className='dispatch-week-plan-pill dispatch-week-plan-pill-recurring'
+                                            >
+                                              Recurring
+                                            </Tag>
+                                          ) : (
+                                            <Tag className='dispatch-week-plan-pill dispatch-week-plan-pill-oneoff'>
+                                              One-off
+                                            </Tag>
+                                          )}
+                                        </Space>
+                                      </div>
                                     }
                                     description={
-                                      <Space direction='vertical' size={0}>
-                                        <Text type='secondary'>
-                                          {job.customerName || 'Customer'} |{' '}
+                                      <div className='dispatch-week-plan-meta'>
+                                        <div className='dispatch-week-plan-customer-line'>
+                                          <Text
+                                            type='secondary'
+                                            className='dispatch-week-plan-meta-label'
+                                          >
+                                            Customer:
+                                          </Text>
+                                          <Text className='dispatch-week-plan-meta-value'>
+                                            {job.customerName || 'Customer'}
+                                          </Text>
+                                        </div>
+                                        <Text
+                                          type='secondary'
+                                          className='dispatch-week-plan-meta-address'
+                                        >
                                           {job.customerAddress || 'No address'}
                                         </Text>
+
                                         {step && (
-                                          <>
-                                            <Text type='secondary'>
+                                          <div className='dispatch-week-plan-route-block'>
+                                            <Text
+                                              type='secondary'
+                                              className='dispatch-week-plan-route-line'
+                                            >
                                               From: {step.fromAddress}
                                             </Text>
-                                            <Text type='secondary'>
+                                            <Text
+                                              type='secondary'
+                                              className='dispatch-week-plan-route-line'
+                                            >
                                               To: {step.toAddress}
                                             </Text>
-                                            <Text>
+                                            <Text className='dispatch-week-plan-commute-line'>
                                               Commute: {step.distanceText} /{' '}
                                               {step.durationText}
                                             </Text>
-                                          </>
+                                          </div>
                                         )}
+
                                         {!inspectionAvailability.enabled && (
-                                          <Text type='secondary'>
+                                          <Text
+                                            type='secondary'
+                                            className='dispatch-week-plan-meta-warning'
+                                          >
                                             Inspection link unavailable:{' '}
                                             {inspectionAvailability.reason}
                                           </Text>
                                         )}
+
                                         {!template && (
-                                          <Text type='secondary'>
+                                          <Text
+                                            type='secondary'
+                                            className='dispatch-week-plan-meta-hint'
+                                          >
                                             Template match: not found.{' '}
                                             {templateMatch?.details ||
                                               'Keep customer address and template address consistent.'}
                                           </Text>
                                         )}
+
                                         {templateMatch && (
-                                          <Text type='secondary'>
-                                            Address keys: Job{' '}
-                                            {templateMatch.jobAddressKey ||
-                                              'N/A'}{' '}
-                                            | Profile:{' '}
-                                            {templateMatch.profileAddressKey ||
-                                              'N/A'}{' '}
-                                            | Template:{' '}
-                                            {templateMatch.matchedTemplateAddressKey ||
-                                              'N/A'}
-                                          </Text>
+                                          <Space
+                                            size={[6, 6]}
+                                            wrap
+                                            className='dispatch-week-plan-address-keys'
+                                          >
+                                            <Text
+                                              type='secondary'
+                                              className='dispatch-week-plan-meta-label'
+                                            >
+                                              Address keys:
+                                            </Text>
+                                            <Tag className='dispatch-week-plan-key-tag'>
+                                              Job{' '}
+                                              {templateMatch.jobAddressKey ||
+                                                'N/A'}
+                                            </Tag>
+                                            <Tag className='dispatch-week-plan-key-tag'>
+                                              Profile{' '}
+                                              {templateMatch.profileAddressKey ||
+                                                'N/A'}
+                                            </Tag>
+                                            <Tag className='dispatch-week-plan-key-tag'>
+                                              Template{' '}
+                                              {templateMatch.matchedTemplateAddressKey ||
+                                                'N/A'}
+                                            </Tag>
+                                          </Space>
                                         )}
+
                                         {template && templateMatch && (
-                                          <Text type='secondary'>
+                                          <Text
+                                            type='secondary'
+                                            className='dispatch-week-plan-meta-success'
+                                          >
                                             Template match: {template.name} (
                                             {templateMatch.strategy}, score{' '}
                                             {templateMatch.score.toFixed(2)})
                                           </Text>
                                         )}
-                                      </Space>
+                                      </div>
                                     }
                                   />
                                 </List.Item>
@@ -1502,12 +1631,20 @@ const DispatchWeekPlan: React.FC = () => {
                 </Card>
               </Col>
               <Col xs={24} xl={8}>
-                <Space direction='vertical' size={12} style={{ width: '100%' }}>
-                  <Card size='small' title='Daily Route Summary'>
+                <Space
+                  direction='vertical'
+                  size={12}
+                  className='dispatch-week-plan-side'
+                >
+                  <Card
+                    size='small'
+                    title='Daily Route Summary'
+                    className='dispatch-week-plan-summary-card'
+                  >
                     <Space
                       direction='vertical'
                       size={8}
-                      style={{ width: '100%' }}
+                      className='dispatch-week-plan-summary-space'
                     >
                       {daySections.map(section => {
                         const dayRoute = routeResultByDate[section.date];
@@ -1515,14 +1652,18 @@ const DispatchWeekPlan: React.FC = () => {
                           <Card
                             key={`summary-${section.date}`}
                             size='small'
-                            bodyStyle={{ padding: '8px 10px' }}
+                            className='dispatch-week-plan-summary-day-card'
                           >
                             <Space
                               direction='vertical'
                               size={2}
-                              style={{ width: '100%' }}
+                              className='dispatch-week-plan-summary-day-space'
                             >
-                              <Space size={6} wrap>
+                              <Space
+                                size={6}
+                                wrap
+                                className='dispatch-week-plan-summary-head'
+                              >
                                 <Tag
                                   color={
                                     section.date ===
@@ -1530,34 +1671,67 @@ const DispatchWeekPlan: React.FC = () => {
                                       ? 'volcano'
                                       : 'default'
                                   }
+                                  className='dispatch-week-plan-pill dispatch-week-plan-pill-summary-day'
                                 >
                                   {dayjs(section.date).format('ddd')}
                                 </Tag>
-                                <Text strong>{section.date}</Text>
-                                <Text type='secondary'>
-                                  Jobs: {section.jobs.length}
+                                <Text
+                                  strong
+                                  className='dispatch-week-plan-summary-date'
+                                >
+                                  {section.date}
                                 </Text>
+                                <Tag className='dispatch-week-plan-summary-jobs-tag'>
+                                  Jobs {section.jobs.length}
+                                </Tag>
                               </Space>
                               {section.jobs.length === 0 && (
-                                <Text type='secondary'>No jobs.</Text>
+                                <Text
+                                  type='secondary'
+                                  className='dispatch-week-plan-summary-empty'
+                                >
+                                  No jobs.
+                                </Text>
                               )}
                               {section.jobs.length > 0 && dayRoute && (
-                                <>
-                                  <Text>
-                                    Next: {dayRoute.nextCommuteDistanceText} /{' '}
-                                    {dayRoute.nextCommuteDurationText}
-                                  </Text>
-                                  <Text type='secondary'>
-                                    Total: {dayRoute.totalDistanceKm.toFixed(1)}{' '}
-                                    km / {Math.round(dayRoute.totalDurationMin)}{' '}
-                                    mins
-                                  </Text>
-                                </>
+                                <div className='dispatch-week-plan-summary-metrics'>
+                                  <div className='dispatch-week-plan-summary-metric-row'>
+                                    <Text
+                                      type='secondary'
+                                      className='dispatch-week-plan-summary-metric-label'
+                                    >
+                                      Next
+                                    </Text>
+                                    <Text className='dispatch-week-plan-summary-next'>
+                                      {dayRoute.nextCommuteDistanceText} /{' '}
+                                      {dayRoute.nextCommuteDurationText}
+                                    </Text>
+                                  </div>
+                                  <div className='dispatch-week-plan-summary-metric-row'>
+                                    <Text
+                                      type='secondary'
+                                      className='dispatch-week-plan-summary-metric-label'
+                                    >
+                                      Total
+                                    </Text>
+                                    <Text
+                                      type='secondary'
+                                      className='dispatch-week-plan-summary-total'
+                                    >
+                                      {dayRoute.totalDistanceKm.toFixed(1)} km /{' '}
+                                      {Math.round(dayRoute.totalDurationMin)}{' '}
+                                      mins
+                                    </Text>
+                                  </div>
+                                </div>
                               )}
                               {section.jobs.length > 0 &&
                                 !dayRoute &&
                                 routeErrorByDate[section.date] && (
-                                  <Text type='secondary'>
+                                  <Text
+                                    type='secondary'
+                                    className='dispatch-week-plan-summary-error'
+                                  >
                                     {routeErrorByDate[section.date]}
                                   </Text>
                                 )}
@@ -1565,7 +1739,10 @@ const DispatchWeekPlan: React.FC = () => {
                                 !dayRoute &&
                                 !routeErrorByDate[section.date] &&
                                 loadingRoute && (
-                                  <Text type='secondary'>
+                                  <Text
+                                    type='secondary'
+                                    className='dispatch-week-plan-summary-loading'
+                                  >
                                     Calculating route...
                                   </Text>
                                 )}
@@ -1573,57 +1750,121 @@ const DispatchWeekPlan: React.FC = () => {
                                 !dayRoute &&
                                 !routeErrorByDate[section.date] &&
                                 !loadingRoute && (
-                                  <Text type='secondary'>
+                                  <Text
+                                    type='secondary'
+                                    className='dispatch-week-plan-summary-unavailable'
+                                  >
                                     Route unavailable.
                                   </Text>
                                 )}
                               {dayRoute?.overviewNavigationUrl && (
-                                <Button
-                                  type='link'
-                                  href={dayRoute.overviewNavigationUrl}
-                                  target='_blank'
-                                  rel='noreferrer'
-                                  style={{ paddingInline: 0 }}
-                                >
-                                  Open Day Route
-                                </Button>
+                                <div className='dispatch-week-plan-summary-link-wrap'>
+                                  <Button
+                                    type='link'
+                                    href={dayRoute.overviewNavigationUrl}
+                                    target='_blank'
+                                    rel='noreferrer'
+                                    className='dispatch-link-button-inline dispatch-week-plan-summary-link'
+                                  >
+                                    Open Day Route
+                                  </Button>
+                                </div>
                               )}
                             </Space>
                           </Card>
                         );
                       })}
-                      <Divider style={{ margin: '4px 0' }} />
-                      <Text strong>Weekly route total</Text>
-                      {weeklyRouteTotals.dayCount > 0 ? (
-                        <Text type='secondary'>
-                          {weeklyRouteTotals.distanceKm.toFixed(1)} km /{' '}
-                          {Math.round(weeklyRouteTotals.durationMin)} mins (
-                          {weeklyRouteTotals.dayCount} days)
+                      <Divider className='dispatch-divider-tight' />
+                      <div className='dispatch-week-plan-weekly-total'>
+                        <Text
+                          strong
+                          className='dispatch-week-plan-weekly-total-title'
+                        >
+                          Weekly route total
                         </Text>
-                      ) : (
-                        <Text type='secondary'>
-                          Route totals are unavailable right now.
-                        </Text>
-                      )}
+                        {weeklyRouteTotals.dayCount > 0 ? (
+                          <Space
+                            size={[6, 6]}
+                            wrap
+                            className='dispatch-week-plan-weekly-total-metrics'
+                          >
+                            <Tag className='dispatch-week-plan-weekly-total-tag'>
+                              Distance {weeklyRouteTotals.distanceKm.toFixed(1)}{' '}
+                              km
+                            </Tag>
+                            <Tag className='dispatch-week-plan-weekly-total-tag'>
+                              Duration{' '}
+                              {Math.round(weeklyRouteTotals.durationMin)} mins
+                            </Tag>
+                            <Tag className='dispatch-week-plan-weekly-total-tag'>
+                              Days {weeklyRouteTotals.dayCount}
+                            </Tag>
+                          </Space>
+                        ) : (
+                          <Text
+                            type='secondary'
+                            className='dispatch-week-plan-weekly-total-empty'
+                          >
+                            Route totals are unavailable right now.
+                          </Text>
+                        )}
+                      </div>
                     </Space>
                   </Card>
-                  <Card size='small' title='Inspection Rule'>
-                    <Space direction='vertical' size={4}>
-                      <Text type='secondary'>1) Task must be recurring.</Text>
-                      <Text type='secondary'>
-                        2) Property template must already exist.
-                      </Text>
-                      <Text type='secondary'>
-                        3) Address match uses Number + Street Name
-                        (case-insensitive), then falls back to name.
-                      </Text>
-                      <Text type='secondary'>
-                        4) Recommended: keep Number + Street Name aligned across
-                        Dispatch customer address and Inspection template
-                        address.
-                      </Text>
-                      <Divider style={{ margin: '8px 0' }} />
-                      <Text type='secondary'>
+                  <Card
+                    size='small'
+                    title='Inspection Rule'
+                    className='dispatch-week-plan-rule-card'
+                  >
+                    <Space
+                      direction='vertical'
+                      size={6}
+                      className='dispatch-week-plan-rule-space'
+                    >
+                      <div className='dispatch-week-plan-rule-row'>
+                        <Tag className='dispatch-week-plan-rule-index'>1</Tag>
+                        <Text
+                          type='secondary'
+                          className='dispatch-week-plan-rule-text'
+                        >
+                          Task must be recurring.
+                        </Text>
+                      </div>
+                      <div className='dispatch-week-plan-rule-row'>
+                        <Tag className='dispatch-week-plan-rule-index'>2</Tag>
+                        <Text
+                          type='secondary'
+                          className='dispatch-week-plan-rule-text'
+                        >
+                          Property template must already exist.
+                        </Text>
+                      </div>
+                      <div className='dispatch-week-plan-rule-row'>
+                        <Tag className='dispatch-week-plan-rule-index'>3</Tag>
+                        <Text
+                          type='secondary'
+                          className='dispatch-week-plan-rule-text'
+                        >
+                          Address match uses Number + Street Name
+                          (case-insensitive), then falls back to name.
+                        </Text>
+                      </div>
+                      <div className='dispatch-week-plan-rule-row'>
+                        <Tag className='dispatch-week-plan-rule-index'>4</Tag>
+                        <Text
+                          type='secondary'
+                          className='dispatch-week-plan-rule-text'
+                        >
+                          Recommended: keep Number + Street Name aligned across
+                          Dispatch customer address and Inspection template
+                          address.
+                        </Text>
+                      </div>
+                      <Divider className='dispatch-divider-compact dispatch-week-plan-rule-divider' />
+                      <Text
+                        type='secondary'
+                        className='dispatch-week-plan-rule-footnote'
+                      >
                         One-off jobs will not show inspection generation.
                       </Text>
                     </Space>

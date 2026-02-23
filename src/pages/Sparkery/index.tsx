@@ -2,7 +2,7 @@
  * Sparkery Main Page - Container for all Sparkery tools with tabs
  */
 
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState } from 'react';
 import { Tabs, Typography } from 'antd';
 import {
   HomeOutlined,
@@ -24,54 +24,10 @@ import BondCleanQuoteSubmissions from './BondCleanQuoteSubmissions';
 import DispatchDashboard from './DispatchDashboard';
 import DispatchFinanceDashboard from './DispatchFinanceDashboard';
 import DispatchRecurringTemplatesPage from './DispatchRecurringTemplatesPage';
+import { QuoteDraftContext, type QuoteDraftData } from './quoteDraftContext';
 import './sparkery.css';
 
 const { Title } = Typography;
-
-// Draft data interface for cross-component communication
-export interface QuoteDraftData {
-  customerName: string;
-  email: string;
-  phone: string;
-  propertyAddress: string;
-  propertyType: 'apartment' | 'townhouse' | 'house';
-  houseLevel?: 'single' | 'double';
-  roomType: string;
-  customRoomType?: string;
-  hasCarpet: boolean;
-  carpetRooms: number;
-  garage: boolean;
-  glassDoorWindowCount: number;
-  oven: boolean;
-  fridge: boolean;
-  wallStainsCount: number;
-  acFilterCount: number;
-  blindsCount: number;
-  moldCount: number;
-  heavySoiling: boolean;
-  rubbishRemoval: boolean;
-  rubbishRemovalNotes?: string;
-  preferredDate: string;
-  additionalNotes: string;
-  isSparkeryNewCustomer: boolean;
-}
-
-// Context for draft data
-interface QuoteDraftContextType {
-  draftData: QuoteDraftData | null;
-  setDraftData: (data: QuoteDraftData | null) => void;
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-}
-
-export const QuoteDraftContext = createContext<QuoteDraftContextType>({
-  draftData: null,
-  setDraftData: () => {},
-  activeTab: 'quote-calculator',
-  setActiveTab: () => {},
-});
-
-export const useQuoteDraft = () => useContext(QuoteDraftContext);
 
 /** Main Sparkery Page Component */
 const SparkeryPage: React.FC = () => {
@@ -175,8 +131,8 @@ const SparkeryPage: React.FC = () => {
     <QuoteDraftContext.Provider
       value={{ draftData, setDraftData, activeTab, setActiveTab }}
     >
-      <div className='sparkery-page' style={{ padding: '12px' }}>
-        <Title level={3} style={{ marginBottom: '16px' }}>
+      <div className='sparkery-page sparkery-page-shell'>
+        <Title level={3} className='sparkery-page-title'>
           Sparkery Tools
         </Title>
         <Tabs

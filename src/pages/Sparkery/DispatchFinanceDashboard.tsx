@@ -28,6 +28,7 @@ import {
 } from '@/store/slices/sparkeryDispatchSlice';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import WeeklyFinanceBoard from './components/dispatch/WeeklyFinanceBoard';
+import './sparkery.css';
 
 const { Title, Text } = Typography;
 
@@ -257,38 +258,41 @@ const DispatchFinanceDashboard: React.FC = () => {
     let successCount = 0;
     let failedCount = 0;
 
-    for (const job of candidates) {
-      const customerProfileId = job.customerProfileId;
-      if (!customerProfileId) {
-        continue;
-      }
-      const targetFee = recurringFeeMap.get(customerProfileId);
-      if (typeof targetFee !== 'number') {
-        continue;
-      }
+    try {
+      for (const job of candidates) {
+        const customerProfileId = job.customerProfileId;
+        if (!customerProfileId) {
+          continue;
+        }
+        const targetFee = recurringFeeMap.get(customerProfileId);
+        if (typeof targetFee !== 'number') {
+          continue;
+        }
 
-      const nextReceivable = Number(
-        (targetFee + Number(job.manualAdjustment || 0)).toFixed(2)
-      );
-      const result = await dispatch(
-        updateDispatchJob({
-          id: job.id,
-          patch: {
-            pricingMode: 'recurring_fixed',
-            feeCurrency: 'AUD',
-            baseFee: targetFee,
-            receivableTotal: nextReceivable,
-          },
-        })
-      );
-      if (updateDispatchJob.fulfilled.match(result)) {
-        successCount += 1;
-      } else {
-        failedCount += 1;
+        const nextReceivable = Number(
+          (targetFee + Number(job.manualAdjustment || 0)).toFixed(2)
+        );
+        const result = await dispatch(
+          updateDispatchJob({
+            id: job.id,
+            patch: {
+              pricingMode: 'recurring_fixed',
+              feeCurrency: 'AUD',
+              baseFee: targetFee,
+              receivableTotal: nextReceivable,
+            },
+          })
+        );
+        if (updateDispatchJob.fulfilled.match(result)) {
+          successCount += 1;
+        } else {
+          failedCount += 1;
+        }
       }
+    } finally {
+      setSyncingRecurringFee(false);
     }
 
-    setSyncingRecurringFee(false);
     await dispatch(
       fetchDispatchJobs({
         weekStart: periodRange.periodStart,
@@ -306,14 +310,10 @@ const DispatchFinanceDashboard: React.FC = () => {
   };
 
   return (
-    <div className='dispatch-dashboard-page' style={{ padding: 12 }}>
+    <div className='dispatch-dashboard-page dispatch-dashboard-shell'>
       <div className='dispatch-dashboard-header'>
         <div>
-          <Title
-            level={4}
-            className='dispatch-dashboard-title'
-            style={{ marginBottom: 4 }}
-          >
+          <Title level={4} className='dispatch-dashboard-title'>
             Sparkery Finance Dashboard
           </Title>
           <Text className='dispatch-dashboard-subtitle' type='secondary'>
@@ -330,64 +330,94 @@ const DispatchFinanceDashboard: React.FC = () => {
         </Space>
       </div>
 
-      <Card size='small' style={{ marginBottom: 12 }}>
-        <Space wrap>
-          <Text type='secondary'>View</Text>
-          <Select<FinanceViewMode>
-            value={viewMode}
-            style={{ width: 130 }}
-            onChange={value => setViewMode(value)}
-            options={[
-              { label: 'By Week', value: 'week' },
-              { label: 'By Month', value: 'month' },
-              { label: 'By Year', value: 'year' },
-            ]}
-          />
+      <Card
+        size='small'
+        className='dispatch-dashboard-section-card dispatch-finance-filter-card'
+      >
+        <Space className='dispatch-finance-filter-row' wrap size={[10, 8]}>
+          <Space className='dispatch-finance-filter-group' size={6}>
+            <Text type='secondary' className='dispatch-finance-filter-label'>
+              View
+            </Text>
+            <Select<FinanceViewMode>
+              value={viewMode}
+              className='dispatch-finance-view-select'
+              onChange={value => setViewMode(value)}
+              options={[
+                { label: 'By Week', value: 'week' },
+                { label: 'By Month', value: 'month' },
+                { label: 'By Year', value: 'year' },
+              ]}
+            />
+          </Space>
           {viewMode === 'week' && (
-            <>
-              <Text type='secondary'>Week Start</Text>
+            <Space className='dispatch-finance-filter-group' size={6}>
+              <Text type='secondary' className='dispatch-finance-filter-label'>
+                Week Start
+              </Text>
               <Input
                 type='date'
+                className='dispatch-finance-week-input'
                 value={selectedWeekStart}
-                onChange={event =>
-                  dispatch(setSelectedWeekStart(event.target.value))
-                }
-                style={{ width: 180 }}
+                onChange={event => {
+                  const nextWeekStart = event.target.value;
+                  if (!nextWeekStart) {
+                    return;
+                  }
+                  dispatch(setSelectedWeekStart(nextWeekStart));
+                }}
               />
-            </>
+            </Space>
           )}
           {viewMode === 'month' && (
-            <>
-              <Text type='secondary'>Year</Text>
+            <Space className='dispatch-finance-filter-group' size={6}>
+              <Text type='secondary' className='dispatch-finance-filter-label'>
+                Year
+              </Text>
               <Select<number>
                 value={selectedYear}
-                style={{ width: 110 }}
+                className='dispatch-finance-year-select'
                 options={yearOptions}
                 onChange={value => setSelectedYear(value)}
               />
-              <Text type='secondary'>Month</Text>
+              <Text type='secondary' className='dispatch-finance-filter-label'>
+                Month
+              </Text>
               <Select<number>
                 value={selectedMonth}
-                style={{ width: 100 }}
+                className='dispatch-finance-month-select'
                 options={monthOptions}
                 onChange={value => setSelectedMonth(value)}
               />
-            </>
+            </Space>
           )}
           {viewMode === 'year' && (
-            <>
-              <Text type='secondary'>Year</Text>
+            <Space className='dispatch-finance-filter-group' size={6}>
+              <Text type='secondary' className='dispatch-finance-filter-label'>
+                Year
+              </Text>
               <Select<number>
                 value={selectedYear}
-                style={{ width: 110 }}
+                className='dispatch-finance-year-select'
                 options={yearOptions}
                 onChange={value => setSelectedYear(value)}
               />
-            </>
+            </Space>
           )}
-          <Tag color='blue'>{periodRange.periodLabel}</Tag>
-          <Button onClick={handleRefresh}>Refresh</Button>
+          <Tag
+            className='dispatch-finance-period-tag dispatch-finance-period-tag-strong'
+            color='blue'
+          >
+            {periodRange.periodLabel}
+          </Tag>
           <Button
+            className='dispatch-finance-filter-btn'
+            onClick={handleRefresh}
+          >
+            Refresh
+          </Button>
+          <Button
+            className='dispatch-finance-filter-btn dispatch-finance-filter-btn-sync'
             loading={syncingRecurringFee}
             onClick={handleSyncRecurringFees}
           >
@@ -398,11 +428,11 @@ const DispatchFinanceDashboard: React.FC = () => {
 
       {error && (
         <Alert
+          className='dispatch-dashboard-alert'
           type='error'
           message={error}
           closable
           onClose={() => dispatch(clearDispatchError())}
-          style={{ marginBottom: 12 }}
         />
       )}
 
