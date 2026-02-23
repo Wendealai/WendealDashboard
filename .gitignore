@@ -31,3 +31,6 @@ dist-ssr
 # Local git worktrees
 .worktrees/
 .worktrees
+
+# Supabase CLI local temp metadata
+supabase/.temp/
