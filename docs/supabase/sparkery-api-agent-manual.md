@@ -413,3 +413,4 @@ Supporting docs:
 
 - `docs/supabase/sparkery-api-edge-function.md`
 - `docs/supabase/sparkery-api-audit-idempotency.sql`
+- `docs/supabase/sparkery-api.openapi.yaml`

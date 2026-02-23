@@ -1,0 +1,1133 @@
+openapi: 3.0.3
+info:
+  title: Sparkery API (Supabase Edge Function)
+  version: 1.0.0
+  description: >
+    Machine-readable API contract for the Supabase Edge Function `sparkery-api`.
+    This spec is designed for direct use by AI agents and automation tools.
+
+servers:
+  - url: https://{projectRef}.supabase.co/functions/v1/sparkery-api
+    description: Supabase Edge Function
+    variables:
+      projectRef:
+        default: mujqgnghptslyiowexgl
+  - url: http://127.0.0.1:54321/functions/v1/sparkery-api
+    description: Local Supabase (optional)
+
+tags:
+  - name: Health
+  - name: Employees
+  - name: Dispatch
+  - name: Inspection
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check (public)
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service metadata
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /sparkery/v1/health:
+    get:
+      tags: [Health]
+      summary: Versioned health check (public)
+      operationId: getHealthV1
+      responses:
+        '200':
+          description: Service metadata
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /sparkery/v1/employees:
+    get:
+      tags: [Employees]
+      summary: List employees
+      description: >
+        Returns dispatch employees. Optional `q` filters by id, full name,
+        Chinese name, or given-name token.
+      operationId: listEmployees
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Employee list
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEmployeesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /sparkery/v1/employees/resolve:
+    post:
+      tags: [Employees]
+      summary: Resolve employee inputs in batch
+      description: >
+        Resolves employee IDs or given names into canonical employee records.
+        Returns resolved, ambiguous, and unmatched buckets.
+      operationId: resolveEmployees
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveEmployeesRequest'
+      responses:
+        '200':
+          description: Resolution result
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolveEmployeesResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /sparkery/v1/dispatch/jobs:
+    post:
+      tags: [Dispatch]
+      summary: Create one dispatch job
+      operationId: createDispatchJob
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDispatchJobRequest'
+      responses:
+        '201':
+          description: Job created
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+            x-idempotency-key:
+              $ref: '#/components/headers/XIdempotencyKey'
+            x-idempotency-hit:
+              $ref: '#/components/headers/XIdempotencyHit'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDispatchJobResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /sparkery/v1/dispatch/jobs/batch:
+    post:
+      tags: [Dispatch]
+      summary: Batch create dispatch jobs
+      operationId: batchCreateDispatchJobs
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchCreateDispatchJobsRequest'
+      responses:
+        '201':
+          description: All jobs created
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+            x-idempotency-key:
+              $ref: '#/components/headers/XIdempotencyKey'
+            x-idempotency-hit:
+              $ref: '#/components/headers/XIdempotencyHit'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchCreateDispatchJobsResponse'
+        '200':
+          description: Partial success (when continueOnError=true) or replay hit
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+            x-idempotency-key:
+              $ref: '#/components/headers/XIdempotencyKey'
+            x-idempotency-hit:
+              $ref: '#/components/headers/XIdempotencyHit'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchCreateDispatchJobsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /sparkery/v1/dispatch/jobs/delete:
+    post:
+      tags: [Dispatch]
+      summary: Delete dispatch jobs
+      operationId: deleteDispatchJobs
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteDispatchJobsRequest'
+      responses:
+        '200':
+          description: Deletion summary
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+            x-idempotency-key:
+              $ref: '#/components/headers/XIdempotencyKey'
+            x-idempotency-hit:
+              $ref: '#/components/headers/XIdempotencyHit'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteDispatchJobsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /sparkery/v1/inspection-links:
+    post:
+      tags: [Inspection]
+      summary: Create or upsert inspection link
+      operationId: createInspectionLink
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInspectionLinkRequest'
+      responses:
+        '201':
+          description: Inspection link created
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+            x-idempotency-key:
+              $ref: '#/components/headers/XIdempotencyKey'
+            x-idempotency-hit:
+              $ref: '#/components/headers/XIdempotencyHit'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateInspectionLinkResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /sparkery/v1/dispatch/weekly-plan-links:
+    post:
+      tags: [Dispatch]
+      summary: Generate weekly plan link for one employee
+      operationId: generateWeeklyPlanLink
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateWeeklyPlanLinkRequest'
+      responses:
+        '200':
+          description: Weekly plan result
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+            x-idempotency-key:
+              $ref: '#/components/headers/XIdempotencyKey'
+            x-idempotency-hit:
+              $ref: '#/components/headers/XIdempotencyHit'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateWeeklyPlanLinkResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /sparkery/v1/dispatch/recurring/import:
+    post:
+      tags: [Dispatch]
+      summary: Import recurring profiles into weekly jobs
+      operationId: importRecurringJobs
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportRecurringJobsRequest'
+      responses:
+        '200':
+          description: Import summary
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+            x-idempotency-key:
+              $ref: '#/components/headers/XIdempotencyKey'
+            x-idempotency-hit:
+              $ref: '#/components/headers/XIdempotencyHit'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRecurringJobsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: token
+      description: Authorization header with shared `SPARKERY_API_TOKEN`.
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: Alternative shared token header.
+
+  parameters:
+    IdempotencyKeyHeader:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+      description: >
+        Optional idempotency key for replay-safe mutation requests.
+
+  headers:
+    XRequestId:
+      description: Request trace ID generated by the function.
+      schema:
+        type: string
+    XIdempotencyKey:
+      description: Echoed idempotency key when idempotency is used.
+      schema:
+        type: string
+    XIdempotencyHit:
+      description: Present with value `true` when response is replayed.
+      schema:
+        type: string
+        enum: ['true']
+
+  responses:
+    Error:
+      description: Error response
+      headers:
+        x-request-id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or missing auth token
+      headers:
+        x-request-id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: 'Unauthorized. Use Authorization: Bearer <SPARKERY_API_TOKEN>.'
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [ok, service, time, endpoints]
+      properties:
+        ok:
+          type: boolean
+        service:
+          type: string
+          example: sparkery-api
+        time:
+          type: string
+          format: date-time
+        endpoints:
+          type: array
+          items:
+            type: string
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        details:
+          nullable: true
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+            - type: string
+
+    Employee:
+      type: object
+      required: [id, name, givenName, givenNameCn]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        nameCn:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        givenName:
+          type: string
+        givenNameCn:
+          type: string
+
+    EmployeeRef:
+      type: object
+      properties:
+        id:
+          type: string
+        employee:
+          type: object
+          properties:
+            id:
+              type: string
+          additionalProperties: true
+      additionalProperties: true
+
+    EmployeeMatchSummary:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        nameCn:
+          type: string
+          nullable: true
+
+    ListEmployeesResponse:
+      type: object
+      required: [ok, endpoint, total, employees]
+      properties:
+        ok:
+          type: boolean
+        endpoint:
+          type: string
+          example: /sparkery/v1/employees
+        total:
+          type: integer
+        employees:
+          type: array
+          items:
+            $ref: '#/components/schemas/Employee'
+
+    ResolveEmployeesRequest:
+      type: object
+      properties:
+        assignees:
+          type: array
+          items:
+            type: string
+        inputs:
+          type: array
+          items:
+            type: string
+        names:
+          type: array
+          items:
+            type: string
+        employeeGivenNames:
+          type: array
+          items:
+            type: string
+        employeeIds:
+          type: array
+          items:
+            type: string
+      additionalProperties: true
+      description: >
+        Provide one non-empty input array. Maximum array length is 200.
+
+    ResolveEmployeesResponse:
+      type: object
+      required:
+        - ok
+        - endpoint
+        - totalInputs
+        - resolvedCount
+        - unresolvedCount
+        - canAutoAssign
+        - resolved
+        - uniqueResolvedEmployees
+        - ambiguous
+        - unmatched
+      properties:
+        ok:
+          type: boolean
+        endpoint:
+          type: string
+          example: /sparkery/v1/employees/resolve
+        totalInputs:
+          type: integer
+        resolvedCount:
+          type: integer
+        unresolvedCount:
+          type: integer
+        canAutoAssign:
+          type: boolean
+        resolved:
+          type: array
+          items:
+            type: object
+            required: [input, matchType, employee]
+            properties:
+              input:
+                type: string
+              matchType:
+                type: string
+                enum: [id, given_name]
+              employee:
+                $ref: '#/components/schemas/Employee'
+        uniqueResolvedEmployees:
+          type: array
+          items:
+            $ref: '#/components/schemas/Employee'
+        ambiguous:
+          type: array
+          items:
+            type: object
+            properties:
+              input:
+                type: string
+              candidates:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Employee'
+        unmatched:
+          type: array
+          items:
+            type: string
+
+    DispatchJob:
+      type: object
+      required:
+        - id
+        - title
+        - status
+        - priority
+        - scheduled_date
+        - scheduled_start_time
+        - scheduled_end_time
+        - assigned_employee_ids
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        image_urls:
+          nullable: true
+        customer_profile_id:
+          type: string
+          nullable: true
+        customer_name:
+          type: string
+          nullable: true
+        customer_address:
+          type: string
+          nullable: true
+        customer_phone:
+          type: string
+          nullable: true
+        service_type:
+          type: string
+          enum: [bond, airbnb, regular, commercial]
+        property_type:
+          type: string
+          nullable: true
+        estimated_duration_hours:
+          type: number
+          nullable: true
+        status:
+          type: string
+        priority:
+          type: integer
+        scheduled_date:
+          type: string
+          format: date
+        scheduled_start_time:
+          type: string
+          example: '08:30'
+        scheduled_end_time:
+          type: string
+          example: '11:30'
+        assigned_employee_ids:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: true
+
+    AssignmentCarriers:
+      type: object
+      properties:
+        employeeIds:
+          type: array
+          items:
+            type: string
+        assignedEmployeeIds:
+          type: array
+          items:
+            type: string
+        assignees:
+          type: array
+          items:
+            type: string
+        employeeGivenNames:
+          type: array
+          items:
+            type: string
+        assignedEmployeeGivenNames:
+          type: array
+          items:
+            type: string
+        uniqueResolvedEmployees:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeRef'
+        resolvedAssignees:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeRef'
+        resolvedEmployees:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeRef'
+        assignedEmployees:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeRef'
+        resolved:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeRef'
+        employeeResolution:
+          type: object
+          additionalProperties: true
+        resolveResult:
+          type: object
+          additionalProperties: true
+        assigneeResolution:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    CreateDispatchJobRequest:
+      allOf:
+        - $ref: '#/components/schemas/AssignmentCarriers'
+        - type: object
+          required: [title, scheduledDate, startTime, endTime, customerAddress]
+          properties:
+            title:
+              type: string
+            taskContent:
+              type: string
+              description: Alias for title
+            scheduledDate:
+              type: string
+              format: date
+            date:
+              type: string
+              format: date
+              description: Alias for scheduledDate
+            startTime:
+              type: string
+              example: '08:30'
+            scheduledStartTime:
+              type: string
+              example: '08:30'
+            endTime:
+              type: string
+              example: '11:30'
+            scheduledEndTime:
+              type: string
+              example: '11:30'
+            customerAddress:
+              type: string
+            address:
+              type: string
+              description: Alias for customerAddress
+            customerName:
+              type: string
+            propertyName:
+              type: string
+            customerProfileId:
+              type: string
+            customerPhone:
+              type: string
+            serviceType:
+              type: string
+              enum: [bond, airbnb, regular, commercial]
+              default: regular
+            priority:
+              type: integer
+              minimum: 1
+              maximum: 5
+              default: 3
+            description:
+              type: string
+            notes:
+              type: string
+            propertyType:
+              type: string
+            estimatedDurationHours:
+              type: number
+            jobId:
+              type: string
+            idempotencyKey:
+              type: string
+          additionalProperties: true
+
+    CreateDispatchJobResponse:
+      type: object
+      required: [ok, endpoint, job, matchedEmployees]
+      properties:
+        ok:
+          type: boolean
+        endpoint:
+          type: string
+          example: /sparkery/v1/dispatch/jobs
+        job:
+          $ref: '#/components/schemas/DispatchJob'
+        matchedEmployees:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeMatchSummary'
+
+    BatchCreateDispatchJobsRequest:
+      type: object
+      required: [jobs]
+      properties:
+        continueOnError:
+          type: boolean
+          default: false
+        jobs:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/CreateDispatchJobRequest'
+        idempotencyKey:
+          type: string
+      additionalProperties: true
+
+    BatchCreateDispatchJobsResponse:
+      type: object
+      required:
+        - ok
+        - endpoint
+        - continueOnError
+        - requestedCount
+        - createdCount
+        - failedCount
+        - createdJobs
+        - errors
+      properties:
+        ok:
+          type: boolean
+        endpoint:
+          type: string
+          example: /sparkery/v1/dispatch/jobs/batch
+        continueOnError:
+          type: boolean
+        requestedCount:
+          type: integer
+        createdCount:
+          type: integer
+        failedCount:
+          type: integer
+        createdJobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/DispatchJob'
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              status:
+                type: integer
+              error:
+                type: string
+              details:
+                oneOf:
+                  - type: object
+                    additionalProperties: true
+                  - type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  - type: string
+                  - type: 'null'
+
+    DeleteDispatchJobsRequest:
+      type: object
+      properties:
+        jobId:
+          type: string
+        jobIds:
+          type: array
+          items:
+            type: string
+        ids:
+          type: array
+          items:
+            type: string
+        idempotencyKey:
+          type: string
+      additionalProperties: true
+
+    DeleteDispatchJobsResponse:
+      type: object
+      required:
+        - ok
+        - endpoint
+        - requestedCount
+        - deletedCount
+        - missingCount
+        - deletedJobs
+        - missingIds
+      properties:
+        ok:
+          type: boolean
+        endpoint:
+          type: string
+          example: /sparkery/v1/dispatch/jobs/delete
+        requestedCount:
+          type: integer
+        deletedCount:
+          type: integer
+        missingCount:
+          type: integer
+        deletedJobs:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              scheduled_date:
+                type: string
+                format: date
+        missingIds:
+          type: array
+          items:
+            type: string
+
+    CreateInspectionLinkRequest:
+      allOf:
+        - $ref: '#/components/schemas/AssignmentCarriers'
+        - type: object
+          properties:
+            jobId:
+              type: string
+            checkOutDate:
+              type: string
+              format: date
+            date:
+              type: string
+              format: date
+            propertyTemplateId:
+              type: string
+            templateId:
+              type: string
+            propertyName:
+              type: string
+            property:
+              type: string
+            propertyAddress:
+              type: string
+            address:
+              type: string
+            inspectionId:
+              type: string
+            idempotencyKey:
+              type: string
+          additionalProperties: true
+
+    CreateInspectionLinkResponse:
+      type: object
+      required:
+        - ok
+        - endpoint
+        - inspectionId
+        - shareUrl
+        - matchStrategy
+        - template
+        - employees
+      properties:
+        ok:
+          type: boolean
+        endpoint:
+          type: string
+          example: /sparkery/v1/inspection-links
+        inspectionId:
+          type: string
+        shareUrl:
+          type: string
+        matchStrategy:
+          type: string
+        template:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            address:
+              type: string
+        employees:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeMatchSummary'
+        fromJobId:
+          type: string
+          nullable: true
+
+    GenerateWeeklyPlanLinkRequest:
+      type: object
+      properties:
+        employeeId:
+          type: string
+        employeeGivenName:
+          type: string
+        assignee:
+          type: string
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        includeCompleted:
+          type: boolean
+          default: false
+        idempotencyKey:
+          type: string
+      additionalProperties: true
+
+    GenerateWeeklyPlanLinkResponse:
+      type: object
+      required:
+        - ok
+        - endpoint
+        - employee
+        - weekStart
+        - weekEnd
+        - includeCompleted
+        - totalJobs
+        - jobCountByDate
+        - jobIds
+        - planUrl
+      properties:
+        ok:
+          type: boolean
+        endpoint:
+          type: string
+          example: /sparkery/v1/dispatch/weekly-plan-links
+        employee:
+          $ref: '#/components/schemas/EmployeeMatchSummary'
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        includeCompleted:
+          type: boolean
+        totalJobs:
+          type: integer
+        jobCountByDate:
+          type: object
+          additionalProperties:
+            type: integer
+        jobIds:
+          type: array
+          items:
+            type: string
+        planUrl:
+          type: string
+
+    ImportRecurringJobsRequest:
+      type: object
+      properties:
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        idempotencyKey:
+          type: string
+      additionalProperties: true
+
+    ImportRecurringJobsResponse:
+      type: object
+      required:
+        - ok
+        - endpoint
+        - weekStart
+        - weekEnd
+        - scannedProfiles
+        - createdCount
+        - skippedExistingCount
+        - skippedInvalidConfigCount
+        - skippedNoWeekdayCount
+        - createdCountByDate
+        - createdJobsPreview
+      properties:
+        ok:
+          type: boolean
+        endpoint:
+          type: string
+          example: /sparkery/v1/dispatch/recurring/import
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        scannedProfiles:
+          type: integer
+        createdCount:
+          type: integer
+        skippedExistingCount:
+          type: integer
+        skippedInvalidConfigCount:
+          type: integer
+        skippedNoWeekdayCount:
+          type: integer
+        createdCountByDate:
+          type: object
+          additionalProperties:
+            type: integer
+        createdJobsPreview:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
