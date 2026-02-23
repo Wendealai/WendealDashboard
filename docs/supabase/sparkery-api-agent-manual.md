@@ -411,6 +411,7 @@ When behavior conflicts with docs, trust implementation:
 
 Supporting docs:
 
+- `docs/supabase/sparkery-agent-context.md`
 - `docs/supabase/sparkery-api-edge-function.md`
 - `docs/supabase/sparkery-api-audit-idempotency.sql`
 - `docs/supabase/sparkery-api.openapi.yaml`
