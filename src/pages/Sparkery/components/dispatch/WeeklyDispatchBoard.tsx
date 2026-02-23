@@ -3,13 +3,13 @@ import {
   Button,
   Card,
   Modal,
-  Popconfirm,
   Popover,
   Select,
   Space,
   Tag,
   Typography,
 } from 'antd';
+import { EllipsisOutlined } from '@ant-design/icons';
 import type {
   DispatchEmployee,
   DispatchJob,
@@ -28,6 +28,17 @@ const SERVICE_COLORS: Record<DispatchJob['serviceType'], string> = {
   regular: '#13c2c2',
   commercial: '#91caff',
   bond: '#8b5e3c',
+};
+
+const JOB_STATUS_META: Record<
+  DispatchJobStatus,
+  { label: string; color: string }
+> = {
+  pending: { label: 'Pending', color: 'default' },
+  assigned: { label: 'Assigned', color: 'processing' },
+  in_progress: { label: 'In Progress', color: 'blue' },
+  completed: { label: 'Completed', color: 'success' },
+  cancelled: { label: 'Cancelled', color: 'error' },
 };
 
 interface WeeklyDispatchBoardProps {
@@ -216,6 +227,15 @@ const getDayHeader = (dateText: string): string => {
   return `${weekday} ${shortDate}`;
 };
 
+const getGivenName = (fullName: string): string => {
+  const trimmed = fullName.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const [given] = trimmed.split(/\s+/);
+  return given || trimmed;
+};
+
 const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
   jobsByDate,
   employees,
@@ -248,6 +268,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
     urls: string[];
     index: number;
   } | null>(null);
+  const [optionsOpenJobId, setOptionsOpenJobId] = useState<string | null>(null);
 
   const positionedByDate = useMemo(() => {
     const result: Record<string, PositionedJob[]> = {};
@@ -313,6 +334,20 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
       window.removeEventListener('mouseup', onMouseUp);
     };
   }, [onReschedule, resizingState]);
+
+  const handleDeleteWithConfirm = (job: DispatchJob) => {
+    Modal.confirm({
+      title: 'Delete this task?',
+      content: 'This cannot be undone.',
+      okText: 'Delete',
+      okButtonProps: { danger: true },
+      cancelText: 'Cancel',
+      onOk: async () => {
+        await onDelete(job.id);
+        setOptionsOpenJobId(null);
+      },
+    });
+  };
 
   return (
     <Card title='Weekly Dispatch Board (Mon-Sun, 07:00-24:00)' size='small'>
@@ -467,6 +502,9 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                 const columnWidthPercent = 100 / item.totalColumns;
                 const left = item.columnIndex * columnWidthPercent;
                 const isResizing = resizingState?.jobId === job.id;
+                const isFinanceLocked = Boolean(
+                  job.financeLockedAt || job.financeConfirmedAt
+                );
                 const startMinutes = parseTimeToMinutes(job.scheduledStartTime);
                 const endMinutes = parseTimeToMinutes(job.scheduledEndTime);
                 const effectiveEndMinutes = isResizing
@@ -498,6 +536,18 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                         <div>
                           <strong>Time:</strong> {job.scheduledDate}{' '}
                           {job.scheduledStartTime} - {job.scheduledEndTime}
+                        </div>
+                        <div style={{ marginTop: 6 }}>
+                          <strong>Finance:</strong> Base $
+                          {Number(job.baseFee || 0).toFixed(2)} | Adj $
+                          {Number(job.manualAdjustment || 0).toFixed(2)} | Total
+                          ${Number(job.receivableTotal || 0).toFixed(2)}
+                        </div>
+                        <div style={{ marginTop: 6 }}>
+                          <strong>Accounting:</strong>{' '}
+                          {job.financeConfirmedAt
+                            ? `Confirmed ${job.financeConfirmedAt}`
+                            : 'Pending confirmation'}
                         </div>
                         {job.description && (
                           <div style={{ marginTop: 6 }}>
@@ -547,8 +597,12 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                     }
                   >
                     <div
-                      draggable={!isResizing}
+                      draggable={!isResizing && !isFinanceLocked}
                       onDragStart={event => {
+                        if (isFinanceLocked) {
+                          event.preventDefault();
+                          return;
+                        }
                         setDraggingJob(job);
                         event.dataTransfer.effectAllowed = 'move';
                       }}
@@ -588,6 +642,19 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                           {titleWithSchedule}
                         </Text>
                         <Space size={4}>
+                          {isFinanceLocked && (
+                            <Tag
+                              color='gold'
+                              style={{
+                                marginInlineEnd: 0,
+                                fontSize: 10,
+                                lineHeight: '16px',
+                                padding: '0 4px',
+                              }}
+                            >
+                              Locked
+                            </Tag>
+                          )}
                           <Tag
                             color='processing'
                             style={{
@@ -599,35 +666,141 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                           >
                             {job.serviceType}
                           </Tag>
-                          <Button
-                            size='small'
-                            onClick={event => {
-                              event.stopPropagation();
-                              onEdit(job);
-                            }}
-                            style={{ padding: '0 8px', height: 22 }}
-                          >
-                            Edit
-                          </Button>
-                          <Popconfirm
-                            title='Delete this task?'
-                            description='This cannot be undone.'
-                            okText='Delete'
-                            cancelText='Cancel'
-                            onConfirm={async event => {
-                              event?.stopPropagation?.();
-                              await onDelete(job.id);
-                            }}
+                          <Popover
+                            trigger='click'
+                            placement='bottomRight'
+                            open={optionsOpenJobId === job.id}
+                            onOpenChange={nextOpen =>
+                              setOptionsOpenJobId(nextOpen ? job.id : null)
+                            }
+                            content={
+                              <div
+                                style={{
+                                  width: 338,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 8,
+                                }}
+                                onClick={event => event.stopPropagation()}
+                              >
+                                <Text type='secondary' style={{ fontSize: 12 }}>
+                                  Assignees
+                                </Text>
+                                <Select
+                                  mode='multiple'
+                                  size='small'
+                                  style={{ width: '100%', fontSize: 11 }}
+                                  value={job.assignedEmployeeIds || []}
+                                  placeholder='Select assignees'
+                                  disabled={isFinanceLocked}
+                                  onChange={value => {
+                                    onAssign(job.id, value);
+                                    setOptionsOpenJobId(null);
+                                  }}
+                                  maxTagCount='responsive'
+                                  listHeight={320}
+                                  dropdownMatchSelectWidth={false}
+                                  dropdownStyle={{
+                                    minWidth: 320,
+                                    maxWidth: 360,
+                                    maxHeight: 340,
+                                  }}
+                                >
+                                  {employees.map(emp => (
+                                    <Select.Option
+                                      key={emp.id}
+                                      value={emp.id}
+                                      title={emp.name}
+                                    >
+                                      <span
+                                        style={{
+                                          display: 'block',
+                                          fontSize: 11,
+                                          lineHeight: '18px',
+                                          whiteSpace: 'normal',
+                                        }}
+                                      >
+                                        {emp.name}
+                                      </span>
+                                    </Select.Option>
+                                  ))}
+                                </Select>
+                                <Text type='secondary' style={{ fontSize: 12 }}>
+                                  Status
+                                </Text>
+                                <Select
+                                  size='small'
+                                  value={job.status}
+                                  disabled={isFinanceLocked}
+                                  onChange={value => {
+                                    onStatusChange(
+                                      job.id,
+                                      value as DispatchJobStatus
+                                    );
+                                    setOptionsOpenJobId(null);
+                                  }}
+                                >
+                                  <Select.Option value='pending'>
+                                    Pending
+                                  </Select.Option>
+                                  <Select.Option value='assigned'>
+                                    Assigned
+                                  </Select.Option>
+                                  <Select.Option value='in_progress'>
+                                    In Progress
+                                  </Select.Option>
+                                  <Select.Option value='completed'>
+                                    Completed
+                                  </Select.Option>
+                                  <Select.Option value='cancelled'>
+                                    Cancelled
+                                  </Select.Option>
+                                </Select>
+                                <Space>
+                                  <Button
+                                    size='small'
+                                    disabled={isFinanceLocked}
+                                    onClick={() => {
+                                      setOptionsOpenJobId(null);
+                                      onEdit(job);
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    size='small'
+                                    danger
+                                    disabled={isFinanceLocked}
+                                    onClick={() => {
+                                      handleDeleteWithConfirm(job);
+                                    }}
+                                  >
+                                    Delete
+                                  </Button>
+                                </Space>
+                                {isFinanceLocked && (
+                                  <Text
+                                    type='secondary'
+                                    style={{ fontSize: 11 }}
+                                  >
+                                    Finance locked job can only be viewed.
+                                  </Text>
+                                )}
+                              </div>
+                            }
                           >
                             <Button
                               size='small'
-                              danger
+                              icon={<EllipsisOutlined />}
                               onClick={event => event.stopPropagation()}
-                              style={{ padding: '0 8px', height: 22 }}
-                            >
-                              Delete
-                            </Button>
-                          </Popconfirm>
+                              style={{
+                                width: 22,
+                                height: 22,
+                                padding: 0,
+                                minWidth: 22,
+                              }}
+                            />
+                          </Popover>
                         </Space>
                       </div>
                       {isResizing && (
@@ -654,106 +827,65 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                         style={{ width: '100%', marginTop: 2 }}
                         wrap
                       >
-                        <Space size={4} style={{ fontSize: 10 }} wrap>
-                          <Text type='secondary' style={{ fontSize: 10 }}>
-                            执行人:
-                          </Text>
-                          {assignedEmployees.length > 0 ? (
-                            <Space size={2}>
-                              {assignedEmployees.map(emp => (
-                                <Tag
-                                  key={emp.id}
-                                  color='blue'
-                                  style={{
-                                    marginInlineEnd: 0,
-                                    fontSize: 10,
-                                    padding: '0 4px',
-                                    lineHeight: '16px',
-                                  }}
-                                >
-                                  {emp.name
-                                    .split(' ')
-                                    .map(word => word[0])
-                                    .join('')
-                                    .toUpperCase()}
-                                </Tag>
-                              ))}
-                            </Space>
-                          ) : (
-                            <Text type='secondary' style={{ fontSize: 10 }}>
-                              未分配
-                            </Text>
-                          )}
-                          <Select
-                            mode='multiple'
-                            size='small'
-                            className='dispatch-assignee-select'
-                            popupClassName='dispatch-assignee-select-popup'
-                            style={{
-                              width: 164,
-                              fontSize: 10,
-                            }}
-                            value={job.assignedEmployeeIds || []}
-                            placeholder='Select'
-                            onChange={value => {
-                              onAssign(job.id, value);
-                            }}
-                            maxTagCount={1}
-                            maxTagTextLength={5}
-                            listHeight={180}
-                            dropdownStyle={{
-                              minWidth: 200,
-                            }}
-                          >
-                            {employees.map(emp => (
-                              <Select.Option key={emp.id} value={emp.id}>
-                                <span
-                                  style={{
-                                    display: 'block',
-                                    fontSize: 10,
-                                    lineHeight: '15px',
-                                  }}
-                                >
-                                  {emp.name}
-                                </span>
-                              </Select.Option>
+                        <Tag
+                          color='green'
+                          style={{
+                            marginInlineEnd: 0,
+                            fontSize: 10,
+                            lineHeight: '16px',
+                            padding: '0 4px',
+                          }}
+                        >
+                          ${Number(job.receivableTotal || 0).toFixed(2)}
+                        </Tag>
+                        <Tag
+                          color={JOB_STATUS_META[job.status].color}
+                          style={{
+                            marginInlineEnd: 0,
+                            fontSize: 10,
+                            lineHeight: '16px',
+                            padding: '0 4px',
+                          }}
+                        >
+                          {JOB_STATUS_META[job.status].label}
+                        </Tag>
+                        {assignedEmployees.length > 0 ? (
+                          <Space size={2}>
+                            {assignedEmployees.map(emp => (
+                              <Tag
+                                key={emp.id}
+                                style={{
+                                  marginInlineEnd: 0,
+                                  fontSize: 10,
+                                  padding: '0 4px',
+                                  lineHeight: '16px',
+                                  color: '#0958d9',
+                                  borderColor: '#69b1ff',
+                                  background: '#e6f4ff',
+                                }}
+                              >
+                                {getGivenName(emp.name)}
+                              </Tag>
                             ))}
-                          </Select>
-                        </Space>
-                        <Space size={4} style={{ fontSize: 10 }} wrap>
-                          <Text type='secondary' style={{ fontSize: 10 }}>
-                            Status
-                          </Text>
-                          <Select
-                            size='small'
-                            className='dispatch-status-select'
-                            popupClassName='dispatch-status-select-popup'
-                            style={{ minWidth: 120, fontSize: 10 }}
-                            value={job.status}
-                            onChange={value =>
-                              onStatusChange(job.id, value as DispatchJobStatus)
-                            }
+                          </Space>
+                        ) : (
+                          <Tag
+                            style={{
+                              marginInlineEnd: 0,
+                              fontSize: 10,
+                              lineHeight: '16px',
+                              padding: '0 4px',
+                            }}
                           >
-                            <Select.Option value='pending'>
-                              Pending
-                            </Select.Option>
-                            <Select.Option value='assigned'>
-                              Assigned
-                            </Select.Option>
-                            <Select.Option value='in_progress'>
-                              In Progress
-                            </Select.Option>
-                            <Select.Option value='completed'>
-                              Completed
-                            </Select.Option>
-                            <Select.Option value='cancelled'>
-                              Cancelled
-                            </Select.Option>
-                          </Select>
-                        </Space>
+                            Unassigned
+                          </Tag>
+                        )}
                       </Space>
                       <div
                         onMouseDown={event => {
+                          if (isFinanceLocked) {
+                            return;
+                          }
                           event.preventDefault();
                           event.stopPropagation();
                           setResizingState({

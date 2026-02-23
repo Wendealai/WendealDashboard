@@ -11,8 +11,10 @@ import {
   Typography,
 } from 'antd';
 import {
+  applyDispatchJobFinanceAdjustment,
   assignDispatchJob,
   clearDispatchError,
+  confirmDispatchJobFinance,
   createDispatchJob,
   deleteDispatchEmployee,
   deleteDispatchJob,
@@ -23,6 +25,7 @@ import {
   generateDispatchJobsFromRecurring,
   importDispatchBackup,
   migrateDispatchLocalPeopleToSupabase,
+  setDispatchJobPaymentReceived,
   selectDispatchCustomerProfiles,
   selectDispatchEmployees,
   selectDispatchJobs,
@@ -51,10 +54,12 @@ import DispatchAdminSetupModal from './components/dispatch/DispatchAdminSetupMod
 import DispatchJobFormModal from './components/dispatch/DispatchJobFormModal';
 import WeeklyDispatchBoard from './components/dispatch/WeeklyDispatchBoard';
 import DispatchMapPlanner from './components/dispatch/DispatchMapPlanner';
+import WeeklyFinanceBoard from './components/dispatch/WeeklyFinanceBoard';
 import {
   isGoogleCalendarConfigured,
   syncDispatchWeekToGoogleCalendar,
 } from '@/services/googleCalendarService';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 const DISPATCH_LOCAL_STORAGE_KEY = 'sparkery_dispatch_storage_v1';
@@ -116,6 +121,7 @@ const normalizeRecurringWeekdays = (
 
 const DispatchDashboard: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { selectedWeekStart, filters, error, isLoading } =
     useAppSelector(selectDispatchState);
   const employees = useAppSelector(selectDispatchEmployees);
@@ -373,6 +379,12 @@ const DispatchDashboard: React.FC = () => {
           if (payload.notes) {
             recurringProfilePayload.defaultNotes = payload.notes;
           }
+          if (
+            typeof payload.baseFee === 'number' &&
+            Number.isFinite(payload.baseFee)
+          ) {
+            recurringProfilePayload.recurringFee = payload.baseFee;
+          }
 
           const profileResult = await dispatch(
             upsertDispatchCustomerProfile(recurringProfilePayload)
@@ -427,20 +439,39 @@ const DispatchDashboard: React.FC = () => {
   };
 
   const handleAssign = async (jobId: string, employeeIds: string[]) => {
-    await dispatch(assignDispatchJob({ id: jobId, employeeIds }));
-    message.success('Employees assigned');
+    const result = await dispatch(
+      assignDispatchJob({ id: jobId, employeeIds })
+    );
+    if (assignDispatchJob.fulfilled.match(result)) {
+      message.success('Employees assigned');
+      return;
+    }
+    message.error(extractThunkError(result, 'Failed to assign employees'));
   };
 
   const handleAssignJobsToEmployee = async (
     jobIds: string[],
     employeeId: string
   ) => {
+    let successCount = 0;
+    let failedCount = 0;
     for (const jobId of jobIds) {
-      await dispatch(
+      const result = await dispatch(
         assignDispatchJob({ id: jobId, employeeIds: [employeeId] })
       );
+      if (assignDispatchJob.fulfilled.match(result)) {
+        successCount += 1;
+      } else {
+        failedCount += 1;
+      }
     }
-    message.success(`Assigned ${jobIds.length} jobs`);
+    if (failedCount === 0) {
+      message.success(`Assigned ${successCount} jobs`);
+    } else {
+      message.warning(
+        `Assigned ${successCount} jobs, ${failedCount} jobs were skipped (likely finance-locked)`
+      );
+    }
     await dispatch(fetchDispatchJobs(weekRange));
   };
 
@@ -448,8 +479,14 @@ const DispatchDashboard: React.FC = () => {
     jobId: string,
     status: DispatchJobStatus
   ) => {
-    await dispatch(updateDispatchJobStatus({ id: jobId, status }));
-    message.success('Status updated');
+    const result = await dispatch(
+      updateDispatchJobStatus({ id: jobId, status })
+    );
+    if (updateDispatchJobStatus.fulfilled.match(result)) {
+      message.success('Status updated');
+      return;
+    }
+    message.error(extractThunkError(result, 'Failed to update status'));
   };
 
   const handleDeleteJob = async (jobId: string) => {
@@ -458,7 +495,7 @@ const DispatchDashboard: React.FC = () => {
       message.success('Task deleted');
       return;
     }
-    message.error('Failed to delete task');
+    message.error(extractThunkError(result, 'Failed to delete task'));
   };
 
   const handleReschedule = async (
@@ -467,13 +504,68 @@ const DispatchDashboard: React.FC = () => {
     scheduledStartTime: string,
     scheduledEndTime: string
   ) => {
-    await dispatch(
+    const result = await dispatch(
       updateDispatchJob({
         id: jobId,
         patch: { scheduledDate, scheduledStartTime, scheduledEndTime },
       })
     );
-    message.success('Job time updated');
+    if (updateDispatchJob.fulfilled.match(result)) {
+      message.success('Job time updated');
+      return;
+    }
+    message.error(extractThunkError(result, 'Failed to update job time'));
+  };
+
+  const handleApplyFinanceAdjustment = async (
+    jobId: string,
+    deltaAmount: number
+  ) => {
+    const result = await dispatch(
+      applyDispatchJobFinanceAdjustment({
+        id: jobId,
+        adjustmentDelta: deltaAmount,
+      })
+    );
+    if (applyDispatchJobFinanceAdjustment.fulfilled.match(result)) {
+      message.success('Finance adjustment applied');
+      return;
+    }
+    message.error(
+      extractThunkError(result, 'Failed to apply finance adjustment')
+    );
+  };
+
+  const handleConfirmFinance = async (jobId: string) => {
+    const result = await dispatch(
+      confirmDispatchJobFinance({
+        id: jobId,
+        confirmedBy: 'dispatch-dashboard',
+      })
+    );
+    if (confirmDispatchJobFinance.fulfilled.match(result)) {
+      message.success('Finance confirmed and locked');
+      return;
+    }
+    message.error(extractThunkError(result, 'Failed to confirm finance'));
+  };
+
+  const handleTogglePaymentReceived = async (
+    jobId: string,
+    received: boolean
+  ) => {
+    const result = await dispatch(
+      setDispatchJobPaymentReceived({
+        id: jobId,
+        received,
+        receivedBy: 'dispatch-dashboard',
+      })
+    );
+    if (setDispatchJobPaymentReceived.fulfilled.match(result)) {
+      message.success(received ? 'Marked as paid' : 'Marked as unpaid');
+      return;
+    }
+    message.error(extractThunkError(result, 'Failed to update payment status'));
   };
 
   const handleWeekChange = (weekStart: string) => {
@@ -636,6 +728,12 @@ const DispatchDashboard: React.FC = () => {
           <Button onClick={() => setAdminSetupOpen(true)}>
             Edit Employees & Customers
           </Button>
+          <Button onClick={() => navigate('/sparkery/recurring')}>
+            Recurring Templates
+          </Button>
+          <Button onClick={() => navigate('/sparkery/finance')}>
+            Open Finance Panel
+          </Button>
           <Button onClick={handleAutoFillRecurringJobs}>
             Auto Fill Recurring Tasks
           </Button>
@@ -708,6 +806,19 @@ const DispatchDashboard: React.FC = () => {
           onAssignJobsToEmployee={handleAssignJobsToEmployee}
         />
       </Card>
+
+      <div style={{ marginTop: 12 }}>
+        <WeeklyFinanceBoard
+          jobs={jobs}
+          employees={employees}
+          weekStart={weekRange.weekStart}
+          weekEnd={weekRange.weekEnd}
+          loading={isLoading}
+          onApplyAdjustment={handleApplyFinanceAdjustment}
+          onConfirmFinance={handleConfirmFinance}
+          onTogglePaymentReceived={handleTogglePaymentReceived}
+        />
+      </div>
 
       <DispatchJobFormModal
         open={modalOpen}

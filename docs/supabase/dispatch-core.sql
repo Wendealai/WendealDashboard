@@ -38,6 +38,9 @@ create table if not exists public.dispatch_customer_profiles (
   recurring_priority smallint null check (
     recurring_priority between 1 and 5
   ),
+  recurring_fee double precision null default 0 check (
+    recurring_fee is null or recurring_fee >= 0
+  ),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -71,6 +74,23 @@ create table if not exists public.dispatch_jobs (
   scheduled_start_time text not null,
   scheduled_end_time text not null,
   assigned_employee_ids text[] null default '{}'::text[],
+  pricing_mode text not null default 'one_time_manual' check (
+    pricing_mode in ('recurring_fixed', 'one_time_manual')
+  ),
+  fee_currency text not null default 'AUD' check (
+    fee_currency in ('AUD')
+  ),
+  base_fee double precision not null default 0 check (
+    base_fee >= 0
+  ),
+  manual_adjustment double precision not null default 0,
+  receivable_total double precision not null default 0,
+  finance_confirmed_at timestamptz null,
+  finance_confirmed_by text null,
+  finance_locked_at timestamptz null,
+  finance_lock_reason text null,
+  payment_received_at timestamptz null,
+  payment_received_by text null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -83,6 +103,12 @@ create index if not exists idx_dispatch_jobs_status
 
 create index if not exists idx_dispatch_jobs_service_type
   on public.dispatch_jobs (service_type);
+
+create index if not exists idx_dispatch_jobs_finance_confirmed_at
+  on public.dispatch_jobs (finance_confirmed_at desc);
+
+create index if not exists idx_dispatch_jobs_payment_received_at
+  on public.dispatch_jobs (payment_received_at desc);
 
 create index if not exists idx_dispatch_customer_profiles_updated_at
   on public.dispatch_customer_profiles (updated_at desc);

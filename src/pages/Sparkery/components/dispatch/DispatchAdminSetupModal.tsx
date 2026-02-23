@@ -470,6 +470,12 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                         <div>
                           <Text type='secondary'>{customer.address}</Text>
                         </div>
+                        <div>
+                          <Text type='secondary'>
+                            Recurring Fee: $
+                            {Number(customer.recurringFee || 0).toFixed(2)}
+                          </Text>
+                        </div>
                         <div style={{ marginTop: 6 }}>
                           <Button
                             size='small'
@@ -505,6 +511,7 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                       recurringWeekdays: [1],
                       recurringServiceType: 'regular',
                       recurringPriority: 3,
+                      recurringFee: 0,
                       recurringStartTime: '09:00',
                       recurringEndTime: '11:00',
                     }}
@@ -628,6 +635,16 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                         <Select.Option value={4}>4</Select.Option>
                         <Select.Option value={5}>5</Select.Option>
                       </Select>
+                    </Form.Item>
+                    <Form.Item
+                      label='Recurring Fixed Fee (AUD)'
+                      name='recurringFee'
+                    >
+                      <InputNumber
+                        min={0}
+                        precision={2}
+                        style={{ width: '100%' }}
+                      />
                     </Form.Item>
                     <Button type='primary' htmlType='submit' block>
                       Save Customer

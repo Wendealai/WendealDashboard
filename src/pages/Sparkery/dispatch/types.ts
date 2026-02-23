@@ -9,6 +9,7 @@ export type DispatchJobStatus =
 
 export type DispatchPriority = 1 | 2 | 3 | 4 | 5;
 export type DispatchWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export type DispatchPricingMode = 'recurring_fixed' | 'one_time_manual';
 
 export type DispatchEmployeeStatus = 'available' | 'off';
 
@@ -40,6 +41,17 @@ export interface DispatchJob {
   scheduledStartTime: string;
   scheduledEndTime: string;
   assignedEmployeeIds?: string[];
+  pricingMode?: DispatchPricingMode;
+  feeCurrency?: 'AUD';
+  baseFee?: number;
+  manualAdjustment?: number;
+  receivableTotal?: number;
+  financeConfirmedAt?: string;
+  financeConfirmedBy?: string;
+  financeLockedAt?: string;
+  financeLockReason?: string;
+  paymentReceivedAt?: string | null;
+  paymentReceivedBy?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,6 +71,7 @@ export interface DispatchCustomerProfile {
   recurringEndTime?: string;
   recurringServiceType?: DispatchServiceType;
   recurringPriority?: DispatchPriority;
+  recurringFee?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -117,6 +130,10 @@ export interface CreateDispatchJobPayload {
   recurringEnabled?: boolean;
   recurringWeekday?: DispatchWeekday;
   recurringWeekdays?: DispatchWeekday[];
+  pricingMode?: DispatchPricingMode;
+  feeCurrency?: 'AUD';
+  baseFee?: number;
+  manualAdjustment?: number;
 }
 
 export interface UpsertDispatchCustomerProfilePayload {
@@ -134,6 +151,7 @@ export interface UpsertDispatchCustomerProfilePayload {
   recurringEndTime?: string;
   recurringServiceType?: DispatchServiceType;
   recurringPriority?: DispatchPriority;
+  recurringFee?: number;
 }
 
 export type UpdateDispatchJobPayload = Partial<

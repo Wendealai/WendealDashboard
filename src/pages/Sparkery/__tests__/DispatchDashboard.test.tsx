@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
+import { MemoryRouter } from 'react-router-dom';
 import DispatchDashboard from '../DispatchDashboard';
 import sparkeryDispatchReducer from '../../../store/slices/sparkeryDispatchSlice';
 
@@ -15,9 +16,11 @@ const createTestStore = () =>
 describe('DispatchDashboard', () => {
   it('renders dispatch dashboard title', () => {
     render(
-      <Provider store={createTestStore()}>
-        <DispatchDashboard />
-      </Provider>
+      <MemoryRouter>
+        <Provider store={createTestStore()}>
+          <DispatchDashboard />
+        </Provider>
+      </MemoryRouter>
     );
 
     expect(screen.getByText('Sparkery Dispatch Dashboard')).toBeTruthy();
@@ -25,9 +28,11 @@ describe('DispatchDashboard', () => {
 
   it('shows create job button', () => {
     render(
-      <Provider store={createTestStore()}>
-        <DispatchDashboard />
-      </Provider>
+      <MemoryRouter>
+        <Provider store={createTestStore()}>
+          <DispatchDashboard />
+        </Provider>
+      </MemoryRouter>
     );
 
     expect(screen.getByRole('button', { name: 'Create Job' })).toBeTruthy();

@@ -12,6 +12,8 @@ import {
   GlobalOutlined,
   UnorderedListOutlined,
   ScheduleOutlined,
+  DollarOutlined,
+  RetweetOutlined,
 } from '@ant-design/icons';
 import CleaningInspectionAdmin from './CleaningInspectionAdmin';
 import ChinaProcurementReport from './ChinaProcurementReport';
@@ -20,6 +22,8 @@ import BondCleanQuoteForm from './BondCleanQuoteForm';
 import BondCleanQuoteFormCN from './BondCleanQuoteFormCN';
 import BondCleanQuoteSubmissions from './BondCleanQuoteSubmissions';
 import DispatchDashboard from './DispatchDashboard';
+import DispatchFinanceDashboard from './DispatchFinanceDashboard';
+import DispatchRecurringTemplatesPage from './DispatchRecurringTemplatesPage';
 import './sparkery.css';
 
 const { Title } = Typography;
@@ -144,6 +148,26 @@ const SparkeryPage: React.FC = () => {
         </span>
       ),
       children: <DispatchDashboard />,
+    },
+    {
+      key: 'dispatch-recurring-templates',
+      label: (
+        <span>
+          <RetweetOutlined />
+          周期模板
+        </span>
+      ),
+      children: <DispatchRecurringTemplatesPage />,
+    },
+    {
+      key: 'dispatch-finance',
+      label: (
+        <span>
+          <DollarOutlined />
+          财务看板
+        </span>
+      ),
+      children: <DispatchFinanceDashboard />,
     },
   ];
 

@@ -40,6 +40,12 @@ const SparkeryPage = lazy(() => import('@/pages/Sparkery/index'));
 const SparkeryDispatchPage = lazy(
   () => import('@/pages/Sparkery/DispatchDashboard')
 );
+const SparkeryRecurringTemplatesPage = lazy(
+  () => import('@/pages/Sparkery/DispatchRecurringTemplatesPage')
+);
+const SparkeryFinancePage = lazy(
+  () => import('@/pages/Sparkery/DispatchFinanceDashboard')
+);
 const DispatchLocationReportPage = lazy(
   () => import('@/pages/Sparkery/DispatchLocationReport')
 );
@@ -263,6 +269,28 @@ export const routes: RouteConfig[] = [
           requiresAuth: true,
           roles: ['admin', 'user'],
           icon: 'TeamOutlined',
+          hideInMenu: true,
+        },
+      },
+      {
+        path: 'sparkery/recurring',
+        element: SparkeryRecurringTemplatesPage,
+        meta: {
+          title: 'Sparkery Recurring Templates',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'RetweetOutlined',
+          hideInMenu: true,
+        },
+      },
+      {
+        path: 'sparkery/finance',
+        element: SparkeryFinancePage,
+        meta: {
+          title: 'Sparkery Finance',
+          requiresAuth: true,
+          roles: ['admin', 'user'],
+          icon: 'DollarOutlined',
           hideInMenu: true,
         },
       },

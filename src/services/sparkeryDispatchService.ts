@@ -81,6 +81,17 @@ interface SupabaseDispatchJobRow {
   scheduled_start_time: string;
   scheduled_end_time: string;
   assigned_employee_ids: string[] | null;
+  pricing_mode?: 'recurring_fixed' | 'one_time_manual' | null;
+  fee_currency?: 'AUD' | null;
+  base_fee?: number | null;
+  manual_adjustment?: number | null;
+  receivable_total?: number | null;
+  finance_confirmed_at?: string | null;
+  finance_confirmed_by?: string | null;
+  finance_locked_at?: string | null;
+  finance_lock_reason?: string | null;
+  payment_received_at?: string | null;
+  payment_received_by?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -102,6 +113,7 @@ interface SupabaseDispatchCustomerProfileRow {
     | DispatchCustomerProfile['recurringServiceType']
     | null;
   recurring_priority: DispatchCustomerProfile['recurringPriority'] | null;
+  recurring_fee?: number | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -302,6 +314,22 @@ const toEmployeeRow = (
 });
 
 const toJob = (row: SupabaseDispatchJobRow): DispatchJob => {
+  const baseFee =
+    typeof row.base_fee === 'number' && Number.isFinite(row.base_fee)
+      ? row.base_fee
+      : 0;
+  const manualAdjustment =
+    typeof row.manual_adjustment === 'number' &&
+    Number.isFinite(row.manual_adjustment)
+      ? row.manual_adjustment
+      : 0;
+  const derivedReceivable = Number((baseFee + manualAdjustment).toFixed(2));
+  const receivableTotal =
+    typeof row.receivable_total === 'number' &&
+    Number.isFinite(row.receivable_total)
+      ? row.receivable_total
+      : derivedReceivable;
+
   const job: DispatchJob = {
     id: row.id,
     title: row.title,
@@ -311,6 +339,11 @@ const toJob = (row: SupabaseDispatchJobRow): DispatchJob => {
     scheduledDate: row.scheduled_date,
     scheduledStartTime: row.scheduled_start_time,
     scheduledEndTime: row.scheduled_end_time,
+    pricingMode: row.pricing_mode || 'one_time_manual',
+    feeCurrency: row.fee_currency || 'AUD',
+    baseFee,
+    manualAdjustment,
+    receivableTotal,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -328,6 +361,24 @@ const toJob = (row: SupabaseDispatchJobRow): DispatchJob => {
   if (row.assigned_employee_ids) {
     job.assignedEmployeeIds = row.assigned_employee_ids;
   }
+  if (row.finance_confirmed_at) {
+    job.financeConfirmedAt = row.finance_confirmed_at;
+  }
+  if (row.finance_confirmed_by) {
+    job.financeConfirmedBy = row.finance_confirmed_by;
+  }
+  if (row.finance_locked_at) {
+    job.financeLockedAt = row.finance_locked_at;
+  }
+  if (row.finance_lock_reason) {
+    job.financeLockReason = row.finance_lock_reason;
+  }
+  if (row.payment_received_at) {
+    job.paymentReceivedAt = row.payment_received_at;
+  }
+  if (row.payment_received_by) {
+    job.paymentReceivedBy = row.payment_received_by;
+  }
   return job;
 };
 
@@ -336,28 +387,56 @@ const toJobRow = (
   id: string,
   createdAt: string,
   updatedAt: string
-): SupabaseDispatchJobRow => ({
-  id,
-  title: payload.title,
-  description: payload.description || null,
-  notes: payload.notes || null,
-  image_urls: payload.imageUrls || null,
-  customer_profile_id: payload.customerProfileId || null,
-  customer_name: payload.customerName || null,
-  customer_address: payload.customerAddress || null,
-  customer_phone: payload.customerPhone || null,
-  service_type: payload.serviceType,
-  property_type: payload.propertyType || null,
-  estimated_duration_hours: payload.estimatedDurationHours ?? null,
-  status: payload.status,
-  priority: payload.priority,
-  scheduled_date: payload.scheduledDate,
-  scheduled_start_time: payload.scheduledStartTime,
-  scheduled_end_time: payload.scheduledEndTime,
-  assigned_employee_ids: payload.assignedEmployeeIds || null,
-  created_at: createdAt,
-  updated_at: updatedAt,
-});
+): SupabaseDispatchJobRow => {
+  const baseFee =
+    typeof payload.baseFee === 'number' && Number.isFinite(payload.baseFee)
+      ? payload.baseFee
+      : 0;
+  const manualAdjustment =
+    typeof payload.manualAdjustment === 'number' &&
+    Number.isFinite(payload.manualAdjustment)
+      ? payload.manualAdjustment
+      : 0;
+  const receivableTotal =
+    typeof payload.receivableTotal === 'number' &&
+    Number.isFinite(payload.receivableTotal)
+      ? payload.receivableTotal
+      : Number((baseFee + manualAdjustment).toFixed(2));
+
+  return {
+    id,
+    title: payload.title,
+    description: payload.description || null,
+    notes: payload.notes || null,
+    image_urls: payload.imageUrls || null,
+    customer_profile_id: payload.customerProfileId || null,
+    customer_name: payload.customerName || null,
+    customer_address: payload.customerAddress || null,
+    customer_phone: payload.customerPhone || null,
+    service_type: payload.serviceType,
+    property_type: payload.propertyType || null,
+    estimated_duration_hours: payload.estimatedDurationHours ?? null,
+    status: payload.status,
+    priority: payload.priority,
+    scheduled_date: payload.scheduledDate,
+    scheduled_start_time: payload.scheduledStartTime,
+    scheduled_end_time: payload.scheduledEndTime,
+    assigned_employee_ids: payload.assignedEmployeeIds || null,
+    pricing_mode: payload.pricingMode || 'one_time_manual',
+    fee_currency: payload.feeCurrency || 'AUD',
+    base_fee: baseFee,
+    manual_adjustment: manualAdjustment,
+    receivable_total: receivableTotal,
+    finance_confirmed_at: payload.financeConfirmedAt || null,
+    finance_confirmed_by: payload.financeConfirmedBy || null,
+    finance_locked_at: payload.financeLockedAt || null,
+    finance_lock_reason: payload.financeLockReason || null,
+    payment_received_at: payload.paymentReceivedAt || null,
+    payment_received_by: payload.paymentReceivedBy || null,
+    created_at: createdAt,
+    updated_at: updatedAt,
+  };
+};
 
 const toCustomerProfile = (
   row: SupabaseDispatchCustomerProfileRow
@@ -398,6 +477,12 @@ const toCustomerProfile = (
   }
   if (row.recurring_priority)
     profile.recurringPriority = row.recurring_priority;
+  if (
+    typeof row.recurring_fee === 'number' &&
+    Number.isFinite(row.recurring_fee)
+  ) {
+    profile.recurringFee = row.recurring_fee;
+  }
 
   return profile;
 };
@@ -430,6 +515,11 @@ const toCustomerProfileRow = (
     recurring_end_time: payload.recurringEndTime || null,
     recurring_service_type: payload.recurringServiceType || null,
     recurring_priority: payload.recurringPriority || null,
+    recurring_fee:
+      typeof payload.recurringFee === 'number' &&
+      Number.isFinite(payload.recurringFee)
+        ? payload.recurringFee
+        : null,
   };
 };
 
@@ -685,10 +775,12 @@ const isSupabaseMissingColumnError = (
     return false;
   }
   const message = error.message.toLowerCase();
+  const targetColumn = columnName.toLowerCase();
   return (
-    message.includes('column') &&
-    message.includes(columnName.toLowerCase()) &&
-    message.includes('does not exist')
+    message.includes(targetColumn) &&
+    ((message.includes('column') && message.includes('does not exist')) ||
+      (message.includes('schema cache') &&
+        (message.includes('could not find') || message.includes('not found'))))
   );
 };
 
@@ -791,6 +883,45 @@ const normalizeEmployeeLocation = (
 const generateId = (prefix: string): string =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+const roundMoney = (value: number): number =>
+  Number((Number.isFinite(value) ? value : 0).toFixed(2));
+
+const calculateReceivableTotal = (
+  baseFee?: number,
+  manualAdjustment?: number
+): number => roundMoney((baseFee || 0) + (manualAdjustment || 0));
+
+const DISPATCH_FINANCE_SCHEMA_ERROR_MESSAGE =
+  'Dispatch finance schema is missing in Supabase. Run docs/supabase/dispatch-finance.sql in SQL Editor, then refresh.';
+
+const isSupabaseMissingDispatchFinanceSchemaError = (error: unknown): boolean =>
+  isSupabaseMissingColumnError(error, 'pricing_mode') ||
+  isSupabaseMissingColumnError(error, 'fee_currency') ||
+  isSupabaseMissingColumnError(error, 'base_fee') ||
+  isSupabaseMissingColumnError(error, 'manual_adjustment') ||
+  isSupabaseMissingColumnError(error, 'receivable_total') ||
+  isSupabaseMissingColumnError(error, 'finance_confirmed_at') ||
+  isSupabaseMissingColumnError(error, 'finance_confirmed_by') ||
+  isSupabaseMissingColumnError(error, 'finance_locked_at') ||
+  isSupabaseMissingColumnError(error, 'finance_lock_reason') ||
+  isSupabaseMissingColumnError(error, 'payment_received_at') ||
+  isSupabaseMissingColumnError(error, 'payment_received_by') ||
+  isSupabaseMissingColumnError(error, 'recurring_fee');
+
+const isJobFinanceLocked = (
+  job: Pick<DispatchJob, 'financeLockedAt' | 'financeConfirmedAt'>
+): boolean => Boolean(job.financeLockedAt || job.financeConfirmedAt);
+
+const hasLockedFieldChange = (
+  patch: UpdateDispatchJobPayload,
+  keys: Array<keyof UpdateDispatchJobPayload>
+): boolean =>
+  keys.some(
+    key =>
+      Object.prototype.hasOwnProperty.call(patch, key) &&
+      typeof patch[key] !== 'undefined'
+  );
+
 export const sparkeryDispatchService = {
   async getJobs(params?: {
     weekStart?: string;
@@ -808,9 +939,17 @@ export const sparkeryDispatchService = {
         query.append('scheduled_date', `lte.${params.weekEnd}`);
       }
 
-      const rows = await supabaseFetch<SupabaseDispatchJobRow[]>(
-        `/rest/v1/dispatch_jobs?${query.toString()}`
-      );
+      let rows: SupabaseDispatchJobRow[];
+      try {
+        rows = await supabaseFetch<SupabaseDispatchJobRow[]>(
+          `/rest/v1/dispatch_jobs?${query.toString()}`
+        );
+      } catch (error) {
+        if (isSupabaseMissingDispatchFinanceSchemaError(error)) {
+          throw new Error(DISPATCH_FINANCE_SCHEMA_ERROR_MESSAGE);
+        }
+        throw error;
+      }
       return rows.map(toJob);
     }
 
@@ -828,6 +967,16 @@ export const sparkeryDispatchService = {
   },
 
   async createJob(payload: CreateDispatchJobPayload): Promise<DispatchJob> {
+    const normalizedPricingMode =
+      payload.pricingMode ||
+      (payload.recurringEnabled ? 'recurring_fixed' : 'one_time_manual');
+    const normalizedBaseFee = roundMoney(payload.baseFee || 0);
+    const normalizedAdjustment = roundMoney(payload.manualAdjustment || 0);
+    const normalizedReceivableTotal = calculateReceivableTotal(
+      normalizedBaseFee,
+      normalizedAdjustment
+    );
+
     if (getSupabaseConfig()) {
       const now = new Date().toISOString();
       const id = generateId('job');
@@ -836,22 +985,34 @@ export const sparkeryDispatchService = {
           ...payload,
           status: 'pending',
           assignedEmployeeIds: [],
+          pricingMode: normalizedPricingMode,
+          feeCurrency: 'AUD',
+          baseFee: normalizedBaseFee,
+          manualAdjustment: normalizedAdjustment,
+          receivableTotal: normalizedReceivableTotal,
         },
         id,
         now,
         now
       );
-
-      const result = await supabaseFetch<SupabaseDispatchJobRow[]>(
-        '/rest/v1/dispatch_jobs?on_conflict=id',
-        {
-          method: 'POST',
-          headers: {
-            Prefer: 'resolution=merge-duplicates,return=representation',
-          },
-          body: JSON.stringify([row]),
+      let result: SupabaseDispatchJobRow[];
+      try {
+        result = await supabaseFetch<SupabaseDispatchJobRow[]>(
+          '/rest/v1/dispatch_jobs?on_conflict=id',
+          {
+            method: 'POST',
+            headers: {
+              Prefer: 'resolution=merge-duplicates,return=representation',
+            },
+            body: JSON.stringify([row]),
+          }
+        );
+      } catch (error) {
+        if (isSupabaseMissingDispatchFinanceSchemaError(error)) {
+          throw new Error(DISPATCH_FINANCE_SCHEMA_ERROR_MESSAGE);
         }
-      );
+        throw error;
+      }
       const first = result[0];
       if (!first) {
         throw new Error('Supabase job creation returned no rows');
@@ -870,6 +1031,11 @@ export const sparkeryDispatchService = {
       scheduledDate: payload.scheduledDate,
       scheduledStartTime: payload.scheduledStartTime,
       scheduledEndTime: payload.scheduledEndTime,
+      pricingMode: normalizedPricingMode,
+      feeCurrency: 'AUD',
+      baseFee: normalizedBaseFee,
+      manualAdjustment: normalizedAdjustment,
+      receivableTotal: normalizedReceivableTotal,
       createdAt: now,
       updatedAt: now,
     };
@@ -907,10 +1073,64 @@ export const sparkeryDispatchService = {
       }
 
       const current = toJob(existing);
+      if (isJobFinanceLocked(current)) {
+        const blockedFields: Array<keyof UpdateDispatchJobPayload> = [
+          'title',
+          'description',
+          'notes',
+          'imageUrls',
+          'customerProfileId',
+          'customerName',
+          'customerAddress',
+          'customerPhone',
+          'serviceType',
+          'propertyType',
+          'estimatedDurationHours',
+          'status',
+          'priority',
+          'scheduledDate',
+          'scheduledStartTime',
+          'scheduledEndTime',
+          'assignedEmployeeIds',
+          'pricingMode',
+          'baseFee',
+          'manualAdjustment',
+          'receivableTotal',
+        ];
+        if (hasLockedFieldChange(patch, blockedFields)) {
+          throw new Error(
+            'This job is finance-locked and cannot be edited. Add a finance adjustment instead.'
+          );
+        }
+      }
+
+      const nextBaseFee =
+        typeof patch.baseFee === 'number'
+          ? roundMoney(patch.baseFee)
+          : current.baseFee || 0;
+      const nextAdjustment =
+        typeof patch.manualAdjustment === 'number'
+          ? roundMoney(patch.manualAdjustment)
+          : current.manualAdjustment || 0;
+      const nextReceivableTotal =
+        typeof patch.receivableTotal === 'number'
+          ? roundMoney(patch.receivableTotal)
+          : hasLockedFieldChange(patch, ['baseFee', 'manualAdjustment'])
+            ? calculateReceivableTotal(nextBaseFee, nextAdjustment)
+            : typeof current.receivableTotal === 'number'
+              ? current.receivableTotal
+              : calculateReceivableTotal(nextBaseFee, nextAdjustment);
+
       const merged: DispatchJob = {
         ...current,
         ...patch,
         id,
+        baseFee: nextBaseFee,
+        manualAdjustment: nextAdjustment,
+        receivableTotal: nextReceivableTotal,
+        feeCurrency: patch.feeCurrency || current.feeCurrency || 'AUD',
+        pricingMode:
+          patch.pricingMode || current.pricingMode || 'one_time_manual',
         createdAt: current.createdAt,
         updatedAt: new Date().toISOString(),
       };
@@ -924,16 +1144,24 @@ export const sparkeryDispatchService = {
 
       const row = toJobRow(jobPayload, id, current.createdAt, merged.updatedAt);
 
-      const result = await supabaseFetch<SupabaseDispatchJobRow[]>(
-        `/rest/v1/dispatch_jobs?id=eq.${id}`,
-        {
-          method: 'PATCH',
-          headers: {
-            Prefer: 'return=representation',
-          },
-          body: JSON.stringify(row),
+      let result: SupabaseDispatchJobRow[];
+      try {
+        result = await supabaseFetch<SupabaseDispatchJobRow[]>(
+          `/rest/v1/dispatch_jobs?id=eq.${id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              Prefer: 'return=representation',
+            },
+            body: JSON.stringify(row),
+          }
+        );
+      } catch (error) {
+        if (isSupabaseMissingDispatchFinanceSchemaError(error)) {
+          throw new Error(DISPATCH_FINANCE_SCHEMA_ERROR_MESSAGE);
         }
-      );
+        throw error;
+      }
       const first = result[0];
       if (!first) {
         throw new Error('Supabase job update returned no rows');
@@ -950,9 +1178,61 @@ export const sparkeryDispatchService = {
     if (!existing) {
       throw new Error('Job not found');
     }
+    if (isJobFinanceLocked(existing)) {
+      const blockedFields: Array<keyof UpdateDispatchJobPayload> = [
+        'title',
+        'description',
+        'notes',
+        'imageUrls',
+        'customerProfileId',
+        'customerName',
+        'customerAddress',
+        'customerPhone',
+        'serviceType',
+        'propertyType',
+        'estimatedDurationHours',
+        'status',
+        'priority',
+        'scheduledDate',
+        'scheduledStartTime',
+        'scheduledEndTime',
+        'assignedEmployeeIds',
+        'pricingMode',
+        'baseFee',
+        'manualAdjustment',
+        'receivableTotal',
+      ];
+      if (hasLockedFieldChange(patch, blockedFields)) {
+        throw new Error(
+          'This job is finance-locked and cannot be edited. Add a finance adjustment instead.'
+        );
+      }
+    }
+    const nextBaseFee =
+      typeof patch.baseFee === 'number'
+        ? roundMoney(patch.baseFee)
+        : existing.baseFee || 0;
+    const nextAdjustment =
+      typeof patch.manualAdjustment === 'number'
+        ? roundMoney(patch.manualAdjustment)
+        : existing.manualAdjustment || 0;
+    const nextReceivableTotal =
+      typeof patch.receivableTotal === 'number'
+        ? roundMoney(patch.receivableTotal)
+        : hasLockedFieldChange(patch, ['baseFee', 'manualAdjustment'])
+          ? calculateReceivableTotal(nextBaseFee, nextAdjustment)
+          : typeof existing.receivableTotal === 'number'
+            ? existing.receivableTotal
+            : calculateReceivableTotal(nextBaseFee, nextAdjustment);
     const updated: DispatchJob = {
       ...existing,
       ...patch,
+      baseFee: nextBaseFee,
+      manualAdjustment: nextAdjustment,
+      receivableTotal: nextReceivableTotal,
+      feeCurrency: patch.feeCurrency || existing.feeCurrency || 'AUD',
+      pricingMode:
+        patch.pricingMode || existing.pricingMode || 'one_time_manual',
       updatedAt: new Date().toISOString(),
     };
     storage.jobs[idx] = updated;
@@ -961,6 +1241,13 @@ export const sparkeryDispatchService = {
   },
 
   async assignJob(id: string, employeeIds: string[]): Promise<DispatchJob> {
+    const currentJobs = await this.getJobs();
+    const job = currentJobs.find(item => item.id === id);
+    if (job && isJobFinanceLocked(job)) {
+      throw new Error(
+        'This job is finance-locked and assignee cannot be modified.'
+      );
+    }
     return this.updateJob(id, {
       assignedEmployeeIds: employeeIds,
       status: 'assigned',
@@ -971,10 +1258,23 @@ export const sparkeryDispatchService = {
     id: string,
     status: DispatchJobStatus
   ): Promise<DispatchJob> {
+    const currentJobs = await this.getJobs();
+    const job = currentJobs.find(item => item.id === id);
+    if (job && isJobFinanceLocked(job)) {
+      throw new Error(
+        'This job is finance-locked and status cannot be modified.'
+      );
+    }
     return this.updateJob(id, { status });
   },
 
   async deleteJob(id: string): Promise<void> {
+    const currentJobs = await this.getJobs();
+    const job = currentJobs.find(item => item.id === id);
+    if (job && isJobFinanceLocked(job)) {
+      throw new Error('This job is finance-locked and cannot be deleted.');
+    }
+
     if (getSupabaseConfig()) {
       await supabaseFetch<SupabaseDispatchJobRow[]>(
         `/rest/v1/dispatch_jobs?id=eq.${id}`,
@@ -991,6 +1291,104 @@ export const sparkeryDispatchService = {
     const storage = loadStorage();
     storage.jobs = storage.jobs.filter(job => job.id !== id);
     saveStorage(storage);
+  },
+
+  async applyJobFinanceAdjustment(
+    id: string,
+    adjustmentDelta: number
+  ): Promise<DispatchJob> {
+    const normalizedDelta = roundMoney(adjustmentDelta);
+    if (!Number.isFinite(normalizedDelta)) {
+      throw new Error('Invalid adjustment amount');
+    }
+
+    const jobs = await this.getJobs();
+    const existing = jobs.find(job => job.id === id);
+    if (!existing) {
+      throw new Error('Job not found');
+    }
+    if (isJobFinanceLocked(existing)) {
+      throw new Error('This job is finance-locked. Adjustment is not allowed.');
+    }
+
+    const nextAdjustment = roundMoney(
+      (existing.manualAdjustment || 0) + normalizedDelta
+    );
+    const nextTotal = calculateReceivableTotal(
+      existing.baseFee || 0,
+      nextAdjustment
+    );
+
+    return this.updateJob(id, {
+      manualAdjustment: nextAdjustment,
+      receivableTotal: nextTotal,
+    });
+  },
+
+  async confirmJobFinance(
+    id: string,
+    confirmedBy?: string
+  ): Promise<DispatchJob> {
+    const jobs = await this.getJobs();
+    const existing = jobs.find(job => job.id === id);
+    if (!existing) {
+      throw new Error('Job not found');
+    }
+    if (existing.status !== 'completed') {
+      throw new Error('Only completed jobs can be confirmed for finance.');
+    }
+    if (isJobFinanceLocked(existing)) {
+      throw new Error('This job is already finance-locked.');
+    }
+
+    const now = new Date().toISOString();
+    return this.updateJob(id, {
+      financeConfirmedAt: now,
+      financeConfirmedBy: confirmedBy || 'dispatch-admin',
+      financeLockedAt: now,
+      financeLockReason: 'completed_and_confirmed',
+      receivableTotal: calculateReceivableTotal(
+        existing.baseFee || 0,
+        existing.manualAdjustment || 0
+      ),
+    });
+  },
+
+  async setJobPaymentReceived(
+    id: string,
+    received: boolean,
+    receivedBy?: string
+  ): Promise<DispatchJob> {
+    const jobs = await this.getJobs();
+    const existing = jobs.find(job => job.id === id);
+    if (!existing) {
+      throw new Error('Job not found');
+    }
+    if (!isJobFinanceLocked(existing)) {
+      throw new Error(
+        'Only finance-confirmed jobs can be marked as payment received.'
+      );
+    }
+
+    if (received && existing.paymentReceivedAt) {
+      return existing;
+    }
+    if (!received && !existing.paymentReceivedAt) {
+      return existing;
+    }
+
+    if (received) {
+      const now = new Date().toISOString();
+      return this.updateJob(id, {
+        paymentReceivedAt: now,
+        paymentReceivedBy: receivedBy || 'dispatch-finance-panel',
+      });
+    }
+
+    return this.updateJob(id, {
+      paymentReceivedAt: null,
+      paymentReceivedBy: null,
+    });
   },
 
   async getEmployeeLocations(): Promise<
@@ -1297,29 +1695,47 @@ export const sparkeryDispatchService = {
           }
         );
       } catch (error) {
+        let fallbackRow: Record<string, unknown> | null = null;
+
         if (
           row.recurring_weekdays &&
           isSupabaseMissingColumnError(error, 'recurring_weekdays')
         ) {
-          const fallbackRow = {
+          fallbackRow = {
             ...row,
-            recurring_weekdays: undefined,
             recurring_weekday:
               row.recurring_weekday || row.recurring_weekdays[0],
           };
-          result = await supabaseFetch<SupabaseDispatchCustomerProfileRow[]>(
-            '/rest/v1/dispatch_customer_profiles?on_conflict=id',
-            {
-              method: 'POST',
-              headers: {
-                Prefer: 'resolution=merge-duplicates,return=representation',
-              },
-              body: JSON.stringify([fallbackRow]),
-            }
-          );
-        } else {
+          delete fallbackRow.recurring_weekdays;
+        }
+
+        if (isSupabaseMissingColumnError(error, 'recurring_fee')) {
+          if (
+            typeof payload.recurringFee === 'number' &&
+            Number.isFinite(payload.recurringFee)
+          ) {
+            throw new Error(DISPATCH_FINANCE_SCHEMA_ERROR_MESSAGE);
+          }
+          fallbackRow = {
+            ...(fallbackRow || row),
+          };
+          delete fallbackRow.recurring_fee;
+        }
+
+        if (!fallbackRow) {
           throw error;
         }
+
+        result = await supabaseFetch<SupabaseDispatchCustomerProfileRow[]>(
+          '/rest/v1/dispatch_customer_profiles?on_conflict=id',
+          {
+            method: 'POST',
+            headers: {
+              Prefer: 'resolution=merge-duplicates,return=representation',
+            },
+            body: JSON.stringify([fallbackRow]),
+          }
+        );
       }
 
       const first = result[0];
@@ -1377,6 +1793,12 @@ export const sparkeryDispatchService = {
     }
     if (payload.recurringPriority) {
       baseProfile.recurringPriority = payload.recurringPriority;
+    }
+    if (
+      typeof payload.recurringFee === 'number' &&
+      Number.isFinite(payload.recurringFee)
+    ) {
+      baseProfile.recurringFee = roundMoney(payload.recurringFee);
     }
 
     if (existingIndex >= 0) {
@@ -1456,6 +1878,10 @@ export const sparkeryDispatchService = {
             scheduledDate,
             scheduledStartTime: profile.recurringStartTime,
             scheduledEndTime: profile.recurringEndTime,
+            pricingMode: 'recurring_fixed',
+            feeCurrency: 'AUD',
+            baseFee: roundMoney(profile.recurringFee || 0),
+            manualAdjustment: 0,
           };
           if (profile.defaultDescription) {
             createPayload.description = profile.defaultDescription;
@@ -1534,6 +1960,11 @@ export const sparkeryDispatchService = {
           scheduledEndTime: profile.recurringEndTime!,
           customerProfileId: profile.id,
           customerName: profile.name,
+          pricingMode: 'recurring_fixed',
+          feeCurrency: 'AUD',
+          baseFee: roundMoney(profile.recurringFee || 0),
+          manualAdjustment: 0,
+          receivableTotal: roundMoney(profile.recurringFee || 0),
           createdAt: now,
           updatedAt: now,
         };

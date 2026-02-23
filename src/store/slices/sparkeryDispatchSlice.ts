@@ -39,6 +39,22 @@ interface UpdateDispatchJobPayloadInput {
   patch: UpdateDispatchJobPayload;
 }
 
+interface ApplyDispatchJobFinanceAdjustmentPayload {
+  id: string;
+  adjustmentDelta: number;
+}
+
+interface ConfirmDispatchJobFinancePayload {
+  id: string;
+  confirmedBy?: string;
+}
+
+interface SetDispatchJobPaymentReceivedPayload {
+  id: string;
+  received: boolean;
+  receivedBy?: string;
+}
+
 interface DispatchLocalSyncResult {
   employees: number;
   customerProfiles: number;
@@ -208,6 +224,40 @@ export const deleteDispatchJob = createAsyncThunk<string, string>(
   async id => {
     await sparkeryDispatchService.deleteJob(id);
     return id;
+  }
+);
+
+export const applyDispatchJobFinanceAdjustment = createAsyncThunk<
+  DispatchJob,
+  ApplyDispatchJobFinanceAdjustmentPayload
+>(
+  'sparkeryDispatch/applyFinanceAdjustment',
+  async ({ id, adjustmentDelta }) => {
+    return sparkeryDispatchService.applyJobFinanceAdjustment(
+      id,
+      adjustmentDelta
+    );
+  }
+);
+
+export const confirmDispatchJobFinance = createAsyncThunk<
+  DispatchJob,
+  ConfirmDispatchJobFinancePayload
+>('sparkeryDispatch/confirmFinance', async ({ id, confirmedBy }) => {
+  return sparkeryDispatchService.confirmJobFinance(id, confirmedBy);
+});
+
+export const setDispatchJobPaymentReceived = createAsyncThunk<
+  DispatchJob,
+  SetDispatchJobPaymentReceivedPayload
+>(
+  'sparkeryDispatch/setPaymentReceived',
+  async ({ id, received, receivedBy }) => {
+    return sparkeryDispatchService.setJobPaymentReceived(
+      id,
+      received,
+      receivedBy
+    );
   }
 );
 
@@ -422,6 +472,24 @@ export const sparkeryDispatchSlice = createSlice({
         state.jobs = state.jobs.filter(job => job.id !== action.payload);
       })
       .addCase(deleteDispatchJob.rejected, setRejected)
+      .addCase(applyDispatchJobFinanceAdjustment.pending, setPending)
+      .addCase(applyDispatchJobFinanceAdjustment.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.jobs = upsertJob(state.jobs, action.payload);
+      })
+      .addCase(applyDispatchJobFinanceAdjustment.rejected, setRejected)
+      .addCase(confirmDispatchJobFinance.pending, setPending)
+      .addCase(confirmDispatchJobFinance.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.jobs = upsertJob(state.jobs, action.payload);
+      })
+      .addCase(confirmDispatchJobFinance.rejected, setRejected)
+      .addCase(setDispatchJobPaymentReceived.pending, setPending)
+      .addCase(setDispatchJobPaymentReceived.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.jobs = upsertJob(state.jobs, action.payload);
+      })
+      .addCase(setDispatchJobPaymentReceived.rejected, setRejected)
       .addCase(migrateDispatchLocalPeopleToSupabase.pending, setPending)
       .addCase(migrateDispatchLocalPeopleToSupabase.fulfilled, state => {
         state.isLoading = false;

@@ -95,6 +95,14 @@ interface AddonOption {
 }
 
 // 报价配置（可后台修改）
+interface ManualMeasurementAddon {
+  id: string;
+  name: string;
+  price: number;
+  hasQuantity: boolean;
+  quantity: number;
+}
+
 interface QuoteConfig {
   workTypes: WorkType[];
   roomTypes: RoomType[];
@@ -459,11 +467,11 @@ const BrisbaneQuoteCalculator: React.FC = () => {
   const [notes, setNotes] = useState<string>('');
   const [extraBedrooms, setExtraBedrooms] = useState<number>(0);
   const [extraBathrooms, setExtraBathrooms] = useState<number>(0);
-  const [glassDoorWindowCount, setGlassDoorWindowCount] = useState<number>(0);
-  const [wallStainsCount, setWallStainsCount] = useState<number>(0);
-  const [acFilterCount, setAcFilterCount] = useState<number>(0);
-  const [blindsCount, setBlindsCount] = useState<number>(0);
-  const [moldCount, setMoldCount] = useState<number>(0);
+  const [glassDoorWindowCount, setGlassDoorWindowCount] = useState<number>(1);
+  const [wallStainsCount, setWallStainsCount] = useState<number>(1);
+  const [acFilterCount, setAcFilterCount] = useState<number>(1);
+  const [blindsCount, setBlindsCount] = useState<number>(1);
+  const [moldCount, setMoldCount] = useState<number>(1);
   const [steamCarpetRoomCount, setSteamCarpetRoomCount] = useState<number>(0);
   const [customRoomType, setCustomRoomType] = useState<string>('');
   const [includeGST, setIncludeGST] = useState<boolean>(true);
@@ -527,6 +535,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
   const [sqmPrice, setSqmPrice] = useState<number>(5); // 默认$5/平米
   const [sqmMultiplier, setSqmMultiplier] = useState<number>(1.0);
   const [manualAdjustment, setManualAdjustment] = useState<number>(0);
+  const [customBasePrice, setCustomBasePrice] = useState<number>(0);
 
   // 服务包报价状态
   const [serviceItems, setServiceItems] = useState<
@@ -537,6 +546,9 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       amount: number;
       unit: string;
     }>
+  >([]);
+  const [manualMeasurementAddons, setManualMeasurementAddons] = useState<
+    ManualMeasurementAddon[]
   >([]);
 
   // 单位选项定义（中英文）
@@ -582,6 +594,32 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       serviceItems.map(item =>
         item.id === id ? { ...item, [field]: value } : item
       )
+    );
+  };
+
+  const addManualMeasurementAddon = () => {
+    setManualMeasurementAddons(prev => [
+      ...prev,
+      {
+        id: `manual-addon-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: '',
+        price: 0,
+        hasQuantity: false,
+        quantity: 1,
+      },
+    ]);
+  };
+
+  const removeManualMeasurementAddon = (id: string) => {
+    setManualMeasurementAddons(prev => prev.filter(item => item.id !== id));
+  };
+
+  const updateManualMeasurementAddon = (
+    id: string,
+    patch: Partial<ManualMeasurementAddon>
+  ) => {
+    setManualMeasurementAddons(prev =>
+      prev.map(item => (item.id === id ? { ...item, ...patch } : item))
     );
   };
 
@@ -730,22 +768,22 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       setSteamCarpetRoomCount(draftData.carpetRooms);
 
       // Set addon counts
-      setGlassDoorWindowCount(draftData.glassDoorWindowCount);
-      setWallStainsCount(draftData.wallStainsCount);
-      setAcFilterCount(draftData.acFilterCount);
-      setBlindsCount(draftData.blindsCount);
-      setMoldCount(draftData.moldCount);
+      setGlassDoorWindowCount(Math.max(1, draftData.glassDoorWindowCount || 1));
+      setWallStainsCount(Math.max(1, draftData.wallStainsCount || 1));
+      setAcFilterCount(Math.max(1, draftData.acFilterCount || 1));
+      setBlindsCount(Math.max(1, draftData.blindsCount || 1));
+      setMoldCount(Math.max(1, draftData.moldCount || 1));
 
       // Set addons based on boolean flags
       const addons: string[] = [];
       if (draftData.garage) addons.push('garage');
       if (draftData.oven) addons.push('oven');
       if (draftData.fridge) addons.push('fridge');
-      if (draftData.heavySoiling) addons.push('heavySoiling');
-      if (draftData.rubbishRemoval) addons.push('rubbishRemoval');
-      if (draftData.glassDoorWindowCount > 0) addons.push('glassDoorWindow');
-      if (draftData.wallStainsCount > 0) addons.push('wallStains');
-      if (draftData.acFilterCount > 0) addons.push('acFilter');
+      if (draftData.heavySoiling) addons.push('heavy_soiling');
+      if (draftData.rubbishRemoval) addons.push('rubbish_removal');
+      if (draftData.glassDoorWindowCount > 0) addons.push('glass_door_window');
+      if (draftData.wallStainsCount > 0) addons.push('wall_stains');
+      if (draftData.acFilterCount > 0) addons.push('ac_filter');
       if (draftData.blindsCount > 0) addons.push('blinds');
       if (draftData.moldCount > 0) addons.push('mold');
       setSelectedAddons(addons);
@@ -812,7 +850,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       adjustments = manualAdjustment;
     } else {
       // 房型计价（原有逻辑）
-      if (!roomType) {
+      if (!roomType && selectedRoomType !== 'custom') {
         return {
           basePrice: 0,
           adjustments: 0,
@@ -836,9 +874,9 @@ const BrisbaneQuoteCalculator: React.FC = () => {
 
       // 根据清洁类型选择对应的基础价格
       if (selectedRoomType === 'custom') {
-        // 自定义房型需要手动输入，这里使用默认价格
-        basePrice = 500; // 默认价格，用户可通过额外调整修改
-      } else {
+        // 自定义房型基础价来自手动输入
+        basePrice = Math.max(0, customBasePrice || 0);
+      } else if (roomType) {
         switch (selectedWorkType) {
           case 'airbnb':
             basePrice = roomType.prices.airbnb;
@@ -907,19 +945,19 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           let quantity = 1;
           let quantityText = '';
           if (addon.id === 'glass_door_window') {
-            quantity = glassDoorWindowCount;
+            quantity = Math.max(1, glassDoorWindowCount || 1);
             quantityText = ` x ${quantity}`;
           } else if (addon.id === 'wall_stains') {
-            quantity = wallStainsCount;
+            quantity = Math.max(1, wallStainsCount || 1);
             quantityText = ` x ${quantity}`;
           } else if (addon.id === 'ac_filter') {
-            quantity = acFilterCount;
+            quantity = Math.max(1, acFilterCount || 1);
             quantityText = ` x ${quantity}`;
           } else if (addon.id === 'blinds') {
-            quantity = blindsCount;
+            quantity = Math.max(1, blindsCount || 1);
             quantityText = ` x ${quantity}`;
           } else if (addon.id === 'mold') {
-            quantity = moldCount;
+            quantity = Math.max(1, moldCount || 1);
             quantityText = ` x ${quantity}`;
           }
 
@@ -953,6 +991,31 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             </tr>
           `;
         }
+      });
+
+      const validManualMeasurementAddons = manualMeasurementAddons.filter(
+        item => item.name.trim().length > 0 && Number(item.price) > 0
+      );
+
+      validManualMeasurementAddons.forEach(item => {
+        const quantity = item.hasQuantity
+          ? Math.max(1, Number(item.quantity || 1))
+          : 1;
+        const quantityText = item.hasQuantity ? ` x ${quantity}` : '';
+        const lineTotal = Number(item.price) * quantity;
+        addonTotal += lineTotal;
+
+        rows += `
+            <tr>
+              <td class="col-desc">
+                <span class="item-name">${item.name}${quantityText}</span>
+                <span class="item-detail" data-cn="${item.name}"></span>
+              </td>
+              <td class="col-type">__ADDON_TYPE__</td>
+              <td class="col-hours">-</td>
+              <td class="col-amount">$${lineTotal.toFixed(2)}</td>
+            </tr>
+          `;
       });
     }
 
@@ -2090,12 +2153,12 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                         placeholder='自定义价格'
                         min={0}
                         value={
-                          manualAdjustment > 0
-                            ? (manualAdjustment as number)
+                          customBasePrice > 0
+                            ? (customBasePrice as number)
                             : null
                         }
                         onChange={val =>
-                          setManualAdjustment((val as number) || 0)
+                          setCustomBasePrice((val as number) || 0)
                         }
                         style={{ marginLeft: '8px', width: '120px' }}
                         prefix='$'
@@ -2131,7 +2194,9 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   >
                     Base Price: $
                     {selectedRoomType === 'custom'
-                      ? '请输入自定义价格'
+                      ? customBasePrice > 0
+                        ? customBasePrice.toFixed(2)
+                        : 'Please input custom price'
                       : selectedWorkType === 'bond'
                         ? (() => {
                             const room = config.roomTypes.find(
@@ -2816,6 +2881,128 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                     </Checkbox>
                   </div>
                 </div>
+
+                <Divider style={{ margin: '16px 0 12px' }} />
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <Text strong>Manual Add-on / 手动增项</Text>
+                  <Button
+                    type='dashed'
+                    size='small'
+                    icon={<PlusOutlined />}
+                    onClick={addManualMeasurementAddon}
+                  >
+                    Add Item
+                  </Button>
+                </div>
+
+                {manualMeasurementAddons.length === 0 ? (
+                  <Text type='secondary' style={{ fontSize: '12px' }}>
+                    No manual add-ons yet. Add one when you need a custom
+                    charge.
+                  </Text>
+                ) : (
+                  manualMeasurementAddons.map(item => {
+                    const safeQuantity = Math.max(
+                      1,
+                      Number(item.quantity || 1)
+                    );
+                    const lineTotal =
+                      Number(item.price || 0) *
+                      (item.hasQuantity ? safeQuantity : 1);
+                    return (
+                      <Card
+                        key={item.id}
+                        size='small'
+                        style={{
+                          marginTop: '8px',
+                          borderRadius: '8px',
+                          background: '#fafafa',
+                        }}
+                      >
+                        <Row gutter={[8, 8]} align='middle'>
+                          <Col xs={24} md={8}>
+                            <Input
+                              placeholder='Item name'
+                              value={item.name}
+                              onChange={e =>
+                                updateManualMeasurementAddon(item.id, {
+                                  name: e.target.value,
+                                })
+                              }
+                            />
+                          </Col>
+                          <Col xs={12} md={5}>
+                            <InputNumber
+                              min={0}
+                              value={item.price}
+                              onChange={value =>
+                                updateManualMeasurementAddon(item.id, {
+                                  price: Number(value || 0),
+                                })
+                              }
+                              style={{ width: '100%' }}
+                              prefix='$'
+                            />
+                          </Col>
+                          <Col xs={12} md={5}>
+                            <Checkbox
+                              checked={item.hasQuantity}
+                              onChange={e =>
+                                updateManualMeasurementAddon(item.id, {
+                                  hasQuantity: e.target.checked,
+                                  quantity: e.target.checked
+                                    ? Math.max(1, Number(item.quantity || 1))
+                                    : 1,
+                                })
+                              }
+                            >
+                              Qty
+                            </Checkbox>
+                          </Col>
+                          <Col xs={12} md={4}>
+                            {item.hasQuantity ? (
+                              <InputNumber
+                                min={1}
+                                value={safeQuantity}
+                                onChange={value =>
+                                  updateManualMeasurementAddon(item.id, {
+                                    quantity: Math.max(1, Number(value || 1)),
+                                  })
+                                }
+                                style={{ width: '100%' }}
+                                addonAfter='x'
+                              />
+                            ) : (
+                              <Text type='secondary'>x1</Text>
+                            )}
+                          </Col>
+                          <Col xs={12} md={2} style={{ textAlign: 'right' }}>
+                            <Button
+                              type='text'
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() =>
+                                removeManualMeasurementAddon(item.id)
+                              }
+                            />
+                          </Col>
+                        </Row>
+                        <div style={{ marginTop: '6px', textAlign: 'right' }}>
+                          <Text type='secondary'>
+                            Line Total: ${lineTotal.toFixed(2)}
+                          </Text>
+                        </div>
+                      </Card>
+                    );
+                  })
+                )}
               </Card>
             </div>
 
@@ -3210,17 +3397,19 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 setNotes('');
                 setExtraBedrooms(0);
                 setExtraBathrooms(0);
-                setGlassDoorWindowCount(0);
-                setWallStainsCount(0);
-                setAcFilterCount(0);
-                setBlindsCount(0);
-                setMoldCount(0);
+                setGlassDoorWindowCount(1);
+                setWallStainsCount(1);
+                setAcFilterCount(1);
+                setBlindsCount(1);
+                setMoldCount(1);
                 setSteamCarpetRoomCount(0);
                 setSqmArea(0);
                 setSqmPrice(5);
                 setSqmMultiplier(1.0);
                 setManualAdjustment(0);
+                setCustomBasePrice(0);
                 setServiceItems([]);
+                setManualMeasurementAddons([]);
                 setInvoiceHeaderMode('sparkery');
                 setCustomInvoiceHeader({
                   companyName: '',

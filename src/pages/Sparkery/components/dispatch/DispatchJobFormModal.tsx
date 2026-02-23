@@ -51,6 +51,20 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
   const recurringEnabled = Form.useWatch('recurringEnabled', form);
   const MAX_IMAGE_SIZE_MB = 2;
   const MAX_IMAGE_COUNT = 8;
+  const defaultFormValues: CreateDispatchJobPayload = {
+    title: '',
+    serviceType: 'bond',
+    priority: 3,
+    scheduledDate: getTodayDateKey(),
+    scheduledStartTime: '09:00',
+    scheduledEndTime: '12:00',
+    recurringEnabled: false,
+    recurringWeekdays: [],
+    pricingMode: 'one_time_manual',
+    feeCurrency: 'AUD',
+    baseFee: 0,
+    manualAdjustment: 0,
+  };
   const weekdayOptions: Array<{ value: DispatchWeekday; label: string }> = [
     { value: 1, label: 'Monday' },
     { value: 2, label: 'Tuesday' },
@@ -80,6 +94,9 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
     if (profile.defaultNotes) patch.notes = profile.defaultNotes;
     if (typeof profile.recurringEnabled === 'boolean') {
       patch.recurringEnabled = profile.recurringEnabled;
+      if (profile.recurringEnabled) {
+        patch.pricingMode = 'recurring_fixed';
+      }
     }
     if (profile.recurringStartTime) {
       patch.scheduledStartTime = profile.recurringStartTime;
@@ -92,6 +109,17 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
     }
     if (profile.recurringPriority) {
       patch.priority = profile.recurringPriority;
+    }
+    if (typeof profile.recurringFee === 'number') {
+      patch.pricingMode = 'recurring_fixed';
+      patch.baseFee = profile.recurringFee;
+      patch.manualAdjustment = 0;
+      patch.feeCurrency = 'AUD';
+    } else if (profile.recurringEnabled) {
+      patch.pricingMode = 'recurring_fixed';
+      patch.baseFee = 0;
+      patch.manualAdjustment = 0;
+      patch.feeCurrency = 'AUD';
     }
     if (profile.recurringWeekdays && profile.recurringWeekdays.length > 0) {
       patch.recurringWeekdays = profile.recurringWeekdays;
@@ -148,6 +176,9 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
     if (values.priority) {
       payload.recurringPriority = values.priority;
     }
+    if (typeof values.baseFee === 'number' && Number.isFinite(values.baseFee)) {
+      payload.recurringFee = values.baseFee;
+    }
 
     const saved = await onAddCustomerProfile(payload);
 
@@ -196,6 +227,33 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
     }));
   }, [initialValue?.imageUrls]);
 
+  React.useEffect(() => {
+    if (!open) return;
+    form.resetFields();
+    if (initialValue) {
+      const { imageUrls: _ignoredImageUrls, ...initialWithoutImages } =
+        initialValue;
+      form.setFieldsValue({
+        ...defaultFormValues,
+        ...initialWithoutImages,
+        pricingMode: initialValue.pricingMode || 'one_time_manual',
+        feeCurrency: initialValue.feeCurrency || 'AUD',
+        baseFee:
+          typeof initialValue.baseFee === 'number' &&
+          Number.isFinite(initialValue.baseFee)
+            ? initialValue.baseFee
+            : 0,
+        manualAdjustment:
+          typeof initialValue.manualAdjustment === 'number' &&
+          Number.isFinite(initialValue.manualAdjustment)
+            ? initialValue.manualAdjustment
+            : 0,
+      });
+      return;
+    }
+    form.setFieldsValue(defaultFormValues);
+  }, [open, initialValue, form]);
+
   return (
     <Modal
       title={initialValue ? 'Edit Job' : 'Create Job'}
@@ -208,17 +266,7 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
       <Form
         form={form}
         layout='vertical'
-        initialValues={
-          initialValue || {
-            serviceType: 'bond',
-            priority: 3,
-            scheduledDate: getTodayDateKey(),
-            scheduledStartTime: '09:00',
-            scheduledEndTime: '12:00',
-            recurringEnabled: false,
-            recurringWeekdays: [],
-          }
-        }
+        initialValues={defaultFormValues}
         onFinish={async values => {
           const normalized = { ...values };
           const anyImageUrls = (
@@ -241,6 +289,17 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           } else {
             normalized.recurringWeekdays = [];
           }
+          normalized.feeCurrency = 'AUD';
+          normalized.baseFee =
+            typeof normalized.baseFee === 'number' &&
+            Number.isFinite(normalized.baseFee)
+              ? Number(normalized.baseFee.toFixed(2))
+              : 0;
+          normalized.manualAdjustment =
+            typeof normalized.manualAdjustment === 'number' &&
+            Number.isFinite(normalized.manualAdjustment)
+              ? Number(normalized.manualAdjustment.toFixed(2))
+              : 0;
           await onSubmit(normalized);
         }}
       >
@@ -309,6 +368,43 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           rules={[{ required: true }]}
         >
           <InputNumber min={1} max={5} style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item
+          label='Pricing Mode'
+          name='pricingMode'
+          tooltip='Recurring jobs should use recurring fixed fee.'
+        >
+          <Select>
+            <Select.Option value='one_time_manual'>
+              One-time Manual
+            </Select.Option>
+            <Select.Option value='recurring_fixed'>
+              Recurring Fixed
+            </Select.Option>
+          </Select>
+        </Form.Item>
+        <Form.Item
+          label='Base Cleaning Fee (AUD)'
+          name='baseFee'
+          rules={[{ required: true, message: 'Please input base fee' }]}
+        >
+          <InputNumber
+            min={0}
+            precision={2}
+            style={{ width: '100%' }}
+            placeholder='e.g. 180'
+          />
+        </Form.Item>
+        <Form.Item
+          label='Initial Adjustment (optional)'
+          name='manualAdjustment'
+          tooltip='Use positive value for extra charge, negative for discount.'
+        >
+          <InputNumber
+            precision={2}
+            style={{ width: '100%' }}
+            placeholder='e.g. +25 or -10'
+          />
         </Form.Item>
         <Form.Item
           label='Date'
