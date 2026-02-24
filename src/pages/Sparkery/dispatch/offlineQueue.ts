@@ -1,13 +1,22 @@
 import type { DispatchEmployeeLocation, DispatchJobStatus } from './types';
+import { trackSparkeryEvent } from '@/services/sparkeryTelemetry';
 
 const OFFLINE_QUEUE_STORAGE_KEY = 'sparkery_dispatch_mobile_offline_queue_v1';
+const OFFLINE_DEAD_LETTER_STORAGE_KEY =
+  'sparkery_dispatch_mobile_offline_dead_letter_v1';
 const DEFAULT_MAX_RETRIES = 5;
+const DEFAULT_BASE_RETRY_DELAY_MS = 1000;
+const MAX_RETRY_DELAY_MS = 60000;
+const MAX_DEAD_LETTER_ITEMS = 200;
 
 interface BaseOfflineAction {
   id: string;
+  idempotencyKey: string;
   type: 'update_job_status' | 'report_location';
   createdAt: string;
   attempts: number;
+  lastAttemptAt?: string;
+  nextRetryAt?: string;
   lastError?: string;
 }
 
@@ -33,6 +42,11 @@ export type DispatchOfflineQueueAction =
   | UpdateJobStatusOfflineAction
   | ReportLocationOfflineAction;
 
+export type DispatchOfflineDeadLetterAction = DispatchOfflineQueueAction & {
+  droppedAt: string;
+  dropReason: string;
+};
+
 export interface DispatchOfflineQueueHandlers {
   updateJobStatus: (payload: {
     jobId: string;
@@ -56,6 +70,7 @@ export interface FlushQueueResult {
   synced: number;
   failed: number;
   remaining: number;
+  deadLettered: number;
   networkFailed: boolean;
 }
 
@@ -90,6 +105,164 @@ const generateQueueId = (): string => {
   return `dispatch-offline-${time}-${random}`;
 };
 
+const resolveIdempotencyKey = (action: EnqueuePayload): string => {
+  if (action.type === 'update_job_status') {
+    return `${action.type}:${action.payload.jobId}:${action.payload.status}`;
+  }
+
+  const locationUpdatedAt = action.payload.location.updatedAt || '';
+  return `${action.type}:${action.payload.employeeId}:${locationUpdatedAt}`;
+};
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object';
+
+const isValidDate = (value?: string): boolean => {
+  if (!value) {
+    return false;
+  }
+  return !Number.isNaN(Date.parse(value));
+};
+
+const normalizeQueueAction = (
+  action: DispatchOfflineQueueAction
+): DispatchOfflineQueueAction => {
+  const idempotencyKey =
+    action.idempotencyKey ||
+    (action.type === 'update_job_status'
+      ? `${action.type}:${action.payload.jobId}:${action.payload.status}`
+      : `${action.type}:${action.payload.employeeId}:${action.payload.location.updatedAt || ''}`);
+
+  return {
+    ...action,
+    idempotencyKey,
+    ...(isValidDate(action.lastAttemptAt)
+      ? { lastAttemptAt: action.lastAttemptAt }
+      : {}),
+    ...(isValidDate(action.nextRetryAt)
+      ? { nextRetryAt: action.nextRetryAt }
+      : {}),
+  };
+};
+
+const parseQueueAction = (
+  value: unknown
+): DispatchOfflineQueueAction | null => {
+  if (!isObject(value)) {
+    return null;
+  }
+
+  const type = value.type;
+  if (type !== 'update_job_status' && type !== 'report_location') {
+    return null;
+  }
+
+  if (typeof value.id !== 'string' || typeof value.createdAt !== 'string') {
+    return null;
+  }
+
+  const attempts =
+    typeof value.attempts === 'number' && value.attempts >= 0
+      ? value.attempts
+      : 0;
+
+  if (type === 'update_job_status') {
+    const payload = value.payload;
+    if (!isObject(payload)) {
+      return null;
+    }
+    if (
+      typeof payload.jobId !== 'string' ||
+      typeof payload.status !== 'string'
+    ) {
+      return null;
+    }
+
+    return normalizeQueueAction({
+      id: value.id,
+      idempotencyKey:
+        typeof value.idempotencyKey === 'string' ? value.idempotencyKey : '',
+      type: 'update_job_status',
+      createdAt: value.createdAt,
+      attempts,
+      ...(typeof value.lastAttemptAt === 'string'
+        ? { lastAttemptAt: value.lastAttemptAt }
+        : {}),
+      ...(typeof value.nextRetryAt === 'string'
+        ? { nextRetryAt: value.nextRetryAt }
+        : {}),
+      ...(typeof value.lastError === 'string'
+        ? { lastError: value.lastError }
+        : {}),
+      payload: {
+        jobId: payload.jobId,
+        status: payload.status as DispatchJobStatus,
+      },
+    });
+  }
+
+  const payload = value.payload;
+  if (!isObject(payload) || typeof payload.employeeId !== 'string') {
+    return null;
+  }
+  if (!isObject(payload.location)) {
+    return null;
+  }
+
+  return normalizeQueueAction({
+    id: value.id,
+    idempotencyKey:
+      typeof value.idempotencyKey === 'string' ? value.idempotencyKey : '',
+    type: 'report_location',
+    createdAt: value.createdAt,
+    attempts,
+    ...(typeof value.lastAttemptAt === 'string'
+      ? { lastAttemptAt: value.lastAttemptAt }
+      : {}),
+    ...(typeof value.nextRetryAt === 'string'
+      ? { nextRetryAt: value.nextRetryAt }
+      : {}),
+    ...(typeof value.lastError === 'string'
+      ? { lastError: value.lastError }
+      : {}),
+    payload: {
+      employeeId: payload.employeeId,
+      location: payload.location as Omit<
+        DispatchEmployeeLocation,
+        'updatedAt'
+      > & {
+        updatedAt?: string;
+      },
+    },
+  });
+};
+
+const parseDeadLetterAction = (
+  value: unknown
+): DispatchOfflineDeadLetterAction | null => {
+  if (!isObject(value)) {
+    return null;
+  }
+
+  if (
+    typeof value.droppedAt !== 'string' ||
+    typeof value.dropReason !== 'string'
+  ) {
+    return null;
+  }
+
+  const queueAction = parseQueueAction(value);
+  if (!queueAction) {
+    return null;
+  }
+
+  return {
+    ...queueAction,
+    droppedAt: value.droppedAt,
+    dropReason: value.dropReason,
+  };
+};
+
 const loadQueue = (): DispatchOfflineQueueAction[] => {
   try {
     const raw = localStorage.getItem(OFFLINE_QUEUE_STORAGE_KEY);
@@ -100,7 +273,10 @@ const loadQueue = (): DispatchOfflineQueueAction[] => {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed.filter(item => item && typeof item === 'object');
+
+    return parsed
+      .map(item => parseQueueAction(item))
+      .filter((item): item is DispatchOfflineQueueAction => item !== null);
   } catch {
     return [];
   }
@@ -110,13 +286,64 @@ const saveQueue = (queue: DispatchOfflineQueueAction[]): void => {
   localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify(queue));
 };
 
+const loadDeadLetterQueue = (): DispatchOfflineDeadLetterAction[] => {
+  try {
+    const raw = localStorage.getItem(OFFLINE_DEAD_LETTER_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map(item => parseDeadLetterAction(item))
+      .filter((item): item is DispatchOfflineDeadLetterAction => item !== null);
+  } catch {
+    return [];
+  }
+};
+
+const saveDeadLetterQueue = (
+  queue: DispatchOfflineDeadLetterAction[]
+): void => {
+  const trimmedQueue =
+    queue.length > MAX_DEAD_LETTER_ITEMS
+      ? queue.slice(queue.length - MAX_DEAD_LETTER_ITEMS)
+      : queue;
+  localStorage.setItem(
+    OFFLINE_DEAD_LETTER_STORAGE_KEY,
+    JSON.stringify(trimmedQueue)
+  );
+};
+
+const buildRetryDelayMs = (attempt: number): number => {
+  const safeAttempt = Math.max(1, attempt);
+  const exponentialDelay = Math.min(
+    MAX_RETRY_DELAY_MS,
+    DEFAULT_BASE_RETRY_DELAY_MS * 2 ** (safeAttempt - 1)
+  );
+  const jitter = Math.floor(
+    Math.random() * Math.max(250, Math.floor(exponentialDelay * 0.25))
+  );
+  return exponentialDelay + jitter;
+};
+
 export const getDispatchOfflineQueue = (): DispatchOfflineQueueAction[] =>
   loadQueue();
 
 export const getDispatchOfflineQueueCount = (): number => loadQueue().length;
 
+export const getDispatchOfflineDeadLetterQueue =
+  (): DispatchOfflineDeadLetterAction[] => loadDeadLetterQueue();
+
 export const clearDispatchOfflineQueue = (): void => {
   localStorage.removeItem(OFFLINE_QUEUE_STORAGE_KEY);
+};
+
+export const clearDispatchOfflineDeadLetterQueue = (): void => {
+  localStorage.removeItem(OFFLINE_DEAD_LETTER_STORAGE_KEY);
 };
 
 export const isLikelyNetworkError = (error: unknown): boolean => {
@@ -136,11 +363,13 @@ export const enqueueDispatchOfflineAction = (
 ): DispatchOfflineQueueAction => {
   const queue = loadQueue();
   const now = new Date().toISOString();
+  const idempotencyKey = resolveIdempotencyKey(action);
 
   let normalizedAction: DispatchOfflineQueueAction;
   if (action.type === 'update_job_status') {
     normalizedAction = {
       id: generateQueueId(),
+      idempotencyKey,
       type: 'update_job_status',
       createdAt: now,
       attempts: 0,
@@ -149,6 +378,7 @@ export const enqueueDispatchOfflineAction = (
   } else {
     normalizedAction = {
       id: generateQueueId(),
+      idempotencyKey,
       type: 'report_location',
       createdAt: now,
       attempts: 0,
@@ -157,12 +387,17 @@ export const enqueueDispatchOfflineAction = (
   }
 
   const deduplicated = queue.filter(existing => {
+    if (existing.idempotencyKey === normalizedAction.idempotencyKey) {
+      return false;
+    }
+
     if (
       normalizedAction.type === 'update_job_status' &&
       existing.type === 'update_job_status'
     ) {
       return existing.payload.jobId !== normalizedAction.payload.jobId;
     }
+
     if (
       normalizedAction.type === 'report_location' &&
       existing.type === 'report_location'
@@ -171,11 +406,19 @@ export const enqueueDispatchOfflineAction = (
         existing.payload.employeeId !== normalizedAction.payload.employeeId
       );
     }
+
     return true;
   });
 
   deduplicated.push(normalizedAction);
   saveQueue(deduplicated);
+  trackSparkeryEvent('dispatch.offline.enqueue', {
+    success: true,
+    data: {
+      actionType: normalizedAction.type,
+      queueSize: deduplicated.length,
+    },
+  });
   return normalizedAction;
 };
 
@@ -193,6 +436,7 @@ export const flushDispatchOfflineQueue = async (
       synced: 0,
       failed: 0,
       remaining: 0,
+      deadLettered: 0,
       networkFailed: false,
     };
   }
@@ -203,18 +447,27 @@ export const flushDispatchOfflineQueue = async (
       synced: 0,
       failed: 0,
       remaining: queue.length,
+      deadLettered: 0,
       networkFailed: true,
     };
   }
 
   const remainingQueue: DispatchOfflineQueueAction[] = [];
+  const deadLetterQueue = loadDeadLetterQueue();
   let processed = 0;
   let synced = 0;
   let failed = 0;
+  let deadLettered = 0;
   let networkFailed = false;
 
   for (let index = 0; index < queue.length; index += 1) {
-    const action = queue[index]!;
+    const action = normalizeQueueAction(queue[index]!);
+
+    if (action.nextRetryAt && Date.parse(action.nextRetryAt) > Date.now()) {
+      remainingQueue.push(action);
+      continue;
+    }
+
     processed += 1;
     try {
       if (action.type === 'update_job_status') {
@@ -228,13 +481,29 @@ export const flushDispatchOfflineQueue = async (
       const nextAttempts = action.attempts + 1;
       const errorMessage = toErrorMessage(error);
       const networkError = isLikelyNetworkError(error);
-      const retryable = networkError || nextAttempts < maxRetries;
+      const now = new Date().toISOString();
+      const retryable = nextAttempts < maxRetries;
 
       if (retryable) {
+        const retryDelayMs = buildRetryDelayMs(nextAttempts);
         remainingQueue.push({
           ...action,
           attempts: nextAttempts,
+          lastAttemptAt: now,
+          nextRetryAt: new Date(Date.now() + retryDelayMs).toISOString(),
           lastError: errorMessage,
+        });
+      } else {
+        deadLettered += 1;
+        deadLetterQueue.push({
+          ...action,
+          attempts: nextAttempts,
+          lastAttemptAt: now,
+          lastError: errorMessage,
+          droppedAt: now,
+          dropReason: networkError
+            ? `network_error_after_${nextAttempts}_attempts`
+            : `max_retries_exceeded_${nextAttempts}`,
         });
       }
 
@@ -245,7 +514,7 @@ export const flushDispatchOfflineQueue = async (
           pendingIndex < queue.length;
           pendingIndex += 1
         ) {
-          remainingQueue.push(queue[pendingIndex]!);
+          remainingQueue.push(normalizeQueueAction(queue[pendingIndex]!));
         }
         break;
       }
@@ -253,12 +522,26 @@ export const flushDispatchOfflineQueue = async (
   }
 
   saveQueue(remainingQueue);
+  saveDeadLetterQueue(deadLetterQueue);
+
+  trackSparkeryEvent('dispatch.offline.flush.completed', {
+    success: !networkFailed && failed === 0,
+    data: {
+      processed,
+      synced,
+      failed,
+      remaining: remainingQueue.length,
+      deadLettered,
+      networkFailed,
+    },
+  });
 
   return {
     processed,
     synced,
     failed,
     remaining: remainingQueue.length,
+    deadLettered,
     networkFailed,
   };
 };

@@ -77,6 +77,38 @@ interface GeocodeCacheRecord {
 
 type MapScope = 'today' | 'week';
 
+interface MapLike {
+  setCenter: (center: GeoPoint) => void;
+  setZoom: (zoom: number) => void;
+  fitBounds: (bounds: LatLngBoundsLike, padding?: number) => void;
+}
+
+interface InfoWindowLike {
+  setContent: (content: string) => void;
+  open: (options: { anchor: MarkerLike; map: MapLike }) => void;
+}
+
+interface MarkerLike {
+  setMap: (map: MapLike | null) => void;
+  addListener: (eventName: string, handler: () => void) => void;
+}
+
+interface LatLngBoundsLike {
+  extend: (point: unknown) => void;
+}
+
+interface GoogleMapsRuntimeLike {
+  Map: new (container: HTMLDivElement, options: unknown) => MapLike;
+  InfoWindow: new () => InfoWindowLike;
+  Marker: new (options: unknown) => MarkerLike;
+  LatLngBounds: new () => LatLngBoundsLike;
+  LatLng: new (lat: number, lng: number) => unknown;
+  SymbolPath: {
+    CIRCLE: unknown;
+    BACKWARD_CLOSED_ARROW: unknown;
+  };
+}
+
 const compareJobsBySchedule = (a: DispatchJob, b: DispatchJob): number => {
   if (a.scheduledDate !== b.scheduledDate) {
     return a.scheduledDate.localeCompare(b.scheduledDate);
@@ -160,10 +192,10 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
   const { t } = useTranslation();
   const [messageApi, contextHolder] = message.useMessage();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<any | null>(null);
-  const infoWindowRef = useRef<any | null>(null);
-  const taskMarkersRef = useRef<any[]>([]);
-  const employeeMarkersRef = useRef<any[]>([]);
+  const mapRef = useRef<MapLike | null>(null);
+  const infoWindowRef = useRef<InfoWindowLike | null>(null);
+  const taskMarkersRef = useRef<MarkerLike[]>([]);
+  const employeeMarkersRef = useRef<MarkerLike[]>([]);
 
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState('');
@@ -296,9 +328,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
         }
 
         const runtime = globalThis as typeof globalThis & {
-          google?: { maps?: any };
+          google?: { maps?: unknown };
         };
-        const maps = runtime.google?.maps;
+        const maps = runtime.google?.maps as GoogleMapsRuntimeLike | undefined;
         if (!maps) {
           setMapError(
             t('sparkery.dispatch.mapPlanner.errors.googleMapsObjectUnavailable')
@@ -306,7 +338,12 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
           return;
         }
 
-        mapRef.current = new maps.Map(mapContainerRef.current, {
+        const mapContainer = mapContainerRef.current;
+        if (!mapContainer) {
+          return;
+        }
+
+        mapRef.current = new maps.Map(mapContainer, {
           center: DEFAULT_MAP_CENTER,
           zoom: 10,
           mapTypeControl: false,
@@ -460,9 +497,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
     }
 
     const runtime = globalThis as typeof globalThis & {
-      google?: { maps?: any };
+      google?: { maps?: unknown };
     };
-    const maps = runtime.google?.maps;
+    const maps = runtime.google?.maps as GoogleMapsRuntimeLike | undefined;
     if (!maps) {
       return;
     }

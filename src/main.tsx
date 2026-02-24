@@ -17,24 +17,40 @@ type GoogleCalendarRuntimeConfig = {
   calendarId?: string;
 };
 
+type AppRuntimeConfig = {
+  supabase?: SupabaseRuntimeConfig;
+  googleMaps?: GoogleMapsRuntimeConfig;
+  googleCalendar?: GoogleCalendarRuntimeConfig;
+};
+
 const runtime = globalThis as typeof globalThis & {
+  __WENDEAL_RUNTIME_CONFIG__?: AppRuntimeConfig;
   __WENDEAL_SUPABASE_CONFIG__?: SupabaseRuntimeConfig;
   __WENDEAL_GOOGLE_MAPS_CONFIG__?: GoogleMapsRuntimeConfig;
   __WENDEAL_GOOGLE_CALENDAR_CONFIG__?: GoogleCalendarRuntimeConfig;
 };
 
+const runtimeConfig = runtime.__WENDEAL_RUNTIME_CONFIG__ ?? {};
+
 runtime.__WENDEAL_SUPABASE_CONFIG__ = {
-  url: import.meta.env.VITE_SUPABASE_URL,
-  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+  url: runtimeConfig.supabase?.url ?? import.meta.env.VITE_SUPABASE_URL,
+  anonKey:
+    runtimeConfig.supabase?.anonKey ?? import.meta.env.VITE_SUPABASE_ANON_KEY,
 };
 
 runtime.__WENDEAL_GOOGLE_MAPS_CONFIG__ = {
-  apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+  apiKey:
+    runtimeConfig.googleMaps?.apiKey ??
+    import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
 };
 
 runtime.__WENDEAL_GOOGLE_CALENDAR_CONFIG__ = {
-  clientId: import.meta.env.VITE_GOOGLE_CALENDAR_CLIENT_ID,
-  calendarId: import.meta.env.VITE_GOOGLE_CALENDAR_ID,
+  clientId:
+    runtimeConfig.googleCalendar?.clientId ??
+    import.meta.env.VITE_GOOGLE_CALENDAR_CLIENT_ID,
+  calendarId:
+    runtimeConfig.googleCalendar?.calendarId ??
+    import.meta.env.VITE_GOOGLE_CALENDAR_ID,
 };
 
 // 在开发环境中启动MSW (暂时禁用以解决CORS问题)

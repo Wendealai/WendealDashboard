@@ -1,0 +1,1 @@
+window.__WENDEAL_RUNTIME_CONFIG__ = window.__WENDEAL_RUNTIME_CONFIG__ || {};

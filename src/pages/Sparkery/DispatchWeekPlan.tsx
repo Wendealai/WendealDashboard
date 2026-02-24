@@ -46,6 +46,8 @@ import './sparkery.css';
 
 const { Title, Text } = Typography;
 const GEO_CACHE_STORAGE_KEY = 'sparkery_dispatch_geocode_cache_v1';
+const INITIAL_JOB_RENDER_LIMIT = 8;
+const JOB_RENDER_INCREMENT = 8;
 
 interface RouteStep {
   jobId: string;
@@ -698,6 +700,9 @@ const DispatchWeekPlan: React.FC = () => {
   const [inspectionLinks, setInspectionLinks] = useState<
     Record<string, string>
   >({});
+  const [visibleJobsByDate, setVisibleJobsByDate] = useState<
+    Record<string, number>
+  >({});
   const naText = t('sparkery.dispatch.weekPlan.common.na');
 
   const formatWeekday = useCallback(
@@ -762,6 +767,27 @@ const DispatchWeekPlan: React.FC = () => {
 
     return sections;
   }, [jobsByDate, weekDates]);
+
+  useEffect(() => {
+    setVisibleJobsByDate(prev => {
+      const nextVisibleCounts: Record<string, number> = {};
+      daySections.forEach(section => {
+        const existing = prev[section.date];
+        if (typeof existing === 'number' && existing > 0) {
+          nextVisibleCounts[section.date] = Math.min(
+            existing,
+            section.jobs.length
+          );
+          return;
+        }
+        nextVisibleCounts[section.date] = Math.min(
+          INITIAL_JOB_RENDER_LIMIT,
+          section.jobs.length
+        );
+      });
+      return nextVisibleCounts;
+    });
+  }, [daySections]);
 
   const routeErrorEntries = useMemo(
     () =>
@@ -1250,6 +1276,13 @@ const DispatchWeekPlan: React.FC = () => {
     [customerProfileById, employee, jobs, messageApi, t, templateByJobId]
   );
 
+  const handleLoadMoreJobs = useCallback((date: string) => {
+    setVisibleJobsByDate(prev => ({
+      ...prev,
+      [date]: (prev[date] || INITIAL_JOB_RENDER_LIMIT) + JOB_RENDER_INCREMENT,
+    }));
+  }, []);
+
   const isInvalidQuery = !queryPayload.employeeId;
 
   return (
@@ -1448,6 +1481,12 @@ const DispatchWeekPlan: React.FC = () => {
                   >
                     {daySections.map(section => {
                       const dayRoute = routeResultByDate[section.date];
+                      const visibleCount =
+                        visibleJobsByDate[section.date] ||
+                        INITIAL_JOB_RENDER_LIMIT;
+                      const visibleJobs = section.jobs.slice(0, visibleCount);
+                      const hasMoreJobs =
+                        visibleJobs.length < section.jobs.length;
 
                       return (
                         <Card
@@ -1502,12 +1541,31 @@ const DispatchWeekPlan: React.FC = () => {
                         >
                           <List
                             loading={loadingRoute}
-                            dataSource={section.jobs}
+                            dataSource={visibleJobs}
                             locale={{
                               emptyText: t(
                                 'sparkery.dispatch.weekPlan.empty.noJobsForDay'
                               ),
                             }}
+                            loadMore={
+                              hasMoreJobs ? (
+                                <div className='dispatch-week-plan-load-more'>
+                                  <Button
+                                    size='small'
+                                    onClick={() =>
+                                      handleLoadMoreJobs(section.date)
+                                    }
+                                  >
+                                    {t(
+                                      'sparkery.dispatch.weekPlan.actions.loadMoreJobs',
+                                      {
+                                        defaultValue: 'Load more jobs',
+                                      }
+                                    )}
+                                  </Button>
+                                </div>
+                              ) : null
+                            }
                             renderItem={(job, index) => {
                               const step = dayRoute?.steps.find(
                                 item => item.jobId === job.id

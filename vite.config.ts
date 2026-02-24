@@ -94,8 +94,10 @@ export default defineConfig({
               console.log('Handling OPTIONS preflight request for webhook');
               res.writeHead(200, {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, User-Agent',
+                'Access-Control-Allow-Methods':
+                  'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers':
+                  'Content-Type, Authorization, X-Requested-With, User-Agent',
                 'Access-Control-Max-Age': '86400',
               });
               res.end();
@@ -204,11 +206,46 @@ export default defineConfig({
             if (id.includes('react-router')) {
               return 'router-vendor';
             }
+            if (id.includes('antd') || id.includes('@ant-design')) {
+              return 'antd-vendor';
+            }
+            if (id.includes('echarts') || id.includes('@ant-design/charts')) {
+              return 'charts-vendor';
+            }
             if (id.includes('dayjs') || id.includes('moment')) {
               return 'date-vendor';
             }
             if (id.includes('axios') || id.includes('msw')) {
               return 'http-vendor';
+            }
+            if (id.includes('i18next') || id.includes('react-i18next')) {
+              return 'i18n-vendor';
+            }
+            if (
+              id.includes('jspdf') ||
+              id.includes('html2pdf') ||
+              id.includes('xlsx')
+            ) {
+              return 'document-vendor';
+            }
+            if (
+              id.includes('react-markdown') ||
+              id.includes('remark') ||
+              id.includes('rehype')
+            ) {
+              return 'markdown-vendor';
+            }
+            if (id.includes('@tanstack/react-query')) {
+              return 'query-vendor';
+            }
+            if (id.includes('@novu')) {
+              return 'novu-vendor';
+            }
+            if (id.includes('airtable')) {
+              return 'airtable-vendor';
+            }
+            if (id.includes('socket.io-client')) {
+              return 'socket-vendor';
             }
             return 'vendor';
           }
