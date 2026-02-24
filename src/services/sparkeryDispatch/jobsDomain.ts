@@ -9,6 +9,7 @@ import {
   getSparkeryTelemetrySessionId,
   getSparkeryTelemetryUserId,
 } from '@/services/sparkeryTelemetry';
+import { createSparkeryIdempotencyKey } from '@/services/sparkeryIdempotency';
 import {
   ensureSupabaseRows,
   isSupabaseDispatchJobRowValue,
@@ -275,6 +276,61 @@ const resolveDispatchJobTelemetryContext = (
   };
 };
 
+type DispatchFinanceAuditAction =
+  | 'finance_adjustment_applied'
+  | 'finance_confirmed'
+  | 'payment_received_marked'
+  | 'payment_received_unmarked';
+
+const writeDispatchFinanceAuditLog = async (
+  deps: DispatchJobsDomainDependencies,
+  params: {
+    action: DispatchFinanceAuditAction;
+    jobId: string;
+    traceId: string;
+    before: DispatchJob;
+    after: DispatchJob;
+    telemetryContext: {
+      userId?: string;
+      actorRole?: string;
+      sessionId?: string;
+    };
+    metadata?: Record<string, unknown>;
+  }
+): Promise<void> => {
+  if (!deps.getSupabaseConfig()) {
+    return;
+  }
+
+  const row = {
+    job_id: params.jobId,
+    action: params.action,
+    trace_id: params.traceId,
+    actor_user_id: params.telemetryContext.userId || null,
+    actor_role: params.telemetryContext.actorRole || null,
+    session_id: params.telemetryContext.sessionId || null,
+    before_payload: params.before,
+    after_payload: params.after,
+    metadata: params.metadata || null,
+    created_at: new Date().toISOString(),
+  };
+
+  try {
+    await deps.supabaseFetch<unknown[]>(
+      '/rest/v1/dispatch_finance_audit_logs',
+      {
+        method: 'POST',
+        headers: {
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify([row]),
+      }
+    );
+  } catch {
+    // Best-effort audit logging. Main mutation should not fail because of audit write.
+  }
+};
+
 export const createDispatchJobsDomainService = (
   deps: DispatchJobsDomainDependencies
 ): DispatchJobsDomainService => {
@@ -337,6 +393,10 @@ export const createDispatchJobsDomainService = (
       const startedAt = Date.now();
       const traceId = createDispatchTraceId('job.create');
       const telemetryContext = resolveDispatchJobTelemetryContext(options);
+      const idempotencyKey = createSparkeryIdempotencyKey(
+        'dispatch.job.create',
+        payload
+      );
       const normalizedPricingMode =
         payload.pricingMode ||
         (payload.recurringEnabled ? 'recurring_fixed' : 'one_time_manual');
@@ -373,6 +433,7 @@ export const createDispatchJobsDomainService = (
               method: 'POST',
               headers: {
                 Prefer: 'resolution=merge-duplicates,return=representation',
+                'X-Idempotency-Key': idempotencyKey,
               },
               body: JSON.stringify([row]),
             }
@@ -395,6 +456,7 @@ export const createDispatchJobsDomainService = (
               errorCode,
               source: 'supabase',
               reason: error instanceof Error ? error.message : 'unknown_error',
+              idempotencyKey,
               ...telemetryContext,
             },
           });
@@ -413,6 +475,7 @@ export const createDispatchJobsDomainService = (
               errorCode: 'DISPATCH_SUPABASE_EMPTY_RESPONSE',
               source: 'supabase',
               reason: 'empty_response_rows',
+              idempotencyKey,
               ...telemetryContext,
             },
           });
@@ -427,6 +490,7 @@ export const createDispatchJobsDomainService = (
             source: 'supabase',
             jobId: createdJob.id,
             serviceType: createdJob.serviceType,
+            idempotencyKey,
             ...telemetryContext,
           },
         });
@@ -478,6 +542,7 @@ export const createDispatchJobsDomainService = (
           source: 'local',
           jobId: job.id,
           serviceType: job.serviceType,
+          idempotencyKey,
           ...telemetryContext,
         },
       });
@@ -492,6 +557,13 @@ export const createDispatchJobsDomainService = (
       const startedAt = Date.now();
       const traceId = createDispatchTraceId('job.update');
       const telemetryContext = resolveDispatchJobTelemetryContext(options);
+      const idempotencyKey = createSparkeryIdempotencyKey(
+        'dispatch.job.update',
+        {
+          id,
+          patch,
+        }
+      );
       if (deps.getSupabaseConfig()) {
         const query = buildDispatchJobsQuery({ id, limit: 1 });
         let existingList: SupabaseDispatchJobRow[];
@@ -531,6 +603,7 @@ export const createDispatchJobsDomainService = (
                 jobId: id,
                 reason:
                   error instanceof Error ? error.message : 'unknown_error',
+                idempotencyKey,
                 ...telemetryContext,
               },
             });
@@ -547,6 +620,7 @@ export const createDispatchJobsDomainService = (
                 jobId: id,
                 reason:
                   error instanceof Error ? error.message : 'unknown_error',
+                idempotencyKey,
                 ...telemetryContext,
               },
             });
@@ -726,6 +800,7 @@ export const createDispatchJobsDomainService = (
               method: 'PATCH',
               headers: {
                 Prefer: 'return=representation',
+                'X-Idempotency-Key': idempotencyKey,
               },
               body: JSON.stringify(row),
             }
@@ -750,6 +825,7 @@ export const createDispatchJobsDomainService = (
               stage: 'patch',
               jobId: id,
               reason: error instanceof Error ? error.message : 'unknown_error',
+              idempotencyKey,
               ...telemetryContext,
             },
           });
@@ -770,6 +846,7 @@ export const createDispatchJobsDomainService = (
               stage: 'patch',
               jobId: id,
               reason: 'empty_response_rows',
+              idempotencyKey,
               ...telemetryContext,
             },
           });
@@ -783,6 +860,7 @@ export const createDispatchJobsDomainService = (
             traceId,
             source: 'supabase',
             jobId: updatedJob.id,
+            idempotencyKey,
             ...telemetryContext,
           },
         });
@@ -864,6 +942,7 @@ export const createDispatchJobsDomainService = (
           traceId,
           source: 'local',
           jobId: updated.id,
+          idempotencyKey,
           ...telemetryContext,
         },
       });
@@ -938,6 +1017,8 @@ export const createDispatchJobsDomainService = (
       adjustmentDelta: number,
       options?: DispatchJobMutationOptions
     ) {
+      const traceId = createDispatchTraceId('finance.adjustment');
+      const telemetryContext = resolveDispatchJobTelemetryContext(options);
       const normalizedDelta = roundMoney(adjustmentDelta);
       if (!Number.isFinite(normalizedDelta)) {
         throw new Error('Invalid adjustment amount');
@@ -962,7 +1043,7 @@ export const createDispatchJobsDomainService = (
         nextAdjustment
       );
 
-      return service.updateJob(
+      const updated = await service.updateJob(
         id,
         {
           manualAdjustment: nextAdjustment,
@@ -970,6 +1051,18 @@ export const createDispatchJobsDomainService = (
         },
         options
       );
+      await writeDispatchFinanceAuditLog(deps, {
+        action: 'finance_adjustment_applied',
+        jobId: id,
+        traceId,
+        before: existing,
+        after: updated,
+        telemetryContext,
+        metadata: {
+          adjustmentDelta: normalizedDelta,
+        },
+      });
+      return updated;
     },
 
     async confirmJobFinance(
@@ -977,6 +1070,8 @@ export const createDispatchJobsDomainService = (
       confirmedBy?: string,
       options?: DispatchJobMutationOptions
     ) {
+      const traceId = createDispatchTraceId('finance.confirm');
+      const telemetryContext = resolveDispatchJobTelemetryContext(options);
       const jobs = await service.getJobs();
       const existing = jobs.find(job => job.id === id);
       if (!existing) {
@@ -990,7 +1085,7 @@ export const createDispatchJobsDomainService = (
       }
 
       const now = new Date().toISOString();
-      return service.updateJob(
+      const updated = await service.updateJob(
         id,
         {
           financeConfirmedAt: now,
@@ -1004,6 +1099,18 @@ export const createDispatchJobsDomainService = (
         },
         options
       );
+      await writeDispatchFinanceAuditLog(deps, {
+        action: 'finance_confirmed',
+        jobId: id,
+        traceId,
+        before: existing,
+        after: updated,
+        telemetryContext,
+        metadata: {
+          confirmedBy: confirmedBy || 'dispatch-admin',
+        },
+      });
+      return updated;
     },
 
     async setJobPaymentReceived(
@@ -1012,6 +1119,8 @@ export const createDispatchJobsDomainService = (
       receivedBy?: string,
       options?: DispatchJobMutationOptions
     ) {
+      const traceId = createDispatchTraceId('finance.payment');
+      const telemetryContext = resolveDispatchJobTelemetryContext(options);
       const jobs = await service.getJobs();
       const existing = jobs.find(job => job.id === id);
       if (!existing) {
@@ -1032,7 +1141,7 @@ export const createDispatchJobsDomainService = (
 
       if (received) {
         const now = new Date().toISOString();
-        return service.updateJob(
+        const updated = await service.updateJob(
           id,
           {
             paymentReceivedAt: now,
@@ -1040,9 +1149,21 @@ export const createDispatchJobsDomainService = (
           },
           options
         );
+        await writeDispatchFinanceAuditLog(deps, {
+          action: 'payment_received_marked',
+          jobId: id,
+          traceId,
+          before: existing,
+          after: updated,
+          telemetryContext,
+          metadata: {
+            receivedBy: receivedBy || 'dispatch-finance-panel',
+          },
+        });
+        return updated;
       }
 
-      return service.updateJob(
+      const updated = await service.updateJob(
         id,
         {
           paymentReceivedAt: null,
@@ -1050,6 +1171,15 @@ export const createDispatchJobsDomainService = (
         },
         options
       );
+      await writeDispatchFinanceAuditLog(deps, {
+        action: 'payment_received_unmarked',
+        jobId: id,
+        traceId,
+        before: existing,
+        after: updated,
+        telemetryContext,
+      });
+      return updated;
     },
   };
 

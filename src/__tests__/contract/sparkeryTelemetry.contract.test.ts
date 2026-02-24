@@ -95,4 +95,25 @@ describe('sparkery telemetry contracts', () => {
     expect(events).toHaveLength(1);
     expect(events[0]?.data?.userId).toBe('runtime-user-001');
   });
+
+  it('auto-enriches appVersion/deviceId/networkType dimensions', () => {
+    const runtime = window as Window & {
+      __WENDEAL_APP_VERSION__?: string;
+    };
+    runtime.__WENDEAL_APP_VERSION__ = '2026.02.24';
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: true,
+    });
+
+    trackSparkeryEvent('dispatch.offline.enqueue', {
+      data: { actionType: 'update_job_status' },
+    });
+
+    const events = getSparkeryTelemetryEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.data?.appVersion).toBe('2026.02.24');
+    expect(typeof events[0]?.data?.deviceId).toBe('string');
+    expect(events[0]?.data?.networkType).toBe('online');
+  });
 });

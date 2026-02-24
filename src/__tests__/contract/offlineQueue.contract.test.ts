@@ -67,7 +67,7 @@ describe('dispatch offline queue contracts', () => {
     expect(typeof enqueueEvent?.data?.traceId).toBe('string');
   });
 
-  it('propagates explicit userId into enqueue and flush telemetry events', async () => {
+  it('propagates explicit telemetry context into enqueue and flush events', async () => {
     enqueueDispatchOfflineAction(
       {
         type: 'update_job_status',
@@ -75,6 +75,8 @@ describe('dispatch offline queue contracts', () => {
       },
       {
         userId: 'dispatch-user-001',
+        actorRole: 'dispatcher',
+        sessionId: 'session-001',
       }
     );
 
@@ -86,6 +88,8 @@ describe('dispatch offline queue contracts', () => {
       {
         stopOnNetworkError: true,
         userId: 'dispatch-user-001',
+        actorRole: 'dispatcher',
+        sessionId: 'session-001',
       }
     );
 
@@ -99,6 +103,10 @@ describe('dispatch offline queue contracts', () => {
 
     expect(enqueueEvent?.data?.userId).toBe('dispatch-user-001');
     expect(flushEvent?.data?.userId).toBe('dispatch-user-001');
+    expect(enqueueEvent?.data?.actorRole).toBe('dispatcher');
+    expect(flushEvent?.data?.actorRole).toBe('dispatcher');
+    expect(enqueueEvent?.data?.sessionId).toBe('session-001');
+    expect(flushEvent?.data?.sessionId).toBe('session-001');
   });
 
   it('moves terminal failures into dead letter queue after max retries', async () => {

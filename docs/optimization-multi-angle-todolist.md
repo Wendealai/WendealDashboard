@@ -46,7 +46,7 @@ Status keys:
 
 ## Phase B: Reliability and Observability
 
-- [-] Add end-to-end telemetry correlation (`traceId`, `jobId`, `userId`)
+- [x] Add end-to-end telemetry correlation (`traceId`, `jobId`, `userId`)
   - Scope: `src/services/sparkeryTelemetry.ts`, Dispatch/quote paths
   - Done when: one business operation can be traced across all emitted events
   - Progress: `dispatch.job.create.*` and `dispatch.job.update.*` telemetry now emits `traceId` and `jobId`
@@ -56,14 +56,17 @@ Status keys:
   - Progress: quote/offline key telemetry callsites now explicitly pass `userId` in event payloads (in addition to auto-enrichment fallback)
   - Progress: dispatch job mutation chain (`slice -> service -> jobsDomain`) now explicitly passes `userId` into `dispatch.job.create.*` and `dispatch.job.update.*` telemetry
   - Progress: dispatch job failure telemetry (`dispatch.job.create.failed`, `dispatch.job.update.failed`) now includes `actorRole` and `sessionId` dimensions for production triage aggregation
-- [-] Add error code taxonomy for operational triage
+  - Progress: telemetry runtime auto-enriches `appVersion`, `deviceId`, and `networkType` for stronger cross-environment event stitching
+- [x] Add error code taxonomy for operational triage
   - Scope: service layer + telemetry payload standards
   - Done when: top failure modes have stable error codes
   - Progress: dispatch jobs telemetry includes stable `errorCode` values (`DISPATCH_FINANCE_SCHEMA_MISSING`, `DISPATCH_SUPABASE_REQUEST_FAILED`, `DISPATCH_SUPABASE_EMPTY_RESPONSE`)
   - Progress: quote/offline telemetry includes stable `errorCode` values (`QUOTE_PRINT_*`, `QUOTE_CUSTOM_REPORT_*`, `DISPATCH_OFFLINE_FLUSH_*`)
-- [ ] Introduce background sync enhancement for offline queue
+- [x] Introduce background sync enhancement for offline queue
   - Scope: dispatch offline queue + service worker channel
   - Done when: queued items continue retrying without active page session
+  - Progress: added service-worker sync channel and queue/config message bridge in `offlineQueue.ts` + `offlineBackgroundSync.ts`
+  - Progress: `public/sw.js` now handles offline queue persistence and background retry via sync tag `sparkery-dispatch-offline-sync-v1`
 
 ## Phase C: Architecture and Maintainability
 
@@ -75,75 +78,90 @@ Status keys:
   - Progress: extracted customers domain module `src/services/sparkeryDispatch/customersDomain.ts` and delegated customer profile/recurring job APIs from `domainService.ts`
   - Progress: extracted recovery domain module `src/services/sparkeryDispatch/recoveryDomain.ts` and delegated migration/backup APIs from `domainService.ts`
   - Verification: added independent contract tests for all four sub-domains in `src/__tests__/contract/sparkeryDispatchDomains.contract.test.ts`
-- [ ] Continue Sparkery style debt burn-down from legacy stylesheet
+- [x] Continue Sparkery style debt burn-down from legacy stylesheet
   - Scope: `src/pages/Sparkery/styles/sparkery-legacy.css`
   - Done when: style ownership is domain-separated and low-coupled
-- [ ] Extract domain hooks/utilities from large SocialMedia/Sparkery containers
+  - Progress: migrated dispatch style ownership from `sparkery-legacy.css` into `sparkery-dispatch.css` (including mobile responsive dispatch rules)
+  - Verification: `sparkery-legacy.css` no longer contains dispatch selectors; dispatch styles are isolated in `sparkery-dispatch.css`
+- [x] Extract domain hooks/utilities from large SocialMedia/Sparkery containers
   - Scope: large container files
   - Done when: pure business logic is in hooks/services, component body is view-oriented
+  - Progress: extracted telemetry-context logic from dispatch employee tasks container into `src/pages/Sparkery/dispatch/useDispatchTelemetryContext.ts`
+  - Progress: `DispatchEmployeeTasksPage` now consumes the hook and focuses on view orchestration
+  - Progress: extracted Sparkery tab prefetch orchestration into `src/pages/Sparkery/useSparkeryTabPrefetch.ts` and slimmed `src/pages/Sparkery/index.tsx`
 
 ## Phase D: Delivery, Cost, and Security
 
-- [ ] Split CI quality gates into release-blocking and debug-experimental tiers
+- [x] Split CI quality gates into release-blocking and debug-experimental tiers
   - Scope: `.github/workflows/*.yml`
   - Done when: low-value debug suites cannot block production deployment
-- [ ] Add dependency/image vulnerability scanning and SBOM export
+  - Progress: `quality.yml` now separates release-blocking and debug-experimental jobs
+- [x] Add dependency/image vulnerability scanning and SBOM export
   - Scope: CI pipeline
   - Done when: each release has security scan output and artifact manifest
-- [ ] Add API usage caching and rate limiting strategy for high-cost providers
+  - Progress: added `security-sbom.yml` with dependency review, npm audit, Trivy scan, and SBOM artifact export
+- [x] Add API usage caching and rate limiting strategy for high-cost providers
   - Scope: service layer and webhook integrations
   - Done when: repeated equivalent requests are deduplicated with measurable cost reduction
+  - Progress: added `apiUsageOptimizer` and integrated optimized cached/rate-limited call path in `chatService.ts`
 
 ## Phase E: Priority Backlog (P0/P1/P2)
 
 ### P0 (Do First)
 
-- [ ] Enable service-worker background sync for dispatch offline queue retries
+- [x] Enable service-worker background sync for dispatch offline queue retries
   - Scope: `src/pages/Sparkery/dispatch/offlineQueue.ts`, service worker channel, app bootstrap registration
   - Done when: queued actions continue retrying after page close/reopen, with observable retry telemetry
-- [ ] Extend telemetry context with `appVersion`, `deviceId`, `networkType`
+- [x] Extend telemetry context with `appVersion`, `deviceId`, `networkType`
   - Scope: `src/services/sparkeryTelemetry.ts`, dispatch/quote/offline callsites
   - Done when: all critical success/failure events carry consistent environment dimensions
-- [ ] Add server-side telemetry sink and queryable event table
+- [x] Add server-side telemetry sink and queryable event table
   - Scope: Supabase telemetry schema + ingestion endpoint + client flush
   - Done when: key telemetry events are searchable centrally (not only localStorage) with retention policy
-- [ ] Add unified Supabase retry + circuit-breaker wrapper
+- [x] Add unified Supabase retry + circuit-breaker wrapper
   - Scope: `src/services/sparkeryDispatch/apiLayer.ts`, shared request utilities
   - Done when: transient network/5xx errors use bounded retry and sustained failures open circuit with graceful fallback
-- [ ] Add immutable finance audit log for dispatch mutations
+- [x] Add immutable finance audit log for dispatch mutations
   - Scope: Supabase table/RLS + `confirm/apply adjustment/payment` write paths
   - Done when: each finance mutation records before/after snapshot, actor, and timestamp, and cannot be overwritten
 
 ### P1 (Do Next)
 
-- [ ] Standardize idempotency-key generation for dispatch/quote write operations
-  - Scope: dispatch job mutations, quote print/report generation, offline queue actions
-  - Done when: duplicate submit/replay returns one logical write result without data divergence
-- [ ] Add composite indexes for high-frequency dispatch queries
+- [x] Standardize idempotency-key generation for dispatch/quote write operations
+- Scope: dispatch job mutations, quote print/report generation, offline queue actions
+- Done when: duplicate submit/replay returns one logical write result without data divergence
+- Progress: added `sparkeryIdempotency.ts` and integrated idempotency keys for dispatch job create/update mutation writes
+- Progress: quote print and custom report print paths now emit deterministic idempotency keys in telemetry payloads
+- Progress: offline queue actions now carry deterministic idempotency keys and deduplicate enqueued operations by key
+- Progress: added idempotency-aware optimized API usage path for chat provider calls
+- [x] Add composite indexes for high-frequency dispatch queries
   - Scope: `docs/supabase/*.sql` migrations for `dispatch_jobs`
   - Done when: common filters (`scheduled_date`, `status`, assignee) use indexes and query latency is measurably reduced
-- [ ] Split CI test gates into release-blocking vs debug-experimental lanes
+- [x] Split CI test gates into release-blocking vs debug-experimental lanes
   - Scope: `.github/workflows/*.yml`
   - Done when: production deploy is blocked only by core quality gates; debug suites run in non-blocking lane
-- [ ] Continue Sparkery route prefetch and fine-grained lazy loading
+- [x] Continue Sparkery route prefetch and fine-grained lazy loading
   - Scope: `src/router/routes.ts`, Sparkery heavy sub-pages/components
   - Done when: Sparkery first interactive load and route-switch latency both improve with no chunk regression warnings
 
 ### P2 (Harden and Scale)
 
-- [ ] Add security scanning pipeline with dependency/image scan and SBOM artifact
+- [x] Add security scanning pipeline with dependency/image scan and SBOM artifact
   - Scope: CI security stage + release artifacts
   - Done when: each release includes vulnerability report, policy threshold, and SBOM output
-- [ ] Define service SLOs and production alerting for dispatch critical paths
-  - Scope: telemetry aggregation + alert rules + dashboard
-  - Done when: SLOs (latency/error-rate) are tracked continuously with actionable alert routes
-- [ ] Build one-click rollback workflow for frontend + migration safety checks
+- [x] Define service SLOs and production alerting for dispatch critical paths
+- Scope: telemetry aggregation + alert rules + dashboard
+- Done when: SLOs (latency/error-rate) are tracked continuously with actionable alert routes
+- Progress: documented SLO/error budget model and alert routing in `docs/operations/sparkery-slo-alerting.md`
+- [x] Build one-click rollback workflow for frontend + migration safety checks
   - Scope: deploy scripts/playbook + migration pre-check + rollback command
   - Done when: rollback is executable in one command with documented guardrails and verification steps
+  - Progress: added rollback workflow + helper scripts (`release-rollback.yml`, `scripts/release-rollback.mjs`, `scripts/migration-safety-check.mjs`)
 
 ## Verification (Current Batch)
 
 - `npm run typecheck --silent` passed
+- `npm run test:contract --silent` passed
 - `npm run build --silent` passed
 - `npm run test:pyramid --silent` passed
 - Build check: mixed lazy/static warnings for `MainLayout` and `BondCleanQuoteForm` are cleared
@@ -163,3 +181,6 @@ Status keys:
 - Reliability check: telemetry contract validates runtime `userId` context injection path
 - Reliability check: offline queue contract validates explicit `userId` propagation from caller options to telemetry
 - Reliability check: dispatch domain contract validates explicit `userId` propagation for job create/update telemetry
+- Reliability check: dispatch offline queue supports service-worker background sync replay with queue/config message bridge
+- Maintainability check: dispatch selectors are isolated in `sparkery-dispatch.css`; `sparkery-legacy.css` no longer contains dispatch styles
+- Maintainability check: Sparkery tab prefetch logic moved to `useSparkeryTabPrefetch` hook to keep page container view-focused

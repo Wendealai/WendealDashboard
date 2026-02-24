@@ -43,6 +43,7 @@ import {
   getSparkeryTelemetryUserId,
   trackSparkeryEvent,
 } from '@/services/sparkeryTelemetry';
+import { createSparkeryIdempotencyKey } from '@/services/sparkeryIdempotency';
 import {
   DEFAULT_CONFIG,
   type ManualMeasurementAddon,
@@ -492,10 +493,15 @@ const BrisbaneQuoteCalculator: React.FC = () => {
   const generateQuotePDF = (language: QuoteTemplateLanguage) => {
     const startedAt = Date.now();
     const traceId = createQuoteTraceId('print');
+    const idempotencyKey = createSparkeryIdempotencyKey('quote.print', {
+      quoteId,
+      language,
+    });
     const telemetryUserId = getSparkeryTelemetryUserId();
     trackSparkeryEvent('quote.print.started', {
       data: {
         traceId,
+        idempotencyKey,
         language,
         quoteId,
         templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
@@ -560,6 +566,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           durationMs: Date.now() - startedAt,
           data: {
             traceId,
+            idempotencyKey,
             language,
             quoteId,
             templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
@@ -573,6 +580,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           data: {
             traceId,
             errorCode: 'QUOTE_PRINT_WINDOW_BLOCKED',
+            idempotencyKey,
             language,
             quoteId,
             reason: 'window_blocked',
@@ -599,6 +607,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         data: {
           traceId,
           errorCode: 'QUOTE_PRINT_RENDER_FAILED',
+          idempotencyKey,
           language,
           quoteId,
           reason: toErrorMessage(error),
@@ -2566,10 +2575,19 @@ const BrisbaneQuoteCalculator: React.FC = () => {
   ) => {
     const startedAt = Date.now();
     const traceId = createQuoteTraceId('custom_report.print');
+    const idempotencyKey = createSparkeryIdempotencyKey(
+      'quote.custom_report.print',
+      {
+        quoteId,
+        language,
+        documentType,
+      }
+    );
     const telemetryUserId = getSparkeryTelemetryUserId();
     trackSparkeryEvent('quote.custom_report.print.started', {
       data: {
         traceId,
+        idempotencyKey,
         language,
         documentType,
         quoteId,
@@ -2634,6 +2652,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           durationMs: Date.now() - startedAt,
           data: {
             traceId,
+            idempotencyKey,
             language,
             documentType,
             quoteId,
@@ -2648,6 +2667,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           data: {
             traceId,
             errorCode: 'QUOTE_CUSTOM_REPORT_WINDOW_BLOCKED',
+            idempotencyKey,
             language,
             documentType,
             quoteId,
@@ -2675,6 +2695,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         data: {
           traceId,
           errorCode: 'QUOTE_CUSTOM_REPORT_RENDER_FAILED',
+          idempotencyKey,
           language,
           documentType,
           quoteId,

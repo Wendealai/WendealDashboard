@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './locales';
+import { syncDispatchConfigToServiceWorker } from '@/pages/Sparkery/dispatch/offlineBackgroundSync';
 
 type SupabaseRuntimeConfig = {
   url?: string;
@@ -75,10 +76,31 @@ if (import.meta.env.DEV) {
 }
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // Keep app usable even if service worker registration fails.
+  const syncDispatchConfig = () => {
+    syncDispatchConfigToServiceWorker({
+      ...(runtime.__WENDEAL_SUPABASE_CONFIG__?.url
+        ? { supabaseUrl: runtime.__WENDEAL_SUPABASE_CONFIG__.url }
+        : {}),
+      ...(runtime.__WENDEAL_SUPABASE_CONFIG__?.anonKey
+        ? { supabaseAnonKey: runtime.__WENDEAL_SUPABASE_CONFIG__.anonKey }
+        : {}),
     });
+  };
+
+  navigator.serviceWorker.addEventListener(
+    'controllerchange',
+    syncDispatchConfig
+  );
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then(() => {
+        syncDispatchConfig();
+      })
+      .catch(() => {
+        // Keep app usable even if service worker registration fails.
+      });
   });
 }
 

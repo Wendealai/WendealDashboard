@@ -1,10 +1,15 @@
 import type { DispatchEmployeeLocation, DispatchJobStatus } from './types';
 import {
+  requestDispatchOfflineBackgroundSync,
+  syncDispatchOfflineQueueToServiceWorker,
+} from './offlineBackgroundSync';
+import {
   getSparkeryTelemetryActorRole,
   getSparkeryTelemetrySessionId,
   getSparkeryTelemetryUserId,
   trackSparkeryEvent,
 } from '@/services/sparkeryTelemetry';
+import { createSparkeryIdempotencyKey } from '@/services/sparkeryIdempotency';
 
 const OFFLINE_QUEUE_STORAGE_KEY = 'sparkery_dispatch_mobile_offline_queue_v1';
 const OFFLINE_DEAD_LETTER_STORAGE_KEY =
@@ -160,11 +165,20 @@ const resolveDispatchOfflineTelemetryContext = (options?: {
 
 const resolveIdempotencyKey = (action: EnqueuePayload): string => {
   if (action.type === 'update_job_status') {
-    return `${action.type}:${action.payload.jobId}:${action.payload.status}`;
+    return createSparkeryIdempotencyKey('dispatch.offline.update_job_status', {
+      jobId: action.payload.jobId,
+      status: action.payload.status,
+    });
   }
 
-  const locationUpdatedAt = action.payload.location.updatedAt || '';
-  return `${action.type}:${action.payload.employeeId}:${locationUpdatedAt}`;
+  return createSparkeryIdempotencyKey('dispatch.offline.report_location', {
+    employeeId: action.payload.employeeId,
+    location: {
+      lat: action.payload.location.lat,
+      lng: action.payload.location.lng,
+      updatedAt: action.payload.location.updatedAt || '',
+    },
+  });
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -183,8 +197,18 @@ const normalizeQueueAction = (
   const idempotencyKey =
     action.idempotencyKey ||
     (action.type === 'update_job_status'
-      ? `${action.type}:${action.payload.jobId}:${action.payload.status}`
-      : `${action.type}:${action.payload.employeeId}:${action.payload.location.updatedAt || ''}`);
+      ? createSparkeryIdempotencyKey('dispatch.offline.update_job_status', {
+          jobId: action.payload.jobId,
+          status: action.payload.status,
+        })
+      : createSparkeryIdempotencyKey('dispatch.offline.report_location', {
+          employeeId: action.payload.employeeId,
+          location: {
+            lat: action.payload.location.lat,
+            lng: action.payload.location.lng,
+            updatedAt: action.payload.location.updatedAt || '',
+          },
+        }));
 
   return {
     ...action,
@@ -399,6 +423,7 @@ export const getDispatchOfflineDeadLetterQueue =
 
 export const clearDispatchOfflineQueue = (): void => {
   localStorage.removeItem(OFFLINE_QUEUE_STORAGE_KEY);
+  syncDispatchOfflineQueueToServiceWorker([]);
 };
 
 export const clearDispatchOfflineDeadLetterQueue = (): void => {
@@ -492,6 +517,8 @@ export const enqueueDispatchOfflineAction = (
 
   deduplicated.push(normalizedAction);
   saveQueue(deduplicated);
+  syncDispatchOfflineQueueToServiceWorker(deduplicated);
+  void requestDispatchOfflineBackgroundSync();
   trackSparkeryEvent('dispatch.offline.enqueue', {
     success: true,
     data: {
@@ -628,6 +655,10 @@ export const flushDispatchOfflineQueue = async (
   }
 
   saveQueue(remainingQueue);
+  syncDispatchOfflineQueueToServiceWorker(remainingQueue);
+  if (remainingQueue.length > 0) {
+    void requestDispatchOfflineBackgroundSync();
+  }
   saveDeadLetterQueue(deadLetterQueue);
 
   const flushErrorCode = resolveDispatchOfflineFlushErrorCode({
@@ -659,3 +690,15 @@ export const flushDispatchOfflineQueue = async (
     networkFailed,
   };
 };
+
+const initializeDispatchOfflineQueueSync = (): void => {
+  const existingQueue = loadQueue();
+  syncDispatchOfflineQueueToServiceWorker(existingQueue);
+  if (existingQueue.length > 0) {
+    void requestDispatchOfflineBackgroundSync();
+  }
+};
+
+if (typeof window !== 'undefined') {
+  initializeDispatchOfflineQueueSync();
+}

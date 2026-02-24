@@ -30,7 +30,6 @@ import {
 import dayjs from 'dayjs';
 import type { DispatchEmployee, DispatchJob } from './dispatch/types';
 import { sparkeryDispatchService } from '@/services/sparkeryDispatchService';
-import { getSparkeryTelemetrySessionId } from '@/services/sparkeryTelemetry';
 import { useAppSelector } from '@/hooks/redux';
 import { selectUser } from '@/store';
 import {
@@ -39,6 +38,7 @@ import {
   getDispatchOfflineQueueCount,
   isLikelyNetworkError,
 } from './dispatch/offlineQueue';
+import { useDispatchTelemetryContext } from './dispatch/useDispatchTelemetryContext';
 import { useTranslation } from 'react-i18next';
 import './sparkery.css';
 
@@ -128,20 +128,7 @@ const DispatchEmployeeTasksPage: React.FC = () => {
   const { t } = useTranslation();
   const query = useMemo(() => parseQuery(), []);
   const authUser = useAppSelector(selectUser);
-  const telemetryUserId = authUser?.id;
-  const telemetryActorRole = authUser?.role;
-  const telemetrySessionId = useMemo(
-    () => getSparkeryTelemetrySessionId(),
-    [telemetryActorRole, telemetryUserId]
-  );
-  const dispatchTelemetryContext = useMemo(() => {
-    const context = {
-      ...(telemetryUserId ? { userId: telemetryUserId } : {}),
-      ...(telemetryActorRole ? { actorRole: telemetryActorRole } : {}),
-      ...(telemetrySessionId ? { sessionId: telemetrySessionId } : {}),
-    };
-    return Object.keys(context).length > 0 ? context : undefined;
-  }, [telemetryActorRole, telemetrySessionId, telemetryUserId]);
+  const dispatchTelemetryContext = useDispatchTelemetryContext(authUser);
   const [loading, setLoading] = useState(true);
   const [savingJobId, setSavingJobId] = useState<string | null>(null);
   const [reportingLocation, setReportingLocation] = useState(false);
@@ -353,6 +340,37 @@ const DispatchEmployeeTasksPage: React.FC = () => {
       });
     }
   }, [refreshQueueCount, syncOfflineQueue]);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) {
+      return;
+    }
+
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'DISPATCH_BACKGROUND_SYNC_RESULT') {
+        return;
+      }
+
+      refreshQueueCount();
+      const synced = Number(event.data?.payload?.synced || 0);
+      if (synced > 0) {
+        loadData().catch(() => {
+          // Keep existing data if refresh fails.
+        });
+      }
+    };
+
+    navigator.serviceWorker.addEventListener(
+      'message',
+      handleServiceWorkerMessage
+    );
+    return () => {
+      navigator.serviceWorker.removeEventListener(
+        'message',
+        handleServiceWorkerMessage
+      );
+    };
+  }, [loadData, refreshQueueCount]);
 
   const selectedEmployee = useMemo(
     () =>

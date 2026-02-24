@@ -22,7 +22,13 @@ interface SparkeryTelemetryEvent {
 }
 
 const SPARKERY_TELEMETRY_STORAGE_KEY = 'sparkery_telemetry_events_v1';
+const SPARKERY_TELEMETRY_PENDING_STORAGE_KEY = 'sparkery_telemetry_pending_v1';
+const SPARKERY_TELEMETRY_DEVICE_ID_STORAGE_KEY =
+  'sparkery_telemetry_device_id_v1';
 const SPARKERY_TELEMETRY_LIMIT = 300;
+const SPARKERY_TELEMETRY_PENDING_LIMIT = 500;
+const SPARKERY_TELEMETRY_REMOTE_BATCH_SIZE = 30;
+const SPARKERY_TELEMETRY_REMOTE_MIN_FLUSH_INTERVAL_MS = 2000;
 const SPARKERY_TELEMETRY_USER_STORAGE_KEYS = [
   'auth_user',
   'wendeal_user_info',
@@ -37,6 +43,11 @@ type SparkeryTelemetryWindow = Window & {
   __SPARKERY_TELEMETRY_USER_ID__?: unknown;
   __SPARKERY_TELEMETRY_ACTOR_ROLE__?: unknown;
   __SPARKERY_TELEMETRY_SESSION_ID__?: unknown;
+  __SPARKERY_TELEMETRY_DEVICE_ID__?: unknown;
+  __WENDEAL_APP_VERSION__?: unknown;
+  __WENDEAL_RUNTIME_CONFIG__?: {
+    appVersion?: unknown;
+  };
   __REDUX_STORE__?: {
     getState?: () => unknown;
   };
@@ -437,6 +448,111 @@ const resolveSessionIdFromRuntime = (): string | undefined => {
   return resolveSessionIdFromReduxState(reduxState);
 };
 
+const resolveAppVersionFromRuntime = (): string | undefined => {
+  const runtime = globalThis as typeof globalThis & {
+    __WENDEAL_APP_VERSION__?: unknown;
+    __WENDEAL_RUNTIME_CONFIG__?: {
+      appVersion?: unknown;
+    };
+  };
+
+  const runtimeVersion = toNonEmptyString(runtime.__WENDEAL_APP_VERSION__);
+  if (runtimeVersion) {
+    return runtimeVersion;
+  }
+
+  const runtimeConfigVersion = toNonEmptyString(
+    runtime.__WENDEAL_RUNTIME_CONFIG__?.appVersion
+  );
+  if (runtimeConfigVersion) {
+    return runtimeConfigVersion;
+  }
+
+  const browserWindow =
+    typeof window !== 'undefined'
+      ? (window as SparkeryTelemetryWindow)
+      : undefined;
+  return toNonEmptyString(
+    browserWindow?.__WENDEAL_RUNTIME_CONFIG__?.appVersion
+  );
+};
+
+const resolveNetworkTypeFromRuntime = (): string | undefined => {
+  if (typeof navigator === 'undefined') {
+    return undefined;
+  }
+
+  const nav = navigator as Navigator & {
+    connection?: {
+      effectiveType?: string;
+      type?: string;
+      downlink?: number;
+    };
+  };
+  const effectiveType = toNonEmptyString(nav.connection?.effectiveType);
+  if (effectiveType) {
+    return effectiveType;
+  }
+
+  const connectionType = toNonEmptyString(nav.connection?.type);
+  if (connectionType) {
+    return connectionType;
+  }
+
+  if (typeof nav.connection?.downlink === 'number') {
+    return `downlink_${nav.connection.downlink}`;
+  }
+
+  if (typeof nav.onLine === 'boolean') {
+    return nav.onLine ? 'online' : 'offline';
+  }
+
+  return undefined;
+};
+
+const createDeviceId = (): string =>
+  `sparkery-device-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+const resolveDeviceIdFromStorage = (): string | undefined => {
+  if (!isBrowser()) {
+    return undefined;
+  }
+
+  const storedDeviceId = toNonEmptyString(
+    readStorageItem(localStorage, SPARKERY_TELEMETRY_DEVICE_ID_STORAGE_KEY)
+  );
+  if (storedDeviceId) {
+    return storedDeviceId;
+  }
+
+  const generatedDeviceId = createDeviceId();
+  try {
+    localStorage.setItem(
+      SPARKERY_TELEMETRY_DEVICE_ID_STORAGE_KEY,
+      generatedDeviceId
+    );
+  } catch {
+    return undefined;
+  }
+  return generatedDeviceId;
+};
+
+const resolveDeviceIdFromRuntime = (): string | undefined => {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  const telemetryWindow = window as SparkeryTelemetryWindow;
+  const explicitDeviceId = toNonEmptyString(
+    telemetryWindow.__SPARKERY_TELEMETRY_DEVICE_ID__
+  );
+  if (explicitDeviceId) {
+    return explicitDeviceId;
+  }
+
+  return undefined;
+};
+
 const resolveSparkeryTelemetryUserId = (
   data?: Record<string, unknown>
 ): string | undefined => {
@@ -467,23 +583,72 @@ const resolveSparkeryTelemetrySessionId = (
   return resolveSessionIdFromRuntime() ?? resolveSessionIdFromStorage();
 };
 
+const resolveSparkeryTelemetryAppVersion = (
+  data?: Record<string, unknown>
+): string | undefined => {
+  const explicitAppVersion = toNonEmptyString(data?.appVersion);
+  if (explicitAppVersion) {
+    return explicitAppVersion;
+  }
+  return resolveAppVersionFromRuntime();
+};
+
+const resolveSparkeryTelemetryDeviceId = (
+  data?: Record<string, unknown>
+): string | undefined => {
+  const explicitDeviceId = toNonEmptyString(data?.deviceId);
+  if (explicitDeviceId) {
+    return explicitDeviceId;
+  }
+  return resolveDeviceIdFromRuntime() ?? resolveDeviceIdFromStorage();
+};
+
+const resolveSparkeryTelemetryNetworkType = (
+  data?: Record<string, unknown>
+): string | undefined => {
+  const explicitNetworkType = toNonEmptyString(data?.networkType);
+  if (explicitNetworkType) {
+    return explicitNetworkType;
+  }
+  return resolveNetworkTypeFromRuntime();
+};
+
 const buildTelemetryEventData = (
   data?: Record<string, unknown>
 ): Record<string, unknown> | undefined => {
   const resolvedUserId = resolveSparkeryTelemetryUserId(data);
-  if (!data && !resolvedUserId) {
-    return undefined;
+  const resolvedActorRole = resolveSparkeryTelemetryActorRole(data);
+  const resolvedSessionId = resolveSparkeryTelemetrySessionId(data);
+  const resolvedAppVersion = resolveSparkeryTelemetryAppVersion(data);
+  const resolvedDeviceId = resolveSparkeryTelemetryDeviceId(data);
+  const resolvedNetworkType = resolveSparkeryTelemetryNetworkType(data);
+
+  const normalized = {
+    ...(data || {}),
+    ...(resolvedUserId && !toNonEmptyString(data?.userId)
+      ? { userId: resolvedUserId }
+      : {}),
+    ...(resolvedActorRole && !toNonEmptyString(data?.actorRole)
+      ? { actorRole: resolvedActorRole }
+      : {}),
+    ...(resolvedSessionId && !toNonEmptyString(data?.sessionId)
+      ? { sessionId: resolvedSessionId }
+      : {}),
+    ...(resolvedAppVersion && !toNonEmptyString(data?.appVersion)
+      ? { appVersion: resolvedAppVersion }
+      : {}),
+    ...(resolvedDeviceId && !toNonEmptyString(data?.deviceId)
+      ? { deviceId: resolvedDeviceId }
+      : {}),
+    ...(resolvedNetworkType && !toNonEmptyString(data?.networkType)
+      ? { networkType: resolvedNetworkType }
+      : {}),
+  };
+
+  if (Object.keys(normalized).length > 0) {
+    return normalized;
   }
-  if (!data && resolvedUserId) {
-    return { userId: resolvedUserId };
-  }
-  if (data && resolvedUserId && !toNonEmptyString(data.userId)) {
-    return {
-      ...data,
-      userId: resolvedUserId,
-    };
-  }
-  return data;
+  return undefined;
 };
 
 const isDevRuntime = (): boolean => {
@@ -527,6 +692,172 @@ const saveTelemetryEvents = (events: SparkeryTelemetryEvent[]): void => {
   );
 };
 
+const loadPendingTelemetryEvents = (): SparkeryTelemetryEvent[] => {
+  if (!isBrowser()) {
+    return [];
+  }
+
+  try {
+    const raw = localStorage.getItem(SPARKERY_TELEMETRY_PENDING_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter(item => item && typeof item === 'object');
+  } catch {
+    return [];
+  }
+};
+
+const savePendingTelemetryEvents = (events: SparkeryTelemetryEvent[]): void => {
+  if (!isBrowser()) {
+    return;
+  }
+
+  const trimmedEvents =
+    events.length > SPARKERY_TELEMETRY_PENDING_LIMIT
+      ? events.slice(events.length - SPARKERY_TELEMETRY_PENDING_LIMIT)
+      : events;
+  localStorage.setItem(
+    SPARKERY_TELEMETRY_PENDING_STORAGE_KEY,
+    JSON.stringify(trimmedEvents)
+  );
+};
+
+const enqueuePendingTelemetryEvent = (event: SparkeryTelemetryEvent): void => {
+  const pending = loadPendingTelemetryEvents();
+  pending.push(event);
+  savePendingTelemetryEvents(pending);
+};
+
+const getSupabaseTelemetryConfig = ():
+  | {
+      url: string;
+      anonKey: string;
+    }
+  | undefined => {
+  const runtime = globalThis as typeof globalThis & {
+    __WENDEAL_SUPABASE_CONFIG__?: {
+      url?: unknown;
+      anonKey?: unknown;
+    };
+  };
+
+  const runtimeUrl = toNonEmptyString(runtime.__WENDEAL_SUPABASE_CONFIG__?.url);
+  const runtimeAnonKey = toNonEmptyString(
+    runtime.__WENDEAL_SUPABASE_CONFIG__?.anonKey
+  );
+  if (!runtimeUrl || !runtimeAnonKey) {
+    return undefined;
+  }
+
+  return {
+    url: runtimeUrl,
+    anonKey: runtimeAnonKey,
+  };
+};
+
+const toSupabaseTelemetryRow = (event: SparkeryTelemetryEvent) => {
+  const data = isRecord(event.data) ? event.data : {};
+  return {
+    id: event.id,
+    name: event.name,
+    timestamp: event.timestamp,
+    success: typeof event.success === 'boolean' ? event.success : null,
+    duration_ms: typeof event.durationMs === 'number' ? event.durationMs : null,
+    data,
+    user_id: toNonEmptyString(data.userId) || null,
+    actor_role: toNonEmptyString(data.actorRole) || null,
+    session_id: toNonEmptyString(data.sessionId) || null,
+    app_version: toNonEmptyString(data.appVersion) || null,
+    device_id: toNonEmptyString(data.deviceId) || null,
+    network_type: toNonEmptyString(data.networkType) || null,
+  };
+};
+
+let telemetryFlushInFlight = false;
+let telemetryLastFlushAt = 0;
+let telemetryOnlineListenerBound = false;
+
+const canFlushTelemetryNow = (): boolean =>
+  Date.now() - telemetryLastFlushAt >=
+  SPARKERY_TELEMETRY_REMOTE_MIN_FLUSH_INTERVAL_MS;
+
+const ensureTelemetryOnlineFlushListener = (): void => {
+  if (!isBrowser() || telemetryOnlineListenerBound) {
+    return;
+  }
+
+  telemetryOnlineListenerBound = true;
+  window.addEventListener('online', () => {
+    void flushSparkeryTelemetryEventsToServer();
+  });
+};
+
+export const flushSparkeryTelemetryEventsToServer = async (): Promise<void> => {
+  if (!isBrowser() || typeof fetch !== 'function') {
+    return;
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return;
+  }
+
+  if (telemetryFlushInFlight || !canFlushTelemetryNow()) {
+    return;
+  }
+
+  const supabaseConfig = getSupabaseTelemetryConfig();
+  if (!supabaseConfig) {
+    return;
+  }
+
+  let pending = loadPendingTelemetryEvents();
+  if (pending.length === 0) {
+    return;
+  }
+
+  telemetryFlushInFlight = true;
+  telemetryLastFlushAt = Date.now();
+
+  try {
+    while (pending.length > 0) {
+      const batch = pending.slice(0, SPARKERY_TELEMETRY_REMOTE_BATCH_SIZE);
+      const response = await fetch(
+        `${supabaseConfig.url.replace(/\/$/, '')}/rest/v1/sparkery_telemetry_events?on_conflict=id`,
+        {
+          method: 'POST',
+          headers: {
+            apikey: supabaseConfig.anonKey,
+            Authorization: `Bearer ${supabaseConfig.anonKey}`,
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates,return=minimal',
+          },
+          body: JSON.stringify(batch.map(toSupabaseTelemetryRow)),
+        }
+      );
+
+      if (!response.ok) {
+        const details = await response.text();
+        throw new Error(
+          `telemetry upload failed (${response.status}): ${details || 'No details'}`
+        );
+      }
+
+      pending = pending.slice(batch.length);
+      savePendingTelemetryEvents(pending);
+    }
+  } catch {
+    // Keep remaining pending events for the next retry.
+    savePendingTelemetryEvents(pending);
+  } finally {
+    telemetryFlushInFlight = false;
+  }
+};
+
 export const trackSparkeryEvent = (
   name: SparkeryTelemetryEventName,
   payload: {
@@ -552,10 +883,14 @@ export const trackSparkeryEvent = (
   const currentEvents = loadTelemetryEvents();
   currentEvents.push(event);
   saveTelemetryEvents(currentEvents);
+  enqueuePendingTelemetryEvent(event);
+  ensureTelemetryOnlineFlushListener();
 
   if (isDevRuntime() && typeof window !== 'undefined') {
     (window as SparkeryTelemetryWindow).__SPARKERY_TELEMETRY_LAST__ = event;
   }
+
+  void flushSparkeryTelemetryEventsToServer();
 };
 
 export const getSparkeryTelemetryEvents = (): SparkeryTelemetryEvent[] =>
@@ -569,6 +904,9 @@ export const getSparkeryTelemetryActorRole = (): string | undefined =>
 
 export const getSparkeryTelemetrySessionId = (): string | undefined =>
   resolveSparkeryTelemetrySessionId();
+
+export const getSparkeryTelemetryDeviceId = (): string | undefined =>
+  resolveSparkeryTelemetryDeviceId();
 
 export const setSparkeryTelemetryUserId = (userId: unknown): void => {
   if (typeof window === 'undefined') {
@@ -627,9 +965,34 @@ export const clearSparkeryTelemetrySessionId = (): void => {
   setSparkeryTelemetrySessionId(null);
 };
 
+export const setSparkeryTelemetryDeviceId = (deviceId: unknown): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const telemetryWindow = window as SparkeryTelemetryWindow;
+  const normalizedDeviceId = toNonEmptyString(deviceId);
+  if (normalizedDeviceId) {
+    telemetryWindow.__SPARKERY_TELEMETRY_DEVICE_ID__ = normalizedDeviceId;
+    localStorage.setItem(
+      SPARKERY_TELEMETRY_DEVICE_ID_STORAGE_KEY,
+      normalizedDeviceId
+    );
+    return;
+  }
+
+  delete telemetryWindow.__SPARKERY_TELEMETRY_DEVICE_ID__;
+  localStorage.removeItem(SPARKERY_TELEMETRY_DEVICE_ID_STORAGE_KEY);
+};
+
+export const clearSparkeryTelemetryDeviceId = (): void => {
+  setSparkeryTelemetryDeviceId(null);
+};
+
 export const clearSparkeryTelemetryEvents = (): void => {
   if (!isBrowser()) {
     return;
   }
   localStorage.removeItem(SPARKERY_TELEMETRY_STORAGE_KEY);
+  localStorage.removeItem(SPARKERY_TELEMETRY_PENDING_STORAGE_KEY);
 };
