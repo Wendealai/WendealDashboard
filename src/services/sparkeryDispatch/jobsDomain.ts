@@ -5,6 +5,11 @@ import type {
   UpdateDispatchJobPayload,
 } from '@/pages/Sparkery/dispatch/types';
 import {
+  getSparkeryTelemetryActorRole,
+  getSparkeryTelemetrySessionId,
+  getSparkeryTelemetryUserId,
+} from '@/services/sparkeryTelemetry';
+import {
   ensureSupabaseRows,
   isSupabaseDispatchJobRowValue,
   toJob,
@@ -87,6 +92,8 @@ export interface DispatchJobsDomainService {
 
 export interface DispatchJobMutationOptions {
   userId?: string;
+  actorRole?: string;
+  sessionId?: string;
 }
 
 const roundMoney = (value: number): number =>
@@ -241,6 +248,33 @@ const resolveDispatchJobErrorCode = (
   return fallback;
 };
 
+const normalizeTelemetryField = (value?: string): string | undefined =>
+  typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+
+const resolveDispatchJobTelemetryContext = (
+  options?: DispatchJobMutationOptions
+): {
+  userId?: string;
+  actorRole?: string;
+  sessionId?: string;
+} => {
+  const userId =
+    normalizeTelemetryField(options?.userId) || getSparkeryTelemetryUserId();
+  const actorRole =
+    normalizeTelemetryField(options?.actorRole) ||
+    getSparkeryTelemetryActorRole();
+  const sessionId =
+    normalizeTelemetryField(options?.sessionId) ||
+    getSparkeryTelemetrySessionId();
+  return {
+    ...(userId ? { userId } : {}),
+    ...(actorRole ? { actorRole } : {}),
+    ...(sessionId ? { sessionId } : {}),
+  };
+};
+
 export const createDispatchJobsDomainService = (
   deps: DispatchJobsDomainDependencies
 ): DispatchJobsDomainService => {
@@ -302,10 +336,7 @@ export const createDispatchJobsDomainService = (
     ) {
       const startedAt = Date.now();
       const traceId = createDispatchTraceId('job.create');
-      const telemetryUserId =
-        typeof options?.userId === 'string' && options.userId.trim().length > 0
-          ? options.userId.trim()
-          : undefined;
+      const telemetryContext = resolveDispatchJobTelemetryContext(options);
       const normalizedPricingMode =
         payload.pricingMode ||
         (payload.recurringEnabled ? 'recurring_fixed' : 'one_time_manual');
@@ -364,7 +395,7 @@ export const createDispatchJobsDomainService = (
               errorCode,
               source: 'supabase',
               reason: error instanceof Error ? error.message : 'unknown_error',
-              ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+              ...telemetryContext,
             },
           });
           if (isSupabaseMissingDispatchFinanceSchemaError(error)) {
@@ -382,7 +413,7 @@ export const createDispatchJobsDomainService = (
               errorCode: 'DISPATCH_SUPABASE_EMPTY_RESPONSE',
               source: 'supabase',
               reason: 'empty_response_rows',
-              ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+              ...telemetryContext,
             },
           });
           throw new Error('Supabase job creation returned no rows');
@@ -396,7 +427,7 @@ export const createDispatchJobsDomainService = (
             source: 'supabase',
             jobId: createdJob.id,
             serviceType: createdJob.serviceType,
-            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+            ...telemetryContext,
           },
         });
         return createdJob;
@@ -447,7 +478,7 @@ export const createDispatchJobsDomainService = (
           source: 'local',
           jobId: job.id,
           serviceType: job.serviceType,
-          ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+          ...telemetryContext,
         },
       });
       return job;
@@ -460,10 +491,7 @@ export const createDispatchJobsDomainService = (
     ) {
       const startedAt = Date.now();
       const traceId = createDispatchTraceId('job.update');
-      const telemetryUserId =
-        typeof options?.userId === 'string' && options.userId.trim().length > 0
-          ? options.userId.trim()
-          : undefined;
+      const telemetryContext = resolveDispatchJobTelemetryContext(options);
       if (deps.getSupabaseConfig()) {
         const query = buildDispatchJobsQuery({ id, limit: 1 });
         let existingList: SupabaseDispatchJobRow[];
@@ -503,7 +531,7 @@ export const createDispatchJobsDomainService = (
                 jobId: id,
                 reason:
                   error instanceof Error ? error.message : 'unknown_error',
-                ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+                ...telemetryContext,
               },
             });
             throw new Error(DISPATCH_FINANCE_SCHEMA_ERROR_MESSAGE);
@@ -519,7 +547,7 @@ export const createDispatchJobsDomainService = (
                 jobId: id,
                 reason:
                   error instanceof Error ? error.message : 'unknown_error',
-                ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+                ...telemetryContext,
               },
             });
             throw error;
@@ -722,7 +750,7 @@ export const createDispatchJobsDomainService = (
               stage: 'patch',
               jobId: id,
               reason: error instanceof Error ? error.message : 'unknown_error',
-              ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+              ...telemetryContext,
             },
           });
           if (isSupabaseMissingDispatchFinanceSchemaError(error)) {
@@ -742,7 +770,7 @@ export const createDispatchJobsDomainService = (
               stage: 'patch',
               jobId: id,
               reason: 'empty_response_rows',
-              ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+              ...telemetryContext,
             },
           });
           throw new Error('Supabase job update returned no rows');
@@ -755,7 +783,7 @@ export const createDispatchJobsDomainService = (
             traceId,
             source: 'supabase',
             jobId: updatedJob.id,
-            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+            ...telemetryContext,
           },
         });
         return updatedJob;
@@ -836,7 +864,7 @@ export const createDispatchJobsDomainService = (
           traceId,
           source: 'local',
           jobId: updated.id,
-          ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+          ...telemetryContext,
         },
       });
       return updated;

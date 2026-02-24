@@ -30,6 +30,7 @@ import {
 import dayjs from 'dayjs';
 import type { DispatchEmployee, DispatchJob } from './dispatch/types';
 import { sparkeryDispatchService } from '@/services/sparkeryDispatchService';
+import { getSparkeryTelemetrySessionId } from '@/services/sparkeryTelemetry';
 import { useAppSelector } from '@/hooks/redux';
 import { selectUser } from '@/store';
 import {
@@ -128,6 +129,19 @@ const DispatchEmployeeTasksPage: React.FC = () => {
   const query = useMemo(() => parseQuery(), []);
   const authUser = useAppSelector(selectUser);
   const telemetryUserId = authUser?.id;
+  const telemetryActorRole = authUser?.role;
+  const telemetrySessionId = useMemo(
+    () => getSparkeryTelemetrySessionId(),
+    [telemetryActorRole, telemetryUserId]
+  );
+  const dispatchTelemetryContext = useMemo(() => {
+    const context = {
+      ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+      ...(telemetryActorRole ? { actorRole: telemetryActorRole } : {}),
+      ...(telemetrySessionId ? { sessionId: telemetrySessionId } : {}),
+    };
+    return Object.keys(context).length > 0 ? context : undefined;
+  }, [telemetryActorRole, telemetrySessionId, telemetryUserId]);
   const [loading, setLoading] = useState(true);
   const [savingJobId, setSavingJobId] = useState<string | null>(null);
   const [reportingLocation, setReportingLocation] = useState(false);
@@ -258,9 +272,7 @@ const DispatchEmployeeTasksPage: React.FC = () => {
               await sparkeryDispatchService.updateJobStatus(
                 payload.jobId,
                 payload.status,
-                {
-                  ...(telemetryUserId ? { userId: telemetryUserId } : {}),
-                }
+                dispatchTelemetryContext
               );
             },
             reportEmployeeLocation: async payload => {
@@ -272,7 +284,7 @@ const DispatchEmployeeTasksPage: React.FC = () => {
           },
           {
             stopOnNetworkError: true,
-            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+            ...dispatchTelemetryContext,
           }
         );
 
@@ -308,7 +320,7 @@ const DispatchEmployeeTasksPage: React.FC = () => {
         setSyncingQueue(false);
       }
     },
-    [loadData, refreshQueueCount, t, telemetryUserId]
+    [dispatchTelemetryContext, loadData, refreshQueueCount, t]
   );
 
   useEffect(() => {
@@ -455,9 +467,7 @@ const DispatchEmployeeTasksPage: React.FC = () => {
               status,
             },
           },
-          {
-            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
-          }
+          dispatchTelemetryContext
         );
         refreshQueueCount();
         message.warning(
@@ -469,9 +479,7 @@ const DispatchEmployeeTasksPage: React.FC = () => {
       const updated = await sparkeryDispatchService.updateJobStatus(
         job.id,
         status,
-        {
-          ...(telemetryUserId ? { userId: telemetryUserId } : {}),
-        }
+        dispatchTelemetryContext
       );
       setJobs(prev =>
         prev.map(item => (item.id === updated.id ? updated : item))
@@ -492,9 +500,7 @@ const DispatchEmployeeTasksPage: React.FC = () => {
               status,
             },
           },
-          {
-            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
-          }
+          dispatchTelemetryContext
         );
         refreshQueueCount();
         message.warning(
@@ -559,9 +565,7 @@ const DispatchEmployeeTasksPage: React.FC = () => {
               location: capturedLocationPayload,
             },
           },
-          {
-            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
-          }
+          dispatchTelemetryContext
         );
         refreshQueueCount();
         message.warning(
@@ -589,9 +593,7 @@ const DispatchEmployeeTasksPage: React.FC = () => {
               location: capturedLocationPayload,
             },
           },
-          {
-            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
-          }
+          dispatchTelemetryContext
         );
         refreshQueueCount();
         message.warning(

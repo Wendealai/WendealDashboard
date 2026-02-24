@@ -1,5 +1,7 @@
 import type { DispatchEmployeeLocation, DispatchJobStatus } from './types';
 import {
+  getSparkeryTelemetryActorRole,
+  getSparkeryTelemetrySessionId,
   getSparkeryTelemetryUserId,
   trackSparkeryEvent,
 } from '@/services/sparkeryTelemetry';
@@ -72,10 +74,14 @@ interface FlushOptions {
   maxRetries?: number;
   stopOnNetworkError?: boolean;
   userId?: string;
+  actorRole?: string;
+  sessionId?: string;
 }
 
 interface EnqueueOptions {
   userId?: string;
+  actorRole?: string;
+  sessionId?: string;
 }
 
 export interface FlushQueueResult {
@@ -123,13 +129,33 @@ const createDispatchOfflineTraceId = (operation: string): string =>
     .toString(36)
     .slice(2, 8)}`;
 
-const resolveTelemetryUserId = (
-  explicitUserId?: string
-): string | undefined => {
-  if (typeof explicitUserId === 'string' && explicitUserId.trim().length > 0) {
-    return explicitUserId.trim();
-  }
-  return getSparkeryTelemetryUserId();
+const normalizeTelemetryValue = (value?: string): string | undefined =>
+  typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+
+const resolveDispatchOfflineTelemetryContext = (options?: {
+  userId?: string;
+  actorRole?: string;
+  sessionId?: string;
+}): {
+  userId?: string;
+  actorRole?: string;
+  sessionId?: string;
+} => {
+  const userId =
+    normalizeTelemetryValue(options?.userId) || getSparkeryTelemetryUserId();
+  const actorRole =
+    normalizeTelemetryValue(options?.actorRole) ||
+    getSparkeryTelemetryActorRole();
+  const sessionId =
+    normalizeTelemetryValue(options?.sessionId) ||
+    getSparkeryTelemetrySessionId();
+  return {
+    ...(userId ? { userId } : {}),
+    ...(actorRole ? { actorRole } : {}),
+    ...(sessionId ? { sessionId } : {}),
+  };
 };
 
 const resolveIdempotencyKey = (action: EnqueuePayload): string => {
@@ -415,7 +441,7 @@ export const enqueueDispatchOfflineAction = (
   const now = new Date().toISOString();
   const idempotencyKey = resolveIdempotencyKey(action);
   const traceId = createDispatchOfflineTraceId('enqueue');
-  const telemetryUserId = resolveTelemetryUserId(options.userId);
+  const telemetryContext = resolveDispatchOfflineTelemetryContext(options);
 
   let normalizedAction: DispatchOfflineQueueAction;
   if (action.type === 'update_job_status') {
@@ -473,7 +499,7 @@ export const enqueueDispatchOfflineAction = (
       actionType: normalizedAction.type,
       queueSize: deduplicated.length,
       idempotencyKey: normalizedAction.idempotencyKey,
-      ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+      ...telemetryContext,
     },
   });
   return normalizedAction;
@@ -485,7 +511,7 @@ export const flushDispatchOfflineQueue = async (
 ): Promise<FlushQueueResult> => {
   const maxRetries = Math.max(1, options.maxRetries || DEFAULT_MAX_RETRIES);
   const stopOnNetworkError = options.stopOnNetworkError !== false;
-  const telemetryUserId = resolveTelemetryUserId(options.userId);
+  const telemetryContext = resolveDispatchOfflineTelemetryContext(options);
   const queue = loadQueue();
   const traceId = createDispatchOfflineTraceId('flush');
 
@@ -503,7 +529,7 @@ export const flushDispatchOfflineQueue = async (
       data: {
         traceId,
         ...result,
-        ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+        ...telemetryContext,
       },
     });
     return result;
@@ -524,7 +550,7 @@ export const flushDispatchOfflineQueue = async (
         traceId,
         ...result,
         errorCode: 'DISPATCH_OFFLINE_FLUSH_NETWORK_UNAVAILABLE',
-        ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+        ...telemetryContext,
       },
     });
     return result;
@@ -620,7 +646,7 @@ export const flushDispatchOfflineQueue = async (
       networkFailed,
       ...(flushErrorCode ? { errorCode: flushErrorCode } : {}),
       ...(failedActionTraceId ? { failedActionTraceId } : {}),
-      ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+      ...telemetryContext,
     },
   });
 

@@ -125,12 +125,150 @@ const getWeekEnd = (weekStart: string): string => {
   return formatDateKey(end);
 };
 
-const resolveDispatchTelemetryUserId = (
+const toNonEmptyString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+
+const normalizeBase64 = (value: string): string => {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const paddingLength = (4 - (base64.length % 4)) % 4;
+  return `${base64}${'='.repeat(paddingLength)}`;
+};
+
+const decodeBase64 = (value: string): string | null => {
+  if (!value || typeof atob !== 'function') {
+    return null;
+  }
+  try {
+    return atob(normalizeBase64(value));
+  } catch {
+    return null;
+  }
+};
+
+const parseDispatchTelemetryTokenPayload = (
+  token: string
+): Record<string, unknown> | null => {
+  const parts = token.split('.');
+  if (parts.length >= 2) {
+    const decodedPayload = decodeBase64(parts[1] || '');
+    if (decodedPayload) {
+      try {
+        const parsed = JSON.parse(decodedPayload) as unknown;
+        if (parsed && typeof parsed === 'object') {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        // noop
+      }
+    }
+  }
+
+  const decodedToken = decodeBase64(token);
+  if (!decodedToken) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(decodedToken) as unknown;
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+    const record = parsed as Record<string, unknown>;
+    if (record.payload && typeof record.payload === 'object') {
+      return record.payload as Record<string, unknown>;
+    }
+    return record;
+  } catch {
+    return null;
+  }
+};
+
+const resolveDispatchTelemetrySessionIdFromToken = (
+  token?: string | null
+): string | undefined => {
+  const normalizedToken = toNonEmptyString(token);
+  if (!normalizedToken) {
+    return undefined;
+  }
+
+  const payload = parseDispatchTelemetryTokenPayload(normalizedToken);
+  if (!payload) {
+    return undefined;
+  }
+
+  const explicitSessionId =
+    toNonEmptyString(payload.sessionId) ??
+    toNonEmptyString(payload.session_id) ??
+    toNonEmptyString(payload.sid) ??
+    toNonEmptyString(payload.jti);
+  if (explicitSessionId) {
+    return explicitSessionId;
+  }
+
+  const subject = toNonEmptyString(payload.sub);
+  const issuedAt = toNonEmptyString(payload.iat);
+  if (subject && issuedAt) {
+    return `${subject}:${issuedAt}`;
+  }
+  return undefined;
+};
+
+const resolveDispatchTelemetryUserId = (state: RootState): string | undefined =>
+  toNonEmptyString(state.auth?.user?.id);
+
+const resolveDispatchTelemetryActorRole = (
+  state: RootState
+): string | undefined => toNonEmptyString(state.auth?.user?.role);
+
+const resolveDispatchTelemetrySessionId = (
   state: RootState
 ): string | undefined => {
-  const userId = state.auth?.user?.id;
-  if (typeof userId === 'string' && userId.trim().length > 0) {
-    return userId.trim();
+  const tokenSessionId = resolveDispatchTelemetrySessionIdFromToken(
+    state.auth?.token
+  );
+  if (tokenSessionId) {
+    return tokenSessionId;
+  }
+
+  const userId = resolveDispatchTelemetryUserId(state);
+  const sessionExpiry = toNonEmptyString(state.auth?.sessionExpiry);
+  if (userId && sessionExpiry) {
+    return `${userId}:${sessionExpiry}`;
+  }
+  return undefined;
+};
+
+const resolveDispatchTelemetryContext = (
+  state: RootState
+): {
+  userId?: string;
+  actorRole?: string;
+  sessionId?: string;
+} => {
+  const userId = resolveDispatchTelemetryUserId(state);
+  const actorRole = resolveDispatchTelemetryActorRole(state);
+  const sessionId = resolveDispatchTelemetrySessionId(state);
+  return {
+    ...(userId ? { userId } : {}),
+    ...(actorRole ? { actorRole } : {}),
+    ...(sessionId ? { sessionId } : {}),
+  };
+};
+
+const withDispatchTelemetryContext = (
+  state: RootState
+):
+  | {
+      userId?: string;
+      actorRole?: string;
+      sessionId?: string;
+    }
+  | undefined => {
+  const context = resolveDispatchTelemetryContext(state);
+  if (context.userId || context.actorRole || context.sessionId) {
+    return context;
   }
   return undefined;
 };
@@ -205,40 +343,40 @@ export const createDispatchJob = createAsyncThunk<
   DispatchJob,
   CreateDispatchJobPayload
 >('sparkeryDispatch/createJob', async (payload, { getState }) => {
-  const userId = resolveDispatchTelemetryUserId(getState() as RootState);
-  return sparkeryDispatchService.createJob(payload, {
-    ...(userId ? { userId } : {}),
-  });
+  const telemetryContext = withDispatchTelemetryContext(
+    getState() as RootState
+  );
+  return sparkeryDispatchService.createJob(payload, telemetryContext);
 });
 
 export const updateDispatchJob = createAsyncThunk<
   DispatchJob,
   UpdateDispatchJobPayloadInput
 >('sparkeryDispatch/updateJob', async ({ id, patch }, { getState }) => {
-  const userId = resolveDispatchTelemetryUserId(getState() as RootState);
-  return sparkeryDispatchService.updateJob(id, patch, {
-    ...(userId ? { userId } : {}),
-  });
+  const telemetryContext = withDispatchTelemetryContext(
+    getState() as RootState
+  );
+  return sparkeryDispatchService.updateJob(id, patch, telemetryContext);
 });
 
 export const assignDispatchJob = createAsyncThunk<
   DispatchJob,
   AssignDispatchJobPayload
 >('sparkeryDispatch/assignJob', async ({ id, employeeIds }, { getState }) => {
-  const userId = resolveDispatchTelemetryUserId(getState() as RootState);
-  return sparkeryDispatchService.assignJob(id, employeeIds, {
-    ...(userId ? { userId } : {}),
-  });
+  const telemetryContext = withDispatchTelemetryContext(
+    getState() as RootState
+  );
+  return sparkeryDispatchService.assignJob(id, employeeIds, telemetryContext);
 });
 
 export const updateDispatchJobStatus = createAsyncThunk<
   DispatchJob,
   UpdateDispatchJobStatusPayload
 >('sparkeryDispatch/updateJobStatus', async ({ id, status }, { getState }) => {
-  const userId = resolveDispatchTelemetryUserId(getState() as RootState);
-  return sparkeryDispatchService.updateJobStatus(id, status, {
-    ...(userId ? { userId } : {}),
-  });
+  const telemetryContext = withDispatchTelemetryContext(
+    getState() as RootState
+  );
+  return sparkeryDispatchService.updateJobStatus(id, status, telemetryContext);
 });
 
 export const deleteDispatchJob = createAsyncThunk<string, string>(
@@ -255,13 +393,13 @@ export const applyDispatchJobFinanceAdjustment = createAsyncThunk<
 >(
   'sparkeryDispatch/applyFinanceAdjustment',
   async ({ id, adjustmentDelta }, { getState }) => {
-    const userId = resolveDispatchTelemetryUserId(getState() as RootState);
+    const telemetryContext = withDispatchTelemetryContext(
+      getState() as RootState
+    );
     return sparkeryDispatchService.applyJobFinanceAdjustment(
       id,
       adjustmentDelta,
-      {
-        ...(userId ? { userId } : {}),
-      }
+      telemetryContext
     );
   }
 );
@@ -272,10 +410,14 @@ export const confirmDispatchJobFinance = createAsyncThunk<
 >(
   'sparkeryDispatch/confirmFinance',
   async ({ id, confirmedBy }, { getState }) => {
-    const userId = resolveDispatchTelemetryUserId(getState() as RootState);
-    return sparkeryDispatchService.confirmJobFinance(id, confirmedBy, {
-      ...(userId ? { userId } : {}),
-    });
+    const telemetryContext = withDispatchTelemetryContext(
+      getState() as RootState
+    );
+    return sparkeryDispatchService.confirmJobFinance(
+      id,
+      confirmedBy,
+      telemetryContext
+    );
   }
 );
 
@@ -285,14 +427,14 @@ export const setDispatchJobPaymentReceived = createAsyncThunk<
 >(
   'sparkeryDispatch/setPaymentReceived',
   async ({ id, received, receivedBy }, { getState }) => {
-    const userId = resolveDispatchTelemetryUserId(getState() as RootState);
+    const telemetryContext = withDispatchTelemetryContext(
+      getState() as RootState
+    );
     return sparkeryDispatchService.setJobPaymentReceived(
       id,
       received,
       receivedBy,
-      {
-        ...(userId ? { userId } : {}),
-      }
+      telemetryContext
     );
   }
 );

@@ -106,6 +106,64 @@ describe('sparkery dispatch domain split contracts', () => {
     expect(updateTelemetry?.payload.data?.userId).toBe('dispatch-user-qa-001');
   });
 
+  it('adds actorRole/sessionId to dispatch job failure telemetry payloads', async () => {
+    const events: Array<{
+      name: string;
+      payload: { data?: Record<string, unknown> };
+    }> = [];
+
+    const service = createDispatchJobsDomainService({
+      getSupabaseConfig: () => ({
+        url: 'https://example.supabase.co',
+        anonKey: 'key',
+      }),
+      supabaseFetch: async <T>(): Promise<T> => {
+        throw new Error('supabase unavailable');
+      },
+      loadStorage: () => ({ jobs: [] }),
+      saveStorage: () => undefined,
+      trackSparkeryEvent: (name, payload) => {
+        events.push({ name, payload });
+      },
+      generateId: prefix => `${prefix}-1`,
+    });
+
+    await expect(
+      service.createJob(createJobPayload(), {
+        userId: 'dispatch-user-qa-002',
+        actorRole: 'dispatcher',
+        sessionId: 'session-abc-001',
+      })
+    ).rejects.toThrow('supabase unavailable');
+
+    const createFailure = events.find(
+      event => event.name === 'dispatch.job.create.failed'
+    );
+    expect(createFailure?.payload.data?.actorRole).toBe('dispatcher');
+    expect(createFailure?.payload.data?.sessionId).toBe('session-abc-001');
+
+    await expect(
+      service.updateJob(
+        'job-404',
+        { status: 'completed' },
+        {
+          userId: 'dispatch-user-qa-002',
+          actorRole: 'dispatcher',
+          sessionId: 'session-abc-001',
+        }
+      )
+    ).rejects.toThrow('supabase unavailable');
+
+    const updateFailures = events.filter(
+      event => event.name === 'dispatch.job.update.failed'
+    );
+    const latestUpdateFailure = updateFailures[updateFailures.length - 1];
+    expect(latestUpdateFailure?.payload.data?.actorRole).toBe('dispatcher');
+    expect(latestUpdateFailure?.payload.data?.sessionId).toBe(
+      'session-abc-001'
+    );
+  });
+
   it('handles employees local location/report/delete without regression', async () => {
     const storage: {
       jobs: DispatchJob[];

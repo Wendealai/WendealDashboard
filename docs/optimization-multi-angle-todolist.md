@@ -55,6 +55,7 @@ Status keys:
   - Progress: `AuthProvider` now synchronizes runtime telemetry `userId` context for stronger cross-event user correlation
   - Progress: quote/offline key telemetry callsites now explicitly pass `userId` in event payloads (in addition to auto-enrichment fallback)
   - Progress: dispatch job mutation chain (`slice -> service -> jobsDomain`) now explicitly passes `userId` into `dispatch.job.create.*` and `dispatch.job.update.*` telemetry
+  - Progress: dispatch job failure telemetry (`dispatch.job.create.failed`, `dispatch.job.update.failed`) now includes `actorRole` and `sessionId` dimensions for production triage aggregation
 - [-] Add error code taxonomy for operational triage
   - Scope: service layer + telemetry payload standards
   - Done when: top failure modes have stable error codes

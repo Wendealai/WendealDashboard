@@ -35,6 +35,8 @@ const SPARKERY_TELEMETRY_TOKEN_STORAGE_KEYS = [
 type SparkeryTelemetryWindow = Window & {
   __SPARKERY_TELEMETRY_LAST__?: SparkeryTelemetryEvent;
   __SPARKERY_TELEMETRY_USER_ID__?: unknown;
+  __SPARKERY_TELEMETRY_ACTOR_ROLE__?: unknown;
+  __SPARKERY_TELEMETRY_SESSION_ID__?: unknown;
   __REDUX_STORE__?: {
     getState?: () => unknown;
   };
@@ -83,6 +85,24 @@ const resolveUserIdFromObject = (value: unknown): string | undefined => {
 
   if (isRecord(value.user)) {
     return resolveUserIdFromObject(value.user);
+  }
+
+  return undefined;
+};
+
+const resolveActorRoleFromObject = (value: unknown): string | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const directRole =
+    toNonEmptyString(value.actorRole) ?? toNonEmptyString(value.role);
+  if (directRole) {
+    return directRole;
+  }
+
+  if (isRecord(value.user)) {
+    return resolveActorRoleFromObject(value.user);
   }
 
   return undefined;
@@ -174,6 +194,40 @@ const extractUserIdFromToken = (token: string | null): string | undefined => {
   return resolveUserIdFromObject(parseTokenPayload(token));
 };
 
+const extractSessionIdFromTokenPayload = (
+  payload: Record<string, unknown> | null
+): string | undefined => {
+  if (!payload) {
+    return undefined;
+  }
+
+  const explicitSessionId =
+    toNonEmptyString(payload.sessionId) ??
+    toNonEmptyString(payload.session_id) ??
+    toNonEmptyString(payload.sid) ??
+    toNonEmptyString(payload.jti);
+  if (explicitSessionId) {
+    return explicitSessionId;
+  }
+
+  const subject = toNonEmptyString(payload.sub);
+  const issuedAt = toNonEmptyString(payload.iat);
+  if (subject && issuedAt) {
+    return `${subject}:${issuedAt}`;
+  }
+
+  return undefined;
+};
+
+const extractSessionIdFromToken = (
+  token: string | null
+): string | undefined => {
+  if (!token) {
+    return undefined;
+  }
+  return extractSessionIdFromTokenPayload(parseTokenPayload(token));
+};
+
 const resolveUserIdFromStorage = (): string | undefined => {
   if (!isBrowser()) {
     return undefined;
@@ -195,6 +249,46 @@ const resolveUserIdFromStorage = (): string | undefined => {
       extractUserIdFromToken(readStorageItem(session, key));
     if (userId) {
       return userId;
+    }
+  }
+
+  return undefined;
+};
+
+const resolveActorRoleFromStorage = (): string | undefined => {
+  if (!isBrowser()) {
+    return undefined;
+  }
+
+  const session = getSessionStorage();
+  for (const key of SPARKERY_TELEMETRY_USER_STORAGE_KEYS) {
+    const actorRole =
+      resolveActorRoleFromObject(
+        tryParseJson(readStorageItem(localStorage, key) || '')
+      ) ??
+      resolveActorRoleFromObject(
+        tryParseJson(readStorageItem(session, key) || '')
+      );
+    if (actorRole) {
+      return actorRole;
+    }
+  }
+
+  return undefined;
+};
+
+const resolveSessionIdFromStorage = (): string | undefined => {
+  if (!isBrowser()) {
+    return undefined;
+  }
+
+  const session = getSessionStorage();
+  for (const key of SPARKERY_TELEMETRY_TOKEN_STORAGE_KEYS) {
+    const sessionId =
+      extractSessionIdFromToken(readStorageItem(localStorage, key)) ??
+      extractSessionIdFromToken(readStorageItem(session, key));
+    if (sessionId) {
+      return sessionId;
     }
   }
 
@@ -225,6 +319,64 @@ const resolveUserIdFromReduxState = (state: unknown): string | undefined => {
   return undefined;
 };
 
+const resolveActorRoleFromReduxState = (state: unknown): string | undefined => {
+  if (!isRecord(state)) {
+    return undefined;
+  }
+
+  const authState = state.auth;
+  if (isRecord(authState)) {
+    const authActorRole = resolveActorRoleFromObject(authState.user);
+    if (authActorRole) {
+      return authActorRole;
+    }
+  }
+
+  const userState = state.user;
+  if (isRecord(userState)) {
+    const storeActorRole = resolveActorRoleFromObject(userState.currentUser);
+    if (storeActorRole) {
+      return storeActorRole;
+    }
+  }
+
+  return undefined;
+};
+
+const resolveSessionIdFromReduxState = (state: unknown): string | undefined => {
+  if (!isRecord(state)) {
+    return undefined;
+  }
+
+  const authState = state.auth;
+  if (!isRecord(authState)) {
+    return undefined;
+  }
+
+  const explicitSessionId =
+    toNonEmptyString(authState.sessionId) ??
+    toNonEmptyString(authState.session_id) ??
+    toNonEmptyString(authState.sid);
+  if (explicitSessionId) {
+    return explicitSessionId;
+  }
+
+  const tokenSessionId = extractSessionIdFromToken(
+    toNonEmptyString(authState.token) || null
+  );
+  if (tokenSessionId) {
+    return tokenSessionId;
+  }
+
+  const userId = resolveUserIdFromObject(authState.user);
+  const sessionExpiry = toNonEmptyString(authState.sessionExpiry);
+  if (userId && sessionExpiry) {
+    return `${userId}:${sessionExpiry}`;
+  }
+
+  return undefined;
+};
+
 const resolveUserIdFromRuntime = (): string | undefined => {
   if (typeof window === 'undefined') {
     return undefined;
@@ -245,6 +397,46 @@ const resolveUserIdFromRuntime = (): string | undefined => {
   return resolveUserIdFromReduxState(reduxState);
 };
 
+const resolveActorRoleFromRuntime = (): string | undefined => {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  const telemetryWindow = window as SparkeryTelemetryWindow;
+  const explicitActorRole = toNonEmptyString(
+    telemetryWindow.__SPARKERY_TELEMETRY_ACTOR_ROLE__
+  );
+  if (explicitActorRole) {
+    return explicitActorRole;
+  }
+
+  const reduxState =
+    typeof telemetryWindow.__REDUX_STORE__?.getState === 'function'
+      ? telemetryWindow.__REDUX_STORE__.getState()
+      : undefined;
+  return resolveActorRoleFromReduxState(reduxState);
+};
+
+const resolveSessionIdFromRuntime = (): string | undefined => {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  const telemetryWindow = window as SparkeryTelemetryWindow;
+  const explicitSessionId = toNonEmptyString(
+    telemetryWindow.__SPARKERY_TELEMETRY_SESSION_ID__
+  );
+  if (explicitSessionId) {
+    return explicitSessionId;
+  }
+
+  const reduxState =
+    typeof telemetryWindow.__REDUX_STORE__?.getState === 'function'
+      ? telemetryWindow.__REDUX_STORE__.getState()
+      : undefined;
+  return resolveSessionIdFromReduxState(reduxState);
+};
+
 const resolveSparkeryTelemetryUserId = (
   data?: Record<string, unknown>
 ): string | undefined => {
@@ -253,6 +445,26 @@ const resolveSparkeryTelemetryUserId = (
     return explicitUserId;
   }
   return resolveUserIdFromRuntime() ?? resolveUserIdFromStorage();
+};
+
+const resolveSparkeryTelemetryActorRole = (
+  data?: Record<string, unknown>
+): string | undefined => {
+  const explicitActorRole = toNonEmptyString(data?.actorRole);
+  if (explicitActorRole) {
+    return explicitActorRole;
+  }
+  return resolveActorRoleFromRuntime() ?? resolveActorRoleFromStorage();
+};
+
+const resolveSparkeryTelemetrySessionId = (
+  data?: Record<string, unknown>
+): string | undefined => {
+  const explicitSessionId = toNonEmptyString(data?.sessionId);
+  if (explicitSessionId) {
+    return explicitSessionId;
+  }
+  return resolveSessionIdFromRuntime() ?? resolveSessionIdFromStorage();
 };
 
 const buildTelemetryEventData = (
@@ -352,6 +564,12 @@ export const getSparkeryTelemetryEvents = (): SparkeryTelemetryEvent[] =>
 export const getSparkeryTelemetryUserId = (): string | undefined =>
   resolveSparkeryTelemetryUserId();
 
+export const getSparkeryTelemetryActorRole = (): string | undefined =>
+  resolveSparkeryTelemetryActorRole();
+
+export const getSparkeryTelemetrySessionId = (): string | undefined =>
+  resolveSparkeryTelemetrySessionId();
+
 export const setSparkeryTelemetryUserId = (userId: unknown): void => {
   if (typeof window === 'undefined') {
     return;
@@ -369,6 +587,44 @@ export const setSparkeryTelemetryUserId = (userId: unknown): void => {
 
 export const clearSparkeryTelemetryUserId = (): void => {
   setSparkeryTelemetryUserId(null);
+};
+
+export const setSparkeryTelemetryActorRole = (actorRole: unknown): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const telemetryWindow = window as SparkeryTelemetryWindow;
+  const normalizedActorRole = toNonEmptyString(actorRole);
+  if (normalizedActorRole) {
+    telemetryWindow.__SPARKERY_TELEMETRY_ACTOR_ROLE__ = normalizedActorRole;
+    return;
+  }
+
+  delete telemetryWindow.__SPARKERY_TELEMETRY_ACTOR_ROLE__;
+};
+
+export const clearSparkeryTelemetryActorRole = (): void => {
+  setSparkeryTelemetryActorRole(null);
+};
+
+export const setSparkeryTelemetrySessionId = (sessionId: unknown): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const telemetryWindow = window as SparkeryTelemetryWindow;
+  const normalizedSessionId = toNonEmptyString(sessionId);
+  if (normalizedSessionId) {
+    telemetryWindow.__SPARKERY_TELEMETRY_SESSION_ID__ = normalizedSessionId;
+    return;
+  }
+
+  delete telemetryWindow.__SPARKERY_TELEMETRY_SESSION_ID__;
+};
+
+export const clearSparkeryTelemetrySessionId = (): void => {
+  setSparkeryTelemetrySessionId(null);
 };
 
 export const clearSparkeryTelemetryEvents = (): void => {
