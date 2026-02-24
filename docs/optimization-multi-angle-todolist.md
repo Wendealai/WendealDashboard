@@ -94,6 +94,53 @@ Status keys:
   - Scope: service layer and webhook integrations
   - Done when: repeated equivalent requests are deduplicated with measurable cost reduction
 
+## Phase E: Priority Backlog (P0/P1/P2)
+
+### P0 (Do First)
+
+- [ ] Enable service-worker background sync for dispatch offline queue retries
+  - Scope: `src/pages/Sparkery/dispatch/offlineQueue.ts`, service worker channel, app bootstrap registration
+  - Done when: queued actions continue retrying after page close/reopen, with observable retry telemetry
+- [ ] Extend telemetry context with `appVersion`, `deviceId`, `networkType`
+  - Scope: `src/services/sparkeryTelemetry.ts`, dispatch/quote/offline callsites
+  - Done when: all critical success/failure events carry consistent environment dimensions
+- [ ] Add server-side telemetry sink and queryable event table
+  - Scope: Supabase telemetry schema + ingestion endpoint + client flush
+  - Done when: key telemetry events are searchable centrally (not only localStorage) with retention policy
+- [ ] Add unified Supabase retry + circuit-breaker wrapper
+  - Scope: `src/services/sparkeryDispatch/apiLayer.ts`, shared request utilities
+  - Done when: transient network/5xx errors use bounded retry and sustained failures open circuit with graceful fallback
+- [ ] Add immutable finance audit log for dispatch mutations
+  - Scope: Supabase table/RLS + `confirm/apply adjustment/payment` write paths
+  - Done when: each finance mutation records before/after snapshot, actor, and timestamp, and cannot be overwritten
+
+### P1 (Do Next)
+
+- [ ] Standardize idempotency-key generation for dispatch/quote write operations
+  - Scope: dispatch job mutations, quote print/report generation, offline queue actions
+  - Done when: duplicate submit/replay returns one logical write result without data divergence
+- [ ] Add composite indexes for high-frequency dispatch queries
+  - Scope: `docs/supabase/*.sql` migrations for `dispatch_jobs`
+  - Done when: common filters (`scheduled_date`, `status`, assignee) use indexes and query latency is measurably reduced
+- [ ] Split CI test gates into release-blocking vs debug-experimental lanes
+  - Scope: `.github/workflows/*.yml`
+  - Done when: production deploy is blocked only by core quality gates; debug suites run in non-blocking lane
+- [ ] Continue Sparkery route prefetch and fine-grained lazy loading
+  - Scope: `src/router/routes.ts`, Sparkery heavy sub-pages/components
+  - Done when: Sparkery first interactive load and route-switch latency both improve with no chunk regression warnings
+
+### P2 (Harden and Scale)
+
+- [ ] Add security scanning pipeline with dependency/image scan and SBOM artifact
+  - Scope: CI security stage + release artifacts
+  - Done when: each release includes vulnerability report, policy threshold, and SBOM output
+- [ ] Define service SLOs and production alerting for dispatch critical paths
+  - Scope: telemetry aggregation + alert rules + dashboard
+  - Done when: SLOs (latency/error-rate) are tracked continuously with actionable alert routes
+- [ ] Build one-click rollback workflow for frontend + migration safety checks
+  - Scope: deploy scripts/playbook + migration pre-check + rollback command
+  - Done when: rollback is executable in one command with documented guardrails and verification steps
+
 ## Verification (Current Batch)
 
 - `npm run typecheck --silent` passed
