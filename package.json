@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build",
+    "build": "tsc -b tsconfig.app.json tsconfig.node.json && cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build",
+    "typecheck": "tsc -b tsconfig.app.json tsconfig.node.json",
+    "typecheck:all": "tsc -b",
     "build:analyze": "cross-env ANALYZE=true npm run build",
     "analyze:size": "node scripts/analyze-bundle.js size",
     "analyze:bundle": "node scripts/analyze-bundle.js analyze",
