@@ -18,8 +18,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { ExportButton } from '@/components/Layout';
 import type { ExportColumn } from '@/utils/export';
-import { Line, Pie, Area, DualAxes } from '@ant-design/charts';
-import ReactECharts from 'echarts-for-react';
+import { Line, Pie, Area, DualAxes, Heatmap } from '@ant-design/charts';
 import {
   ArrowUpOutlined,
   ArrowDownOutlined,
@@ -121,7 +120,7 @@ const generateAreaData = (t: any) => {
 };
 
 const generateHeatmapData = (t: any) => {
-  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`);
   const days = [
     t('dashboard.chartData.weekdays.monday'),
     t('dashboard.chartData.weekdays.tuesday'),
@@ -131,61 +130,19 @@ const generateHeatmapData = (t: any) => {
     t('dashboard.chartData.weekdays.saturday'),
     t('dashboard.chartData.weekdays.sunday'),
   ];
-  const data: Array<[number, number, number]> = [];
+  const data: Array<{ hour: string; day: string; value: number }> = [];
 
-  days.forEach((_, dayIndex) => {
+  days.forEach(day => {
     hours.forEach(hour => {
-      data.push([hour, dayIndex, Math.floor(Math.random() * 100)]);
+      data.push({
+        hour,
+        day,
+        value: Math.floor(Math.random() * 100),
+      });
     });
   });
 
-  return {
-    tooltip: {
-      position: 'top',
-    },
-    grid: {
-      height: '50%',
-      top: '10%',
-    },
-    xAxis: {
-      type: 'category',
-      data: hours,
-      splitArea: {
-        show: true,
-      },
-    },
-    yAxis: {
-      type: 'category',
-      data: days,
-      splitArea: {
-        show: true,
-      },
-    },
-    visualMap: {
-      min: 0,
-      max: 100,
-      calculable: true,
-      orient: 'horizontal',
-      left: 'center',
-      bottom: '15%',
-    },
-    series: [
-      {
-        name: t('dashboard.charts.visits'),
-        type: 'heatmap',
-        data: data,
-        label: {
-          show: false,
-        },
-        emphasis: {
-          itemStyle: {
-            shadowBlur: 10,
-            shadowColor: 'rgba(0, 0, 0, 0.5)',
-          },
-        },
-      },
-    ],
-  };
+  return data;
 };
 
 interface StatCardProps {
@@ -679,11 +636,12 @@ const DashboardPage: React.FC = () => {
                   key: 'heatmap',
                   label: t('dashboard.charts.heatmap'),
                   children: (
-                    <ReactECharts
-                      option={chartData.heatmapData}
-                      style={{ height: '300px' }}
-                      notMerge={true}
-                      lazyUpdate={true}
+                    <Heatmap
+                      data={chartData.heatmapData}
+                      xField='hour'
+                      yField='day'
+                      colorField='value'
+                      height={300}
                     />
                   ),
                 },

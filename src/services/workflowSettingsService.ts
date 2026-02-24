@@ -5,7 +5,7 @@ import type {
   ValidationResult,
 } from '../types/workflow';
 import { workflowValidationService } from './workflowValidationService';
-import { delay } from '../utils';
+import { delay } from '../utils/delay';
 
 // Local storage key names
 const WORKFLOW_SETTINGS_KEY = 'wendeal_workflow_settings';

@@ -1,4 +1,4 @@
-import { delay } from '@/utils';
+import { delay } from '@/utils/delay';
 
 // 统计数据接口
 export interface DashboardStats {

@@ -30,6 +30,8 @@ import {
 import dayjs from 'dayjs';
 import type { DispatchEmployee, DispatchJob } from './dispatch/types';
 import { sparkeryDispatchService } from '@/services/sparkeryDispatchService';
+import { useAppSelector } from '@/hooks/redux';
+import { selectUser } from '@/store';
 import {
   enqueueDispatchOfflineAction,
   flushDispatchOfflineQueue,
@@ -124,6 +126,8 @@ const statusColor: Record<DispatchJob['status'], string> = {
 const DispatchEmployeeTasksPage: React.FC = () => {
   const { t } = useTranslation();
   const query = useMemo(() => parseQuery(), []);
+  const authUser = useAppSelector(selectUser);
+  const telemetryUserId = authUser?.id;
   const [loading, setLoading] = useState(true);
   const [savingJobId, setSavingJobId] = useState<string | null>(null);
   const [reportingLocation, setReportingLocation] = useState(false);
@@ -253,7 +257,10 @@ const DispatchEmployeeTasksPage: React.FC = () => {
             updateJobStatus: async payload => {
               await sparkeryDispatchService.updateJobStatus(
                 payload.jobId,
-                payload.status
+                payload.status,
+                {
+                  ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+                }
               );
             },
             reportEmployeeLocation: async payload => {
@@ -265,6 +272,7 @@ const DispatchEmployeeTasksPage: React.FC = () => {
           },
           {
             stopOnNetworkError: true,
+            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
           }
         );
 
@@ -300,7 +308,7 @@ const DispatchEmployeeTasksPage: React.FC = () => {
         setSyncingQueue(false);
       }
     },
-    [loadData, refreshQueueCount, t]
+    [loadData, refreshQueueCount, t, telemetryUserId]
   );
 
   useEffect(() => {
@@ -439,13 +447,18 @@ const DispatchEmployeeTasksPage: React.FC = () => {
       if (!navigator.onLine) {
         setIsOnline(false);
         applyLocalJobStatus(job.id, status);
-        enqueueDispatchOfflineAction({
-          type: 'update_job_status',
-          payload: {
-            jobId: job.id,
-            status,
+        enqueueDispatchOfflineAction(
+          {
+            type: 'update_job_status',
+            payload: {
+              jobId: job.id,
+              status,
+            },
           },
-        });
+          {
+            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+          }
+        );
         refreshQueueCount();
         message.warning(
           t('sparkery.dispatch.employeeTasks.messages.offlineStatusQueued')
@@ -455,7 +468,10 @@ const DispatchEmployeeTasksPage: React.FC = () => {
 
       const updated = await sparkeryDispatchService.updateJobStatus(
         job.id,
-        status
+        status,
+        {
+          ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+        }
       );
       setJobs(prev =>
         prev.map(item => (item.id === updated.id ? updated : item))
@@ -468,13 +484,18 @@ const DispatchEmployeeTasksPage: React.FC = () => {
     } catch (error) {
       if (isLikelyNetworkError(error)) {
         applyLocalJobStatus(job.id, status);
-        enqueueDispatchOfflineAction({
-          type: 'update_job_status',
-          payload: {
-            jobId: job.id,
-            status,
+        enqueueDispatchOfflineAction(
+          {
+            type: 'update_job_status',
+            payload: {
+              jobId: job.id,
+              status,
+            },
           },
-        });
+          {
+            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+          }
+        );
         refreshQueueCount();
         message.warning(
           t('sparkery.dispatch.employeeTasks.messages.networkStatusQueued')
@@ -530,13 +551,18 @@ const DispatchEmployeeTasksPage: React.FC = () => {
       if (!navigator.onLine) {
         setIsOnline(false);
         applyLocalLocation(selectedEmployeeId, capturedLocationPayload);
-        enqueueDispatchOfflineAction({
-          type: 'report_location',
-          payload: {
-            employeeId: selectedEmployeeId,
-            location: capturedLocationPayload,
+        enqueueDispatchOfflineAction(
+          {
+            type: 'report_location',
+            payload: {
+              employeeId: selectedEmployeeId,
+              location: capturedLocationPayload,
+            },
           },
-        });
+          {
+            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+          }
+        );
         refreshQueueCount();
         message.warning(
           t('sparkery.dispatch.employeeTasks.messages.offlineLocationQueued')
@@ -555,13 +581,18 @@ const DispatchEmployeeTasksPage: React.FC = () => {
     } catch (error) {
       if (isLikelyNetworkError(error) && capturedLocationPayload) {
         applyLocalLocation(selectedEmployeeId, capturedLocationPayload);
-        enqueueDispatchOfflineAction({
-          type: 'report_location',
-          payload: {
-            employeeId: selectedEmployeeId,
-            location: capturedLocationPayload,
+        enqueueDispatchOfflineAction(
+          {
+            type: 'report_location',
+            payload: {
+              employeeId: selectedEmployeeId,
+              location: capturedLocationPayload,
+            },
           },
-        });
+          {
+            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+          }
+        );
         refreshQueueCount();
         message.warning(
           t('sparkery.dispatch.employeeTasks.messages.networkLocationQueued')

@@ -1,8 +1,6 @@
 import { lazy } from 'react';
 import type { RouteConfig } from './types';
-
-// Lazy load layout component
-const MainLayout = lazy(() => import('@/components/Layout/MainLayout'));
+import MainLayout from '@/components/Layout/MainLayout';
 
 // Lazy load components for better performance
 const DashboardPage = lazy(() => import('@/pages/Dashboard'));
@@ -58,7 +56,7 @@ const DispatchEmployeeTasksPage = lazy(
 
 // Bond Clean Quote Form (standalone public page)
 const BondCleanQuoteForm = lazy(
-  () => import('@/pages/Sparkery/BondCleanQuoteForm')
+  () => import('@/pages/Sparkery/BondCleanQuoteFormEN')
 );
 
 // Bond Clean Quote Form Chinese Version

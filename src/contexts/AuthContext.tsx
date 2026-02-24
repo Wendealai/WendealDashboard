@@ -25,6 +25,7 @@ import type {
   UpdateProfileData,
   ChangePasswordData,
 } from '@/types/auth';
+import { setSparkeryTelemetryUserId } from '@/services/sparkeryTelemetry';
 
 // 认证上下文接口
 interface AuthContextType {
@@ -70,6 +71,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const isLoading = useAppSelector(selectIsLoading);
   const error = useAppSelector(selectAuthError);
+
+  useEffect(() => {
+    setSparkeryTelemetryUserId(user?.id ?? null);
+  }, [user?.id]);
 
   // Token 验证处理函数
   const handleValidateToken = async (token?: string) => {

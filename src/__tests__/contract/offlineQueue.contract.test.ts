@@ -6,6 +6,10 @@ import {
   getDispatchOfflineDeadLetterQueue,
   clearDispatchOfflineDeadLetterQueue,
 } from '@/pages/Sparkery/dispatch/offlineQueue';
+import {
+  clearSparkeryTelemetryEvents,
+  getSparkeryTelemetryEvents,
+} from '@/services/sparkeryTelemetry';
 
 const setupMemoryStorage = (): void => {
   const data: Record<string, string> = {};
@@ -33,6 +37,7 @@ describe('dispatch offline queue contracts', () => {
     setupMemoryStorage();
     clearDispatchOfflineQueue();
     clearDispatchOfflineDeadLetterQueue();
+    clearSparkeryTelemetryEvents();
     Object.defineProperty(window.navigator, 'onLine', {
       configurable: true,
       value: true,
@@ -55,6 +60,45 @@ describe('dispatch offline queue contracts', () => {
     if (queue[0]?.type === 'update_job_status') {
       expect(queue[0].payload.status).toBe('completed');
     }
+
+    const enqueueEvent = getSparkeryTelemetryEvents().find(
+      event => event.name === 'dispatch.offline.enqueue'
+    );
+    expect(typeof enqueueEvent?.data?.traceId).toBe('string');
+  });
+
+  it('propagates explicit userId into enqueue and flush telemetry events', async () => {
+    enqueueDispatchOfflineAction(
+      {
+        type: 'update_job_status',
+        payload: { jobId: 'job-uid', status: 'assigned' },
+      },
+      {
+        userId: 'dispatch-user-001',
+      }
+    );
+
+    await flushDispatchOfflineQueue(
+      {
+        updateJobStatus: async () => {},
+        reportEmployeeLocation: async () => {},
+      },
+      {
+        stopOnNetworkError: true,
+        userId: 'dispatch-user-001',
+      }
+    );
+
+    const events = getSparkeryTelemetryEvents();
+    const enqueueEvent = events.find(
+      event => event.name === 'dispatch.offline.enqueue'
+    );
+    const flushEvent = [...events]
+      .reverse()
+      .find(event => event.name === 'dispatch.offline.flush.completed');
+
+    expect(enqueueEvent?.data?.userId).toBe('dispatch-user-001');
+    expect(flushEvent?.data?.userId).toBe('dispatch-user-001');
   });
 
   it('moves terminal failures into dead letter queue after max retries', async () => {
@@ -79,5 +123,43 @@ describe('dispatch offline queue contracts', () => {
     expect(result.deadLettered).toBe(1);
     expect(result.remaining).toBe(0);
     expect(getDispatchOfflineDeadLetterQueue()).toHaveLength(1);
+
+    const flushEvent = getSparkeryTelemetryEvents()
+      .reverse()
+      .find(event => event.name === 'dispatch.offline.flush.completed');
+    expect(typeof flushEvent?.data?.traceId).toBe('string');
+    expect(flushEvent?.data?.errorCode).toBe(
+      'DISPATCH_OFFLINE_FLUSH_PARTIAL_FAILURE'
+    );
+  });
+
+  it('marks network unavailable flush with dedicated error code', async () => {
+    enqueueDispatchOfflineAction({
+      type: 'update_job_status',
+      payload: { jobId: 'job-3', status: 'assigned' },
+    });
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: false,
+    });
+
+    const result = await flushDispatchOfflineQueue(
+      {
+        updateJobStatus: async () => {},
+        reportEmployeeLocation: async () => {},
+      },
+      {
+        stopOnNetworkError: true,
+      }
+    );
+
+    expect(result.networkFailed).toBe(true);
+    const flushEvent = getSparkeryTelemetryEvents()
+      .reverse()
+      .find(event => event.name === 'dispatch.offline.flush.completed');
+    expect(typeof flushEvent?.data?.traceId).toBe('string');
+    expect(flushEvent?.data?.errorCode).toBe(
+      'DISPATCH_OFFLINE_FLUSH_NETWORK_UNAVAILABLE'
+    );
   });
 });

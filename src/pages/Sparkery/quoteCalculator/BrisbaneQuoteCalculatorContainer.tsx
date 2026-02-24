@@ -39,7 +39,10 @@ import {
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { useQuoteDraft } from '../quoteDraftContext';
-import { trackSparkeryEvent } from '@/services/sparkeryTelemetry';
+import {
+  getSparkeryTelemetryUserId,
+  trackSparkeryEvent,
+} from '@/services/sparkeryTelemetry';
 import {
   DEFAULT_CONFIG,
   type ManualMeasurementAddon,
@@ -474,26 +477,44 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     [getAddonOptionById]
   );
 
+  const createQuoteTraceId = (operation: string): string =>
+    `quote.${operation}.${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+
+  const toErrorMessage = (error: unknown): string => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message.trim();
+    }
+    return String(error || 'unknown_error');
+  };
+
   const generateQuotePDF = (language: QuoteTemplateLanguage) => {
     const startedAt = Date.now();
-    const renderedHtml = renderTemplateBundle({
-      language,
-      renderSingleLanguage: lang =>
-        generateQuoteHTML(lang as QuoteTemplateSingleLanguage),
-    });
+    const traceId = createQuoteTraceId('print');
+    const telemetryUserId = getSparkeryTelemetryUserId();
     trackSparkeryEvent('quote.print.started', {
       data: {
+        traceId,
         language,
         quoteId,
         templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
+        ...(telemetryUserId ? { userId: telemetryUserId } : {}),
       },
     });
 
-    // Open print dialog to print the HTML report as PDF
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      const titleLang: 'en' | 'cn' = language === 'cn' ? 'cn' : 'en';
-      printWindow.document.write(`
+    try {
+      const renderedHtml = renderTemplateBundle({
+        language,
+        renderSingleLanguage: lang =>
+          generateQuoteHTML(lang as QuoteTemplateSingleLanguage),
+      });
+
+      // Open print dialog to print the HTML report as PDF
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        const titleLang: 'en' | 'cn' = language === 'cn' ? 'cn' : 'en';
+        printWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -533,37 +554,63 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         </body>
         </html>
       `);
-      printWindow.document.close();
-      trackSparkeryEvent('quote.print.succeeded', {
-        success: true,
-        durationMs: Date.now() - startedAt,
-        data: {
-          language,
-          quoteId,
-          templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
-        },
-      });
-    } else {
+        printWindow.document.close();
+        trackSparkeryEvent('quote.print.succeeded', {
+          success: true,
+          durationMs: Date.now() - startedAt,
+          data: {
+            traceId,
+            language,
+            quoteId,
+            templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
+            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+          },
+        });
+      } else {
+        trackSparkeryEvent('quote.print.failed', {
+          success: false,
+          durationMs: Date.now() - startedAt,
+          data: {
+            traceId,
+            errorCode: 'QUOTE_PRINT_WINDOW_BLOCKED',
+            language,
+            quoteId,
+            reason: 'window_blocked',
+            templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
+            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+          },
+        });
+        message.error(
+          language === 'cn'
+            ? t('sparkery.quoteCalculator.messages.printWindowBlockedCn', {
+                defaultValue:
+                  'Cannot open print window. Please check popup blocker settings.',
+              })
+            : t('sparkery.quoteCalculator.messages.printWindowBlocked', {
+                defaultValue:
+                  'Cannot open print window. Please check popup blocker settings.',
+              })
+        );
+      }
+    } catch (error) {
       trackSparkeryEvent('quote.print.failed', {
         success: false,
         durationMs: Date.now() - startedAt,
         data: {
+          traceId,
+          errorCode: 'QUOTE_PRINT_RENDER_FAILED',
           language,
           quoteId,
-          reason: 'window_blocked',
+          reason: toErrorMessage(error),
           templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
+          ...(telemetryUserId ? { userId: telemetryUserId } : {}),
         },
       });
       message.error(
-        language === 'cn'
-          ? t('sparkery.quoteCalculator.messages.printWindowBlockedCn', {
-              defaultValue:
-                'Cannot open print window. Please check popup blocker settings.',
-            })
-          : t('sparkery.quoteCalculator.messages.printWindowBlocked', {
-              defaultValue:
-                'Cannot open print window. Please check popup blocker settings.',
-            })
+        t('sparkery.quoteCalculator.messages.printFailed', {
+          defaultValue:
+            'Failed to generate printable report. Please try again.',
+        })
       );
     }
   };
@@ -2518,23 +2565,31 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     documentType: QuoteCustomDocumentType = 'receipt'
   ) => {
     const startedAt = Date.now();
+    const traceId = createQuoteTraceId('custom_report.print');
+    const telemetryUserId = getSparkeryTelemetryUserId();
     trackSparkeryEvent('quote.custom_report.print.started', {
       data: {
+        traceId,
         language,
         documentType,
         quoteId,
         templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
+        ...(telemetryUserId ? { userId: telemetryUserId } : {}),
       },
     });
-    const html = renderTemplateBundle({
-      language,
-      renderSingleLanguage: lang =>
-        generateInvoiceHTML(lang as QuoteTemplateSingleLanguage, documentType),
-    });
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      const titleLang: 'en' | 'cn' = language === 'cn' ? 'cn' : 'en';
-      printWindow.document.write(`
+    try {
+      const html = renderTemplateBundle({
+        language,
+        renderSingleLanguage: lang =>
+          generateInvoiceHTML(
+            lang as QuoteTemplateSingleLanguage,
+            documentType
+          ),
+      });
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        const titleLang: 'en' | 'cn' = language === 'cn' ? 'cn' : 'en';
+        printWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -2573,39 +2628,66 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         </body>
         </html>
       `);
-      printWindow.document.close();
-      trackSparkeryEvent('quote.custom_report.print.succeeded', {
-        success: true,
-        durationMs: Date.now() - startedAt,
-        data: {
-          language,
-          documentType,
-          quoteId,
-          templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
-        },
-      });
-    } else {
+        printWindow.document.close();
+        trackSparkeryEvent('quote.custom_report.print.succeeded', {
+          success: true,
+          durationMs: Date.now() - startedAt,
+          data: {
+            traceId,
+            language,
+            documentType,
+            quoteId,
+            templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
+            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+          },
+        });
+      } else {
+        trackSparkeryEvent('quote.custom_report.print.failed', {
+          success: false,
+          durationMs: Date.now() - startedAt,
+          data: {
+            traceId,
+            errorCode: 'QUOTE_CUSTOM_REPORT_WINDOW_BLOCKED',
+            language,
+            documentType,
+            quoteId,
+            reason: 'window_blocked',
+            templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
+            ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+          },
+        });
+        message.error(
+          language === 'cn'
+            ? t('sparkery.quoteCalculator.messages.printWindowBlockedCn', {
+                defaultValue:
+                  'Cannot open print window. Please check popup blocker settings.',
+              })
+            : t('sparkery.quoteCalculator.messages.printWindowBlocked', {
+                defaultValue:
+                  'Cannot open print window. Please check popup blocker settings.',
+              })
+        );
+      }
+    } catch (error) {
       trackSparkeryEvent('quote.custom_report.print.failed', {
         success: false,
         durationMs: Date.now() - startedAt,
         data: {
+          traceId,
+          errorCode: 'QUOTE_CUSTOM_REPORT_RENDER_FAILED',
           language,
           documentType,
           quoteId,
-          reason: 'window_blocked',
+          reason: toErrorMessage(error),
           templateEngineVersion: SPARKERY_QUOTE_TEMPLATE_ENGINE_VERSION,
+          ...(telemetryUserId ? { userId: telemetryUserId } : {}),
         },
       });
       message.error(
-        language === 'cn'
-          ? t('sparkery.quoteCalculator.messages.printWindowBlockedCn', {
-              defaultValue:
-                'Cannot open print window. Please check popup blocker settings.',
-            })
-          : t('sparkery.quoteCalculator.messages.printWindowBlocked', {
-              defaultValue:
-                'Cannot open print window. Please check popup blocker settings.',
-            })
+        t('sparkery.quoteCalculator.messages.printFailed', {
+          defaultValue:
+            'Failed to generate printable report. Please try again.',
+        })
       );
     }
   };

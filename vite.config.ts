@@ -3,6 +3,26 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
 
+const getPackageNameFromId = (id: string): string | null => {
+  const marker = '/node_modules/';
+  const markerIndex = id.lastIndexOf(marker);
+  if (markerIndex < 0) {
+    return null;
+  }
+
+  const pathAfterNodeModules = id.slice(markerIndex + marker.length);
+  const segments = pathAfterNodeModules.split('/');
+  const first = segments[0];
+  if (!first) {
+    return null;
+  }
+  if (first.startsWith('@')) {
+    const second = segments[1];
+    return second ? `${first}/${second}` : first;
+  }
+  return first;
+};
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -200,54 +220,133 @@ export default defineConfig({
         manualChunks: id => {
           // 第三方库分割
           if (id.includes('node_modules')) {
-            if (id.includes('@reduxjs/toolkit') || id.includes('react-redux')) {
+            const packageName = getPackageNameFromId(id);
+            if (!packageName) {
+              return 'vendor-misc';
+            }
+            if (
+              packageName === 'react' ||
+              packageName === 'react-dom' ||
+              packageName === 'scheduler' ||
+              packageName === 'use-sync-external-store'
+            ) {
+              return 'react-vendor';
+            }
+            if (
+              packageName === '@reduxjs/toolkit' ||
+              packageName === 'react-redux' ||
+              packageName === 'redux' ||
+              packageName === 'immer' ||
+              packageName === 'reselect'
+            ) {
               return 'redux-vendor';
             }
-            if (id.includes('react-router')) {
+            if (
+              packageName === 'react-router' ||
+              packageName === 'react-router-dom' ||
+              packageName.startsWith('@remix-run/')
+            ) {
               return 'router-vendor';
             }
-            if (id.includes('antd') || id.includes('@ant-design')) {
-              return 'antd-vendor';
+            if (packageName === '@ant-design/icons') {
+              return 'icons-vendor';
             }
-            if (id.includes('echarts') || id.includes('@ant-design/charts')) {
-              return 'charts-vendor';
+            if (
+              packageName === '@ant-design/charts' ||
+              packageName === '@ant-design/plots'
+            ) {
+              return 'ant-design-plots-vendor';
             }
-            if (id.includes('dayjs') || id.includes('moment')) {
+            if (packageName.startsWith('@antv/')) {
+              return 'antv-core-vendor';
+            }
+            if (packageName === 'antd') {
+              return 'antd-core-vendor';
+            }
+            if (
+              packageName.startsWith('@rc-component/') ||
+              packageName.startsWith('rc-')
+            ) {
+              return 'antd-rc-vendor';
+            }
+            if (packageName.startsWith('@ant-design/')) {
+              return 'antd-support-vendor';
+            }
+            if (packageName === 'lodash' || packageName === 'lodash-es') {
+              return 'lodash-vendor';
+            }
+            if (
+              packageName === 'html2canvas' ||
+              packageName === 'canvg' ||
+              packageName === 'pako' ||
+              packageName === 'fflate' ||
+              packageName === 'fast-png' ||
+              packageName === 'iobuffer' ||
+              packageName === 'svg-pathdata' ||
+              packageName === 'gl-matrix' ||
+              packageName === 'dompurify'
+            ) {
+              return 'canvas-vendor';
+            }
+            if (packageName === 'dayjs' || packageName === 'moment') {
               return 'date-vendor';
             }
-            if (id.includes('axios') || id.includes('msw')) {
+            if (packageName === 'axios' || packageName === 'msw') {
               return 'http-vendor';
             }
-            if (id.includes('i18next') || id.includes('react-i18next')) {
+            if (
+              packageName === 'i18next' ||
+              packageName === 'react-i18next' ||
+              packageName === 'i18next-browser-languagedetector'
+            ) {
               return 'i18n-vendor';
             }
             if (
-              id.includes('jspdf') ||
-              id.includes('html2pdf') ||
-              id.includes('xlsx')
+              packageName === 'jspdf' ||
+              packageName === 'jspdf-autotable' ||
+              packageName === 'html2pdf.js' ||
+              packageName === 'xlsx'
             ) {
               return 'document-vendor';
             }
             if (
-              id.includes('react-markdown') ||
-              id.includes('remark') ||
-              id.includes('rehype')
+              packageName === 'react-markdown' ||
+              packageName.startsWith('remark-') ||
+              packageName.startsWith('rehype-') ||
+              packageName === 'unified' ||
+              packageName === 'micromark'
             ) {
               return 'markdown-vendor';
             }
-            if (id.includes('@tanstack/react-query')) {
+            if (
+              packageName === '@tanstack/react-query' ||
+              packageName === '@tanstack/query-core'
+            ) {
               return 'query-vendor';
             }
-            if (id.includes('@novu')) {
+            if (packageName.startsWith('@novu/')) {
               return 'novu-vendor';
             }
-            if (id.includes('airtable')) {
+            if (packageName === 'airtable') {
               return 'airtable-vendor';
             }
-            if (id.includes('socket.io-client')) {
+            if (
+              packageName === 'socket.io-client' ||
+              packageName === 'engine.io-client' ||
+              packageName === 'socket.io-parser'
+            ) {
               return 'socket-vendor';
             }
-            return 'vendor';
+            if (
+              packageName === 'deep-chat-react' ||
+              packageName === 'iframe-resizer'
+            ) {
+              return 'chat-vendor';
+            }
+            if (packageName === 'typescript') {
+              return 'typescript-vendor';
+            }
+            return 'vendor-misc';
           }
           // 页面级别分割
           if (id.includes('/pages/')) {

@@ -1,6 +1,8 @@
 import {
+  clearSparkeryTelemetryUserId,
   clearSparkeryTelemetryEvents,
   getSparkeryTelemetryEvents,
+  setSparkeryTelemetryUserId,
   trackSparkeryEvent,
 } from '@/services/sparkeryTelemetry';
 
@@ -28,6 +30,10 @@ const setupMemoryStorage = (): void => {
 describe('sparkery telemetry contracts', () => {
   beforeEach(() => {
     setupMemoryStorage();
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.clear();
+    }
+    clearSparkeryTelemetryUserId();
     clearSparkeryTelemetryEvents();
   });
 
@@ -46,5 +52,47 @@ describe('sparkery telemetry contracts', () => {
     expect(events[0]?.name).toBe('dispatch.job.create.succeeded');
     expect(events[0]?.durationMs).toBe(120);
     expect(events[1]?.name).toBe('dispatch.offline.enqueue');
+  });
+
+  it('auto-enriches telemetry with userId from auth storage', () => {
+    window.localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: 'telemetry-user-001', name: 'QA User' })
+    );
+
+    trackSparkeryEvent('dispatch.offline.enqueue', {
+      data: { actionType: 'update_job_status' },
+    });
+
+    const events = getSparkeryTelemetryEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.data?.userId).toBe('telemetry-user-001');
+  });
+
+  it('keeps explicit payload userId over inferred userId', () => {
+    window.localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: 'storage-user-001' })
+    );
+
+    trackSparkeryEvent('dispatch.offline.enqueue', {
+      data: { actionType: 'report_location', userId: 'payload-user-001' },
+    });
+
+    const events = getSparkeryTelemetryEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.data?.userId).toBe('payload-user-001');
+  });
+
+  it('uses runtime telemetry userId when provided', () => {
+    setSparkeryTelemetryUserId('runtime-user-001');
+
+    trackSparkeryEvent('dispatch.offline.enqueue', {
+      data: { actionType: 'update_job_status' },
+    });
+
+    const events = getSparkeryTelemetryEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.data?.userId).toBe('runtime-user-001');
   });
 });

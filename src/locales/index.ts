@@ -2,9 +2,7 @@ import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
-import zhCN from './zh-CN';
 import enUS from './en-US';
-import zhCNSparkeryOverrides from './zh-CN.sparkery-overrides';
 
 const i18n = i18next;
 
@@ -29,19 +27,20 @@ const mergeDeep = (
   return output;
 };
 
-const zhCNTranslation = mergeDeep(
-  zhCN as Record<string, unknown>,
-  zhCNSparkeryOverrides as Record<string, unknown>
-);
+const FALLBACK_LANGUAGE = 'en-US';
+const CHINESE_LANGUAGE = 'zh-CN';
 
 const resources = {
-  'zh-CN': {
-    translation: zhCNTranslation,
+  [CHINESE_LANGUAGE]: {
+    translation: {},
   },
-  'en-US': {
+  [FALLBACK_LANGUAGE]: {
     translation: enUS,
   },
 };
+
+const loadedLanguageBundles = new Set<string>([FALLBACK_LANGUAGE]);
+const sparkeryOverridesLoaded = new Set<string>();
 
 export const supportedLanguages = [
   {
@@ -65,7 +64,65 @@ const getDefaultLanguage = (): string => {
     return savedLanguage;
   }
 
-  return 'en-US';
+  return FALLBACK_LANGUAGE;
+};
+
+const defaultLanguage = getDefaultLanguage();
+
+const resolveLanguageKey = (language: string): string | null => {
+  if (language.startsWith('zh')) {
+    return CHINESE_LANGUAGE;
+  }
+  if (language.startsWith('en')) {
+    return FALLBACK_LANGUAGE;
+  }
+  return supportedLanguages.some(lang => lang.key === language)
+    ? language
+    : null;
+};
+
+const resolveSparkeryOverrideLanguage = (language: string): string | null => {
+  if (language.startsWith('zh')) {
+    return CHINESE_LANGUAGE;
+  }
+  if (language.startsWith('en')) {
+    return FALLBACK_LANGUAGE;
+  }
+  return null;
+};
+
+export const loadLanguageBundle = async (
+  language: string = i18n.language
+): Promise<void> => {
+  const languageKey = resolveLanguageKey(language);
+  if (!languageKey || loadedLanguageBundles.has(languageKey)) {
+    return;
+  }
+
+  let bundle: Record<string, unknown> | null = null;
+  if (languageKey === CHINESE_LANGUAGE) {
+    const module = await import('./zh-CN');
+    bundle = module.default as Record<string, unknown>;
+  }
+
+  if (!bundle) {
+    return;
+  }
+
+  const currentTranslation = (i18n.getResourceBundle(
+    languageKey,
+    'translation'
+  ) || {}) as Record<string, unknown>;
+  const mergedTranslation = mergeDeep(currentTranslation, bundle);
+
+  i18n.addResourceBundle(
+    languageKey,
+    'translation',
+    mergedTranslation,
+    true,
+    true
+  );
+  loadedLanguageBundles.add(languageKey);
 };
 
 i18n
@@ -73,8 +130,8 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: getDefaultLanguage(),
-    fallbackLng: 'en-US',
+    lng: defaultLanguage,
+    fallbackLng: FALLBACK_LANGUAGE,
     debug: process.env.NODE_ENV === 'development',
     interpolation: {
       escapeValue: false,
@@ -89,15 +146,61 @@ i18n
     },
   });
 
-export const changeLanguage = (language: string) => {
-  i18n.changeLanguage(language);
-  localStorage.setItem('wendeal-dashboard-language', language);
+export const loadSparkeryLocaleOverrides = async (
+  language: string = i18n.language
+): Promise<void> => {
+  const sparkeryLanguage = resolveSparkeryOverrideLanguage(language);
+  if (!sparkeryLanguage) {
+    return;
+  }
+  await loadLanguageBundle(sparkeryLanguage);
+  if (sparkeryOverridesLoaded.has(sparkeryLanguage)) {
+    return;
+  }
 
-  window.dispatchEvent(
-    new CustomEvent('languageChanged', {
-      detail: { language },
-    })
+  const module =
+    sparkeryLanguage === CHINESE_LANGUAGE
+      ? await import('./zh-CN.sparkery-overrides')
+      : await import('./en-US.sparkery-overrides');
+  const overrides = module.default as Record<string, unknown>;
+  const currentTranslation = (i18n.getResourceBundle(
+    sparkeryLanguage,
+    'translation'
+  ) || {}) as Record<string, unknown>;
+  const mergedTranslation = mergeDeep(currentTranslation, overrides);
+
+  i18n.addResourceBundle(
+    sparkeryLanguage,
+    'translation',
+    mergedTranslation,
+    true,
+    true
   );
+  sparkeryOverridesLoaded.add(sparkeryLanguage);
+};
+
+if (defaultLanguage.startsWith('zh')) {
+  void (async () => {
+    await loadLanguageBundle(defaultLanguage);
+    await loadSparkeryLocaleOverrides(defaultLanguage);
+    await i18n.changeLanguage(defaultLanguage);
+  })();
+}
+
+export const changeLanguage = (language: string) => {
+  void (async () => {
+    await loadLanguageBundle(language);
+    if (language.startsWith('zh')) {
+      await loadSparkeryLocaleOverrides(language);
+    }
+    await i18n.changeLanguage(language);
+    localStorage.setItem('wendeal-dashboard-language', language);
+    window.dispatchEvent(
+      new CustomEvent('languageChanged', {
+        detail: { language },
+      })
+    );
+  })();
 };
 
 export const getCurrentLanguage = () => i18n.language;

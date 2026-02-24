@@ -1,5 +1,8 @@
 import type { DispatchEmployeeLocation, DispatchJobStatus } from './types';
-import { trackSparkeryEvent } from '@/services/sparkeryTelemetry';
+import {
+  getSparkeryTelemetryUserId,
+  trackSparkeryEvent,
+} from '@/services/sparkeryTelemetry';
 
 const OFFLINE_QUEUE_STORAGE_KEY = 'sparkery_dispatch_mobile_offline_queue_v1';
 const OFFLINE_DEAD_LETTER_STORAGE_KEY =
@@ -8,10 +11,15 @@ const DEFAULT_MAX_RETRIES = 5;
 const DEFAULT_BASE_RETRY_DELAY_MS = 1000;
 const MAX_RETRY_DELAY_MS = 60000;
 const MAX_DEAD_LETTER_ITEMS = 200;
+type DispatchOfflineFlushErrorCode =
+  | 'DISPATCH_OFFLINE_FLUSH_NETWORK_UNAVAILABLE'
+  | 'DISPATCH_OFFLINE_FLUSH_NETWORK_INTERRUPTED'
+  | 'DISPATCH_OFFLINE_FLUSH_PARTIAL_FAILURE';
 
 interface BaseOfflineAction {
   id: string;
   idempotencyKey: string;
+  traceId?: string;
   type: 'update_job_status' | 'report_location';
   createdAt: string;
   attempts: number;
@@ -63,6 +71,11 @@ export interface DispatchOfflineQueueHandlers {
 interface FlushOptions {
   maxRetries?: number;
   stopOnNetworkError?: boolean;
+  userId?: string;
+}
+
+interface EnqueueOptions {
+  userId?: string;
 }
 
 export interface FlushQueueResult {
@@ -105,6 +118,20 @@ const generateQueueId = (): string => {
   return `dispatch-offline-${time}-${random}`;
 };
 
+const createDispatchOfflineTraceId = (operation: string): string =>
+  `dispatch.offline.${operation}.${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+
+const resolveTelemetryUserId = (
+  explicitUserId?: string
+): string | undefined => {
+  if (typeof explicitUserId === 'string' && explicitUserId.trim().length > 0) {
+    return explicitUserId.trim();
+  }
+  return getSparkeryTelemetryUserId();
+};
+
 const resolveIdempotencyKey = (action: EnqueuePayload): string => {
   if (action.type === 'update_job_status') {
     return `${action.type}:${action.payload.jobId}:${action.payload.status}`;
@@ -136,6 +163,10 @@ const normalizeQueueAction = (
   return {
     ...action,
     idempotencyKey,
+    traceId:
+      typeof action.traceId === 'string' && action.traceId.length > 0
+        ? action.traceId
+        : `dispatch.offline.action.${action.id}`,
     ...(isValidDate(action.lastAttemptAt)
       ? { lastAttemptAt: action.lastAttemptAt }
       : {}),
@@ -182,6 +213,7 @@ const parseQueueAction = (
       id: value.id,
       idempotencyKey:
         typeof value.idempotencyKey === 'string' ? value.idempotencyKey : '',
+      ...(typeof value.traceId === 'string' ? { traceId: value.traceId } : {}),
       type: 'update_job_status',
       createdAt: value.createdAt,
       attempts,
@@ -213,6 +245,7 @@ const parseQueueAction = (
     id: value.id,
     idempotencyKey:
       typeof value.idempotencyKey === 'string' ? value.idempotencyKey : '',
+    ...(typeof value.traceId === 'string' ? { traceId: value.traceId } : {}),
     type: 'report_location',
     createdAt: value.createdAt,
     attempts,
@@ -358,18 +391,38 @@ export const isLikelyNetworkError = (error: unknown): boolean => {
   );
 };
 
+const resolveDispatchOfflineFlushErrorCode = (params: {
+  networkFailed: boolean;
+  failed: number;
+}): DispatchOfflineFlushErrorCode | undefined => {
+  if (params.networkFailed && params.failed === 0) {
+    return 'DISPATCH_OFFLINE_FLUSH_NETWORK_UNAVAILABLE';
+  }
+  if (params.networkFailed) {
+    return 'DISPATCH_OFFLINE_FLUSH_NETWORK_INTERRUPTED';
+  }
+  if (params.failed > 0) {
+    return 'DISPATCH_OFFLINE_FLUSH_PARTIAL_FAILURE';
+  }
+  return undefined;
+};
+
 export const enqueueDispatchOfflineAction = (
-  action: EnqueuePayload
+  action: EnqueuePayload,
+  options: EnqueueOptions = {}
 ): DispatchOfflineQueueAction => {
   const queue = loadQueue();
   const now = new Date().toISOString();
   const idempotencyKey = resolveIdempotencyKey(action);
+  const traceId = createDispatchOfflineTraceId('enqueue');
+  const telemetryUserId = resolveTelemetryUserId(options.userId);
 
   let normalizedAction: DispatchOfflineQueueAction;
   if (action.type === 'update_job_status') {
     normalizedAction = {
       id: generateQueueId(),
       idempotencyKey,
+      traceId,
       type: 'update_job_status',
       createdAt: now,
       attempts: 0,
@@ -379,6 +432,7 @@ export const enqueueDispatchOfflineAction = (
     normalizedAction = {
       id: generateQueueId(),
       idempotencyKey,
+      traceId,
       type: 'report_location',
       createdAt: now,
       attempts: 0,
@@ -415,8 +469,11 @@ export const enqueueDispatchOfflineAction = (
   trackSparkeryEvent('dispatch.offline.enqueue', {
     success: true,
     data: {
+      traceId,
       actionType: normalizedAction.type,
       queueSize: deduplicated.length,
+      idempotencyKey: normalizedAction.idempotencyKey,
+      ...(telemetryUserId ? { userId: telemetryUserId } : {}),
     },
   });
   return normalizedAction;
@@ -428,10 +485,12 @@ export const flushDispatchOfflineQueue = async (
 ): Promise<FlushQueueResult> => {
   const maxRetries = Math.max(1, options.maxRetries || DEFAULT_MAX_RETRIES);
   const stopOnNetworkError = options.stopOnNetworkError !== false;
+  const telemetryUserId = resolveTelemetryUserId(options.userId);
   const queue = loadQueue();
+  const traceId = createDispatchOfflineTraceId('flush');
 
   if (queue.length === 0) {
-    return {
+    const result: FlushQueueResult = {
       processed: 0,
       synced: 0,
       failed: 0,
@@ -439,10 +498,19 @@ export const flushDispatchOfflineQueue = async (
       deadLettered: 0,
       networkFailed: false,
     };
+    trackSparkeryEvent('dispatch.offline.flush.completed', {
+      success: true,
+      data: {
+        traceId,
+        ...result,
+        ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+      },
+    });
+    return result;
   }
 
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return {
+    const result: FlushQueueResult = {
       processed: 0,
       synced: 0,
       failed: 0,
@@ -450,6 +518,16 @@ export const flushDispatchOfflineQueue = async (
       deadLettered: 0,
       networkFailed: true,
     };
+    trackSparkeryEvent('dispatch.offline.flush.completed', {
+      success: false,
+      data: {
+        traceId,
+        ...result,
+        errorCode: 'DISPATCH_OFFLINE_FLUSH_NETWORK_UNAVAILABLE',
+        ...(telemetryUserId ? { userId: telemetryUserId } : {}),
+      },
+    });
+    return result;
   }
 
   const remainingQueue: DispatchOfflineQueueAction[] = [];
@@ -459,6 +537,7 @@ export const flushDispatchOfflineQueue = async (
   let failed = 0;
   let deadLettered = 0;
   let networkFailed = false;
+  let failedActionTraceId: string | undefined;
 
   for (let index = 0; index < queue.length; index += 1) {
     const action = normalizeQueueAction(queue[index]!);
@@ -478,6 +557,7 @@ export const flushDispatchOfflineQueue = async (
       synced += 1;
     } catch (error) {
       failed += 1;
+      failedActionTraceId = action.traceId;
       const nextAttempts = action.attempts + 1;
       const errorMessage = toErrorMessage(error);
       const networkError = isLikelyNetworkError(error);
@@ -524,15 +604,23 @@ export const flushDispatchOfflineQueue = async (
   saveQueue(remainingQueue);
   saveDeadLetterQueue(deadLetterQueue);
 
+  const flushErrorCode = resolveDispatchOfflineFlushErrorCode({
+    networkFailed,
+    failed,
+  });
   trackSparkeryEvent('dispatch.offline.flush.completed', {
     success: !networkFailed && failed === 0,
     data: {
+      traceId,
       processed,
       synced,
       failed,
       remaining: remainingQueue.length,
       deadLettered,
       networkFailed,
+      ...(flushErrorCode ? { errorCode: flushErrorCode } : {}),
+      ...(failedActionTraceId ? { failedActionTraceId } : {}),
+      ...(telemetryUserId ? { userId: telemetryUserId } : {}),
     },
   });
 

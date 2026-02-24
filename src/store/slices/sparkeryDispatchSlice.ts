@@ -125,6 +125,16 @@ const getWeekEnd = (weekStart: string): string => {
   return formatDateKey(end);
 };
 
+const resolveDispatchTelemetryUserId = (
+  state: RootState
+): string | undefined => {
+  const userId = state.auth?.user?.id;
+  if (typeof userId === 'string' && userId.trim().length > 0) {
+    return userId.trim();
+  }
+  return undefined;
+};
+
 export const fetchDispatchJobs = createAsyncThunk<
   DispatchJob[],
   FetchJobsPayload | undefined
@@ -194,29 +204,41 @@ export const generateDispatchJobsFromRecurring = createAsyncThunk<
 export const createDispatchJob = createAsyncThunk<
   DispatchJob,
   CreateDispatchJobPayload
->('sparkeryDispatch/createJob', async payload => {
-  return sparkeryDispatchService.createJob(payload);
+>('sparkeryDispatch/createJob', async (payload, { getState }) => {
+  const userId = resolveDispatchTelemetryUserId(getState() as RootState);
+  return sparkeryDispatchService.createJob(payload, {
+    ...(userId ? { userId } : {}),
+  });
 });
 
 export const updateDispatchJob = createAsyncThunk<
   DispatchJob,
   UpdateDispatchJobPayloadInput
->('sparkeryDispatch/updateJob', async ({ id, patch }) => {
-  return sparkeryDispatchService.updateJob(id, patch);
+>('sparkeryDispatch/updateJob', async ({ id, patch }, { getState }) => {
+  const userId = resolveDispatchTelemetryUserId(getState() as RootState);
+  return sparkeryDispatchService.updateJob(id, patch, {
+    ...(userId ? { userId } : {}),
+  });
 });
 
 export const assignDispatchJob = createAsyncThunk<
   DispatchJob,
   AssignDispatchJobPayload
->('sparkeryDispatch/assignJob', async ({ id, employeeIds }) => {
-  return sparkeryDispatchService.assignJob(id, employeeIds);
+>('sparkeryDispatch/assignJob', async ({ id, employeeIds }, { getState }) => {
+  const userId = resolveDispatchTelemetryUserId(getState() as RootState);
+  return sparkeryDispatchService.assignJob(id, employeeIds, {
+    ...(userId ? { userId } : {}),
+  });
 });
 
 export const updateDispatchJobStatus = createAsyncThunk<
   DispatchJob,
   UpdateDispatchJobStatusPayload
->('sparkeryDispatch/updateJobStatus', async ({ id, status }) => {
-  return sparkeryDispatchService.updateJobStatus(id, status);
+>('sparkeryDispatch/updateJobStatus', async ({ id, status }, { getState }) => {
+  const userId = resolveDispatchTelemetryUserId(getState() as RootState);
+  return sparkeryDispatchService.updateJobStatus(id, status, {
+    ...(userId ? { userId } : {}),
+  });
 });
 
 export const deleteDispatchJob = createAsyncThunk<string, string>(
@@ -232,10 +254,14 @@ export const applyDispatchJobFinanceAdjustment = createAsyncThunk<
   ApplyDispatchJobFinanceAdjustmentPayload
 >(
   'sparkeryDispatch/applyFinanceAdjustment',
-  async ({ id, adjustmentDelta }) => {
+  async ({ id, adjustmentDelta }, { getState }) => {
+    const userId = resolveDispatchTelemetryUserId(getState() as RootState);
     return sparkeryDispatchService.applyJobFinanceAdjustment(
       id,
-      adjustmentDelta
+      adjustmentDelta,
+      {
+        ...(userId ? { userId } : {}),
+      }
     );
   }
 );
@@ -243,20 +269,30 @@ export const applyDispatchJobFinanceAdjustment = createAsyncThunk<
 export const confirmDispatchJobFinance = createAsyncThunk<
   DispatchJob,
   ConfirmDispatchJobFinancePayload
->('sparkeryDispatch/confirmFinance', async ({ id, confirmedBy }) => {
-  return sparkeryDispatchService.confirmJobFinance(id, confirmedBy);
-});
+>(
+  'sparkeryDispatch/confirmFinance',
+  async ({ id, confirmedBy }, { getState }) => {
+    const userId = resolveDispatchTelemetryUserId(getState() as RootState);
+    return sparkeryDispatchService.confirmJobFinance(id, confirmedBy, {
+      ...(userId ? { userId } : {}),
+    });
+  }
+);
 
 export const setDispatchJobPaymentReceived = createAsyncThunk<
   DispatchJob,
   SetDispatchJobPaymentReceivedPayload
 >(
   'sparkeryDispatch/setPaymentReceived',
-  async ({ id, received, receivedBy }) => {
+  async ({ id, received, receivedBy }, { getState }) => {
+    const userId = resolveDispatchTelemetryUserId(getState() as RootState);
     return sparkeryDispatchService.setJobPaymentReceived(
       id,
       received,
-      receivedBy
+      receivedBy,
+      {
+        ...(userId ? { userId } : {}),
+      }
     );
   }
 );

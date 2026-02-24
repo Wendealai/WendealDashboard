@@ -2,7 +2,7 @@
  * Sparkery Main Page - Container for all Sparkery tools with tabs
  */
 
-import React, { Suspense, lazy, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { Spin, Tabs, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import {
@@ -17,13 +17,14 @@ import {
   RetweetOutlined,
 } from '@ant-design/icons';
 import { QuoteDraftContext, type QuoteDraftData } from './quoteDraftContext';
+import { loadSparkeryLocaleOverrides } from '@/locales';
 import './sparkery.css';
 
 const { Title } = Typography;
 const BrisbaneQuoteCalculator = lazy(() => import('./BrisbaneQuoteCalculator'));
 const CleaningInspectionAdmin = lazy(() => import('./CleaningInspectionAdmin'));
 const ChinaProcurementReport = lazy(() => import('./ChinaProcurementReport'));
-const BondCleanQuoteForm = lazy(() => import('./BondCleanQuoteForm'));
+const BondCleanQuoteForm = lazy(() => import('./BondCleanQuoteFormEN'));
 const BondCleanQuoteFormCN = lazy(() => import('./BondCleanQuoteFormCN'));
 const BondCleanQuoteSubmissions = lazy(
   () => import('./BondCleanQuoteSubmissions')
@@ -61,9 +62,26 @@ const renderLazyTabContent = (
 
 /** Main Sparkery Page Component */
 const SparkeryPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState('quote-calculator');
   const [draftData, setDraftData] = useState<QuoteDraftData | null>(null);
+  const [localeReady, setLocaleReady] = useState(false);
+
+  useEffect(() => {
+    let isCancelled = false;
+    setLocaleReady(false);
+
+    void (async () => {
+      await loadSparkeryLocaleOverrides(i18n.language);
+      if (!isCancelled) {
+        setLocaleReady(true);
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [i18n.language]);
 
   const tabItems = useMemo(
     () => [
@@ -160,6 +178,22 @@ const SparkeryPage: React.FC = () => {
     ],
     [t]
   );
+
+  if (!localeReady) {
+    return (
+      <div
+        className='sparkery-page sparkery-page-shell'
+        style={{
+          minHeight: 280,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Spin size='large' />
+      </div>
+    );
+  }
 
   return (
     <QuoteDraftContext.Provider
