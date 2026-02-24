@@ -24,17 +24,10 @@ import {
   geocodeAddress,
   isGoogleMapsConfigured,
 } from '@/services/googleMapsService';
+import { useTranslation } from 'react-i18next';
 
 const { Text } = Typography;
-const WEEKDAY_OPTIONS: Array<{ value: number; label: string }> = [
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' },
-  { value: 7, label: 'Sunday' },
-];
+const WEEKDAY_OPTIONS: number[] = [1, 2, 3, 4, 5, 6, 7];
 
 interface ManualLocationFormValues {
   placeType: 'home' | 'departure' | 'custom';
@@ -82,6 +75,7 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
   onExportBackup,
   onImportBackup,
 }) => {
+  const { t } = useTranslation();
   const [employeeForm] = Form.useForm<UpsertDispatchEmployeePayload>();
   const [customerForm] = Form.useForm<UpsertDispatchCustomerProfilePayload>();
   const [manualLocationForm] = Form.useForm<ManualLocationFormValues>();
@@ -106,19 +100,27 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
     const url = getLocationReportLink(employeeId);
     try {
       if (!navigator.clipboard?.writeText) {
-        message.warning(`Copy not supported. Open link: ${url}`);
+        message.warning(
+          t('sparkery.dispatch.adminSetup.messages.copyNotSupported', { url })
+        );
         return;
       }
       await navigator.clipboard.writeText(url);
-      message.success('Location report link copied');
+      message.success(
+        t('sparkery.dispatch.adminSetup.messages.locationReportLinkCopied')
+      );
     } catch {
-      message.error('Failed to copy location report link');
+      message.error(
+        t('sparkery.dispatch.adminSetup.messages.copyLocationReportLinkFailed')
+      );
     }
   };
 
   const reportBrowserLocation = async (employeeId: string) => {
     if (!navigator.geolocation) {
-      message.error('Current browser does not support geolocation');
+      message.error(
+        t('sparkery.dispatch.adminSetup.messages.geolocationUnsupported')
+      );
       return;
     }
 
@@ -138,7 +140,11 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
       },
       error => {
         setReportingEmployeeId(null);
-        message.error(`Location report failed: ${error.message}`);
+        message.error(
+          t('sparkery.dispatch.adminSetup.messages.locationReportFailed', {
+            reason: error.message,
+          })
+        );
       },
       {
         enableHighAccuracy: true,
@@ -168,12 +174,17 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
 
   const resolveManualLabel = (values: ManualLocationFormValues): string => {
     if (values.placeType === 'home') {
-      return 'Home';
+      return t('sparkery.dispatch.adminSetup.manualLocation.placeType.home');
     }
     if (values.placeType === 'departure') {
-      return 'Today Departure';
+      return t(
+        'sparkery.dispatch.adminSetup.manualLocation.placeType.departure'
+      );
     }
-    return values.customLabel?.trim() || 'Manual Location';
+    return (
+      values.customLabel?.trim() ||
+      t('sparkery.dispatch.adminSetup.manualLocation.placeType.manualFallback')
+    );
   };
 
   const submitManualLocation = async (values: ManualLocationFormValues) => {
@@ -195,18 +206,22 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
       ) {
         const address = values.address?.trim();
         if (!address) {
-          message.warning('Please enter address or latitude/longitude');
+          message.warning(
+            t('sparkery.dispatch.adminSetup.messages.inputAddressOrCoordinates')
+          );
           return;
         }
         if (!isGoogleMapsConfigured()) {
           message.error(
-            'Google Maps is not configured. Please enter latitude and longitude manually.'
+            t('sparkery.dispatch.adminSetup.messages.googleMapsNotConfigured')
           );
           return;
         }
         const geocoded = await geocodeAddress(address);
         if (!geocoded) {
-          message.error('Address geocoding failed. Please refine address.');
+          message.error(
+            t('sparkery.dispatch.adminSetup.messages.addressGeocodeFailed')
+          );
           return;
         }
         lat = geocoded.lat;
@@ -223,7 +238,9 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
         source: 'manual',
         label,
       });
-      message.success('Manual location saved');
+      message.success(
+        t('sparkery.dispatch.adminSetup.messages.manualLocationSaved')
+      );
       closeManualLocation(true);
     } finally {
       setManualLocationSaving(false);
@@ -239,7 +256,9 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
       }
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : 'Failed to delete employee'
+        error instanceof Error
+          ? error.message
+          : t('sparkery.dispatch.adminSetup.messages.deleteEmployeeFailed')
       );
     } finally {
       setDeletingEmployeeId(null);
@@ -248,7 +267,7 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
 
   return (
     <Modal
-      title='Dispatch Pre-setup (Employees & Customers)'
+      title={t('sparkery.dispatch.adminSetup.title')}
       open={open}
       onCancel={onCancel}
       footer={null}
@@ -262,24 +281,24 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
           className='dispatch-admin-toolbar-btn'
           onClick={onMigrateLocalPeople}
         >
-          Migrate Local Data to Supabase
+          {t('sparkery.dispatch.adminSetup.actions.migrateLocalData')}
         </Button>
         <Button
           className='dispatch-admin-toolbar-btn'
           onClick={onResetMigrationPrompt}
         >
-          Reset Migration Prompt
+          {t('sparkery.dispatch.adminSetup.actions.resetMigrationPrompt')}
         </Button>
         <Button
           loading={loading}
           className='dispatch-admin-toolbar-btn'
           onClick={onExportBackup}
         >
-          Export JSON Backup
+          {t('sparkery.dispatch.adminSetup.actions.exportJsonBackup')}
         </Button>
         <Button loading={loading} className='dispatch-admin-toolbar-btn'>
           <label className='dispatch-admin-import-label'>
-            Import JSON Backup
+            {t('sparkery.dispatch.adminSetup.actions.importJsonBackup')}
             <input
               type='file'
               accept='application/json'
@@ -300,19 +319,23 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
         items={[
           {
             key: 'employees',
-            label: 'Employees',
+            label: t('sparkery.dispatch.adminSetup.tabs.employees'),
             children: (
               <div className='dispatch-admin-grid'>
                 <div>
                   <div className='dispatch-admin-panel-head'>
                     <Text strong className='dispatch-admin-panel-title'>
-                      Current Employees
+                      {t(
+                        'sparkery.dispatch.adminSetup.employees.currentEmployees'
+                      )}
                     </Text>
                     <Text
                       type='secondary'
                       className='dispatch-admin-panel-subtitle'
                     >
-                      Manage dispatch staff and location status.
+                      {t(
+                        'sparkery.dispatch.adminSetup.employees.currentEmployeesSubtitle'
+                      )}
                     </Text>
                   </div>
                   <div className='dispatch-admin-scroll'>
@@ -325,13 +348,21 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                         >
                           <Text strong>{emp.name}</Text>
                           <Tag className='dispatch-admin-status-tag'>
-                            {emp.status}
+                            {t(
+                              `sparkery.dispatch.adminSetup.employeeStatus.${emp.status}`
+                            )}
                           </Tag>
                           <Tag
                             color={emp.currentLocation ? 'green' : 'orange'}
                             className='dispatch-admin-location-tag'
                           >
-                            {emp.currentLocation ? 'Located' : 'Unlocated'}
+                            {emp.currentLocation
+                              ? t(
+                                  'sparkery.dispatch.adminSetup.employees.located'
+                                )
+                              : t(
+                                  'sparkery.dispatch.adminSetup.employees.unlocated'
+                                )}
                           </Tag>
                           {emp.currentLocation && (
                             <Tag
@@ -346,7 +377,9 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                         {emp.currentLocation && (
                           <div>
                             <Text type='secondary'>
-                              Updated:{' '}
+                              {t(
+                                'sparkery.dispatch.adminSetup.employees.updatedAt'
+                              )}{' '}
                               {new Date(
                                 emp.currentLocation.updatedAt
                               ).toLocaleString()}
@@ -360,7 +393,7 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                               className='dispatch-admin-action-btn'
                               onClick={() => employeeForm.setFieldsValue(emp)}
                             >
-                              Edit
+                              {t('sparkery.dispatch.adminSetup.actions.edit')}
                             </Button>
                             <Button
                               size='small'
@@ -368,27 +401,41 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                               loading={reportingEmployeeId === emp.id}
                               onClick={() => reportBrowserLocation(emp.id)}
                             >
-                              Report GPS
+                              {t(
+                                'sparkery.dispatch.adminSetup.actions.reportGps'
+                              )}
                             </Button>
                             <Button
                               size='small'
                               className='dispatch-admin-action-btn'
                               onClick={() => copyLocationReportLink(emp.id)}
                             >
-                              Copy Location Link
+                              {t(
+                                'sparkery.dispatch.adminSetup.actions.copyLocationLink'
+                              )}
                             </Button>
                             <Button
                               size='small'
                               className='dispatch-admin-action-btn'
                               onClick={() => openManualLocation(emp)}
                             >
-                              Manual Location
+                              {t(
+                                'sparkery.dispatch.adminSetup.actions.manualLocation'
+                              )}
                             </Button>
                             <Popconfirm
-                              title='Delete employee?'
-                              description='This will remove the employee from dispatch and inspection lists.'
-                              okText='Delete'
-                              cancelText='Cancel'
+                              title={t(
+                                'sparkery.dispatch.adminSetup.confirm.deleteEmployeeTitle'
+                              )}
+                              description={t(
+                                'sparkery.dispatch.adminSetup.confirm.deleteEmployeeDescription'
+                              )}
+                              okText={t(
+                                'sparkery.dispatch.adminSetup.actions.delete'
+                              )}
+                              cancelText={t(
+                                'sparkery.dispatch.adminSetup.actions.cancel'
+                              )}
                               okButtonProps={{ danger: true }}
                               onConfirm={() => handleDeleteEmployee(emp.id)}
                             >
@@ -398,7 +445,9 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                                 className='dispatch-admin-action-btn'
                                 loading={deletingEmployeeId === emp.id}
                               >
-                                Delete
+                                {t(
+                                  'sparkery.dispatch.adminSetup.actions.delete'
+                                )}
                               </Button>
                             </Popconfirm>
                           </Space>
@@ -410,13 +459,17 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                 <div>
                   <div className='dispatch-admin-panel-head'>
                     <Text strong className='dispatch-admin-panel-title'>
-                      Add / Edit Employee
+                      {t(
+                        'sparkery.dispatch.adminSetup.employees.addEditEmployee'
+                      )}
                     </Text>
                     <Text
                       type='secondary'
                       className='dispatch-admin-panel-subtitle'
                     >
-                      Keep skills and status current for scheduling.
+                      {t(
+                        'sparkery.dispatch.adminSetup.employees.addEditEmployeeSubtitle'
+                      )}
                     </Text>
                   </div>
                   <Form
@@ -433,39 +486,52 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                       <Input />
                     </Form.Item>
                     <Form.Item
-                      label='Name'
+                      label={t('sparkery.dispatch.adminSetup.form.name')}
                       name='name'
                       rules={[{ required: true }]}
                     >
                       <Input />
                     </Form.Item>
-                    <Form.Item label='Phone' name='phone'>
+                    <Form.Item
+                      label={t('sparkery.dispatch.adminSetup.form.phone')}
+                      name='phone'
+                    >
                       <Input />
                     </Form.Item>
                     <Form.Item
-                      label='Skills'
+                      label={t('sparkery.dispatch.adminSetup.form.skills')}
                       name='skills'
                       rules={[{ required: true }]}
                     >
                       <Select mode='multiple'>
-                        <Select.Option value='bond'>Bond</Select.Option>
-                        <Select.Option value='airbnb'>Airbnb</Select.Option>
-                        <Select.Option value='regular'>Regular</Select.Option>
+                        <Select.Option value='bond'>
+                          {t('sparkery.dispatch.common.serviceType.bond')}
+                        </Select.Option>
+                        <Select.Option value='airbnb'>
+                          {t('sparkery.dispatch.common.serviceType.airbnb')}
+                        </Select.Option>
+                        <Select.Option value='regular'>
+                          {t('sparkery.dispatch.common.serviceType.regular')}
+                        </Select.Option>
                         <Select.Option value='commercial'>
-                          Commercial
+                          {t('sparkery.dispatch.common.serviceType.commercial')}
                         </Select.Option>
                       </Select>
                     </Form.Item>
                     <Form.Item
-                      label='Status'
+                      label={t('sparkery.dispatch.adminSetup.form.status')}
                       name='status'
                       rules={[{ required: true }]}
                     >
                       <Select>
                         <Select.Option value='available'>
-                          Available
+                          {t(
+                            'sparkery.dispatch.adminSetup.employeeStatus.available'
+                          )}
                         </Select.Option>
-                        <Select.Option value='off'>Off</Select.Option>
+                        <Select.Option value='off'>
+                          {t('sparkery.dispatch.adminSetup.employeeStatus.off')}
+                        </Select.Option>
                       </Select>
                     </Form.Item>
                     <Button
@@ -474,7 +540,7 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                       block
                       className='dispatch-admin-submit-btn'
                     >
-                      Save Employee
+                      {t('sparkery.dispatch.adminSetup.actions.saveEmployee')}
                     </Button>
                   </Form>
                 </div>
@@ -483,19 +549,23 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
           },
           {
             key: 'customers',
-            label: 'Customers',
+            label: t('sparkery.dispatch.adminSetup.tabs.customers'),
             children: (
               <div className='dispatch-admin-grid'>
                 <div>
                   <div className='dispatch-admin-panel-head'>
                     <Text strong className='dispatch-admin-panel-title'>
-                      Long-term Customers
+                      {t(
+                        'sparkery.dispatch.adminSetup.customers.longTermCustomers'
+                      )}
                     </Text>
                     <Text
                       type='secondary'
                       className='dispatch-admin-panel-subtitle'
                     >
-                      Recurring profiles used by weekly auto-fill.
+                      {t(
+                        'sparkery.dispatch.adminSetup.customers.longTermCustomersSubtitle'
+                      )}
                     </Text>
                   </div>
                   <div className='dispatch-admin-scroll'>
@@ -506,11 +576,16 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                       >
                         <Text strong>{customer.name}</Text>
                         <div>
-                          <Text type='secondary'>{customer.address}</Text>
+                          <Text type='secondary'>
+                            {customer.address ||
+                              t('sparkery.dispatch.common.noAddress')}
+                          </Text>
                         </div>
                         <div>
                           <Text type='secondary'>
-                            Recurring Fee: $
+                            {t(
+                              'sparkery.dispatch.adminSetup.customers.recurringFeePrefix'
+                            )}{' '}
                             {Number(customer.recurringFee || 0).toFixed(2)}
                           </Text>
                         </div>
@@ -531,7 +606,7 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                               })
                             }
                           >
-                            Edit
+                            {t('sparkery.dispatch.adminSetup.actions.edit')}
                           </Button>
                         </div>
                       </div>
@@ -541,13 +616,17 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                 <div>
                   <div className='dispatch-admin-panel-head'>
                     <Text strong className='dispatch-admin-panel-title'>
-                      Add / Edit Customer
+                      {t(
+                        'sparkery.dispatch.adminSetup.customers.addEditCustomer'
+                      )}
                     </Text>
                     <Text
                       type='secondary'
                       className='dispatch-admin-panel-subtitle'
                     >
-                      Configure default task details and recurring rules.
+                      {t(
+                        'sparkery.dispatch.adminSetup.customers.addEditCustomerSubtitle'
+                      )}
                     </Text>
                   </div>
                   <Form
@@ -587,44 +666,65 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                       <Input />
                     </Form.Item>
                     <Form.Item
-                      label='Name'
+                      label={t('sparkery.dispatch.adminSetup.form.name')}
                       name='name'
                       rules={[{ required: true }]}
                     >
                       <Input />
                     </Form.Item>
-                    <Form.Item label='Address' name='address'>
-                      <Input />
-                    </Form.Item>
-                    <Form.Item label='Phone' name='phone'>
+                    <Form.Item
+                      label={t('sparkery.dispatch.adminSetup.form.address')}
+                      name='address'
+                    >
                       <Input />
                     </Form.Item>
                     <Form.Item
-                      label='Default Task Title'
+                      label={t('sparkery.dispatch.adminSetup.form.phone')}
+                      name='phone'
+                    >
+                      <Input />
+                    </Form.Item>
+                    <Form.Item
+                      label={t(
+                        'sparkery.dispatch.adminSetup.form.defaultTaskTitle'
+                      )}
                       name='defaultJobTitle'
                     >
                       <Input />
                     </Form.Item>
                     <Form.Item
-                      label='Default Task Description'
+                      label={t(
+                        'sparkery.dispatch.adminSetup.form.defaultTaskDescription'
+                      )}
                       name='defaultDescription'
                     >
                       <Input.TextArea rows={2} />
                     </Form.Item>
-                    <Form.Item label='Default Notes' name='defaultNotes'>
+                    <Form.Item
+                      label={t(
+                        'sparkery.dispatch.adminSetup.form.defaultNotes'
+                      )}
+                      name='defaultNotes'
+                    >
                       <Input.TextArea rows={3} />
                     </Form.Item>
                     <Form.Item
-                      label='Recurring Weekly Task'
+                      label={t(
+                        'sparkery.dispatch.adminSetup.form.recurringWeeklyTask'
+                      )}
                       name='recurringEnabled'
                     >
                       <Select>
-                        <Select.Option value={false}>Disabled</Select.Option>
-                        <Select.Option value={true}>Enabled</Select.Option>
+                        <Select.Option value={false}>
+                          {t('sparkery.dispatch.common.disabled')}
+                        </Select.Option>
+                        <Select.Option value={true}>
+                          {t('sparkery.dispatch.common.enabled')}
+                        </Select.Option>
                       </Select>
                     </Form.Item>
                     <Form.Item
-                      label='Weekdays'
+                      label={t('sparkery.dispatch.adminSetup.form.weekdays')}
                       name='recurringWeekdays'
                       rules={[
                         ({ getFieldValue }) => ({
@@ -636,7 +736,11 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                               return Promise.resolve();
                             }
                             return Promise.reject(
-                              new Error('Please choose at least one weekday')
+                              new Error(
+                                t(
+                                  'sparkery.dispatch.adminSetup.messages.chooseAtLeastOneWeekday'
+                                )
+                              )
                             );
                           },
                         }),
@@ -645,36 +749,55 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                       <Select
                         mode='multiple'
                         maxTagCount={3}
-                        options={WEEKDAY_OPTIONS}
+                        options={WEEKDAY_OPTIONS.map(day => ({
+                          value: day,
+                          label: t(
+                            `sparkery.dispatch.common.weekday.full.${day}`
+                          ),
+                        }))}
                       />
                     </Form.Item>
                     <Form.Item
-                      label='Recurring Start Time'
+                      label={t(
+                        'sparkery.dispatch.adminSetup.form.recurringStartTime'
+                      )}
                       name='recurringStartTime'
                     >
                       <Input type='time' />
                     </Form.Item>
                     <Form.Item
-                      label='Recurring End Time'
+                      label={t(
+                        'sparkery.dispatch.adminSetup.form.recurringEndTime'
+                      )}
                       name='recurringEndTime'
                     >
                       <Input type='time' />
                     </Form.Item>
                     <Form.Item
-                      label='Recurring Service Type'
+                      label={t(
+                        'sparkery.dispatch.adminSetup.form.recurringServiceType'
+                      )}
                       name='recurringServiceType'
                     >
                       <Select>
-                        <Select.Option value='bond'>Bond</Select.Option>
-                        <Select.Option value='airbnb'>Airbnb</Select.Option>
-                        <Select.Option value='regular'>Regular</Select.Option>
+                        <Select.Option value='bond'>
+                          {t('sparkery.dispatch.common.serviceType.bond')}
+                        </Select.Option>
+                        <Select.Option value='airbnb'>
+                          {t('sparkery.dispatch.common.serviceType.airbnb')}
+                        </Select.Option>
+                        <Select.Option value='regular'>
+                          {t('sparkery.dispatch.common.serviceType.regular')}
+                        </Select.Option>
                         <Select.Option value='commercial'>
-                          Commercial
+                          {t('sparkery.dispatch.common.serviceType.commercial')}
                         </Select.Option>
                       </Select>
                     </Form.Item>
                     <Form.Item
-                      label='Recurring Priority'
+                      label={t(
+                        'sparkery.dispatch.adminSetup.form.recurringPriority'
+                      )}
                       name='recurringPriority'
                     >
                       <Select>
@@ -686,7 +809,9 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                       </Select>
                     </Form.Item>
                     <Form.Item
-                      label='Recurring Fixed Fee (AUD)'
+                      label={t(
+                        'sparkery.dispatch.adminSetup.form.recurringFixedFeeAud'
+                      )}
                       name='recurringFee'
                     >
                       <InputNumber
@@ -701,7 +826,7 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
                       block
                       className='dispatch-admin-submit-btn'
                     >
-                      Save Customer
+                      {t('sparkery.dispatch.adminSetup.actions.saveCustomer')}
                     </Button>
                   </Form>
                 </div>
@@ -714,8 +839,10 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
       <Modal
         title={
           manualLocationEmployee
-            ? `Manual Location - ${manualLocationEmployee.name}`
-            : 'Manual Location'
+            ? t('sparkery.dispatch.adminSetup.manualLocation.titleWithName', {
+                name: manualLocationEmployee.name,
+              })
+            : t('sparkery.dispatch.adminSetup.manualLocation.title')
         }
         open={Boolean(manualLocationEmployee)}
         onCancel={() => closeManualLocation()}
@@ -731,34 +858,66 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
           onFinish={submitManualLocation}
         >
           <Form.Item
-            label='Location Type'
+            label={t(
+              'sparkery.dispatch.adminSetup.manualLocation.locationType'
+            )}
             name='placeType'
             rules={[{ required: true }]}
           >
             <Select>
-              <Select.Option value='home'>Home Address</Select.Option>
-              <Select.Option value='departure'>Today Departure</Select.Option>
-              <Select.Option value='custom'>Custom Label</Select.Option>
+              <Select.Option value='home'>
+                {t('sparkery.dispatch.adminSetup.manualLocation.homeAddress')}
+              </Select.Option>
+              <Select.Option value='departure'>
+                {t(
+                  'sparkery.dispatch.adminSetup.manualLocation.todayDeparture'
+                )}
+              </Select.Option>
+              <Select.Option value='custom'>
+                {t(
+                  'sparkery.dispatch.adminSetup.manualLocation.customLabelOption'
+                )}
+              </Select.Option>
             </Select>
           </Form.Item>
           {manualPlaceType === 'custom' && (
             <Form.Item
-              label='Custom Label'
+              label={t(
+                'sparkery.dispatch.adminSetup.manualLocation.customLabel'
+              )}
               name='customLabel'
-              rules={[{ required: true, message: 'Please enter custom label' }]}
+              rules={[
+                {
+                  required: true,
+                  message: t(
+                    'sparkery.dispatch.adminSetup.messages.enterCustomLabel'
+                  ),
+                },
+              ]}
             >
-              <Input placeholder='e.g. Temporary Start Point' />
+              <Input
+                placeholder={t(
+                  'sparkery.dispatch.adminSetup.manualLocation.customLabelPlaceholder'
+                )}
+              />
             </Form.Item>
           )}
-          <Form.Item label='Address' name='address'>
-            <Input placeholder='Home address or today departure address' />
+          <Form.Item
+            label={t('sparkery.dispatch.adminSetup.form.address')}
+            name='address'
+          >
+            <Input
+              placeholder={t(
+                'sparkery.dispatch.adminSetup.manualLocation.addressPlaceholder'
+              )}
+            />
           </Form.Item>
           <Text type='secondary' className='dispatch-admin-manual-location-tip'>
-            If address cannot be geocoded, enter latitude/longitude directly.
+            {t('sparkery.dispatch.adminSetup.manualLocation.geocodeTip')}
           </Text>
           <div className='dispatch-location-grid'>
             <Form.Item
-              label='Latitude'
+              label={t('sparkery.dispatch.adminSetup.manualLocation.latitude')}
               name='lat'
               className='dispatch-admin-compact-form-item'
             >
@@ -769,7 +928,7 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
               />
             </Form.Item>
             <Form.Item
-              label='Longitude'
+              label={t('sparkery.dispatch.adminSetup.manualLocation.longitude')}
               name='lng'
               className='dispatch-admin-compact-form-item'
             >

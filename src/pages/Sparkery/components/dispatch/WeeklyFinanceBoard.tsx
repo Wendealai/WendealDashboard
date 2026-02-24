@@ -10,6 +10,7 @@ import {
   Typography,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { useTranslation } from 'react-i18next';
 import type { DispatchEmployee, DispatchJob } from '../../dispatch/types';
 
 const { Text } = Typography;
@@ -40,9 +41,6 @@ type FinanceRow = {
 const toMoney = (value: number | undefined): string =>
   `$${Number(value || 0).toFixed(2)}`;
 
-const formatStatusLabel = (status: DispatchJob['status']): string =>
-  status.replace('_', ' ');
-
 const getStatusTagColor = (status: DispatchJob['status']): string => {
   switch (status) {
     case 'completed':
@@ -69,9 +67,18 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
   onConfirmFinance,
   onTogglePaymentReceived,
 }) => {
+  const { t } = useTranslation();
   const [adjustmentInput, setAdjustmentInput] = React.useState<
     Record<string, number | null>
   >({});
+
+  const statusLabels: Record<DispatchJob['status'], string> = {
+    pending: t('sparkery.dispatch.status.pending'),
+    assigned: t('sparkery.dispatch.status.assigned'),
+    in_progress: t('sparkery.dispatch.status.inProgress'),
+    completed: t('sparkery.dispatch.status.completed'),
+    cancelled: t('sparkery.dispatch.status.cancelled'),
+  };
 
   const rows = React.useMemo<FinanceRow[]>(
     () =>
@@ -114,7 +121,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
 
   const columns: ColumnsType<FinanceRow> = [
     {
-      title: 'Date/Time',
+      title: t('sparkery.dispatch.financeBoard.columns.dateTime'),
       key: 'dateTime',
       width: 140,
       render: (_, row) => (
@@ -133,7 +140,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       ),
     },
     {
-      title: 'Task',
+      title: t('sparkery.dispatch.financeBoard.columns.task'),
       key: 'task',
       render: (_, row) => (
         <Space
@@ -145,13 +152,15 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
             {row.job.title}
           </Text>
           <Text type='secondary' className='dispatch-finance-muted-text'>
-            {row.job.customerName || row.job.customerAddress || 'No customer'}
+            {row.job.customerName ||
+              row.job.customerAddress ||
+              t('sparkery.dispatch.common.noCustomer')}
           </Text>
         </Space>
       ),
     },
     {
-      title: 'Assignee',
+      title: t('sparkery.dispatch.financeBoard.columns.assignee'),
       key: 'assignee',
       width: 140,
       render: (_, row) => {
@@ -161,7 +170,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
         if (assigned.length === 0) {
           return (
             <Text type='secondary' className='dispatch-finance-muted-text'>
-              Unassigned
+              {t('sparkery.dispatch.common.unassigned')}
             </Text>
           );
         }
@@ -177,7 +186,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       },
     },
     {
-      title: 'Status',
+      title: t('sparkery.dispatch.financeBoard.columns.status'),
       key: 'status',
       width: 120,
       render: (_, row) => (
@@ -185,12 +194,12 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
           color={getStatusTagColor(row.job.status)}
           className='dispatch-finance-status-tag'
         >
-          {formatStatusLabel(row.job.status)}
+          {statusLabels[row.job.status]}
         </Tag>
       ),
     },
     {
-      title: 'Base',
+      title: t('sparkery.dispatch.financeBoard.columns.base'),
       key: 'baseFee',
       width: 92,
       render: (_, row) => (
@@ -200,7 +209,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       ),
     },
     {
-      title: 'Adjustment',
+      title: t('sparkery.dispatch.financeBoard.columns.adjustment'),
       key: 'adjustment',
       width: 110,
       render: (_, row) => {
@@ -220,7 +229,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       },
     },
     {
-      title: 'Receivable',
+      title: t('sparkery.dispatch.financeBoard.columns.receivable'),
       key: 'receivable',
       width: 108,
       render: (_, row) => (
@@ -230,7 +239,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       ),
     },
     {
-      title: 'Finance',
+      title: t('sparkery.dispatch.financeBoard.columns.finance'),
       key: 'finance',
       width: 150,
       render: (_, row) => {
@@ -238,7 +247,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
           return (
             <Space direction='vertical' size={2}>
               <Tag color='gold' className='dispatch-finance-lock-tag'>
-                Locked
+                {t('sparkery.dispatch.financeBoard.locked')}
               </Tag>
               <Text type='secondary' className='dispatch-finance-date-text'>
                 {row.job.financeConfirmedAt.slice(0, 10)}
@@ -249,19 +258,19 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
         if (row.job.status === 'completed') {
           return (
             <Tag color='orange' className='dispatch-finance-pending-tag'>
-              Pending Confirm
+              {t('sparkery.dispatch.financeBoard.pendingConfirm')}
             </Tag>
           );
         }
         return (
           <Tag className='dispatch-finance-not-completed-tag'>
-            Not Completed
+            {t('sparkery.dispatch.financeBoard.notCompleted')}
           </Tag>
         );
       },
     },
     {
-      title: 'Payment',
+      title: t('sparkery.dispatch.financeBoard.columns.payment'),
       key: 'payment',
       width: 150,
       render: (_, row) => {
@@ -279,7 +288,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
                 await onTogglePaymentReceived(row.id, event.target.checked);
               }}
             >
-              {'\u5df2\u6536\u6b3e'}
+              {t('sparkery.dispatch.financeBoard.paymentReceived')}
             </Checkbox>
             {paymentChecked && row.job.paymentReceivedAt && (
               <Text type='secondary' className='dispatch-finance-date-text'>
@@ -291,7 +300,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
       },
     },
     {
-      title: 'Actions',
+      title: t('sparkery.dispatch.financeBoard.columns.actions'),
       key: 'actions',
       width: 260,
       render: (_, row) => {
@@ -332,7 +341,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
                 }));
               }}
             >
-              Apply Adj
+              {t('sparkery.dispatch.financeBoard.applyAdjustment')}
             </Button>
             <Button
               size='small'
@@ -343,7 +352,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
                 await onConfirmFinance(row.id);
               }}
             >
-              Confirm
+              {t('sparkery.dispatch.financeBoard.confirm')}
             </Button>
           </Space>
         );
@@ -355,29 +364,35 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
     <Card
       className='dispatch-finance-board-card'
       size='small'
-      title={title || `Weekly Finance (${weekStart} to ${weekEnd})`}
+      title={
+        title ||
+        t('sparkery.dispatch.financeBoard.weeklyTitle', {
+          weekStart,
+          weekEnd,
+        })
+      }
       extra={
         <Space size={[16, 6]} wrap className='dispatch-finance-extra-metrics'>
           <Text className='dispatch-finance-extra-metric'>
-            Scheduled:{' '}
+            {t('sparkery.dispatch.financeBoard.metrics.scheduled')}:{' '}
             <Text strong className='dispatch-finance-extra-metric-value'>
               {toMoney(allScheduledAmount)}
             </Text>
           </Text>
           <Text className='dispatch-finance-extra-metric'>
-            Completed:{' '}
+            {t('sparkery.dispatch.financeBoard.metrics.completed')}:{' '}
             <Text strong className='dispatch-finance-extra-metric-value'>
               {toMoney(completedAmount)}
             </Text>
           </Text>
           <Text className='dispatch-finance-extra-metric'>
-            Confirmed:{' '}
+            {t('sparkery.dispatch.financeBoard.metrics.confirmed')}:{' '}
             <Text strong className='dispatch-finance-extra-metric-value'>
               {toMoney(confirmedAmount)}
             </Text>
           </Text>
           <Text className='dispatch-finance-extra-metric'>
-            Paid:{' '}
+            {t('sparkery.dispatch.financeBoard.metrics.paid')}:{' '}
             <Text strong className='dispatch-finance-extra-metric-value'>
               {toMoney(paidAmount)}
             </Text>
@@ -387,19 +402,29 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
     >
       <Space className='dispatch-finance-summary-tags' size={16} wrap>
         <Tag className='dispatch-finance-pill dispatch-finance-pill-all'>
-          All Jobs: {rows.length}
+          {t('sparkery.dispatch.financeBoard.tags.allJobs', {
+            count: rows.length,
+          })}
         </Tag>
         <Tag className='dispatch-finance-pill dispatch-finance-pill-completed'>
-          Completed: {completedRows.length}
+          {t('sparkery.dispatch.financeBoard.tags.completed', {
+            count: completedRows.length,
+          })}
         </Tag>
         <Tag className='dispatch-finance-pill dispatch-finance-pill-pending'>
-          Pending Finance: {completedPendingRows.length}
+          {t('sparkery.dispatch.financeBoard.tags.pendingFinance', {
+            count: completedPendingRows.length,
+          })}
         </Tag>
         <Tag className='dispatch-finance-pill dispatch-finance-pill-confirmed'>
-          Confirmed/Locked: {confirmedRows.length}
+          {t('sparkery.dispatch.financeBoard.tags.confirmedLocked', {
+            count: confirmedRows.length,
+          })}
         </Tag>
         <Tag className='dispatch-finance-pill dispatch-finance-pill-paid'>
-          Paid: {paidRows.length}
+          {t('sparkery.dispatch.financeBoard.tags.paid', {
+            count: paidRows.length,
+          })}
         </Tag>
       </Space>
 

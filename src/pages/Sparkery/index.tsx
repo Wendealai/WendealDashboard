@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { Tabs, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import {
   HomeOutlined,
   ShoppingCartOutlined,
@@ -31,6 +32,7 @@ const { Title } = Typography;
 
 /** Main Sparkery Page Component */
 const SparkeryPage: React.FC = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('quote-calculator');
   const [draftData, setDraftData] = useState<QuoteDraftData | null>(null);
 
@@ -40,7 +42,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <CalculatorOutlined />
-          报价工具
+          {t('sparkery.tabs.quoteCalculator')}
         </span>
       ),
       children: <BrisbaneQuoteCalculator />,
@@ -50,7 +52,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <HomeOutlined />
-          清洁检查
+          {t('sparkery.tabs.cleaningInspection')}
         </span>
       ),
       children: <CleaningInspectionAdmin />,
@@ -60,7 +62,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <ShoppingCartOutlined />
-          中国采购
+          {t('sparkery.tabs.chinaProcurement')}
         </span>
       ),
       children: <ChinaProcurementReport />,
@@ -70,7 +72,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <FileTextOutlined />
-          报价表单（英文）
+          {t('sparkery.tabs.quoteFormEn')}
         </span>
       ),
       children: <BondCleanQuoteForm />,
@@ -80,7 +82,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <GlobalOutlined />
-          报价表单（中文）
+          {t('sparkery.tabs.quoteFormCn')}
         </span>
       ),
       children: <BondCleanQuoteFormCN />,
@@ -90,7 +92,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <UnorderedListOutlined />
-          已提交报价
+          {t('sparkery.tabs.quoteSubmissions')}
         </span>
       ),
       children: <BondCleanQuoteSubmissions />,
@@ -100,7 +102,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <ScheduleOutlined />
-          派单看板
+          {t('sparkery.tabs.dispatchDashboard')}
         </span>
       ),
       children: <DispatchDashboard />,
@@ -110,7 +112,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <RetweetOutlined />
-          周期模板
+          {t('sparkery.tabs.recurringTemplates')}
         </span>
       ),
       children: <DispatchRecurringTemplatesPage />,
@@ -120,7 +122,7 @@ const SparkeryPage: React.FC = () => {
       label: (
         <span>
           <DollarOutlined />
-          财务看板
+          {t('sparkery.tabs.financeDashboard')}
         </span>
       ),
       children: <DispatchFinanceDashboard />,
@@ -133,13 +135,15 @@ const SparkeryPage: React.FC = () => {
     >
       <div className='sparkery-page sparkery-page-shell'>
         <Title level={3} className='sparkery-page-title'>
-          Sparkery Tools
+          {t('sparkery.title')}
         </Title>
         <Tabs
           className='sparkery-tabs'
           activeKey={activeTab}
           onChange={setActiveTab}
           items={tabItems}
+          animated={false}
+          tabBarGutter={8}
         />
       </div>
     </QuoteDraftContext.Provider>

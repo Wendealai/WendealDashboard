@@ -5,7 +5,8 @@
 .dispatch-dashboard-page,
 .sparkery-submissions-page,
 .dispatch-location-report-page,
-.dispatch-week-plan-page {
+.dispatch-week-plan-page,
+.dispatch-employee-tasks-page {
   --sparkery-bg: linear-gradient(
     135deg,
     rgba(247, 250, 255, 1) 0%,
@@ -147,6 +148,23 @@
   font-weight: 500;
 }
 
+.sparkery-page .sparkery-tabs .ant-tabs-tab .ant-tabs-tab-btn > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.sparkery-page .sparkery-tabs .ant-tabs-nav-wrap {
+  overflow-x: auto !important;
+  scrollbar-width: thin;
+}
+
+.sparkery-page .sparkery-tabs .ant-tabs-nav-list {
+  min-width: max-content;
+  flex-wrap: nowrap;
+}
+
 .sparkery-page .sparkery-tabs .ant-tabs-content-holder,
 .sparkery-page .sparkery-tabs .ant-tabs-tabpane {
   background: transparent;
@@ -180,6 +198,10 @@
   overflow: hidden;
 }
 
+.sparkery-page .ant-table-wrapper {
+  overflow-x: auto;
+}
+
 .sparkery-page .ant-table-wrapper .ant-table-thead > tr > th {
   background: var(--sparkery-soft);
   color: #2a3a50;
@@ -191,7 +213,8 @@
 .sparkery-tool-page,
 .sparkery-submissions-page,
 .dispatch-location-report-page,
-.dispatch-week-plan-page {
+.dispatch-week-plan-page,
+.dispatch-employee-tasks-page {
   background: var(--sparkery-bg);
   border: 1px solid var(--sparkery-border);
   border-radius: 14px;
@@ -262,10 +285,15 @@
 
 .sparkery-quote-calc-main-row {
   margin-top: 20px;
+  row-gap: 16px;
 }
 
 .sparkery-quote-calc-config-card {
   margin-bottom: 16px;
+}
+
+.sparkery-quote-calc-config-card .ant-card-body {
+  padding: 18px 18px 14px;
 }
 
 .sparkery-quote-calc-row-gap {
@@ -285,6 +313,21 @@
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 8px;
   margin-top: 8px;
+  align-items: stretch;
+}
+
+.sparkery-quote-calc-worktype-grid .ant-radio-wrapper {
+  margin-inline-end: 0;
+  padding: 8px 10px;
+  border: 1px solid #e3ebf7;
+  border-radius: 8px;
+  background: #fff;
+  line-height: 1.35;
+}
+
+.sparkery-quote-calc-worktype-grid .ant-radio {
+  align-self: flex-start;
+  margin-top: 2px;
 }
 
 .sparkery-quote-calc-radio-no-margin {
@@ -301,6 +344,19 @@
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 8px;
   margin-top: 8px;
+}
+
+.sparkery-quote-calc-roomtype-grid .ant-radio-button-wrapper {
+  width: 100%;
+  height: auto;
+  min-height: 36px;
+  line-height: 1.3;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  white-space: normal;
+  text-align: center;
+  padding: 6px 8px;
 }
 
 .sparkery-quote-calc-roomtype-btn {
@@ -345,6 +401,15 @@
   flex-wrap: wrap;
 }
 
+.sparkery-quote-calc-radio-row .ant-radio-button-wrapper {
+  height: auto;
+  min-height: 34px;
+  line-height: 1.3;
+  white-space: normal;
+  text-align: center;
+  padding: 6px 10px;
+}
+
 .sparkery-quote-calc-tag-inline {
   margin-left: 4px;
 }
@@ -382,6 +447,20 @@
   border-radius: 8px;
 }
 
+.sparkery-quote-calc-card-soft .ant-card-head {
+  min-height: 42px;
+}
+
+.sparkery-quote-calc-card-soft .ant-card-head-title {
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.sparkery-quote-calc-card-soft .ant-card-head-wrapper {
+  align-items: flex-start;
+  gap: 8px;
+}
+
 .sparkery-quote-calc-right-summary {
   margin-top: 8px;
   text-align: right;
@@ -411,17 +490,69 @@
 
 .sparkery-quote-calc-addon-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
 }
 
 .sparkery-quote-calc-checkbox-tight {
   margin: 0 !important;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fff;
+  transition: all 0.2s ease;
+}
+
+.sparkery-quote-calc-checkbox-tight:hover {
+  border-color: #b7eb8f;
+  background: #fcfff5;
+}
+
+.sparkery-quote-calc-addon-grid
+  .sparkery-quote-calc-checkbox-tight.ant-checkbox-wrapper-checked {
+  border-color: #52c41a;
+  background: #f6ffed;
+}
+
+.sparkery-quote-calc-checkbox-tight .ant-checkbox {
+  margin-top: 2px;
+}
+
+.sparkery-quote-calc-checkbox-tight .ant-checkbox + span {
+  flex: 1;
+  padding-inline-start: 0;
+}
+
+.sparkery-quote-calc-addon-option {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sparkery-quote-calc-addon-option-title {
+  display: block;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.sparkery-quote-calc-addon-option-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .sparkery-quote-calc-addon-meta {
-  font-size: 10px;
-  color: #999 !important;
+  font-size: 12px;
+  color: #8c8c8c !important;
 }
 
 .sparkery-quote-calc-measurement-grid {
@@ -434,6 +565,30 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #eef3fa;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.sparkery-quote-calc-addon-item .ant-checkbox-wrapper {
+  align-items: flex-start;
+  width: 100%;
+  margin-inline-end: 0;
+}
+
+.sparkery-quote-calc-addon-item .ant-checkbox + span {
+  width: 100%;
+  min-width: 0;
+  padding-inline-start: 6px;
+}
+
+.sparkery-quote-calc-addon-item .ant-space {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  column-gap: 6px;
 }
 
 .sparkery-quote-calc-divider-wide {
@@ -445,6 +600,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .sparkery-quote-calc-manual-addon-card {
@@ -473,6 +630,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .sparkery-quote-calc-sticky-card {
@@ -554,6 +713,20 @@
   background: #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   overflow: auto;
+  border-radius: 10px;
+}
+
+.sparkery-quote-calc-preview-paper .item-detail {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+  text-indent: 0 !important;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.sparkery-quote-calc-config-modal .ant-modal-body {
+  max-height: 72vh;
+  overflow: auto;
 }
 
 .sparkery-quote-calc-config-row {
@@ -570,6 +743,11 @@
 }
 
 @media (max-width: 992px) {
+  .sparkery-quote-calc-sticky-card {
+    position: static;
+    top: auto;
+  }
+
   .sparkery-quote-calc-measurement-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -580,8 +758,53 @@
     padding: 12px;
   }
 
+  .sparkery-quote-calc-main-row {
+    margin-top: 14px;
+    row-gap: 12px;
+  }
+
+  .sparkery-quote-calc-config-card .ant-card-body {
+    padding: 12px;
+  }
+
+  .sparkery-quote-calc-worktype-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sparkery-quote-calc-roomtype-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
   .sparkery-quote-calc-measurement-grid {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .sparkery-quote-calc-radio-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .sparkery-quote-calc-radio-row .ant-radio-button-wrapper {
+    width: 100%;
+  }
+
+  .sparkery-quote-calc-addon-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sparkery-quote-calc-service-total {
+    padding: 12px;
+  }
+
+  .sparkery-quote-calc-service-total .ant-row {
+    row-gap: 6px;
+  }
+
+  .sparkery-quote-calc-service-total-value {
+    font-size: 20px;
   }
 
   .sparkery-quote-calc-custom-room-input {
@@ -592,6 +815,19 @@
     width: 100%;
     margin-left: 0;
     margin-top: 8px;
+  }
+
+  .sparkery-quote-calc-manual-addon-header .ant-btn {
+    width: 100%;
+  }
+
+  .sparkery-quote-calc-preview-section {
+    margin-top: 20px;
+  }
+
+  .sparkery-quote-calc-preview-paper {
+    min-height: 0;
+    max-height: 72vh;
   }
 }
 
@@ -1863,7 +2099,8 @@
 .dispatch-dashboard-page .ant-card,
 .sparkery-submissions-page .ant-card,
 .dispatch-location-report-page .ant-card,
-.dispatch-week-plan-page .ant-card {
+.dispatch-week-plan-page .ant-card,
+.dispatch-employee-tasks-page .ant-card {
   border: 1px solid var(--sparkery-border);
   border-radius: 12px;
   box-shadow: 0 4px 14px rgba(15, 44, 77, 0.06);
@@ -1872,7 +2109,8 @@
 
 .dispatch-dashboard-page .ant-card-head,
 .sparkery-submissions-page .ant-card-head,
-.dispatch-week-plan-page .ant-card-head {
+.dispatch-week-plan-page .ant-card-head,
+.dispatch-employee-tasks-page .ant-card-head {
   border-bottom: 1px solid #e7eef8;
 }
 
@@ -1888,7 +2126,10 @@
 .dispatch-location-report-page .ant-input-number,
 .dispatch-week-plan-page .ant-input,
 .dispatch-week-plan-page .ant-select .ant-select-selector,
-.dispatch-week-plan-page .ant-input-number {
+.dispatch-week-plan-page .ant-input-number,
+.dispatch-employee-tasks-page .ant-input,
+.dispatch-employee-tasks-page .ant-select .ant-select-selector,
+.dispatch-employee-tasks-page .ant-input-number {
   border-radius: 8px;
   border-color: var(--sparkery-border-strong);
 }
@@ -1907,7 +2148,10 @@
 .dispatch-location-report-page .ant-input-number-focused,
 .dispatch-week-plan-page .ant-input:focus,
 .dispatch-week-plan-page .ant-input-focused,
-.dispatch-week-plan-page .ant-select-focused .ant-select-selector {
+.dispatch-week-plan-page .ant-select-focused .ant-select-selector,
+.dispatch-employee-tasks-page .ant-input:focus,
+.dispatch-employee-tasks-page .ant-input-focused,
+.dispatch-employee-tasks-page .ant-select-focused .ant-select-selector {
   border-color: #7fb2ff !important;
   box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.16) !important;
 }
@@ -1915,13 +2159,15 @@
 .dispatch-dashboard-page .ant-btn,
 .sparkery-submissions-page .ant-btn,
 .dispatch-location-report-page .ant-btn,
-.dispatch-week-plan-page .ant-btn {
+.dispatch-week-plan-page .ant-btn,
+.dispatch-employee-tasks-page .ant-btn {
   border-radius: 8px;
 }
 
 .dispatch-dashboard-page .ant-tag,
 .sparkery-submissions-page .ant-tag,
-.dispatch-week-plan-page .ant-tag {
+.dispatch-week-plan-page .ant-tag,
+.dispatch-employee-tasks-page .ant-tag {
   border-radius: 999px;
   font-size: 12px;
   padding-inline: 8px;
@@ -1930,14 +2176,16 @@
 .dispatch-dashboard-page .ant-alert,
 .sparkery-submissions-page .ant-alert,
 .dispatch-location-report-page .ant-alert,
-.dispatch-week-plan-page .ant-alert {
+.dispatch-week-plan-page .ant-alert,
+.dispatch-employee-tasks-page .ant-alert {
   border-radius: 10px;
   border: 1px solid var(--sparkery-border);
 }
 
 .dispatch-dashboard-page .ant-table-wrapper .ant-table,
 .sparkery-submissions-page .ant-table-wrapper .ant-table,
-.dispatch-week-plan-page .ant-table-wrapper .ant-table {
+.dispatch-week-plan-page .ant-table-wrapper .ant-table,
+.dispatch-employee-tasks-page .ant-table-wrapper .ant-table {
   border: 1px solid #e6eef9;
   border-radius: 10px;
   overflow: hidden;
@@ -1945,7 +2193,8 @@
 
 .dispatch-dashboard-page .ant-table-wrapper .ant-table-thead > tr > th,
 .sparkery-submissions-page .ant-table-wrapper .ant-table-thead > tr > th,
-.dispatch-week-plan-page .ant-table-wrapper .ant-table-thead > tr > th {
+.dispatch-week-plan-page .ant-table-wrapper .ant-table-thead > tr > th,
+.dispatch-employee-tasks-page .ant-table-wrapper .ant-table-thead > tr > th {
   background: var(--sparkery-soft);
   color: #2a3a50;
   font-weight: 600;
@@ -1954,7 +2203,12 @@
 
 .dispatch-dashboard-page .ant-table-wrapper .ant-table-tbody > tr:hover > td,
 .sparkery-submissions-page .ant-table-wrapper .ant-table-tbody > tr:hover > td,
-.dispatch-week-plan-page .ant-table-wrapper .ant-table-tbody > tr:hover > td {
+.dispatch-week-plan-page .ant-table-wrapper .ant-table-tbody > tr:hover > td,
+.dispatch-employee-tasks-page
+  .ant-table-wrapper
+  .ant-table-tbody
+  > tr:hover
+  > td {
   background: #f5f9ff;
 }
 
@@ -2009,6 +2263,19 @@
   width: 120px;
 }
 
+.sparkery-submissions-followup-cell {
+  align-items: flex-start;
+}
+
+.sparkery-submissions-followup-due {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.sparkery-submissions-followup-detail {
+  width: 100%;
+}
+
 .sparkery-submissions-page .sparkery-table-card .ant-card-body {
   padding-top: 8px;
 }
@@ -2031,6 +2298,15 @@
   align-items: center;
   column-gap: 6px;
   row-gap: 6px;
+}
+
+.dispatch-filter-week-nav {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dispatch-filter-week-button {
+  min-height: 34px;
 }
 
 .dispatch-filter-label {
@@ -2652,6 +2928,80 @@
   display: inline-block;
   margin-bottom: 8px;
   font-size: 12px;
+}
+
+.dispatch-employee-tasks-shell {
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.dispatch-employee-tasks-container {
+  max-width: 920px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dispatch-employee-tasks-header-card .ant-card-body {
+  padding-top: 14px;
+}
+
+.dispatch-employee-tasks-header-space {
+  width: 100%;
+}
+
+.dispatch-employee-tasks-title {
+  margin-bottom: 0 !important;
+  color: #243a58 !important;
+}
+
+.dispatch-employee-tasks-pill {
+  margin: 0;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.dispatch-employee-tasks-network-pill,
+.dispatch-employee-tasks-queue-pill {
+  margin: 0;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.dispatch-employee-tasks-alert {
+  box-shadow: 0 2px 8px rgba(26, 44, 70, 0.06);
+}
+
+.dispatch-employee-tasks-network-alert {
+  margin: 0;
+  box-shadow: 0 2px 8px rgba(26, 44, 70, 0.06);
+}
+
+.dispatch-employee-tasks-filter-row {
+  width: 100%;
+  gap: 8px 10px;
+}
+
+.dispatch-employee-tasks-select {
+  width: 260px;
+}
+
+.dispatch-employee-tasks-sync-btn {
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.dispatch-employee-tasks-list-card .ant-card-body {
+  padding-top: 8px;
+}
+
+.dispatch-employee-task-item {
+  border-bottom: 1px solid #edf2fa !important;
+}
+
+.dispatch-employee-task-item .ant-list-item-action {
+  margin-inline-start: 12px;
 }
 
 .dispatch-week-plan-shell {
@@ -3839,6 +4189,242 @@
   padding-inline-start: 6px;
 }
 
+.dispatch-finance-cashflow-board-card .ant-card-head-title {
+  font-weight: 600;
+  color: #23364d;
+}
+
+.dispatch-cashflow-model-tag {
+  margin: 0;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.dispatch-cashflow-body {
+  width: 100%;
+}
+
+.dispatch-cashflow-kpi-row {
+  width: 100%;
+  row-gap: 6px;
+}
+
+.dispatch-cashflow-kpi-tag {
+  margin: 0;
+  border-radius: 999px;
+  font-weight: 600;
+  border-color: #cad9ec;
+  background: #f4f8ff;
+  color: #314b6d;
+}
+
+.dispatch-cashflow-kpi-tag-strong {
+  border-color: #a6c8ff;
+  background: #eaf3ff;
+  color: #205293;
+}
+
+.dispatch-cashflow-kpi-tag-week {
+  border-color: #b7d8aa;
+  background: #eff9ea;
+  color: #2e6d2e;
+}
+
+.dispatch-cashflow-kpi-tag-month {
+  border-color: #bcd9f7;
+  background: #edf6ff;
+  color: #265f96;
+}
+
+.dispatch-cashflow-kpi-tag-overdue {
+  border-color: #efb3b3;
+  background: #fff1f1;
+  color: #9c2f2f;
+}
+
+.dispatch-cashflow-kpi-tag-horizon {
+  border-color: #dec2f2;
+  background: #f8f0ff;
+  color: #5d3779;
+}
+
+.dispatch-cashflow-forecast-table .ant-table-cell,
+.dispatch-cashflow-risk-table .ant-table-cell {
+  vertical-align: top;
+}
+
+.dispatch-cashflow-month-cell {
+  width: 100%;
+}
+
+.dispatch-cashflow-month-label {
+  color: #223a57;
+}
+
+.dispatch-cashflow-month-sub {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dispatch-cashflow-money,
+.dispatch-cashflow-risk-date {
+  color: #2a4264;
+  font-variant-numeric: tabular-nums;
+}
+
+.dispatch-cashflow-overdue-money {
+  color: #9c2f2f;
+  font-variant-numeric: tabular-nums;
+}
+
+.dispatch-cashflow-projected-money {
+  color: #1f5b91;
+  font-variant-numeric: tabular-nums;
+}
+
+.dispatch-cashflow-jobs-tag {
+  margin: 0;
+  border-color: #cad9ec;
+  background: #f4f8ff;
+  color: #314b6d;
+  font-weight: 600;
+}
+
+.dispatch-cashflow-progress {
+  min-width: 110px;
+}
+
+.dispatch-cashflow-risk-queue-title {
+  color: #253a55;
+}
+
+.dispatch-cashflow-risk-task-block {
+  width: 100%;
+}
+
+.dispatch-cashflow-risk-task {
+  color: #213854;
+  line-height: 1.35;
+}
+
+.dispatch-cashflow-risk-customer {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dispatch-cashflow-risk-days {
+  color: #9c2f2f;
+  font-variant-numeric: tabular-nums;
+}
+
+.dispatch-cashflow-empty-hint {
+  display: inline-block;
+}
+
+.dispatch-finance-aging-board-card .ant-card-head-title {
+  font-weight: 600;
+  color: #23364d;
+}
+
+.dispatch-aging-summary-tags {
+  row-gap: 6px;
+}
+
+.dispatch-aging-summary-tag {
+  margin: 0;
+  border-radius: 999px;
+  font-weight: 600;
+  border-color: #cad9ec;
+  background: #f4f8ff;
+  color: #314b6d;
+}
+
+.dispatch-aging-summary-tag-total {
+  border-color: #a6c8ff;
+  background: #eaf3ff;
+  color: #205293;
+}
+
+.dispatch-aging-summary-tag-0-30 {
+  border-color: #9ed0af;
+  background: #eaf8ef;
+  color: #236745;
+}
+
+.dispatch-aging-summary-tag-31-60 {
+  border-color: #f2c191;
+  background: #fff2e3;
+  color: #8a460d;
+}
+
+.dispatch-aging-summary-tag-60 {
+  border-color: #efb3b3;
+  background: #fff1f1;
+  color: #9c2f2f;
+}
+
+.dispatch-aging-table .ant-table-cell {
+  vertical-align: top;
+}
+
+.dispatch-aging-cell {
+  width: 100%;
+}
+
+.dispatch-aging-bucket-tag {
+  margin: 0;
+  border-color: #d4dce9;
+  background: #f5f7fb;
+  color: #5d6f89;
+}
+
+.dispatch-aging-days-text {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dispatch-aging-customer-block {
+  width: 100%;
+}
+
+.dispatch-aging-task-title {
+  color: #213854;
+  line-height: 1.35;
+}
+
+.dispatch-aging-customer-text {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dispatch-aging-date-text {
+  color: #2a4264;
+  font-variant-numeric: tabular-nums;
+}
+
+.dispatch-aging-money-text {
+  color: #204f89;
+  font-variant-numeric: tabular-nums;
+}
+
+.dispatch-aging-action-text {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dispatch-aging-actions {
+  row-gap: 6px;
+}
+
+.dispatch-aging-action-btn {
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.dispatch-aging-action-btn-primary.ant-btn-primary {
+  box-shadow: 0 3px 10px rgba(22, 119, 255, 0.2);
+}
+
 .dispatch-assignee-name-tag {
   margin: 0;
   color: #17457f;
@@ -3855,7 +4441,8 @@
   .dispatch-dashboard-page,
   .sparkery-submissions-page,
   .dispatch-location-report-page,
-  .dispatch-week-plan-page {
+  .dispatch-week-plan-page,
+  .dispatch-employee-tasks-page {
     padding: 8px !important;
     border-radius: 10px;
   }
@@ -3871,6 +4458,18 @@
 
   .sparkery-page .sparkery-tabs .ant-tabs-tab .ant-tabs-tab-btn {
     font-size: 13px;
+  }
+
+  .sparkery-page .sparkery-tabs .ant-tabs-tab .ant-tabs-tab-btn > span {
+    gap: 4px;
+  }
+
+  .sparkery-page .sparkery-tabs .ant-tabs-nav-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sparkery-page .sparkery-tabs .ant-tabs-nav-operations {
+    display: none;
   }
 
   .sparkery-reimbursement-shell {
@@ -3948,6 +4547,10 @@
     width: 100% !important;
   }
 
+  .dispatch-filter-week-nav .dispatch-filter-week-button {
+    width: calc(50% - 3px) !important;
+  }
+
   .dispatch-job-form-modal .ant-modal-body {
     max-height: 62vh;
     padding-right: 0;
@@ -4003,8 +4606,43 @@
     gap: 6px !important;
   }
 
+  .dispatch-cashflow-kpi-row {
+    width: 100%;
+    gap: 6px !important;
+  }
+
+  .dispatch-cashflow-kpi-tag {
+    margin-inline-end: 0;
+  }
+
+  .dispatch-cashflow-model-tag {
+    width: 100%;
+    text-align: center;
+  }
+
+  .dispatch-cashflow-progress {
+    min-width: 80px;
+  }
+
   .dispatch-finance-filter-btn,
   .dispatch-finance-filter-btn-sync {
+    width: 100%;
+  }
+
+  .dispatch-aging-summary-tags {
+    width: 100%;
+    gap: 6px !important;
+  }
+
+  .dispatch-aging-summary-tag {
+    margin-inline-end: 0;
+  }
+
+  .dispatch-aging-actions {
+    width: 100%;
+  }
+
+  .dispatch-aging-action-btn {
     width: 100%;
   }
 
@@ -4124,5 +4762,34 @@
 
   .dispatch-week-plan-rule-row {
     gap: 5px;
+  }
+
+  .dispatch-employee-tasks-shell {
+    padding: 8px;
+  }
+
+  .dispatch-employee-tasks-container {
+    gap: 8px;
+  }
+
+  .dispatch-employee-tasks-filter-row {
+    width: 100%;
+  }
+
+  .dispatch-employee-tasks-select {
+    width: 100% !important;
+  }
+
+  .dispatch-employee-tasks-sync-btn {
+    width: 100%;
+  }
+
+  .dispatch-employee-task-item .ant-list-item-action {
+    margin-inline-start: 0;
+    margin-top: 8px;
+  }
+
+  .dispatch-employee-task-item .ant-list-item-action > li {
+    padding-inline: 0;
   }
 }

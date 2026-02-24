@@ -15,6 +15,7 @@ import type {
   DispatchJob,
   DispatchJobStatus,
 } from '../../dispatch/types';
+import { useTranslation } from 'react-i18next';
 
 const { Text } = Typography;
 
@@ -30,15 +31,12 @@ const SERVICE_COLORS: Record<DispatchJob['serviceType'], string> = {
   bond: '#8b5e3c',
 };
 
-const JOB_STATUS_META: Record<
-  DispatchJobStatus,
-  { label: string; color: string }
-> = {
-  pending: { label: 'Pending', color: 'default' },
-  assigned: { label: 'Assigned', color: 'processing' },
-  in_progress: { label: 'In Progress', color: 'blue' },
-  completed: { label: 'Completed', color: 'success' },
-  cancelled: { label: 'Cancelled', color: 'error' },
+const JOB_STATUS_COLOR: Record<DispatchJobStatus, string> = {
+  pending: 'default',
+  assigned: 'processing',
+  in_progress: 'blue',
+  completed: 'success',
+  cancelled: 'error',
 };
 
 interface WeeklyDispatchBoardProps {
@@ -217,10 +215,12 @@ const getHourLabels = (): string[] => {
   return labels;
 };
 
-const getDayHeader = (dateText: string): string => {
+const getDayHeader = (dateText: string, language: string): string => {
   const date = parseDateKey(dateText);
-  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
-  const shortDate = date.toLocaleDateString('en-AU', {
+  const weekday = date.toLocaleDateString(language || 'en-US', {
+    weekday: 'short',
+  });
+  const shortDate = date.toLocaleDateString(language || 'en-AU', {
     day: '2-digit',
     month: '2-digit',
   });
@@ -250,8 +250,16 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
   onReschedule,
   onEdit,
 }) => {
+  const { t, i18n } = useTranslation();
   const weekDates = getWeekDates(weekStart);
   const todayDateKey = getTodayDateKey();
+  const statusLabels: Record<DispatchJobStatus, string> = {
+    pending: t('sparkery.dispatch.status.pending'),
+    assigned: t('sparkery.dispatch.status.assigned'),
+    in_progress: t('sparkery.dispatch.status.inProgress'),
+    completed: t('sparkery.dispatch.status.completed'),
+    cancelled: t('sparkery.dispatch.status.cancelled'),
+  };
   const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
   const boardHeight = totalSlots * SLOT_HEIGHT;
   const hourLabels = getHourLabels();
@@ -341,11 +349,11 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
 
   const handleDeleteWithConfirm = (job: DispatchJob) => {
     Modal.confirm({
-      title: 'Delete this task?',
-      content: 'This cannot be undone.',
-      okText: 'Delete',
+      title: t('sparkery.dispatch.weeklyBoard.confirm.deleteTitle'),
+      content: t('sparkery.dispatch.weeklyBoard.confirm.deleteContent'),
+      okText: t('sparkery.dispatch.weeklyBoard.actions.delete'),
       okButtonProps: { danger: true },
-      cancelText: 'Cancel',
+      cancelText: t('sparkery.dispatch.weeklyBoard.actions.cancel'),
       onOk: async () => {
         await onDelete(job.id);
         setOptionsOpenJobId(null);
@@ -356,7 +364,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
   return (
     <Card
       className='dispatch-board-card'
-      title='Weekly Dispatch Board (Mon-Sun, 07:00-24:00)'
+      title={t('sparkery.dispatch.weeklyBoard.title')}
       size='small'
     >
       <div
@@ -376,9 +384,11 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                 isToday ? ' dispatch-weekly-header-cell-today' : ''
               }`}
             >
-              {getDayHeader(date)}
+              {getDayHeader(date, i18n.language)}
               {isToday && (
-                <div className='dispatch-weekly-header-today-label'>Today</div>
+                <div className='dispatch-weekly-header-today-label'>
+                  {t('sparkery.dispatch.weeklyBoard.today')}
+                </div>
               )}
             </div>
           );
@@ -506,7 +516,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                             strong
                             className='dispatch-weekly-popover-label'
                           >
-                            Time
+                            {t('sparkery.dispatch.weeklyBoard.popover.time')}
                           </Text>
                           <Text className='dispatch-weekly-popover-value'>
                             {job.scheduledDate} {job.scheduledStartTime} -{' '}
@@ -518,19 +528,32 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                             strong
                             className='dispatch-weekly-popover-label'
                           >
-                            Finance
+                            {t('sparkery.dispatch.weeklyBoard.popover.finance')}
                           </Text>
                           <div className='dispatch-weekly-popover-finance-values'>
                             <Text
                               type='secondary'
                               className='dispatch-weekly-popover-value'
                             >
-                              Base ${Number(job.baseFee || 0).toFixed(2)} | Adj
-                              ${Number(job.manualAdjustment || 0).toFixed(2)}
+                              {t(
+                                'sparkery.dispatch.weeklyBoard.popover.financeSummary',
+                                {
+                                  base: Number(job.baseFee || 0).toFixed(2),
+                                  adjustment: Number(
+                                    job.manualAdjustment || 0
+                                  ).toFixed(2),
+                                }
+                              )}
                             </Text>
                             <Text className='dispatch-weekly-popover-total'>
-                              Total $
-                              {Number(job.receivableTotal || 0).toFixed(2)}
+                              {t(
+                                'sparkery.dispatch.weeklyBoard.popover.total',
+                                {
+                                  amount: Number(
+                                    job.receivableTotal || 0
+                                  ).toFixed(2),
+                                }
+                              )}
                             </Text>
                           </div>
                         </div>
@@ -539,15 +562,22 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                             strong
                             className='dispatch-weekly-popover-label'
                           >
-                            Accounting
+                            {t(
+                              'sparkery.dispatch.weeklyBoard.popover.accounting'
+                            )}
                           </Text>
                           <Text
                             type='secondary'
                             className='dispatch-weekly-popover-value'
                           >
                             {job.financeConfirmedAt
-                              ? `Confirmed ${job.financeConfirmedAt}`
-                              : 'Pending confirmation'}
+                              ? t(
+                                  'sparkery.dispatch.weeklyBoard.popover.confirmedAt',
+                                  { datetime: job.financeConfirmedAt }
+                                )
+                              : t(
+                                  'sparkery.dispatch.weeklyBoard.popover.pendingConfirmation'
+                                )}
                           </Text>
                         </div>
                         {job.description && (
@@ -556,7 +586,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                               strong
                               className='dispatch-weekly-popover-label'
                             >
-                              Task
+                              {t('sparkery.dispatch.weeklyBoard.popover.task')}
                             </Text>
                             <Text className='dispatch-weekly-popover-value'>
                               {job.description}
@@ -569,7 +599,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                               strong
                               className='dispatch-weekly-popover-label'
                             >
-                              Notes
+                              {t('sparkery.dispatch.weeklyBoard.popover.notes')}
                             </Text>
                             <Text
                               type='secondary'
@@ -585,14 +615,18 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                               strong
                               className='dispatch-weekly-popover-label'
                             >
-                              Images
+                              {t(
+                                'sparkery.dispatch.weeklyBoard.popover.images'
+                              )}
                             </Text>
                             <div className='dispatch-weekly-image-grid'>
                               {job.imageUrls.slice(0, 6).map(url => (
                                 <img
                                   key={url}
                                   src={url}
-                                  alt='job'
+                                  alt={t(
+                                    'sparkery.dispatch.weeklyBoard.imageAlt.job'
+                                  )}
                                   onClick={event => {
                                     event.stopPropagation();
                                     setPreviewState({
@@ -649,14 +683,16 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                               color='gold'
                               className='dispatch-weekly-tag-compact dispatch-weekly-tag-locked'
                             >
-                              Locked
+                              {t('sparkery.dispatch.weeklyBoard.locked')}
                             </Tag>
                           )}
                           <Tag
                             color='processing'
                             className='dispatch-weekly-tag-compact dispatch-weekly-tag-service'
                           >
-                            {job.serviceType}
+                            {t(
+                              `sparkery.dispatch.common.serviceType.${job.serviceType}`
+                            )}
                           </Tag>
                           <Popover
                             trigger='click'
@@ -674,7 +710,9 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                   type='secondary'
                                   className='dispatch-weekly-options-label'
                                 >
-                                  Assignees
+                                  {t(
+                                    'sparkery.dispatch.weeklyBoard.fields.assignees'
+                                  )}
                                 </Text>
                                 <Select
                                   className='dispatch-assignee-select dispatch-weekly-options-select'
@@ -686,7 +724,9 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                   mode='multiple'
                                   size='small'
                                   value={job.assignedEmployeeIds || []}
-                                  placeholder='Select assignees'
+                                  placeholder={t(
+                                    'sparkery.dispatch.weeklyBoard.placeholders.selectAssignees'
+                                  )}
                                   disabled={isFinanceLocked}
                                   onChange={value => {
                                     onAssign(job.id, value);
@@ -712,7 +752,9 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                   type='secondary'
                                   className='dispatch-weekly-options-label'
                                 >
-                                  Status
+                                  {t(
+                                    'sparkery.dispatch.weeklyBoard.fields.status'
+                                  )}
                                 </Text>
                                 <Select
                                   className='dispatch-status-select'
@@ -733,19 +775,19 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                   }}
                                 >
                                   <Select.Option value='pending'>
-                                    Pending
+                                    {t('sparkery.dispatch.status.pending')}
                                   </Select.Option>
                                   <Select.Option value='assigned'>
-                                    Assigned
+                                    {t('sparkery.dispatch.status.assigned')}
                                   </Select.Option>
                                   <Select.Option value='in_progress'>
-                                    In Progress
+                                    {t('sparkery.dispatch.status.inProgress')}
                                   </Select.Option>
                                   <Select.Option value='completed'>
-                                    Completed
+                                    {t('sparkery.dispatch.status.completed')}
                                   </Select.Option>
                                   <Select.Option value='cancelled'>
-                                    Cancelled
+                                    {t('sparkery.dispatch.status.cancelled')}
                                   </Select.Option>
                                 </Select>
                                 <Space>
@@ -758,7 +800,9 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                       onEdit(job);
                                     }}
                                   >
-                                    Edit
+                                    {t(
+                                      'sparkery.dispatch.weeklyBoard.actions.edit'
+                                    )}
                                   </Button>
                                   <Button
                                     size='small'
@@ -769,7 +813,9 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                       handleDeleteWithConfirm(job);
                                     }}
                                   >
-                                    Delete
+                                    {t(
+                                      'sparkery.dispatch.weeklyBoard.actions.delete'
+                                    )}
                                   </Button>
                                 </Space>
                                 {isFinanceLocked && (
@@ -777,7 +823,9 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                                     type='secondary'
                                     className='dispatch-weekly-options-note'
                                   >
-                                    Finance locked job can only be viewed.
+                                    {t(
+                                      'sparkery.dispatch.weeklyBoard.financeLockedOnlyView'
+                                    )}
                                   </Text>
                                 )}
                               </div>
@@ -805,10 +853,10 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                           ${Number(job.receivableTotal || 0).toFixed(2)}
                         </Tag>
                         <Tag
-                          color={JOB_STATUS_META[job.status].color}
+                          color={JOB_STATUS_COLOR[job.status]}
                           className='dispatch-weekly-tag-compact dispatch-weekly-tag-status'
                         >
-                          {JOB_STATUS_META[job.status].label}
+                          {statusLabels[job.status]}
                         </Tag>
                         {assignedEmployees.length > 0 ? (
                           <Space
@@ -826,7 +874,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                           </Space>
                         ) : (
                           <Tag className='dispatch-weekly-tag-compact dispatch-weekly-tag-unassigned'>
-                            Unassigned
+                            {t('sparkery.dispatch.common.unassigned')}
                           </Tag>
                         )}
                       </Space>
@@ -860,7 +908,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
       <Modal
         open={Boolean(previewState)}
         className='dispatch-weekly-preview-modal'
-        title='Task Image Preview'
+        title={t('sparkery.dispatch.weeklyBoard.preview.title')}
         footer={
           previewState ? (
             <Space>
@@ -875,7 +923,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                   });
                 }}
               >
-                Prev
+                {t('sparkery.dispatch.weeklyBoard.actions.prev')}
               </Button>
               <Button
                 onClick={() => {
@@ -886,7 +934,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
                   });
                 }}
               >
-                Next
+                {t('sparkery.dispatch.weeklyBoard.actions.next')}
               </Button>
             </Space>
           ) : null
@@ -897,7 +945,7 @@ const WeeklyDispatchBoard: React.FC<WeeklyDispatchBoardProps> = ({
         {previewState && previewState.urls[previewState.index] && (
           <img
             src={previewState.urls[previewState.index]}
-            alt='preview'
+            alt={t('sparkery.dispatch.weeklyBoard.imageAlt.preview')}
             className='dispatch-weekly-preview-image'
           />
         )}

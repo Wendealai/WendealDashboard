@@ -52,12 +52,21 @@ export interface BondQuoteSubmissionPayload {
   additionalNotes: string;
   isSparkeryNewCustomer?: boolean;
   formLinkId?: string;
+  followUp24hSentAt?: string;
+  followUp72hSentAt?: string;
+  followUpLastMessage?: string;
   status: BondQuoteStatus;
 }
 
 export interface BondQuoteSubmission extends BondQuoteSubmissionPayload {
   id: string;
 }
+
+export type BondQuoteSubmissionUpdatePatch = Partial<
+  Omit<BondQuoteSubmissionPayload, 'submittedAt' | 'formType'>
+> & {
+  status?: BondQuoteStatus;
+};
 
 interface SupabaseBondQuoteSubmissionRow {
   id: string;
@@ -239,6 +248,13 @@ export async function updateSubmissionStatus(
   id: string,
   status: BondQuoteStatus
 ): Promise<BondQuoteSubmission> {
+  return updateSubmission(id, { status });
+}
+
+export async function updateSubmission(
+  id: string,
+  patch: BondQuoteSubmissionUpdatePatch
+): Promise<BondQuoteSubmission> {
   const existingRows = await supabaseFetch<SupabaseBondQuoteSubmissionRow[]>(
     `/rest/v1/bond_clean_quote_submissions?select=*&id=eq.${id}`
   );
@@ -247,9 +263,11 @@ export async function updateSubmissionStatus(
     throw new Error('Submission not found');
   }
 
+  const existingSubmission = toSubmission(existing);
   const merged = {
-    ...toSubmission(existing),
-    status,
+    ...existingSubmission,
+    ...patch,
+    status: patch.status || existingSubmission.status,
   };
   const row = toRow(merged);
 

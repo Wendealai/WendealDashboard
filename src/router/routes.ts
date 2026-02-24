@@ -52,6 +52,9 @@ const DispatchLocationReportPage = lazy(
 const DispatchWeekPlanPage = lazy(
   () => import('@/pages/Sparkery/DispatchWeekPlan')
 );
+const DispatchEmployeeTasksPage = lazy(
+  () => import('@/pages/Sparkery/DispatchEmployeeTasksPage')
+);
 
 // Bond Clean Quote Form (standalone public page)
 const BondCleanQuoteForm = lazy(
@@ -160,6 +163,16 @@ export const routes: RouteConfig[] = [
     element: DispatchWeekPlanPage,
     meta: {
       title: 'Dispatch Weekly Plan',
+      requiresAuth: false,
+      hideInMenu: true,
+    },
+  },
+  // Dispatch mobile employee task page (public share link for field execution)
+  {
+    path: '/dispatch-employee-tasks',
+    element: DispatchEmployeeTasksPage,
+    meta: {
+      title: 'Dispatch Employee Tasks',
       requiresAuth: false,
       hideInMenu: true,
     },

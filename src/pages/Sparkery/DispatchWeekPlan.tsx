@@ -40,6 +40,8 @@ import {
   loadPropertyTemplates,
   submitInspection,
 } from '@/services/inspectionService';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import './sparkery.css';
 
 const { Title, Text } = Typography;
@@ -100,6 +102,8 @@ interface GeocodeCacheRecord {
   lng: number;
   updatedAt: string;
 }
+
+type Translator = TFunction;
 
 type GeoPoint = {
   lat: number;
@@ -471,16 +475,20 @@ const buildSectionsFromTemplate = (
 const findMatchingTemplate = (
   job: DispatchJob,
   templates: PropertyTemplate[],
+  t: Translator,
   profile?: DispatchCustomerProfile
 ): TemplateMatchResult => {
   const jobAddressKey = extractAddressCore(job.customerAddress)?.key;
   const profileAddressKey = extractAddressCore(profile?.address)?.key;
+  const naText = t('sparkery.dispatch.weekPlan.common.na');
 
   if (templates.length === 0) {
     return {
       score: 0,
-      strategy: 'none',
-      details: 'No inspection property templates found.',
+      strategy: t('sparkery.dispatch.weekPlan.templateMatch.strategy.none'),
+      details: t(
+        'sparkery.dispatch.weekPlan.templateMatch.details.noTemplates'
+      ),
       jobAddressKey,
       profileAddressKey,
       matchedTemplateAddressKey: undefined,
@@ -501,13 +509,17 @@ const findMatchingTemplate = (
       const addressChecks = [
         {
           score: byJobAddress.score,
-          strategy: 'job address core -> template address core',
+          strategy: t(
+            'sparkery.dispatch.weekPlan.templateMatch.strategy.jobAddressToTemplate'
+          ),
           sourceKey: byJobAddress.sourceKey,
           targetKey: byJobAddress.targetKey,
         },
         {
           score: byProfileAddress.score,
-          strategy: 'customer profile address core -> template address core',
+          strategy: t(
+            'sparkery.dispatch.weekPlan.templateMatch.strategy.profileAddressToTemplate'
+          ),
           sourceKey: byProfileAddress.sourceKey,
           targetKey: byProfileAddress.targetKey,
         },
@@ -517,7 +529,7 @@ const findMatchingTemplate = (
         (best, current) => (current.score > best.score ? current : best),
         {
           score: 0,
-          strategy: 'none',
+          strategy: t('sparkery.dispatch.weekPlan.templateMatch.strategy.none'),
           sourceKey: undefined as string | undefined,
           targetKey: undefined as string | undefined,
         }
@@ -526,17 +538,24 @@ const findMatchingTemplate = (
       const nameChecks = [
         {
           score: scoreNameMatch(job.customerName, template.name),
-          strategy: 'job customer name -> template name',
+          strategy: t(
+            'sparkery.dispatch.weekPlan.templateMatch.strategy.jobNameToTemplate'
+          ),
         },
         {
           score: scoreNameMatch(profile?.name, template.name),
-          strategy: 'customer profile name -> template name',
+          strategy: t(
+            'sparkery.dispatch.weekPlan.templateMatch.strategy.profileNameToTemplate'
+          ),
         },
       ];
 
       const bestNameCheck = nameChecks.reduce(
         (best, current) => (current.score > best.score ? current : best),
-        { score: 0, strategy: 'none' }
+        {
+          score: 0,
+          strategy: t('sparkery.dispatch.weekPlan.templateMatch.strategy.none'),
+        }
       );
 
       const score =
@@ -566,8 +585,12 @@ const findMatchingTemplate = (
   if (!best) {
     return {
       score: 0,
-      strategy: 'unmatched',
-      details: 'No matching inspection property template found.',
+      strategy: t(
+        'sparkery.dispatch.weekPlan.templateMatch.strategy.unmatched'
+      ),
+      details: t(
+        'sparkery.dispatch.weekPlan.templateMatch.details.noTemplateMatch'
+      ),
       jobAddressKey,
       profileAddressKey,
       matchedTemplateAddressKey: undefined,
@@ -582,9 +605,12 @@ const findMatchingTemplate = (
     if (sameAddressMatches.length > 1) {
       return {
         score: best.score,
-        strategy: 'ambiguous-address-core',
-        details:
-          'More than one template has the same Number + Street Name key. Please make template address more specific.',
+        strategy: t(
+          'sparkery.dispatch.weekPlan.templateMatch.strategy.ambiguousAddressCore'
+        ),
+        details: t(
+          'sparkery.dispatch.weekPlan.templateMatch.details.ambiguousAddressCore'
+        ),
         jobAddressKey,
         profileAddressKey,
         matchedTemplateAddressKey: best.templateAddressKey,
@@ -607,8 +633,9 @@ const findMatchingTemplate = (
       template: best.template,
       score: best.score,
       strategy: best.strategy,
-      details:
-        'Address core did not match; fell back to name matching. Recommended to align Number + Street Name between Dispatch and Inspection template.',
+      details: t(
+        'sparkery.dispatch.weekPlan.templateMatch.details.fallbackByName'
+      ),
       jobAddressKey,
       profileAddressKey,
       matchedTemplateAddressKey: best.templateAddressKey,
@@ -618,15 +645,25 @@ const findMatchingTemplate = (
   const templateKeyPreview = templates
     .slice(0, 3)
     .map(template => {
-      const key = extractAddressCore(template.address)?.key || 'N/A';
-      return `${template.name}: ${key}`;
+      const key = extractAddressCore(template.address)?.key || naText;
+      return t('sparkery.dispatch.weekPlan.templateMatch.previewItem', {
+        name: template.name,
+        key,
+      });
     })
     .join(' | ');
 
   return {
     score: best.score,
-    strategy: 'unmatched',
-    details: `No Number + Street Name match. Job key: ${jobAddressKey || 'N/A'}, Profile key: ${profileAddressKey || 'N/A'}. Template keys: ${templateKeyPreview}`,
+    strategy: t('sparkery.dispatch.weekPlan.templateMatch.strategy.unmatched'),
+    details: t(
+      'sparkery.dispatch.weekPlan.templateMatch.details.noAddressCoreMatch',
+      {
+        jobKey: jobAddressKey || naText,
+        profileKey: profileAddressKey || naText,
+        templateKeys: templateKeyPreview,
+      }
+    ),
     jobAddressKey,
     profileAddressKey,
     matchedTemplateAddressKey: undefined,
@@ -634,6 +671,7 @@ const findMatchingTemplate = (
 };
 
 const DispatchWeekPlan: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const queryPayload = useMemo(() => parseQueryPayload(), []);
   const [messageApi, contextHolder] = message.useMessage();
   const [loading, setLoading] = useState(true);
@@ -660,6 +698,20 @@ const DispatchWeekPlan: React.FC = () => {
   const [inspectionLinks, setInspectionLinks] = useState<
     Record<string, string>
   >({});
+  const naText = t('sparkery.dispatch.weekPlan.common.na');
+
+  const formatWeekday = useCallback(
+    (dateText: string, short = false): string => {
+      const parsed = dayjs(dateText);
+      if (!parsed.isValid()) {
+        return dateText;
+      }
+      return parsed.toDate().toLocaleDateString(i18n.language || 'en-US', {
+        weekday: short ? 'short' : 'long',
+      });
+    },
+    [i18n.language]
+  );
 
   const weekDates = useMemo(() => {
     const monday = resolveMonday(queryPayload.weekStart);
@@ -754,10 +806,10 @@ const DispatchWeekPlan: React.FC = () => {
       const profile = job.customerProfileId
         ? customerProfileById.get(job.customerProfileId)
         : undefined;
-      map.set(job.id, findMatchingTemplate(job, propertyTemplates, profile));
+      map.set(job.id, findMatchingTemplate(job, propertyTemplates, t, profile));
     });
     return map;
-  }, [customerProfileById, jobs, propertyTemplates]);
+  }, [customerProfileById, jobs, propertyTemplates, t]);
 
   const templateByJobId = useMemo(() => {
     const map = new Map<string, PropertyTemplate>();
@@ -777,7 +829,7 @@ const DispatchWeekPlan: React.FC = () => {
       if (!profile?.recurringEnabled) {
         return {
           enabled: false,
-          reason: 'One-off task or recurring template is not enabled.',
+          reason: t('sparkery.dispatch.weekPlan.errors.recurringNotEnabled'),
         };
       }
       const matchedTemplate = templateByJobId.get(job.id);
@@ -787,12 +839,14 @@ const DispatchWeekPlan: React.FC = () => {
           enabled: false,
           reason:
             matchDetails?.details ||
-            'No matching inspection property template found.',
+            t(
+              'sparkery.dispatch.weekPlan.templateMatch.details.noTemplateMatch'
+            ),
         };
       }
       return { enabled: true };
     },
-    [customerProfileById, templateByJobId, templateMatchByJobId]
+    [customerProfileById, t, templateByJobId, templateMatchByJobId]
   );
 
   const inspectionAvailabilitySummary = useMemo(() => {
@@ -869,7 +923,9 @@ const DispatchWeekPlan: React.FC = () => {
         setPropertyTemplates(templates);
       } catch {
         if (!cancelled) {
-          messageApi.error('Failed to load weekly plan data');
+          messageApi.error(
+            t('sparkery.dispatch.weekPlan.messages.loadDataFailed')
+          );
         }
       } finally {
         if (!cancelled) {
@@ -888,6 +944,7 @@ const DispatchWeekPlan: React.FC = () => {
     queryPayload.jobIds,
     queryPayload.weekEnd,
     queryPayload.weekStart,
+    t,
   ]);
 
   useEffect(() => {
@@ -905,7 +962,7 @@ const DispatchWeekPlan: React.FC = () => {
         setRouteResultByDate({});
         setRouteErrorByDate({});
         setRouteGeneralError(
-          'Employee location is missing. Ask employee to report GPS first.'
+          t('sparkery.dispatch.weekPlan.errors.employeeLocationMissing')
         );
         return;
       }
@@ -931,7 +988,10 @@ const DispatchWeekPlan: React.FC = () => {
             for (const job of section.jobs) {
               const address = job.customerAddress?.trim();
               if (!address) {
-                nextErrors[section.date] = `Job ${job.id} has no address.`;
+                nextErrors[section.date] = t(
+                  'sparkery.dispatch.weekPlan.errors.jobAddressMissing',
+                  { id: job.id }
+                );
                 break;
               }
 
@@ -947,8 +1007,13 @@ const DispatchWeekPlan: React.FC = () => {
 
               const geocoded = await geocodeAddress(address);
               if (!geocoded) {
-                nextErrors[section.date] =
-                  `Address geocoding failed for job ${job.id}: ${address}`;
+                nextErrors[section.date] = t(
+                  'sparkery.dispatch.weekPlan.errors.addressGeocodeFailed',
+                  {
+                    id: job.id,
+                    address,
+                  }
+                );
                 break;
               }
 
@@ -1008,15 +1073,18 @@ const DispatchWeekPlan: React.FC = () => {
             }
 
             if (steps.length === 0) {
-              nextErrors[section.date] = 'No route steps generated.';
+              nextErrors[section.date] = t(
+                'sparkery.dispatch.weekPlan.errors.routeStepsEmpty'
+              );
               continue;
             }
 
             const finalJob = section.jobs[section.jobs.length - 1];
             const finalPoint = finalJob ? pointsByJobId.get(finalJob.id) : null;
             if (!finalPoint) {
-              nextErrors[section.date] =
-                'Failed to build overview navigation URL.';
+              nextErrors[section.date] = t(
+                'sparkery.dispatch.weekPlan.errors.overviewNavigationFailed'
+              );
               continue;
             }
 
@@ -1034,13 +1102,14 @@ const DispatchWeekPlan: React.FC = () => {
               steps,
               totalDistanceKm,
               totalDurationMin,
-              nextCommuteDistanceText: steps[0]?.distanceText || 'N/A',
-              nextCommuteDurationText: steps[0]?.durationText || 'N/A',
+              nextCommuteDistanceText: steps[0]?.distanceText || naText,
+              nextCommuteDurationText: steps[0]?.durationText || naText,
               overviewNavigationUrl,
             };
           } catch {
-            nextErrors[section.date] =
-              'Route calculation failed. Please verify map setup.';
+            nextErrors[section.date] = t(
+              'sparkery.dispatch.weekPlan.errors.routeCalculationFailed'
+            );
           }
         }
 
@@ -1054,7 +1123,7 @@ const DispatchWeekPlan: React.FC = () => {
       } catch {
         if (!cancelled) {
           setRouteGeneralError(
-            'Route calculation failed. Please verify map setup.'
+            t('sparkery.dispatch.weekPlan.errors.routeCalculationFailed')
           );
         }
       } finally {
@@ -1068,32 +1137,42 @@ const DispatchWeekPlan: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [daySections, employee, sortedJobs]);
+  }, [daySections, employee, naText, sortedJobs, t]);
 
   const handleCopyCurrentPlanLink = useCallback(async () => {
     const currentUrl = window.location.href;
     try {
       if (!navigator.clipboard?.writeText) {
-        messageApi.warning(`Copy not supported. URL: ${currentUrl}`);
+        messageApi.warning(
+          t('sparkery.dispatch.weekPlan.messages.copyNotSupported', {
+            url: currentUrl,
+          })
+        );
         return;
       }
       await navigator.clipboard.writeText(currentUrl);
-      messageApi.success('Weekly plan link copied');
+      messageApi.success(
+        t('sparkery.dispatch.weekPlan.messages.weeklyPlanLinkCopied')
+      );
     } catch {
-      messageApi.error('Failed to copy weekly plan link');
+      messageApi.error(
+        t('sparkery.dispatch.weekPlan.messages.copyWeeklyPlanLinkFailed')
+      );
     }
-  }, [messageApi]);
+  }, [messageApi, t]);
 
   const handleGenerateInspectionLink = useCallback(
     async (jobId: string) => {
       if (!employee) {
-        messageApi.warning('Employee info is missing');
+        messageApi.warning(
+          t('sparkery.dispatch.weekPlan.errors.employeeMissing')
+        );
         return;
       }
 
       const job = jobs.find(item => item.id === jobId);
       if (!job) {
-        messageApi.error('Job not found');
+        messageApi.error(t('sparkery.dispatch.weekPlan.errors.jobNotFound'));
         return;
       }
 
@@ -1104,7 +1183,7 @@ const DispatchWeekPlan: React.FC = () => {
 
       if (!profile?.recurringEnabled || !template) {
         messageApi.warning(
-          'Inspection link is only available for recurring jobs with an existing property template.'
+          t('sparkery.dispatch.weekPlan.errors.inspectionLinkUnavailable')
         );
         return;
       }
@@ -1157,14 +1236,18 @@ const DispatchWeekPlan: React.FC = () => {
           await navigator.clipboard.writeText(link);
         }
         window.open(link, '_blank', 'noopener,noreferrer');
-        messageApi.success('Inspection link generated and opened');
+        messageApi.success(
+          t('sparkery.dispatch.weekPlan.messages.inspectionLinkGenerated')
+        );
       } catch {
-        messageApi.error('Failed to generate inspection link');
+        messageApi.error(
+          t('sparkery.dispatch.weekPlan.messages.generateInspectionLinkFailed')
+        );
       } finally {
         setCreatingInspectionJobId(null);
       }
     },
-    [customerProfileById, employee, jobs, messageApi, templateByJobId]
+    [customerProfileById, employee, jobs, messageApi, t, templateByJobId]
   );
 
   const isInvalidQuery = !queryPayload.employeeId;
@@ -1185,42 +1268,51 @@ const DispatchWeekPlan: React.FC = () => {
               className='dispatch-week-plan-header-space'
             >
               <Title level={4} className='dispatch-week-plan-title'>
-                Dispatch Weekly Plan
+                {t('sparkery.dispatch.weekPlan.title')}
               </Title>
               <Space wrap className='dispatch-week-plan-header-tags'>
                 <Tag
                   color='blue'
                   className='dispatch-week-plan-pill dispatch-week-plan-pill-week'
                 >
-                  Week: {displayWeekStart} to {displayWeekEnd}
+                  {t('sparkery.dispatch.weekPlan.tags.week', {
+                    start: displayWeekStart,
+                    end: displayWeekEnd,
+                  })}
                 </Tag>
                 <Tag
                   color='geekblue'
                   className='dispatch-week-plan-pill dispatch-week-plan-pill-jobs'
                 >
-                  Jobs: {jobs.length}
+                  {t('sparkery.dispatch.weekPlan.tags.jobs', {
+                    count: jobs.length,
+                  })}
                 </Tag>
                 <Tag
                   color='cyan'
                   className='dispatch-week-plan-pill dispatch-week-plan-pill-route'
                 >
-                  Route days: {Object.keys(routeResultByDate).length}
+                  {t('sparkery.dispatch.weekPlan.tags.routeDays', {
+                    count: Object.keys(routeResultByDate).length,
+                  })}
                 </Tag>
                 <Tag
                   color='green'
                   className='dispatch-week-plan-pill dispatch-week-plan-pill-enabled'
                 >
-                  Inspection enabled:{' '}
-                  {inspectionAvailabilitySummary.enabledCount}
+                  {t('sparkery.dispatch.weekPlan.tags.inspectionEnabled', {
+                    count: inspectionAvailabilitySummary.enabledCount,
+                  })}
                 </Tag>
                 <Tag className='dispatch-week-plan-pill dispatch-week-plan-pill-disabled'>
-                  Inspection disabled:{' '}
-                  {inspectionAvailabilitySummary.disabledCount}
+                  {t('sparkery.dispatch.weekPlan.tags.inspectionDisabled', {
+                    count: inspectionAvailabilitySummary.disabledCount,
+                  })}
                 </Tag>
               </Space>
               <Space wrap>
                 <Button onClick={handleCopyCurrentPlanLink}>
-                  Copy Plan Link
+                  {t('sparkery.dispatch.weekPlan.actions.copyPlanLink')}
                 </Button>
               </Space>
             </Space>
@@ -1231,8 +1323,10 @@ const DispatchWeekPlan: React.FC = () => {
               type='warning'
               showIcon
               className='dispatch-week-plan-alert dispatch-week-plan-alert-warning'
-              message='Invalid weekly plan link'
-              description='Please regenerate the link from Dispatch Map Planner.'
+              message={t('sparkery.dispatch.weekPlan.alerts.invalidLink')}
+              description={t(
+                'sparkery.dispatch.weekPlan.alerts.regenerateFromMapPlanner'
+              )}
             />
           )}
 
@@ -1241,7 +1335,7 @@ const DispatchWeekPlan: React.FC = () => {
               type='info'
               showIcon
               className='dispatch-week-plan-alert dispatch-week-plan-alert-info'
-              message='Loading weekly plan...'
+              message={t('sparkery.dispatch.weekPlan.alerts.loading')}
             />
           )}
 
@@ -1250,8 +1344,10 @@ const DispatchWeekPlan: React.FC = () => {
               type='error'
               showIcon
               className='dispatch-week-plan-alert dispatch-week-plan-alert-error'
-              message='Employee not found'
-              description='Please regenerate the weekly plan link from dispatch board.'
+              message={t('sparkery.dispatch.weekPlan.alerts.employeeNotFound')}
+              description={t(
+                'sparkery.dispatch.weekPlan.alerts.regenerateFromDispatchBoard'
+              )}
             />
           )}
 
@@ -1260,11 +1356,16 @@ const DispatchWeekPlan: React.FC = () => {
               type='info'
               showIcon
               className='dispatch-week-plan-alert dispatch-week-plan-alert-info dispatch-week-plan-alert-employee'
-              message={`Employee: ${employee.name}`}
+              message={t('sparkery.dispatch.weekPlan.alerts.employee', {
+                name: employee.name,
+              })}
               description={
                 employee.currentLocation
-                  ? `Current location: ${employee.currentLocation.lat.toFixed(5)}, ${employee.currentLocation.lng.toFixed(5)}`
-                  : 'Current location not reported yet'
+                  ? t('sparkery.dispatch.weekPlan.alerts.currentLocation', {
+                      lat: employee.currentLocation.lat.toFixed(5),
+                      lng: employee.currentLocation.lng.toFixed(5),
+                    })
+                  : t('sparkery.dispatch.weekPlan.alerts.locationNotReported')
               }
             />
           )}
@@ -1274,8 +1375,12 @@ const DispatchWeekPlan: React.FC = () => {
               type='warning'
               showIcon
               className='dispatch-week-plan-alert dispatch-week-plan-alert-warning'
-              message={`${missingJobIds.length} jobs are missing`}
-              description={`Missing IDs: ${missingJobIds.join(', ')}`}
+              message={t('sparkery.dispatch.weekPlan.alerts.missingJobs', {
+                count: missingJobIds.length,
+              })}
+              description={t('sparkery.dispatch.weekPlan.alerts.missingIds', {
+                ids: missingJobIds.join(', '),
+              })}
             />
           )}
 
@@ -1293,7 +1398,9 @@ const DispatchWeekPlan: React.FC = () => {
               type='warning'
               showIcon
               className='dispatch-week-plan-alert dispatch-week-plan-alert-warning'
-              message='Some daily routes are unavailable'
+              message={t(
+                'sparkery.dispatch.weekPlan.alerts.dailyRouteUnavailable'
+              )}
               description={
                 <Space
                   direction='vertical'
@@ -1306,7 +1413,11 @@ const DispatchWeekPlan: React.FC = () => {
                       type='secondary'
                       className='dispatch-week-plan-alert-item'
                     >
-                      {dayjs(date).format('dddd')} ({date}): {error}
+                      {t('sparkery.dispatch.weekPlan.labels.dayRouteError', {
+                        day: formatWeekday(date),
+                        date,
+                        error,
+                      })}
                     </Text>
                   ))}
                 </Space>
@@ -1318,7 +1429,7 @@ const DispatchWeekPlan: React.FC = () => {
             <Card>
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description='No jobs found in this weekly plan'
+                description={t('sparkery.dispatch.weekPlan.empty.noJobs')}
               />
             </Card>
           )}
@@ -1327,7 +1438,7 @@ const DispatchWeekPlan: React.FC = () => {
             <Row gutter={[12, 12]}>
               <Col xs={24} xl={16}>
                 <Card
-                  title='Weekly Jobs (Mon-Sun)'
+                  title={t('sparkery.dispatch.weekPlan.sections.weeklyJobs')}
                   className='dispatch-week-plan-jobs-card'
                 >
                   <Space
@@ -1354,7 +1465,7 @@ const DispatchWeekPlan: React.FC = () => {
                                 }
                                 className='dispatch-week-plan-pill dispatch-week-plan-pill-day'
                               >
-                                {dayjs(section.date).format('dddd')}
+                                {formatWeekday(section.date)}
                               </Tag>
                               <Tag className='dispatch-week-plan-pill dispatch-week-plan-pill-date'>
                                 {section.date}
@@ -1363,7 +1474,12 @@ const DispatchWeekPlan: React.FC = () => {
                                 color='geekblue'
                                 className='dispatch-week-plan-pill dispatch-week-plan-pill-count'
                               >
-                                Jobs: {section.jobs.length}
+                                {t(
+                                  'sparkery.dispatch.weekPlan.labels.jobsCount',
+                                  {
+                                    count: section.jobs.length,
+                                  }
+                                )}
                               </Tag>
                             </Space>
                           }
@@ -1377,7 +1493,9 @@ const DispatchWeekPlan: React.FC = () => {
                                 rel='noreferrer'
                                 className='dispatch-link-button-inline'
                               >
-                                Open Day Navigation
+                                {t(
+                                  'sparkery.dispatch.weekPlan.actions.openDayNavigation'
+                                )}
                               </Button>
                             ) : undefined
                           }
@@ -1385,7 +1503,11 @@ const DispatchWeekPlan: React.FC = () => {
                           <List
                             loading={loadingRoute}
                             dataSource={section.jobs}
-                            locale={{ emptyText: 'No jobs for this day' }}
+                            locale={{
+                              emptyText: t(
+                                'sparkery.dispatch.weekPlan.empty.noJobsForDay'
+                              ),
+                            }}
                             renderItem={(job, index) => {
                               const step = dayRoute?.steps.find(
                                 item => item.jobId === job.id
@@ -1417,7 +1539,9 @@ const DispatchWeekPlan: React.FC = () => {
                                     );
                                   }}
                                 >
-                                  Navigate
+                                  {t(
+                                    'sparkery.dispatch.weekPlan.actions.navigate'
+                                  )}
                                 </Button>,
                                 <Tooltip
                                   key='inspection-tip'
@@ -1440,7 +1564,9 @@ const DispatchWeekPlan: React.FC = () => {
                                         handleGenerateInspectionLink(job.id)
                                       }
                                     >
-                                      Generate Inspection Link
+                                      {t(
+                                        'sparkery.dispatch.weekPlan.actions.generateInspectionLink'
+                                      )}
                                     </Button>
                                   </span>
                                 </Tooltip>,
@@ -1457,7 +1583,9 @@ const DispatchWeekPlan: React.FC = () => {
                                     target='_blank'
                                     rel='noreferrer'
                                   >
-                                    Open Inspection
+                                    {t(
+                                      'sparkery.dispatch.weekPlan.actions.openInspection'
+                                    )}
                                   </Button>
                                 );
                               }
@@ -1482,7 +1610,10 @@ const DispatchWeekPlan: React.FC = () => {
                                             ellipsis={{ tooltip: job.title }}
                                             className='dispatch-week-plan-job-title-text'
                                           >
-                                            {job.title || 'Untitled job'}
+                                            {job.title ||
+                                              t(
+                                                'sparkery.dispatch.weekPlan.labels.untitledJob'
+                                              )}
                                           </Text>
                                         </div>
                                         <Space
@@ -1491,7 +1622,9 @@ const DispatchWeekPlan: React.FC = () => {
                                           className='dispatch-week-plan-job-title-meta'
                                         >
                                           <Tag className='dispatch-week-plan-pill dispatch-week-plan-pill-service'>
-                                            {job.serviceType}
+                                            {t(
+                                              `sparkery.dispatch.common.serviceType.${job.serviceType}`
+                                            )}
                                           </Tag>
                                           <Tag
                                             color='blue'
@@ -1505,11 +1638,15 @@ const DispatchWeekPlan: React.FC = () => {
                                               color='green'
                                               className='dispatch-week-plan-pill dispatch-week-plan-pill-recurring'
                                             >
-                                              Recurring
+                                              {t(
+                                                'sparkery.dispatch.weekPlan.labels.recurring'
+                                              )}
                                             </Tag>
                                           ) : (
                                             <Tag className='dispatch-week-plan-pill dispatch-week-plan-pill-oneoff'>
-                                              One-off
+                                              {t(
+                                                'sparkery.dispatch.weekPlan.labels.oneOff'
+                                              )}
                                             </Tag>
                                           )}
                                         </Space>
@@ -1522,17 +1659,25 @@ const DispatchWeekPlan: React.FC = () => {
                                             type='secondary'
                                             className='dispatch-week-plan-meta-label'
                                           >
-                                            Customer:
+                                            {t(
+                                              'sparkery.dispatch.weekPlan.labels.customer'
+                                            )}
                                           </Text>
                                           <Text className='dispatch-week-plan-meta-value'>
-                                            {job.customerName || 'Customer'}
+                                            {job.customerName ||
+                                              t(
+                                                'sparkery.dispatch.common.customer'
+                                              )}
                                           </Text>
                                         </div>
                                         <Text
                                           type='secondary'
                                           className='dispatch-week-plan-meta-address'
                                         >
-                                          {job.customerAddress || 'No address'}
+                                          {job.customerAddress ||
+                                            t(
+                                              'sparkery.dispatch.common.noAddress'
+                                            )}
                                         </Text>
 
                                         {step && (
@@ -1541,17 +1686,32 @@ const DispatchWeekPlan: React.FC = () => {
                                               type='secondary'
                                               className='dispatch-week-plan-route-line'
                                             >
-                                              From: {step.fromAddress}
+                                              {t(
+                                                'sparkery.dispatch.weekPlan.labels.from',
+                                                {
+                                                  value: step.fromAddress,
+                                                }
+                                              )}
                                             </Text>
                                             <Text
                                               type='secondary'
                                               className='dispatch-week-plan-route-line'
                                             >
-                                              To: {step.toAddress}
+                                              {t(
+                                                'sparkery.dispatch.weekPlan.labels.to',
+                                                {
+                                                  value: step.toAddress,
+                                                }
+                                              )}
                                             </Text>
                                             <Text className='dispatch-week-plan-commute-line'>
-                                              Commute: {step.distanceText} /{' '}
-                                              {step.durationText}
+                                              {t(
+                                                'sparkery.dispatch.weekPlan.labels.commute',
+                                                {
+                                                  distance: step.distanceText,
+                                                  duration: step.durationText,
+                                                }
+                                              )}
                                             </Text>
                                           </div>
                                         )}
@@ -1561,8 +1721,14 @@ const DispatchWeekPlan: React.FC = () => {
                                             type='secondary'
                                             className='dispatch-week-plan-meta-warning'
                                           >
-                                            Inspection link unavailable:{' '}
-                                            {inspectionAvailability.reason}
+                                            {t(
+                                              'sparkery.dispatch.weekPlan.labels.inspectionLinkUnavailable',
+                                              {
+                                                reason:
+                                                  inspectionAvailability.reason ||
+                                                  '',
+                                              }
+                                            )}
                                           </Text>
                                         )}
 
@@ -1571,9 +1737,16 @@ const DispatchWeekPlan: React.FC = () => {
                                             type='secondary'
                                             className='dispatch-week-plan-meta-hint'
                                           >
-                                            Template match: not found.{' '}
-                                            {templateMatch?.details ||
-                                              'Keep customer address and template address consistent.'}
+                                            {t(
+                                              'sparkery.dispatch.weekPlan.labels.templateMatchNotFound',
+                                              {
+                                                details:
+                                                  templateMatch?.details ||
+                                                  t(
+                                                    'sparkery.dispatch.weekPlan.templateMatch.details.keepAddressConsistent'
+                                                  ),
+                                              }
+                                            )}
                                           </Text>
                                         )}
 
@@ -1587,22 +1760,39 @@ const DispatchWeekPlan: React.FC = () => {
                                               type='secondary'
                                               className='dispatch-week-plan-meta-label'
                                             >
-                                              Address keys:
+                                              {t(
+                                                'sparkery.dispatch.weekPlan.labels.addressKeys'
+                                              )}
                                             </Text>
                                             <Tag className='dispatch-week-plan-key-tag'>
-                                              Job{' '}
-                                              {templateMatch.jobAddressKey ||
-                                                'N/A'}
+                                              {t(
+                                                'sparkery.dispatch.weekPlan.labels.addressKeyJob',
+                                                {
+                                                  value:
+                                                    templateMatch.jobAddressKey ||
+                                                    naText,
+                                                }
+                                              )}
                                             </Tag>
                                             <Tag className='dispatch-week-plan-key-tag'>
-                                              Profile{' '}
-                                              {templateMatch.profileAddressKey ||
-                                                'N/A'}
+                                              {t(
+                                                'sparkery.dispatch.weekPlan.labels.addressKeyProfile',
+                                                {
+                                                  value:
+                                                    templateMatch.profileAddressKey ||
+                                                    naText,
+                                                }
+                                              )}
                                             </Tag>
                                             <Tag className='dispatch-week-plan-key-tag'>
-                                              Template{' '}
-                                              {templateMatch.matchedTemplateAddressKey ||
-                                                'N/A'}
+                                              {t(
+                                                'sparkery.dispatch.weekPlan.labels.addressKeyTemplate',
+                                                {
+                                                  value:
+                                                    templateMatch.matchedTemplateAddressKey ||
+                                                    naText,
+                                                }
+                                              )}
                                             </Tag>
                                           </Space>
                                         )}
@@ -1612,9 +1802,18 @@ const DispatchWeekPlan: React.FC = () => {
                                             type='secondary'
                                             className='dispatch-week-plan-meta-success'
                                           >
-                                            Template match: {template.name} (
-                                            {templateMatch.strategy}, score{' '}
-                                            {templateMatch.score.toFixed(2)})
+                                            {t(
+                                              'sparkery.dispatch.weekPlan.labels.templateMatchSuccess',
+                                              {
+                                                name: template.name,
+                                                strategy:
+                                                  templateMatch.strategy,
+                                                score:
+                                                  templateMatch.score.toFixed(
+                                                    2
+                                                  ),
+                                              }
+                                            )}
                                           </Text>
                                         )}
                                       </div>
@@ -1638,7 +1837,9 @@ const DispatchWeekPlan: React.FC = () => {
                 >
                   <Card
                     size='small'
-                    title='Daily Route Summary'
+                    title={t(
+                      'sparkery.dispatch.weekPlan.sections.dailyRouteSummary'
+                    )}
                     className='dispatch-week-plan-summary-card'
                   >
                     <Space
@@ -1673,7 +1874,7 @@ const DispatchWeekPlan: React.FC = () => {
                                   }
                                   className='dispatch-week-plan-pill dispatch-week-plan-pill-summary-day'
                                 >
-                                  {dayjs(section.date).format('ddd')}
+                                  {formatWeekday(section.date, true)}
                                 </Tag>
                                 <Text
                                   strong
@@ -1682,7 +1883,12 @@ const DispatchWeekPlan: React.FC = () => {
                                   {section.date}
                                 </Text>
                                 <Tag className='dispatch-week-plan-summary-jobs-tag'>
-                                  Jobs {section.jobs.length}
+                                  {t(
+                                    'sparkery.dispatch.weekPlan.labels.jobsCompact',
+                                    {
+                                      count: section.jobs.length,
+                                    }
+                                  )}
                                 </Tag>
                               </Space>
                               {section.jobs.length === 0 && (
@@ -1690,7 +1896,9 @@ const DispatchWeekPlan: React.FC = () => {
                                   type='secondary'
                                   className='dispatch-week-plan-summary-empty'
                                 >
-                                  No jobs.
+                                  {t(
+                                    'sparkery.dispatch.weekPlan.labels.noJobsDot'
+                                  )}
                                 </Text>
                               )}
                               {section.jobs.length > 0 && dayRoute && (
@@ -1700,7 +1908,9 @@ const DispatchWeekPlan: React.FC = () => {
                                       type='secondary'
                                       className='dispatch-week-plan-summary-metric-label'
                                     >
-                                      Next
+                                      {t(
+                                        'sparkery.dispatch.weekPlan.labels.next'
+                                      )}
                                     </Text>
                                     <Text className='dispatch-week-plan-summary-next'>
                                       {dayRoute.nextCommuteDistanceText} /{' '}
@@ -1712,15 +1922,24 @@ const DispatchWeekPlan: React.FC = () => {
                                       type='secondary'
                                       className='dispatch-week-plan-summary-metric-label'
                                     >
-                                      Total
+                                      {t(
+                                        'sparkery.dispatch.weekPlan.labels.total'
+                                      )}
                                     </Text>
                                     <Text
                                       type='secondary'
                                       className='dispatch-week-plan-summary-total'
                                     >
-                                      {dayRoute.totalDistanceKm.toFixed(1)} km /{' '}
-                                      {Math.round(dayRoute.totalDurationMin)}{' '}
-                                      mins
+                                      {t(
+                                        'sparkery.dispatch.weekPlan.labels.summaryTotal',
+                                        {
+                                          distance:
+                                            dayRoute.totalDistanceKm.toFixed(1),
+                                          duration: Math.round(
+                                            dayRoute.totalDurationMin
+                                          ),
+                                        }
+                                      )}
                                     </Text>
                                   </div>
                                 </div>
@@ -1743,7 +1962,9 @@ const DispatchWeekPlan: React.FC = () => {
                                     type='secondary'
                                     className='dispatch-week-plan-summary-loading'
                                   >
-                                    Calculating route...
+                                    {t(
+                                      'sparkery.dispatch.weekPlan.labels.calculatingRoute'
+                                    )}
                                   </Text>
                                 )}
                               {section.jobs.length > 0 &&
@@ -1754,7 +1975,9 @@ const DispatchWeekPlan: React.FC = () => {
                                     type='secondary'
                                     className='dispatch-week-plan-summary-unavailable'
                                   >
-                                    Route unavailable.
+                                    {t(
+                                      'sparkery.dispatch.weekPlan.labels.routeUnavailable'
+                                    )}
                                   </Text>
                                 )}
                               {dayRoute?.overviewNavigationUrl && (
@@ -1766,7 +1989,9 @@ const DispatchWeekPlan: React.FC = () => {
                                     rel='noreferrer'
                                     className='dispatch-link-button-inline dispatch-week-plan-summary-link'
                                   >
-                                    Open Day Route
+                                    {t(
+                                      'sparkery.dispatch.weekPlan.actions.openDayRoute'
+                                    )}
                                   </Button>
                                 </div>
                               )}
@@ -1780,7 +2005,9 @@ const DispatchWeekPlan: React.FC = () => {
                           strong
                           className='dispatch-week-plan-weekly-total-title'
                         >
-                          Weekly route total
+                          {t(
+                            'sparkery.dispatch.weekPlan.labels.weeklyRouteTotal'
+                          )}
                         </Text>
                         {weeklyRouteTotals.dayCount > 0 ? (
                           <Space
@@ -1789,15 +2016,21 @@ const DispatchWeekPlan: React.FC = () => {
                             className='dispatch-week-plan-weekly-total-metrics'
                           >
                             <Tag className='dispatch-week-plan-weekly-total-tag'>
-                              Distance {weeklyRouteTotals.distanceKm.toFixed(1)}{' '}
-                              km
+                              {t('sparkery.dispatch.weekPlan.labels.distance', {
+                                value: weeklyRouteTotals.distanceKm.toFixed(1),
+                              })}
                             </Tag>
                             <Tag className='dispatch-week-plan-weekly-total-tag'>
-                              Duration{' '}
-                              {Math.round(weeklyRouteTotals.durationMin)} mins
+                              {t('sparkery.dispatch.weekPlan.labels.duration', {
+                                value: Math.round(
+                                  weeklyRouteTotals.durationMin
+                                ),
+                              })}
                             </Tag>
                             <Tag className='dispatch-week-plan-weekly-total-tag'>
-                              Days {weeklyRouteTotals.dayCount}
+                              {t('sparkery.dispatch.weekPlan.labels.days', {
+                                count: weeklyRouteTotals.dayCount,
+                              })}
                             </Tag>
                           </Space>
                         ) : (
@@ -1805,7 +2038,9 @@ const DispatchWeekPlan: React.FC = () => {
                             type='secondary'
                             className='dispatch-week-plan-weekly-total-empty'
                           >
-                            Route totals are unavailable right now.
+                            {t(
+                              'sparkery.dispatch.weekPlan.labels.routeTotalsUnavailable'
+                            )}
                           </Text>
                         )}
                       </div>
@@ -1813,7 +2048,9 @@ const DispatchWeekPlan: React.FC = () => {
                   </Card>
                   <Card
                     size='small'
-                    title='Inspection Rule'
+                    title={t(
+                      'sparkery.dispatch.weekPlan.sections.inspectionRule'
+                    )}
                     className='dispatch-week-plan-rule-card'
                   >
                     <Space
@@ -1827,7 +2064,7 @@ const DispatchWeekPlan: React.FC = () => {
                           type='secondary'
                           className='dispatch-week-plan-rule-text'
                         >
-                          Task must be recurring.
+                          {t('sparkery.dispatch.weekPlan.rules.recurring')}
                         </Text>
                       </div>
                       <div className='dispatch-week-plan-rule-row'>
@@ -1836,7 +2073,9 @@ const DispatchWeekPlan: React.FC = () => {
                           type='secondary'
                           className='dispatch-week-plan-rule-text'
                         >
-                          Property template must already exist.
+                          {t(
+                            'sparkery.dispatch.weekPlan.rules.templateRequired'
+                          )}
                         </Text>
                       </div>
                       <div className='dispatch-week-plan-rule-row'>
@@ -1845,8 +2084,7 @@ const DispatchWeekPlan: React.FC = () => {
                           type='secondary'
                           className='dispatch-week-plan-rule-text'
                         >
-                          Address match uses Number + Street Name
-                          (case-insensitive), then falls back to name.
+                          {t('sparkery.dispatch.weekPlan.rules.addressMatch')}
                         </Text>
                       </div>
                       <div className='dispatch-week-plan-rule-row'>
@@ -1855,9 +2093,7 @@ const DispatchWeekPlan: React.FC = () => {
                           type='secondary'
                           className='dispatch-week-plan-rule-text'
                         >
-                          Recommended: keep Number + Street Name aligned across
-                          Dispatch customer address and Inspection template
-                          address.
+                          {t('sparkery.dispatch.weekPlan.rules.recommended')}
                         </Text>
                       </div>
                       <Divider className='dispatch-divider-compact dispatch-week-plan-rule-divider' />
@@ -1865,7 +2101,9 @@ const DispatchWeekPlan: React.FC = () => {
                         type='secondary'
                         className='dispatch-week-plan-rule-footnote'
                       >
-                        One-off jobs will not show inspection generation.
+                        {t(
+                          'sparkery.dispatch.weekPlan.rules.oneOffNoInspection'
+                        )}
                       </Text>
                     </Space>
                   </Card>

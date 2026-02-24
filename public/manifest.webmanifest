@@ -1,0 +1,19 @@
+{
+  "name": "Wendeal Dashboard",
+  "short_name": "Wendeal",
+  "description": "Wendeal operations dashboard with Sparkery dispatch and finance tools.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f8ff",
+  "theme_color": "#1890ff",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    }
+  ]
+}

@@ -50,7 +50,7 @@ import type {
   DispatchWeekday,
   UpsertDispatchCustomerProfilePayload,
 } from './dispatch/types';
-import DispatchFiltersBar from './components/dispatch/DispatchFiltersBar';
+import { DispatchFiltersBar } from './components/dispatch/DispatchFiltersBar';
 import DispatchAdminSetupModal from './components/dispatch/DispatchAdminSetupModal';
 import DispatchJobFormModal from './components/dispatch/DispatchJobFormModal';
 import WeeklyDispatchBoard from './components/dispatch/WeeklyDispatchBoard';
@@ -61,6 +61,7 @@ import {
   syncDispatchWeekToGoogleCalendar,
 } from '@/services/googleCalendarService';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import './sparkery.css';
 
 const { Title, Text } = Typography;
@@ -122,6 +123,7 @@ const normalizeRecurringWeekdays = (
 };
 
 const DispatchDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { selectedWeekStart, filters, error, isLoading } =
@@ -217,17 +219,20 @@ const DispatchDashboard: React.FC = () => {
     }
 
     Modal.confirm({
-      title: 'Found local jobs data',
-      content:
-        'Supabase is connected. Do you want to migrate local jobs/customers/employees to cloud now?',
-      okText: 'Migrate now',
-      cancelText: 'Later',
+      title: t('sparkery.dispatch.dashboard.migrateFoundTitle'),
+      content: t('sparkery.dispatch.dashboard.migrateFoundContent'),
+      okText: t('sparkery.dispatch.dashboard.migrateNow'),
+      cancelText: t('sparkery.dispatch.dashboard.later'),
       onOk: async () => {
         localStorage.setItem(DISPATCH_AUTO_MIGRATION_PROMPT_KEY, 'migrated');
         const result = await dispatch(migrateDispatchLocalPeopleToSupabase());
         if (migrateDispatchLocalPeopleToSupabase.fulfilled.match(result)) {
           message.success(
-            `Migrated ${result.payload.employees} employees, ${result.payload.customerProfiles} customers, and ${result.payload.jobs} jobs`
+            t('sparkery.dispatch.dashboard.migratedSummary', {
+              employees: result.payload.employees,
+              customers: result.payload.customerProfiles,
+              jobs: result.payload.jobs,
+            })
           );
           await dispatch(fetchDispatchJobs(weekRange));
           await dispatch(fetchDispatchEmployees());
@@ -235,23 +240,23 @@ const DispatchDashboard: React.FC = () => {
           return;
         }
         localStorage.removeItem(DISPATCH_AUTO_MIGRATION_PROMPT_KEY);
-        message.error('Failed to migrate local data to Supabase');
+        message.error(t('sparkery.dispatch.dashboard.migrateFailed'));
       },
       onCancel: () => {
         localStorage.setItem(DISPATCH_AUTO_MIGRATION_PROMPT_KEY, 'skipped');
       },
     });
-  }, [dispatch, weekRange]);
+  }, [dispatch, t, weekRange]);
 
   const handleRefresh = async () => {
     await dispatch(fetchDispatchJobs(weekRange));
-    message.success('Dispatch jobs refreshed');
+    message.success(t('sparkery.dispatch.dashboard.messages.jobsRefreshed'));
   };
 
   const handleSyncGoogleCalendar = async () => {
     if (!googleCalendarConfigured) {
       message.warning(
-        'Google Calendar is not configured. Please set credentials first.'
+        t('sparkery.dispatch.dashboard.messages.googleNotConfigured')
       );
       return;
     }
@@ -264,13 +269,17 @@ const DispatchDashboard: React.FC = () => {
         weekEnd: weekRange.weekEnd,
       });
       message.success(
-        `Calendar synced: +${result.created} / ~${result.updated} / -${result.deleted}`
+        t('sparkery.dispatch.dashboard.messages.calendarSynced', {
+          created: result.created,
+          updated: result.updated,
+          deleted: result.deleted,
+        })
       );
     } catch (error) {
       message.error(
         error instanceof Error
           ? error.message
-          : 'Failed to sync Google Calendar'
+          : t('sparkery.dispatch.dashboard.messages.calendarSyncFailed')
       );
     } finally {
       setSyncingGoogleCalendar(false);
@@ -289,18 +298,24 @@ const DispatchDashboard: React.FC = () => {
       );
       if (!updateDispatchJob.fulfilled.match(result)) {
         message.error(
-          extractThunkError(result, 'Failed to update task in Supabase')
+          extractThunkError(
+            result,
+            t('sparkery.dispatch.dashboard.messages.updateTaskFailed')
+          )
         );
         return;
       }
       savedJob = result.payload;
-      message.success('Job updated');
+      message.success(t('sparkery.dispatch.dashboard.messages.jobUpdated'));
       await dispatch(fetchDispatchJobs(weekRange));
     } else {
       const result = await dispatch(createDispatchJob(payload));
       if (!createDispatchJob.fulfilled.match(result)) {
         message.error(
-          extractThunkError(result, 'Failed to create task in Supabase')
+          extractThunkError(
+            result,
+            t('sparkery.dispatch.dashboard.messages.createTaskFailed')
+          )
         );
         return;
       }
@@ -320,14 +335,14 @@ const DispatchDashboard: React.FC = () => {
         dispatch(setSelectedWeekStart(targetWeekStart));
       }
 
-      message.success('Job created');
+      message.success(t('sparkery.dispatch.dashboard.messages.jobCreated'));
       await dispatch(fetchDispatchJobs(refreshRange));
     }
 
     if (recurringEnabled) {
       if (recurringWeekdays.length === 0) {
         message.warning(
-          'Task saved, but recurring weekdays are empty. Please select at least one weekday.'
+          t('sparkery.dispatch.dashboard.messages.recurringWeekdaysEmpty')
         );
       } else {
         const existingProfile = payload.customerProfileId
@@ -343,7 +358,7 @@ const DispatchDashboard: React.FC = () => {
 
         if (!profileName) {
           message.warning(
-            'Task saved, but recurring template needs customer name or customer profile.'
+            t('sparkery.dispatch.dashboard.messages.recurringNeedCustomer')
           );
         } else {
           const recurringProfilePayload: UpsertDispatchCustomerProfilePayload =
@@ -418,15 +433,15 @@ const DispatchDashboard: React.FC = () => {
             }
             await dispatch(fetchDispatchCustomerProfiles());
             message.success(
-              `Recurring template saved (${recurringWeekdays.length} day${
-                recurringWeekdays.length > 1 ? 's' : ''
-              }/week)`
+              t('sparkery.dispatch.dashboard.messages.recurringSaved', {
+                days: recurringWeekdays.length,
+              })
             );
           } else {
             message.warning(
               extractThunkError(
                 profileResult,
-                'Task saved, but failed to save recurring template'
+                t('sparkery.dispatch.dashboard.messages.recurringSaveFailed')
               )
             );
           }
@@ -445,10 +460,17 @@ const DispatchDashboard: React.FC = () => {
       assignDispatchJob({ id: jobId, employeeIds })
     );
     if (assignDispatchJob.fulfilled.match(result)) {
-      message.success('Employees assigned');
+      message.success(
+        t('sparkery.dispatch.dashboard.messages.employeesAssigned')
+      );
       return;
     }
-    message.error(extractThunkError(result, 'Failed to assign employees'));
+    message.error(
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.dashboard.messages.assignEmployeesFailed')
+      )
+    );
   };
 
   const handleAssignJobsToEmployee = async (
@@ -468,10 +490,17 @@ const DispatchDashboard: React.FC = () => {
       }
     }
     if (failedCount === 0) {
-      message.success(`Assigned ${successCount} jobs`);
+      message.success(
+        t('sparkery.dispatch.dashboard.messages.assignedJobs', {
+          success: successCount,
+        })
+      );
     } else {
       message.warning(
-        `Assigned ${successCount} jobs, ${failedCount} jobs were skipped (likely finance-locked)`
+        t('sparkery.dispatch.dashboard.messages.assignedJobsWithSkipped', {
+          success: successCount,
+          failed: failedCount,
+        })
       );
     }
     await dispatch(fetchDispatchJobs(weekRange));
@@ -485,19 +514,29 @@ const DispatchDashboard: React.FC = () => {
       updateDispatchJobStatus({ id: jobId, status })
     );
     if (updateDispatchJobStatus.fulfilled.match(result)) {
-      message.success('Status updated');
+      message.success(t('sparkery.dispatch.dashboard.messages.statusUpdated'));
       return;
     }
-    message.error(extractThunkError(result, 'Failed to update status'));
+    message.error(
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.dashboard.messages.statusUpdateFailed')
+      )
+    );
   };
 
   const handleDeleteJob = async (jobId: string) => {
     const result = await dispatch(deleteDispatchJob(jobId));
     if (deleteDispatchJob.fulfilled.match(result)) {
-      message.success('Task deleted');
+      message.success(t('sparkery.dispatch.dashboard.messages.taskDeleted'));
       return;
     }
-    message.error(extractThunkError(result, 'Failed to delete task'));
+    message.error(
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.dashboard.messages.deleteTaskFailed')
+      )
+    );
   };
 
   const handleReschedule = async (
@@ -513,10 +552,15 @@ const DispatchDashboard: React.FC = () => {
       })
     );
     if (updateDispatchJob.fulfilled.match(result)) {
-      message.success('Job time updated');
+      message.success(t('sparkery.dispatch.dashboard.messages.jobTimeUpdated'));
       return;
     }
-    message.error(extractThunkError(result, 'Failed to update job time'));
+    message.error(
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.dashboard.messages.jobTimeUpdateFailed')
+      )
+    );
   };
 
   const handleApplyFinanceAdjustment = async (
@@ -530,11 +574,16 @@ const DispatchDashboard: React.FC = () => {
       })
     );
     if (applyDispatchJobFinanceAdjustment.fulfilled.match(result)) {
-      message.success('Finance adjustment applied');
+      message.success(
+        t('sparkery.dispatch.dashboard.messages.financeAdjustmentApplied')
+      );
       return;
     }
     message.error(
-      extractThunkError(result, 'Failed to apply finance adjustment')
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.dashboard.messages.financeAdjustmentApplyFailed')
+      )
     );
   };
 
@@ -546,10 +595,17 @@ const DispatchDashboard: React.FC = () => {
       })
     );
     if (confirmDispatchJobFinance.fulfilled.match(result)) {
-      message.success('Finance confirmed and locked');
+      message.success(
+        t('sparkery.dispatch.dashboard.messages.financeConfirmedLocked')
+      );
       return;
     }
-    message.error(extractThunkError(result, 'Failed to confirm finance'));
+    message.error(
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.dashboard.messages.financeConfirmFailed')
+      )
+    );
   };
 
   const handleTogglePaymentReceived = async (
@@ -564,15 +620,33 @@ const DispatchDashboard: React.FC = () => {
       })
     );
     if (setDispatchJobPaymentReceived.fulfilled.match(result)) {
-      message.success(received ? 'Marked as paid' : 'Marked as unpaid');
+      message.success(
+        received
+          ? t('sparkery.dispatch.dashboard.messages.markedPaid')
+          : t('sparkery.dispatch.dashboard.messages.markedUnpaid')
+      );
       return;
     }
-    message.error(extractThunkError(result, 'Failed to update payment status'));
+    message.error(
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.dashboard.messages.paymentStatusUpdateFailed')
+      )
+    );
   };
 
   const handleWeekChange = (weekStart: string) => {
     if (!weekStart) return;
     dispatch(setSelectedWeekStart(weekStart));
+  };
+
+  const handleShiftWeek = (offsetWeeks: number) => {
+    if (!Number.isFinite(offsetWeeks) || offsetWeeks === 0) {
+      return;
+    }
+    const start = parseDateKey(selectedWeekStart);
+    start.setDate(start.getDate() + offsetWeeks * 7);
+    dispatch(setSelectedWeekStart(formatDateKey(start)));
   };
 
   const handleFiltersChange = (newFilters: DispatchFilters) => {
@@ -591,7 +665,9 @@ const DispatchDashboard: React.FC = () => {
     if (upsertDispatchCustomerProfile.fulfilled.match(result)) {
       return result.payload;
     }
-    throw new Error('Failed to save customer profile');
+    throw new Error(
+      t('sparkery.dispatch.dashboard.messages.customerSaveFailed')
+    );
   };
 
   const handleSaveEmployee = async (payload: {
@@ -604,19 +680,28 @@ const DispatchDashboard: React.FC = () => {
   }) => {
     const result = await dispatch(upsertDispatchEmployee(payload));
     if (upsertDispatchEmployee.fulfilled.match(result)) {
-      message.success('Employee saved');
+      message.success(t('sparkery.dispatch.dashboard.messages.employeeSaved'));
       return;
     }
-    throw new Error('Failed to save employee');
+    throw new Error(
+      t('sparkery.dispatch.dashboard.messages.employeeSaveFailed')
+    );
   };
 
   const handleDeleteEmployee = async (employeeId: string) => {
     const result = await dispatch(deleteDispatchEmployee(employeeId));
     if (deleteDispatchEmployee.fulfilled.match(result)) {
-      message.success('Employee deleted');
+      message.success(
+        t('sparkery.dispatch.dashboard.messages.employeeDeleted')
+      );
       return;
     }
-    throw new Error(extractThunkError(result, 'Failed to delete employee'));
+    throw new Error(
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.dashboard.messages.employeeDeleteFailed')
+      )
+    );
   };
 
   const handleReportEmployeeLocation = async (
@@ -632,11 +717,15 @@ const DispatchDashboard: React.FC = () => {
       })
     );
     if (reportDispatchEmployeeLocation.fulfilled.match(result)) {
-      message.success('Employee location updated');
+      message.success(
+        t('sparkery.dispatch.dashboard.messages.employeeLocationUpdated')
+      );
       await dispatch(fetchDispatchEmployees());
       return;
     }
-    throw new Error('Failed to report employee location');
+    throw new Error(
+      t('sparkery.dispatch.dashboard.messages.employeeLocationReportFailed')
+    );
   };
 
   const handleAutoFillRecurringJobs = async () => {
@@ -645,26 +734,34 @@ const DispatchDashboard: React.FC = () => {
       const count = result.payload.length;
       message.success(
         count > 0
-          ? `Generated ${count} recurring tasks for this week`
-          : 'No new recurring tasks needed for this week'
+          ? t('sparkery.dispatch.dashboard.messages.generatedRecurringTasks', {
+              count,
+            })
+          : t('sparkery.dispatch.dashboard.messages.noRecurringTasksNeeded')
       );
       return;
     }
-    message.error('Failed to generate recurring tasks');
+    message.error(
+      t('sparkery.dispatch.dashboard.messages.generateRecurringTasksFailed')
+    );
   };
 
   const handleMigrateLocalPeople = async () => {
     const result = await dispatch(migrateDispatchLocalPeopleToSupabase());
     if (migrateDispatchLocalPeopleToSupabase.fulfilled.match(result)) {
       message.success(
-        `Migrated ${result.payload.employees} employees, ${result.payload.customerProfiles} customers, and ${result.payload.jobs} jobs`
+        t('sparkery.dispatch.dashboard.migratedSummary', {
+          employees: result.payload.employees,
+          customers: result.payload.customerProfiles,
+          jobs: result.payload.jobs,
+        })
       );
       await dispatch(fetchDispatchJobs(weekRange));
       await dispatch(fetchDispatchEmployees());
       await dispatch(fetchDispatchCustomerProfiles());
       return;
     }
-    message.error('Failed to migrate local data to Supabase');
+    message.error(t('sparkery.dispatch.dashboard.migrateFailed'));
   };
 
   const handleExportBackup = async () => {
@@ -680,27 +777,27 @@ const DispatchDashboard: React.FC = () => {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      message.success('Backup exported');
+      message.success(t('sparkery.dispatch.dashboard.messages.backupExported'));
       return;
     }
-    message.error('Failed to export backup');
+    message.error(t('sparkery.dispatch.dashboard.messages.backupExportFailed'));
   };
 
   const handleImportBackup = async (file: File) => {
     const content = await file.text();
     const result = await dispatch(importDispatchBackup(content));
     if (importDispatchBackup.fulfilled.match(result)) {
-      message.success('Backup imported');
+      message.success(t('sparkery.dispatch.dashboard.messages.backupImported'));
       await dispatch(fetchDispatchJobs(weekRange));
       return;
     }
-    message.error('Failed to import backup file');
+    message.error(t('sparkery.dispatch.dashboard.messages.backupImportFailed'));
   };
 
   const handleResetMigrationPrompt = () => {
     localStorage.removeItem(DISPATCH_AUTO_MIGRATION_PROMPT_KEY);
     message.success(
-      'Migration prompt reset. It will show again when local jobs are detected.'
+      t('sparkery.dispatch.dashboard.messages.migrationPromptReset')
     );
   };
 
@@ -709,10 +806,10 @@ const DispatchDashboard: React.FC = () => {
       <div className='dispatch-dashboard-header'>
         <div>
           <Title level={4} className='dispatch-dashboard-title'>
-            Sparkery Dispatch Dashboard
+            {t('sparkery.dispatch.dashboard.title')}
           </Title>
           <Text className='dispatch-dashboard-subtitle' type='secondary'>
-            Weekly scheduling and assignment board
+            {t('sparkery.dispatch.dashboard.subtitle')}
           </Text>
           <Space
             size={[6, 6]}
@@ -726,7 +823,11 @@ const DispatchDashboard: React.FC = () => {
                   : 'dispatch-dashboard-status-tag dispatch-dashboard-status-tag-local'
               }
             >
-              Supabase: {supabaseConfigured ? 'Connected' : 'Local only'}
+              {t('sparkery.dispatch.dashboard.supabaseStatus', {
+                status: supabaseConfigured
+                  ? t('sparkery.dispatch.dashboard.connected')
+                  : t('sparkery.dispatch.dashboard.localOnly'),
+              })}
             </Tag>
             <Tag
               className={
@@ -735,8 +836,11 @@ const DispatchDashboard: React.FC = () => {
                   : 'dispatch-dashboard-status-tag dispatch-dashboard-status-tag-warning'
               }
             >
-              Google Calendar:{' '}
-              {googleCalendarConfigured ? 'Enabled' : 'Disabled'}
+              {t('sparkery.dispatch.dashboard.googleCalendarStatus', {
+                status: googleCalendarConfigured
+                  ? t('sparkery.dispatch.dashboard.enabled')
+                  : t('sparkery.dispatch.dashboard.disabled'),
+              })}
             </Tag>
           </Space>
         </div>
@@ -747,38 +851,48 @@ const DispatchDashboard: React.FC = () => {
             loading={syncingGoogleCalendar}
             disabled={!googleCalendarConfigured}
           >
-            Sync Week to Google Calendar
+            {t('sparkery.dispatch.dashboard.syncWeekToGoogleCalendar')}
           </Button>
           <Button
             className='dispatch-dashboard-action-btn'
             onClick={() => setAdminSetupOpen(true)}
           >
-            Edit Employees & Customers
+            {t('sparkery.dispatch.dashboard.editEmployeesCustomers')}
           </Button>
           <Button
             className='dispatch-dashboard-action-btn'
             onClick={() => navigate('/sparkery/recurring')}
           >
-            Recurring Templates
+            {t('sparkery.dispatch.dashboard.recurringTemplates')}
           </Button>
           <Button
             className='dispatch-dashboard-action-btn'
             onClick={() => navigate('/sparkery/finance')}
           >
-            Open Finance Panel
+            {t('sparkery.dispatch.dashboard.openFinancePanel')}
+          </Button>
+          <Button
+            className='dispatch-dashboard-action-btn'
+            onClick={() =>
+              navigate(
+                `/dispatch-employee-tasks?weekStart=${weekRange.weekStart}&weekEnd=${weekRange.weekEnd}`
+              )
+            }
+          >
+            {t('sparkery.dispatch.dashboard.employeeTasksMobile')}
           </Button>
           <Button
             className='dispatch-dashboard-action-btn dispatch-dashboard-action-btn-auto'
             onClick={handleAutoFillRecurringJobs}
           >
-            Auto Fill Recurring Tasks
+            {t('sparkery.dispatch.dashboard.autoFillRecurringTasks')}
           </Button>
           <Button
             type='primary'
             className='dispatch-dashboard-action-btn dispatch-dashboard-action-btn-primary'
             onClick={() => setModalOpen(true)}
           >
-            Create Job
+            {t('sparkery.dispatch.dashboard.createJob')}
           </Button>
         </Space>
       </div>
@@ -788,6 +902,8 @@ const DispatchDashboard: React.FC = () => {
           weekStart={selectedWeekStart}
           filters={filters}
           onWeekChange={handleWeekChange}
+          onPrevWeek={() => handleShiftWeek(-1)}
+          onNextWeek={() => handleShiftWeek(1)}
           onFiltersChange={handleFiltersChange}
           onRefresh={handleRefresh}
         />
@@ -798,8 +914,10 @@ const DispatchDashboard: React.FC = () => {
           className='dispatch-dashboard-alert dispatch-dashboard-alert-warning'
           type='warning'
           showIcon
-          message='Supabase is not configured'
-          description='Dispatch data is currently stored in browser local storage only. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to persist tasks to cloud.'
+          message={t('sparkery.dispatch.dashboard.supabaseNotConfigured')}
+          description={t(
+            'sparkery.dispatch.dashboard.supabaseNotConfiguredDesc'
+          )}
         />
       )}
 
@@ -808,8 +926,10 @@ const DispatchDashboard: React.FC = () => {
           className='dispatch-dashboard-alert dispatch-dashboard-alert-info'
           type='info'
           showIcon
-          message='Google Calendar sync is not configured'
-          description='Set VITE_GOOGLE_CALENDAR_CLIENT_ID to enable one-click Google Calendar sync.'
+          message={t('sparkery.dispatch.dashboard.googleSyncNotConfigured')}
+          description={t(
+            'sparkery.dispatch.dashboard.googleSyncNotConfiguredDesc'
+          )}
         />
       )}
 

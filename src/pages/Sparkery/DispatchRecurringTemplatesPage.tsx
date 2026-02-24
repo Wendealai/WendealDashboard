@@ -33,19 +33,12 @@ import type {
   DispatchWeekday,
   UpsertDispatchCustomerProfilePayload,
 } from './dispatch/types';
+import { useTranslation } from 'react-i18next';
 import './sparkery.css';
 
 const { Title, Text } = Typography;
 
-const WEEKDAY_OPTIONS: Array<{ value: DispatchWeekday; label: string }> = [
-  { value: 1, label: 'Mon' },
-  { value: 2, label: 'Tue' },
-  { value: 3, label: 'Wed' },
-  { value: 4, label: 'Thu' },
-  { value: 5, label: 'Fri' },
-  { value: 6, label: 'Sat' },
-  { value: 7, label: 'Sun' },
-];
+const WEEKDAY_OPTIONS: DispatchWeekday[] = [1, 2, 3, 4, 5, 6, 7];
 
 const formatDateKey = (date: Date): string => {
   const year = date.getFullYear();
@@ -146,22 +139,27 @@ const profileToPayload = (
   };
 };
 
-const formatWeekdayTags = (weekdays: DispatchWeekday[]): React.ReactNode =>
+const formatWeekdayTags = (
+  weekdays: DispatchWeekday[],
+  resolveWeekdayLabel: (day: DispatchWeekday) => string,
+  emptyText: string
+): React.ReactNode =>
   weekdays.length === 0 ? (
     <Text type='secondary' className='dispatch-recurring-empty-text'>
-      Not set
+      {emptyText}
     </Text>
   ) : (
     <Space size={[4, 4]} wrap className='dispatch-recurring-weekday-tags'>
       {weekdays.map(day => (
         <Tag key={day} className='dispatch-recurring-weekday-tag'>
-          {WEEKDAY_OPTIONS.find(option => option.value === day)?.label}
+          {resolveWeekdayLabel(day)}
         </Tag>
       ))}
     </Space>
   );
 
 const DispatchRecurringTemplatesPage: React.FC = () => {
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { selectedWeekStart, isLoading, error } =
@@ -177,6 +175,20 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
   const [autoFilling, setAutoFilling] = React.useState(false);
   const [form] = Form.useForm<UpsertDispatchCustomerProfilePayload>();
   const recurringEnabled = Form.useWatch('recurringEnabled', form);
+  const weekdaySelectOptions = React.useMemo(
+    () =>
+      WEEKDAY_OPTIONS.map(day => ({
+        value: day,
+        label: t(`sparkery.dispatch.common.weekday.short.${day}`),
+      })),
+    [t]
+  );
+
+  const resolveWeekdayLabel = React.useCallback(
+    (day: DispatchWeekday) =>
+      t(`sparkery.dispatch.common.weekday.short.${day}`),
+    [t]
+  );
 
   const weekRange = React.useMemo(
     () => ({
@@ -216,7 +228,9 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
 
   const handleRefresh = async () => {
     await dispatch(fetchDispatchCustomerProfiles());
-    message.success('Recurring templates refreshed');
+    message.success(
+      t('sparkery.dispatch.recurringTemplates.messages.templatesRefreshed')
+    );
   };
 
   const handleAutoFill = async () => {
@@ -227,14 +241,24 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
       const count = result.payload.length;
       message.success(
         count > 0
-          ? `Generated ${count} recurring tasks for this week`
-          : 'No new recurring tasks needed for this week'
+          ? t(
+              'sparkery.dispatch.recurringTemplates.messages.generatedRecurringTasks',
+              {
+                count,
+              }
+            )
+          : t(
+              'sparkery.dispatch.recurringTemplates.messages.noRecurringTasksNeeded'
+            )
       );
       await dispatch(fetchDispatchJobs(weekRange));
       return;
     }
     message.error(
-      extractThunkError(result, 'Failed to auto fill recurring tasks')
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.recurringTemplates.messages.autoFillFailed')
+      )
     );
   };
 
@@ -307,12 +331,17 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
     const result = await dispatch(upsertDispatchCustomerProfile(payload));
     setSavingTemplate(false);
     if (upsertDispatchCustomerProfile.fulfilled.match(result)) {
-      message.success('Recurring template updated');
+      message.success(
+        t('sparkery.dispatch.recurringTemplates.messages.templateUpdated')
+      );
       setEditingTemplate(null);
       return;
     }
     message.error(
-      extractThunkError(result, 'Failed to update recurring template')
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.recurringTemplates.messages.templateUpdateFailed')
+      )
     );
   };
 
@@ -324,7 +353,9 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
         : 0;
     const currentFee = Number((template.recurringFee || 0).toFixed(2));
     if (normalizedFee === currentFee) {
-      message.info('Fee unchanged');
+      message.info(
+        t('sparkery.dispatch.recurringTemplates.messages.feeUnchanged')
+      );
       return;
     }
 
@@ -338,15 +369,24 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
     );
     setSavingFeeId(null);
     if (upsertDispatchCustomerProfile.fulfilled.match(result)) {
-      message.success(`Fixed fee updated to $${normalizedFee.toFixed(2)}`);
+      message.success(
+        t('sparkery.dispatch.recurringTemplates.messages.fixedFeeUpdated', {
+          amount: normalizedFee.toFixed(2),
+        })
+      );
       return;
     }
-    message.error(extractThunkError(result, 'Failed to save fixed fee'));
+    message.error(
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.recurringTemplates.messages.saveFixedFeeFailed')
+      )
+    );
   };
 
   const columns: ColumnsType<DispatchCustomerProfile> = [
     {
-      title: 'Customer',
+      title: t('sparkery.dispatch.recurringTemplates.table.customer'),
       key: 'customer',
       render: (_, record) => (
         <Space
@@ -361,20 +401,24 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
             type='secondary'
             className='dispatch-muted-text dispatch-recurring-customer-address'
           >
-            {record.address || 'No address'}
+            {record.address || t('sparkery.dispatch.common.noAddress')}
           </Text>
         </Space>
       ),
     },
     {
-      title: 'Weekdays',
+      title: t('sparkery.dispatch.recurringTemplates.table.weekdays'),
       key: 'weekdays',
       width: 180,
       render: (_, record) =>
-        formatWeekdayTags(normalizeRecurringWeekdays(record)),
+        formatWeekdayTags(
+          normalizeRecurringWeekdays(record),
+          resolveWeekdayLabel,
+          t('sparkery.dispatch.recurringTemplates.notSet')
+        ),
     },
     {
-      title: 'Time',
+      title: t('sparkery.dispatch.recurringTemplates.table.time'),
       key: 'time',
       width: 140,
       render: (_, record) => (
@@ -385,17 +429,19 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
       ),
     },
     {
-      title: 'Service',
+      title: t('sparkery.dispatch.recurringTemplates.table.service'),
       key: 'service',
       width: 130,
       render: (_, record) => (
         <Tag className='dispatch-recurring-service-tag'>
-          {record.recurringServiceType || 'regular'}
+          {t(
+            `sparkery.dispatch.common.serviceType.${record.recurringServiceType || 'regular'}`
+          )}
         </Tag>
       ),
     },
     {
-      title: 'Priority',
+      title: t('sparkery.dispatch.recurringTemplates.table.priority'),
       key: 'priority',
       width: 90,
       align: 'center',
@@ -406,7 +452,7 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
       ),
     },
     {
-      title: 'Fixed Fee (AUD)',
+      title: t('sparkery.dispatch.recurringTemplates.table.fixedFeeAud'),
       key: 'fee',
       width: 240,
       render: (_, record) => (
@@ -429,13 +475,13 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
             loading={savingFeeId === record.id}
             onClick={() => handleQuickSaveFee(record)}
           >
-            Save
+            {t('sparkery.dispatch.recurringTemplates.actions.save')}
           </Button>
         </Space>
       ),
     },
     {
-      title: 'Actions',
+      title: t('sparkery.dispatch.recurringTemplates.table.actions'),
       key: 'actions',
       width: 110,
       render: (_, record) => (
@@ -444,7 +490,7 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
           className='dispatch-recurring-edit-btn'
           onClick={() => openEdit(record)}
         >
-          Edit
+          {t('sparkery.dispatch.recurringTemplates.actions.edit')}
         </Button>
       ),
     },
@@ -455,19 +501,20 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
       <div className='dispatch-dashboard-header'>
         <div>
           <Title level={4} className='dispatch-dashboard-title'>
-            Recurring Task Templates
+            {t('sparkery.dispatch.recurringTemplates.title')}
           </Title>
           <Text className='dispatch-dashboard-subtitle' type='secondary'>
-            Edit recurring unit fee and schedule here, then auto fill weekly
-            jobs.
+            {t('sparkery.dispatch.recurringTemplates.subtitle')}
           </Text>
         </div>
         <Space className='dispatch-dashboard-actions' wrap>
           <Button onClick={() => navigate('/sparkery/dispatch')}>
-            Open Dispatch Board
+            {t(
+              'sparkery.dispatch.recurringTemplates.actions.openDispatchBoard'
+            )}
           </Button>
           <Button onClick={() => navigate('/sparkery/finance')}>
-            Open Finance Panel
+            {t('sparkery.dispatch.recurringTemplates.actions.openFinancePanel')}
           </Button>
         </Space>
       </div>
@@ -478,7 +525,7 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
       >
         <Space wrap className='dispatch-recurring-week-bar'>
           <Text type='secondary' className='dispatch-recurring-week-label'>
-            Week Start
+            {t('sparkery.dispatch.filters.weekStart')}
           </Text>
           <Input
             type='date'
@@ -492,9 +539,11 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
               dispatch(setSelectedWeekStart(nextWeekStart));
             }}
           />
-          <Button onClick={handleRefresh}>Refresh Templates</Button>
+          <Button onClick={handleRefresh}>
+            {t('sparkery.dispatch.recurringTemplates.actions.refreshTemplates')}
+          </Button>
           <Button type='primary' loading={autoFilling} onClick={handleAutoFill}>
-            Auto Fill This Week
+            {t('sparkery.dispatch.recurringTemplates.actions.autoFillThisWeek')}
           </Button>
         </Space>
       </Card>
@@ -511,7 +560,9 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
 
       <Card
         size='small'
-        title={`Recurring Templates (${templates.length})`}
+        title={t('sparkery.dispatch.recurringTemplates.tableTitle', {
+          count: templates.length,
+        })}
         className='dispatch-recurring-table-card'
       >
         <Table<DispatchCustomerProfile>
@@ -529,8 +580,13 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
       <Modal
         title={
           editingTemplate
-            ? `Edit Recurring Template - ${editingTemplate.name}`
-            : 'Edit Recurring Template'
+            ? t(
+                'sparkery.dispatch.recurringTemplates.modal.editTitleWithName',
+                {
+                  name: editingTemplate.name,
+                }
+              )
+            : t('sparkery.dispatch.recurringTemplates.modal.editTitle')
         }
         open={Boolean(editingTemplate)}
         onCancel={() => setEditingTemplate(null)}
@@ -557,26 +613,41 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
             <Input />
           </Form.Item>
           <Form.Item
-            label='Customer Name'
+            label={t('sparkery.dispatch.recurringTemplates.form.customerName')}
             name='name'
             rules={[{ required: true }]}
           >
             <Input />
           </Form.Item>
-          <Form.Item label='Address' name='address'>
+          <Form.Item
+            label={t('sparkery.dispatch.recurringTemplates.form.address')}
+            name='address'
+          >
             <Input />
           </Form.Item>
-          <Form.Item label='Phone' name='phone'>
+          <Form.Item
+            label={t('sparkery.dispatch.recurringTemplates.form.phone')}
+            name='phone'
+          >
             <Input />
           </Form.Item>
-          <Form.Item label='Recurring Enabled' name='recurringEnabled'>
+          <Form.Item
+            label={t(
+              'sparkery.dispatch.recurringTemplates.form.recurringEnabled'
+            )}
+            name='recurringEnabled'
+          >
             <Select>
-              <Select.Option value={true}>Enabled</Select.Option>
-              <Select.Option value={false}>Disabled</Select.Option>
+              <Select.Option value={true}>
+                {t('sparkery.dispatch.common.enabled')}
+              </Select.Option>
+              <Select.Option value={false}>
+                {t('sparkery.dispatch.common.disabled')}
+              </Select.Option>
             </Select>
           </Form.Item>
           <Form.Item
-            label='Weekdays'
+            label={t('sparkery.dispatch.recurringTemplates.form.weekdays')}
             name='recurringWeekdays'
             rules={[
               {
@@ -588,7 +659,11 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
                     return Promise.resolve();
                   }
                   return Promise.reject(
-                    new Error('Please choose at least one weekday')
+                    new Error(
+                      t(
+                        'sparkery.dispatch.recurringTemplates.messages.chooseAtLeastOneWeekday'
+                      )
+                    )
                   );
                 },
               },
@@ -597,25 +672,47 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
             <Select
               mode='multiple'
               maxTagCount={4}
-              options={WEEKDAY_OPTIONS}
-              placeholder='Choose recurring weekdays'
+              options={weekdaySelectOptions}
+              placeholder={t(
+                'sparkery.dispatch.recurringTemplates.form.weekdaysPlaceholder'
+              )}
             />
           </Form.Item>
-          <Form.Item label='Start Time' name='recurringStartTime'>
+          <Form.Item
+            label={t('sparkery.dispatch.recurringTemplates.form.startTime')}
+            name='recurringStartTime'
+          >
             <Input type='time' />
           </Form.Item>
-          <Form.Item label='End Time' name='recurringEndTime'>
+          <Form.Item
+            label={t('sparkery.dispatch.recurringTemplates.form.endTime')}
+            name='recurringEndTime'
+          >
             <Input type='time' />
           </Form.Item>
-          <Form.Item label='Service Type' name='recurringServiceType'>
+          <Form.Item
+            label={t('sparkery.dispatch.recurringTemplates.form.serviceType')}
+            name='recurringServiceType'
+          >
             <Select>
-              <Select.Option value='bond'>Bond</Select.Option>
-              <Select.Option value='airbnb'>Airbnb</Select.Option>
-              <Select.Option value='regular'>Regular</Select.Option>
-              <Select.Option value='commercial'>Commercial</Select.Option>
+              <Select.Option value='bond'>
+                {t('sparkery.dispatch.common.serviceType.bond')}
+              </Select.Option>
+              <Select.Option value='airbnb'>
+                {t('sparkery.dispatch.common.serviceType.airbnb')}
+              </Select.Option>
+              <Select.Option value='regular'>
+                {t('sparkery.dispatch.common.serviceType.regular')}
+              </Select.Option>
+              <Select.Option value='commercial'>
+                {t('sparkery.dispatch.common.serviceType.commercial')}
+              </Select.Option>
             </Select>
           </Form.Item>
-          <Form.Item label='Priority' name='recurringPriority'>
+          <Form.Item
+            label={t('sparkery.dispatch.recurringTemplates.form.priority')}
+            name='recurringPriority'
+          >
             <Select>
               <Select.Option value={1}>1</Select.Option>
               <Select.Option value={2}>2</Select.Option>
@@ -624,20 +721,38 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
               <Select.Option value={5}>5</Select.Option>
             </Select>
           </Form.Item>
-          <Form.Item label='Recurring Fixed Fee (AUD)' name='recurringFee'>
+          <Form.Item
+            label={t(
+              'sparkery.dispatch.recurringTemplates.form.recurringFixedFeeAud'
+            )}
+            name='recurringFee'
+          >
             <InputNumber
               className='dispatch-form-number-full-width'
               min={0}
               precision={2}
             />
           </Form.Item>
-          <Form.Item label='Default Task Title' name='defaultJobTitle'>
+          <Form.Item
+            label={t(
+              'sparkery.dispatch.recurringTemplates.form.defaultTaskTitle'
+            )}
+            name='defaultJobTitle'
+          >
             <Input />
           </Form.Item>
-          <Form.Item label='Default Task Description' name='defaultDescription'>
+          <Form.Item
+            label={t(
+              'sparkery.dispatch.recurringTemplates.form.defaultTaskDescription'
+            )}
+            name='defaultDescription'
+          >
             <Input.TextArea rows={2} />
           </Form.Item>
-          <Form.Item label='Default Notes' name='defaultNotes'>
+          <Form.Item
+            label={t('sparkery.dispatch.recurringTemplates.form.defaultNotes')}
+            name='defaultNotes'
+          >
             <Input.TextArea rows={3} />
           </Form.Item>
         </Form>

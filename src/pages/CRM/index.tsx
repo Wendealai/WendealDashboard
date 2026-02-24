@@ -23,12 +23,14 @@ const CRMPage: React.FC = () => {
 
   // CRM instance URL - configurable via environment variables
   const crmUrl =
-    process.env.REACT_APP_CRM_URL || 'https://crm.wendealai.com.au';
+    import.meta.env.VITE_CRM_URL ||
+    process.env.REACT_APP_CRM_URL ||
+    'https://crm.wendealai.com.au';
 
   return (
     <div className='crm-page crm-page-layout-override'>
       {/* Security configuration - configures CSP and other headers */}
-      <SecurityHeaders />
+      <SecurityHeaders crmUrl={crmUrl} />
 
       {/* Performance monitoring - tracks loading times and user interactions */}
       <PerformanceMonitor />

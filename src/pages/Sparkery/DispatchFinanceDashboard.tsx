@@ -28,6 +28,11 @@ import {
 } from '@/store/slices/sparkeryDispatchSlice';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import WeeklyFinanceBoard from './components/dispatch/WeeklyFinanceBoard';
+import FinanceAgingBoard from './components/dispatch/FinanceAgingBoard';
+import CashflowForecastBoard from './components/dispatch/CashflowForecastBoard';
+import { sparkeryDispatchService } from '@/services/sparkeryDispatchService';
+import type { DispatchJob } from './dispatch/types';
+import { useTranslation } from 'react-i18next';
 import './sparkery.css';
 
 const { Title, Text } = Typography;
@@ -78,6 +83,7 @@ const extractThunkError = (
 type FinanceViewMode = 'week' | 'month' | 'year';
 
 const DispatchFinanceDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { selectedWeekStart, isLoading, error } =
@@ -94,6 +100,8 @@ const DispatchFinanceDashboard: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = React.useState<number>(
     today.getMonth() + 1
   );
+  const [agingJobs, setAgingJobs] = React.useState<DispatchJob[]>([]);
+  const [agingLoading, setAgingLoading] = React.useState(false);
 
   const yearOptions = React.useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -118,27 +126,55 @@ const DispatchFinanceDashboard: React.FC = () => {
       const monthRange = getMonthRange(selectedYear, selectedMonth);
       return {
         ...monthRange,
-        periodLabel: `Month ${selectedYear}-${String(selectedMonth).padStart(2, '0')}`,
+        periodLabel: t('sparkery.dispatch.financeDashboard.periodLabelMonth', {
+          year: selectedYear,
+          month: String(selectedMonth).padStart(2, '0'),
+        }),
       };
     }
     if (viewMode === 'year') {
       const yearRange = getYearRange(selectedYear);
       return {
         ...yearRange,
-        periodLabel: `Year ${selectedYear}`,
+        periodLabel: t('sparkery.dispatch.financeDashboard.periodLabelYear', {
+          year: selectedYear,
+        }),
       };
     }
     return {
       periodStart: selectedWeekStart,
       periodEnd: getWeekEnd(selectedWeekStart),
-      periodLabel: `Week ${selectedWeekStart} to ${getWeekEnd(selectedWeekStart)}`,
+      periodLabel: t('sparkery.dispatch.financeDashboard.periodLabelWeek', {
+        weekStart: selectedWeekStart,
+        weekEnd: getWeekEnd(selectedWeekStart),
+      }),
     };
-  }, [selectedMonth, selectedWeekStart, selectedYear, viewMode]);
+  }, [selectedMonth, selectedWeekStart, selectedYear, t, viewMode]);
 
   React.useEffect(() => {
     dispatch(fetchDispatchEmployees());
     dispatch(fetchDispatchCustomerProfiles());
   }, [dispatch]);
+
+  const loadAgingJobs = React.useCallback(async () => {
+    setAgingLoading(true);
+    try {
+      const rows = await sparkeryDispatchService.getJobs();
+      setAgingJobs(rows);
+    } catch {
+      message.error(
+        t('sparkery.dispatch.financeDashboard.messages.loadAgingFailed')
+      );
+    } finally {
+      setAgingLoading(false);
+    }
+  }, [t]);
+
+  React.useEffect(() => {
+    loadAgingJobs().catch(() => {
+      // handled in loadAgingJobs
+    });
+  }, [loadAgingJobs]);
 
   React.useEffect(() => {
     dispatch(
@@ -156,7 +192,10 @@ const DispatchFinanceDashboard: React.FC = () => {
         weekEnd: periodRange.periodEnd,
       })
     );
-    message.success('Finance jobs refreshed');
+    await loadAgingJobs();
+    message.success(
+      t('sparkery.dispatch.financeDashboard.messages.jobsRefreshed')
+    );
   };
 
   const handleApplyFinanceAdjustment = async (
@@ -170,11 +209,21 @@ const DispatchFinanceDashboard: React.FC = () => {
       })
     );
     if (applyDispatchJobFinanceAdjustment.fulfilled.match(result)) {
-      message.success('Finance adjustment applied');
+      message.success(
+        t(
+          'sparkery.dispatch.financeDashboard.messages.financeAdjustmentApplied'
+        )
+      );
+      await loadAgingJobs();
       return;
     }
     message.error(
-      extractThunkError(result, 'Failed to apply finance adjustment')
+      extractThunkError(
+        result,
+        t(
+          'sparkery.dispatch.financeDashboard.messages.financeAdjustmentApplyFailed'
+        )
+      )
     );
   };
 
@@ -186,10 +235,18 @@ const DispatchFinanceDashboard: React.FC = () => {
       })
     );
     if (confirmDispatchJobFinance.fulfilled.match(result)) {
-      message.success('Finance confirmed and locked');
+      message.success(
+        t('sparkery.dispatch.financeDashboard.messages.financeConfirmedLocked')
+      );
+      await loadAgingJobs();
       return;
     }
-    message.error(extractThunkError(result, 'Failed to confirm finance'));
+    message.error(
+      extractThunkError(
+        result,
+        t('sparkery.dispatch.financeDashboard.messages.financeConfirmFailed')
+      )
+    );
   };
 
   const handleTogglePaymentReceived = async (
@@ -204,10 +261,22 @@ const DispatchFinanceDashboard: React.FC = () => {
       })
     );
     if (setDispatchJobPaymentReceived.fulfilled.match(result)) {
-      message.success(received ? 'Marked as paid' : 'Marked as unpaid');
+      message.success(
+        received
+          ? t('sparkery.dispatch.financeDashboard.messages.markedPaid')
+          : t('sparkery.dispatch.financeDashboard.messages.markedUnpaid')
+      );
+      await loadAgingJobs();
       return;
     }
-    message.error(extractThunkError(result, 'Failed to update payment status'));
+    message.error(
+      extractThunkError(
+        result,
+        t(
+          'sparkery.dispatch.financeDashboard.messages.paymentStatusUpdateFailed'
+        )
+      )
+    );
   };
 
   const handleSyncRecurringFees = async () => {
@@ -227,7 +296,9 @@ const DispatchFinanceDashboard: React.FC = () => {
 
     if (recurringFeeMap.size === 0) {
       message.warning(
-        'No recurring customer fixed fee configured. Please set recurring fee in customer profile first.'
+        t(
+          'sparkery.dispatch.financeDashboard.messages.noRecurringFeeConfigured'
+        )
       );
       return;
     }
@@ -250,7 +321,9 @@ const DispatchFinanceDashboard: React.FC = () => {
     });
 
     if (candidates.length === 0) {
-      message.info('No recurring jobs need fee sync in current filter');
+      message.info(
+        t('sparkery.dispatch.financeDashboard.messages.noFeeSyncNeeded')
+      );
       return;
     }
 
@@ -299,13 +372,24 @@ const DispatchFinanceDashboard: React.FC = () => {
         weekEnd: periodRange.periodEnd,
       })
     );
+    await loadAgingJobs();
 
     if (failedCount === 0) {
-      message.success(`Synced recurring fixed fee for ${successCount} jobs`);
+      message.success(
+        t('sparkery.dispatch.financeDashboard.messages.syncedRecurringFee', {
+          success: successCount,
+        })
+      );
       return;
     }
     message.warning(
-      `Synced ${successCount} jobs, ${failedCount} failed (likely finance-locked or schema not migrated)`
+      t(
+        'sparkery.dispatch.financeDashboard.messages.syncedRecurringFeeWithFailed',
+        {
+          success: successCount,
+          failed: failedCount,
+        }
+      )
     );
   };
 
@@ -314,18 +398,18 @@ const DispatchFinanceDashboard: React.FC = () => {
       <div className='dispatch-dashboard-header'>
         <div>
           <Title level={4} className='dispatch-dashboard-title'>
-            Sparkery Finance Dashboard
+            {t('sparkery.dispatch.financeDashboard.title')}
           </Title>
           <Text className='dispatch-dashboard-subtitle' type='secondary'>
-            Receivable summary and lock confirmation by week/month/year
+            {t('sparkery.dispatch.financeDashboard.subtitle')}
           </Text>
         </div>
         <Space className='dispatch-dashboard-actions' wrap>
           <Button onClick={() => navigate('/sparkery/recurring')}>
-            Open Recurring Templates
+            {t('sparkery.dispatch.financeDashboard.openRecurringTemplates')}
           </Button>
           <Button onClick={() => navigate('/sparkery/dispatch')}>
-            Open Dispatch Board
+            {t('sparkery.dispatch.financeDashboard.openDispatchBoard')}
           </Button>
         </Space>
       </div>
@@ -337,23 +421,32 @@ const DispatchFinanceDashboard: React.FC = () => {
         <Space className='dispatch-finance-filter-row' wrap size={[10, 8]}>
           <Space className='dispatch-finance-filter-group' size={6}>
             <Text type='secondary' className='dispatch-finance-filter-label'>
-              View
+              {t('sparkery.dispatch.financeDashboard.view')}
             </Text>
             <Select<FinanceViewMode>
               value={viewMode}
               className='dispatch-finance-view-select'
               onChange={value => setViewMode(value)}
               options={[
-                { label: 'By Week', value: 'week' },
-                { label: 'By Month', value: 'month' },
-                { label: 'By Year', value: 'year' },
+                {
+                  label: t('sparkery.dispatch.financeDashboard.byWeek'),
+                  value: 'week',
+                },
+                {
+                  label: t('sparkery.dispatch.financeDashboard.byMonth'),
+                  value: 'month',
+                },
+                {
+                  label: t('sparkery.dispatch.financeDashboard.byYear'),
+                  value: 'year',
+                },
               ]}
             />
           </Space>
           {viewMode === 'week' && (
             <Space className='dispatch-finance-filter-group' size={6}>
               <Text type='secondary' className='dispatch-finance-filter-label'>
-                Week Start
+                {t('sparkery.dispatch.filters.weekStart')}
               </Text>
               <Input
                 type='date'
@@ -372,7 +465,7 @@ const DispatchFinanceDashboard: React.FC = () => {
           {viewMode === 'month' && (
             <Space className='dispatch-finance-filter-group' size={6}>
               <Text type='secondary' className='dispatch-finance-filter-label'>
-                Year
+                {t('sparkery.dispatch.financeDashboard.year')}
               </Text>
               <Select<number>
                 value={selectedYear}
@@ -381,7 +474,7 @@ const DispatchFinanceDashboard: React.FC = () => {
                 onChange={value => setSelectedYear(value)}
               />
               <Text type='secondary' className='dispatch-finance-filter-label'>
-                Month
+                {t('sparkery.dispatch.financeDashboard.month')}
               </Text>
               <Select<number>
                 value={selectedMonth}
@@ -394,7 +487,7 @@ const DispatchFinanceDashboard: React.FC = () => {
           {viewMode === 'year' && (
             <Space className='dispatch-finance-filter-group' size={6}>
               <Text type='secondary' className='dispatch-finance-filter-label'>
-                Year
+                {t('sparkery.dispatch.financeDashboard.year')}
               </Text>
               <Select<number>
                 value={selectedYear}
@@ -414,14 +507,14 @@ const DispatchFinanceDashboard: React.FC = () => {
             className='dispatch-finance-filter-btn'
             onClick={handleRefresh}
           >
-            Refresh
+            {t('sparkery.dispatch.common.refresh')}
           </Button>
           <Button
             className='dispatch-finance-filter-btn dispatch-finance-filter-btn-sync'
             loading={syncingRecurringFee}
             onClick={handleSyncRecurringFees}
           >
-            One-click Sync Repeating Fees
+            {t('sparkery.dispatch.financeDashboard.syncRecurringFees')}
           </Button>
         </Space>
       </Card>
@@ -441,12 +534,31 @@ const DispatchFinanceDashboard: React.FC = () => {
         employees={employees}
         weekStart={periodRange.periodStart}
         weekEnd={periodRange.periodEnd}
-        title={`Finance (${periodRange.periodLabel})`}
+        title={t('sparkery.dispatch.financeDashboard.financeTitle', {
+          periodLabel: periodRange.periodLabel,
+        })}
         loading={isLoading}
         onApplyAdjustment={handleApplyFinanceAdjustment}
         onConfirmFinance={handleConfirmFinance}
         onTogglePaymentReceived={handleTogglePaymentReceived}
       />
+
+      <div className='dispatch-dashboard-section-top'>
+        <CashflowForecastBoard
+          jobs={agingJobs}
+          loading={agingLoading || isLoading}
+        />
+      </div>
+
+      <div className='dispatch-dashboard-section-top'>
+        <FinanceAgingBoard
+          jobs={agingJobs}
+          loading={agingLoading || isLoading}
+          onMarkPaid={async jobId => {
+            await handleTogglePaymentReceived(jobId, true);
+          }}
+        />
+      </div>
     </div>
   );
 };

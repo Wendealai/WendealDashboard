@@ -3,13 +3,26 @@
  * Manages Content Security Policy and other security headers for CRM iframe
  */
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+
+interface SecurityHeadersProps {
+  crmUrl?: string;
+}
 
 /**
  * Security Headers Component
  * Configures CSP and other security headers for CRM integration
  */
-const SecurityHeaders: React.FC = () => {
+const SecurityHeaders: React.FC<SecurityHeadersProps> = ({ crmUrl }) => {
+  const crmOrigin = useMemo(() => {
+    try {
+      return new URL(crmUrl || window.location.origin, window.location.origin)
+        .origin;
+    } catch {
+      return window.location.origin;
+    }
+  }, [crmUrl]);
+
   useEffect(() => {
     // Configure Content Security Policy for CRM iframe
     const configureCSP = () => {
@@ -18,15 +31,15 @@ const SecurityHeaders: React.FC = () => {
 
       const cspDirectives = [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://crm.wendealai.com.au",
-        "style-src 'self' 'unsafe-inline' https://crm.wendealai.com.au https://fonts.googleapis.com",
-        "img-src 'self' data: https: https://crm.wendealai.com.au",
-        "font-src 'self' https://fonts.gstatic.com https://crm.wendealai.com.au",
-        "connect-src 'self' https://crm.wendealai.com.au wss://crm.wendealai.com.au",
-        "frame-src 'self' https://crm.wendealai.com.au",
+        `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${crmOrigin}`,
+        `style-src 'self' 'unsafe-inline' ${crmOrigin} https://fonts.googleapis.com`,
+        `img-src 'self' data: https: ${crmOrigin}`,
+        `font-src 'self' https://fonts.gstatic.com ${crmOrigin}`,
+        `connect-src 'self' ${crmOrigin} ${crmOrigin.replace('https://', 'wss://')}`,
+        `frame-src 'self' ${crmOrigin}`,
         "object-src 'none'",
         "base-uri 'self'",
-        "form-action 'self' https://crm.wendealai.com.au",
+        `form-action 'self' ${crmOrigin}`,
         "frame-ancestors 'self'",
       ];
 
@@ -55,7 +68,7 @@ const SecurityHeaders: React.FC = () => {
 
     configureCSP();
     configureSecurityHeaders();
-  }, []);
+  }, [crmOrigin]);
 
   // This component doesn't render anything visible
   return null;

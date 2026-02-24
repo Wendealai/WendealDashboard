@@ -45,6 +45,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
 import {
   BASE_ROOM_SECTIONS,
   OPTIONAL_SECTIONS,
@@ -111,6 +112,7 @@ const cloneTemplateSnapshot = (
 
 /** Main Component */
 const CleaningInspectionAdmin: React.FC = () => {
+  const { t } = useTranslation();
   const [messageApi, contextHolder] = message.useMessage();
   const supabaseConfigured = React.useMemo(
     () => isInspectionSupabaseConfigured(),
@@ -148,11 +150,18 @@ const CleaningInspectionAdmin: React.FC = () => {
     async (showToast = false): Promise<boolean> => {
       if (!supabaseConfigured) {
         setSupabaseStatus('local');
-        setSupabaseStatusMessage('Supabase environment variables are missing.');
+        setSupabaseStatusMessage(
+          t('sparkery.inspectionAdmin.messages.supabaseEnvMissing', {
+            defaultValue: 'Supabase environment variables are missing.',
+          })
+        );
         setLastCloudWriteAt(getInspectionLastCloudWriteAt());
         if (showToast) {
           messageApi.warning(
-            'Supabase is not configured. Running in local cache mode.'
+            t('sparkery.inspectionAdmin.messages.supabaseNotConfigured', {
+              defaultValue:
+                'Supabase is not configured. Running in local cache mode.',
+            })
           );
         }
         return false;
@@ -173,26 +182,42 @@ const CleaningInspectionAdmin: React.FC = () => {
           : '';
         setSupabaseStatus('connected');
         setSupabaseStatusMessage(
-          host
-            ? `Cloud database is reachable (${host}) | bucket: ${storageBucket}`
-            : `Cloud database is reachable | bucket: ${storageBucket}`
+          t('sparkery.inspectionAdmin.messages.cloudReachableWithBucket', {
+            defaultValue:
+              'Cloud database is reachable{{hostPart}} | bucket: {{bucket}}',
+            hostPart: host ? ` (${host})` : '',
+            bucket: storageBucket,
+          })
         );
         setLastCloudWriteAt(getInspectionLastCloudWriteAt());
         if (showToast) {
-          messageApi.success('Supabase connection verified');
+          messageApi.success(
+            t('sparkery.inspectionAdmin.messages.supabaseConnectionVerified', {
+              defaultValue: 'Supabase connection verified',
+            })
+          );
         }
         return true;
       }
 
       setSupabaseStatus('unreachable');
-      const reason = status.message || 'Unable to reach Supabase';
+      const reason =
+        status.message ||
+        t('sparkery.inspectionAdmin.messages.unableReachSupabase', {
+          defaultValue: 'Unable to reach Supabase',
+        });
       setSupabaseStatusMessage(reason);
       if (showToast) {
-        messageApi.error(`Supabase is unreachable: ${reason}`);
+        messageApi.error(
+          t('sparkery.inspectionAdmin.messages.supabaseUnreachable', {
+            defaultValue: 'Supabase is unreachable: {{reason}}',
+            reason,
+          })
+        );
       }
       return false;
     },
-    [messageApi, storageBucket, supabaseConfigured]
+    [messageApi, storageBucket, supabaseConfigured, t]
   );
 
   React.useEffect(() => {
@@ -247,7 +272,10 @@ const CleaningInspectionAdmin: React.FC = () => {
         employeesResult.status === 'rejected'
       ) {
         messageApi.warning(
-          'Some cloud data failed to load. Please verify Supabase tables and RLS policies.'
+          t('sparkery.inspectionAdmin.messages.someCloudDataFailed', {
+            defaultValue:
+              'Some cloud data failed to load. Please verify Supabase tables and RLS policies.',
+          })
         );
       }
     };
@@ -256,7 +284,7 @@ const CleaningInspectionAdmin: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [messageApi]);
+  }, [messageApi, t]);
 
   React.useEffect(() => {
     checkCloudConnectivity(false);
@@ -297,7 +325,11 @@ const CleaningInspectionAdmin: React.FC = () => {
       await saveEmployees(emps);
       setLastCloudWriteAt(getInspectionLastCloudWriteAt());
     } catch {
-      messageApi.error('Failed to save employees. Please try again.');
+      messageApi.error(
+        t('sparkery.inspectionAdmin.messages.saveEmployeesFailed', {
+          defaultValue: 'Failed to save employees. Please try again.',
+        })
+      );
     }
   };
 
@@ -318,8 +350,17 @@ const CleaningInspectionAdmin: React.FC = () => {
           setLastCloudWriteAt(getInspectionLastCloudWriteAt());
         } catch (error) {
           const reason =
-            error instanceof Error ? error.message : 'unknown cloud error';
-          messageApi.error(`Property template save failed: ${reason}`);
+            error instanceof Error
+              ? error.message
+              : t('sparkery.inspectionAdmin.messages.unknownCloudError', {
+                  defaultValue: 'unknown cloud error',
+                });
+          messageApi.error(
+            t('sparkery.inspectionAdmin.messages.propertyTemplateSaveFailed', {
+              defaultValue: 'Property template save failed: {{reason}}',
+              reason,
+            })
+          );
 
           if (supabaseConfigured) {
             try {
@@ -338,7 +379,7 @@ const CleaningInspectionAdmin: React.FC = () => {
         void drainTemplateSaveQueue();
       }
     }
-  }, [messageApi, supabaseConfigured]);
+  }, [messageApi, supabaseConfigured, t]);
 
   const savePropertiesToStorage = (props: PropertyTemplate[]) => {
     const snapshot = cloneTemplateSnapshot(props);
@@ -357,15 +398,32 @@ const CleaningInspectionAdmin: React.FC = () => {
       const templates = await loadPropertyTemplates();
       setProperties(templates.map(migratePropertyChecklists));
       setSupabaseStatus('connected');
-      setSupabaseStatusMessage('Cloud templates were refreshed successfully.');
+      setSupabaseStatusMessage(
+        t('sparkery.inspectionAdmin.messages.cloudTemplatesRefreshed', {
+          defaultValue: 'Cloud templates were refreshed successfully.',
+        })
+      );
       setLastCloudWriteAt(getInspectionLastCloudWriteAt());
-      messageApi.success('Property templates refreshed from cloud');
+      messageApi.success(
+        t('sparkery.inspectionAdmin.messages.propertyTemplatesRefreshed', {
+          defaultValue: 'Property templates refreshed from cloud',
+        })
+      );
     } catch (error) {
       setSupabaseStatus('unreachable');
       const reason =
-        error instanceof Error ? error.message : 'unknown cloud error';
+        error instanceof Error
+          ? error.message
+          : t('sparkery.inspectionAdmin.messages.unknownCloudError', {
+              defaultValue: 'unknown cloud error',
+            });
       setSupabaseStatusMessage(reason);
-      messageApi.error(`Cloud template refresh failed: ${reason}`);
+      messageApi.error(
+        t('sparkery.inspectionAdmin.messages.cloudTemplateRefreshFailed', {
+          defaultValue: 'Cloud template refresh failed: {{reason}}',
+          reason,
+        })
+      );
     }
   };
 
@@ -384,23 +442,46 @@ const CleaningInspectionAdmin: React.FC = () => {
       setLastCloudWriteAt(getInspectionLastCloudWriteAt());
       setSupabaseStatus('connected');
       setSupabaseStatusMessage(
-        `Legacy image migration completed. Templates: ${result.templatesUpdated}/${result.templatesProcessed}, inspections: ${result.inspectionsUpdated}/${result.inspectionsProcessed}.`
+        t('sparkery.inspectionAdmin.messages.legacyMigrationSummary', {
+          defaultValue:
+            'Legacy image migration completed. Templates: {{templatesUpdated}}/{{templatesProcessed}}, inspections: {{inspectionsUpdated}}/{{inspectionsProcessed}}.',
+          templatesUpdated: result.templatesUpdated,
+          templatesProcessed: result.templatesProcessed,
+          inspectionsUpdated: result.inspectionsUpdated,
+          inspectionsProcessed: result.inspectionsProcessed,
+        })
       );
 
       messageApi.success(
-        `Migration completed. Uploaded ${result.uploadedAssets} assets.`
+        t('sparkery.inspectionAdmin.messages.migrationCompleted', {
+          defaultValue: 'Migration completed. Uploaded {{count}} assets.',
+          count: result.uploadedAssets,
+        })
       );
       if (result.failedInspections > 0) {
         messageApi.warning(
-          `${result.failedInspections} inspection records failed during migration.`
+          t('sparkery.inspectionAdmin.messages.migrationFailedInspections', {
+            defaultValue:
+              '{{count}} inspection records failed during migration.',
+            count: result.failedInspections,
+          })
         );
       }
     } catch (error) {
       const reason =
-        error instanceof Error ? error.message : 'unknown cloud error';
+        error instanceof Error
+          ? error.message
+          : t('sparkery.inspectionAdmin.messages.unknownCloudError', {
+              defaultValue: 'unknown cloud error',
+            });
       setSupabaseStatus('unreachable');
       setSupabaseStatusMessage(reason);
-      messageApi.error(`Legacy image migration failed: ${reason}`);
+      messageApi.error(
+        t('sparkery.inspectionAdmin.messages.legacyMigrationFailed', {
+          defaultValue: 'Legacy image migration failed: {{reason}}',
+          reason,
+        })
+      );
     } finally {
       setIsMigratingAssets(false);
     }
@@ -431,12 +512,20 @@ const CleaningInspectionAdmin: React.FC = () => {
 
   const handleGenerateLink = async () => {
     if (!selectedPropertyId) {
-      messageApi.warning('Please select a property first');
+      messageApi.warning(
+        t('sparkery.inspectionAdmin.messages.selectPropertyFirst', {
+          defaultValue: 'Please select a property first',
+        })
+      );
       return;
     }
     const property = properties.find(p => p.id === selectedPropertyId);
     if (!property) {
-      messageApi.error('Property not found');
+      messageApi.error(
+        t('sparkery.inspectionAdmin.messages.propertyNotFound', {
+          defaultValue: 'Property not found',
+        })
+      );
       return;
     }
 
@@ -516,10 +605,17 @@ const CleaningInspectionAdmin: React.FC = () => {
 
     if (syncResult.source === 'supabase') {
       setLastCloudWriteAt(getInspectionLastCloudWriteAt());
-      messageApi.success('Inspection link copied and synced to cloud');
+      messageApi.success(
+        t('sparkery.inspectionAdmin.messages.linkCopiedAndSynced', {
+          defaultValue: 'Inspection link copied and synced to cloud',
+        })
+      );
     } else {
       messageApi.warning(
-        'Link copied, but cloud sync failed. Data is currently local only.'
+        t('sparkery.inspectionAdmin.messages.linkCopiedCloudSyncFailed', {
+          defaultValue:
+            'Link copied, but cloud sync failed. Data is currently local only.',
+        })
       );
     }
   };
@@ -530,17 +626,29 @@ const CleaningInspectionAdmin: React.FC = () => {
         const newArchives = archives.filter(a => a.id !== id);
         setArchives(newArchives);
         setLastCloudWriteAt(getInspectionLastCloudWriteAt());
-        messageApi.success('Deleted');
+        messageApi.success(
+          t('sparkery.inspectionAdmin.messages.deleted', {
+            defaultValue: 'Deleted',
+          })
+        );
       })
       .catch(() => {
-        messageApi.error('Delete failed. Please try again.');
+        messageApi.error(
+          t('sparkery.inspectionAdmin.messages.deleteFailed', {
+            defaultValue: 'Delete failed. Please try again.',
+          })
+        );
       });
   };
 
   const handleCopyLink = (archive: InspectionArchive) => {
     const url = buildShareUrl(archive);
     navigator.clipboard.writeText(url);
-    messageApi.success('Link copied.');
+    messageApi.success(
+      t('sparkery.inspectionAdmin.messages.linkCopied', {
+        defaultValue: 'Link copied.',
+      })
+    );
   };
 
   const handleOpen = (archive: InspectionArchive) => {
@@ -559,7 +667,11 @@ const CleaningInspectionAdmin: React.FC = () => {
   /** Quick-start wizard: pick property + date, then generate/open a unique link. */
   const handleQuickStartWithProperty = () => {
     if (!selectedPropertyId) {
-      messageApi.warning('Please select a property first');
+      messageApi.warning(
+        t('sparkery.inspectionAdmin.messages.selectPropertyFirst', {
+          defaultValue: 'Please select a property first',
+        })
+      );
       return;
     }
     handleGenerateLink();
@@ -576,18 +688,26 @@ const CleaningInspectionAdmin: React.FC = () => {
 
   const supabaseTagText =
     supabaseStatus === 'connected'
-      ? 'Supabase Connected'
+      ? t('sparkery.inspectionAdmin.status.supabaseConnected', {
+          defaultValue: 'Supabase Connected',
+        })
       : supabaseStatus === 'checking'
-        ? 'Checking Supabase...'
+        ? t('sparkery.inspectionAdmin.status.checkingSupabase', {
+            defaultValue: 'Checking Supabase...',
+          })
         : supabaseStatus === 'unreachable'
-          ? 'Supabase Unreachable'
-          : 'Local Cache Mode';
+          ? t('sparkery.inspectionAdmin.status.supabaseUnreachable', {
+              defaultValue: 'Supabase Unreachable',
+            })
+          : t('sparkery.inspectionAdmin.status.localCacheMode', {
+              defaultValue: 'Local Cache Mode',
+            });
 
   const formattedLastCloudWriteAt = lastCloudWriteAt
     ? dayjs(lastCloudWriteAt).isValid()
       ? dayjs(lastCloudWriteAt).format('YYYY-MM-DD HH:mm:ss')
       : lastCloudWriteAt
-    : 'Never';
+    : t('sparkery.inspectionAdmin.labels.never', { defaultValue: 'Never' });
 
   return (
     <div className='sparkery-tool-page sparkery-inspection-admin-page'>
@@ -595,34 +715,45 @@ const CleaningInspectionAdmin: React.FC = () => {
       <div className='sparkery-inspection-header'>
         <Title level={3} className='sparkery-tool-page-title'>
           <HomeOutlined className='sparkery-inspection-icon-8' />
-          Cleaning Inspection Admin
+          {t('sparkery.inspectionAdmin.title', {
+            defaultValue: 'Cleaning Inspection Admin',
+          })}
         </Title>
         <Space wrap>
           <Button
             icon={<SettingOutlined />}
             onClick={() => setIsSettingsOpen(true)}
           >
-            Property Templates
+            {t('sparkery.inspectionAdmin.actions.propertyTemplates', {
+              defaultValue: 'Property Templates',
+            })}
           </Button>
           <Button
             icon={<EditOutlined />}
             onClick={() => setIsEmployeesOpen(true)}
           >
-            Employee Management ({employees.length})
+            {t('sparkery.inspectionAdmin.actions.employeeManagementCount', {
+              defaultValue: 'Employee Management ({{count}})',
+              count: employees.length,
+            })}
           </Button>
           <Button
             onClick={handleForceRefreshTemplates}
             loading={supabaseStatus === 'checking' && !isMigratingAssets}
             disabled={isMigratingAssets}
           >
-            Refresh Cloud Templates
+            {t('sparkery.inspectionAdmin.actions.refreshCloudTemplates', {
+              defaultValue: 'Refresh Cloud Templates',
+            })}
           </Button>
           <Button
             onClick={handleMigrateLegacyAssets}
             loading={isMigratingAssets}
             disabled={supabaseStatus === 'checking'}
           >
-            Migrate Legacy Images
+            {t('sparkery.inspectionAdmin.actions.migrateLegacyImages', {
+              defaultValue: 'Migrate Legacy Images',
+            })}
           </Button>
           <Tag color={supabaseTagColor}>{supabaseTagText}</Tag>
           {supabaseStatusMessage ? (
@@ -633,10 +764,16 @@ const CleaningInspectionAdmin: React.FC = () => {
         </Space>
         <div className='sparkery-inspection-cloud-meta'>
           <Text type='secondary' className='sparkery-inspection-status-note'>
-            Storage bucket: {storageBucket}
+            {t('sparkery.inspectionAdmin.labels.storageBucket', {
+              defaultValue: 'Storage bucket',
+            })}
+            : {storageBucket}
           </Text>
           <Text type='secondary' className='sparkery-inspection-status-note'>
-            Last cloud write: {formattedLastCloudWriteAt}
+            {t('sparkery.inspectionAdmin.labels.lastCloudWrite', {
+              defaultValue: 'Last cloud write',
+            })}
+            : {formattedLastCloudWriteAt}
           </Text>
         </div>
       </div>
@@ -645,30 +782,44 @@ const CleaningInspectionAdmin: React.FC = () => {
       <Card size='small' className='sparkery-inspection-quick-card'>
         <div className='sparkery-inspection-quick-header'>
           <Text strong className='sparkery-inspection-quick-title'>
-            <FormOutlined /> Quick Inspection Link
+            <FormOutlined />{' '}
+            {t('sparkery.inspectionAdmin.quick.title', {
+              defaultValue: 'Quick Inspection Link',
+            })}
           </Text>
           <Text className='sparkery-inspection-quick-description'>
-            Select property and date, then click Start Inspection to generate a
-            unique share link. The link opens in a new tab and can be sent to
-            assigned cleaners immediately.
+            {t('sparkery.inspectionAdmin.quick.description', {
+              defaultValue:
+                'Select property and date, then click Start Inspection to generate a unique share link. The link opens in a new tab and can be sent to assigned cleaners immediately.',
+            })}
           </Text>
         </div>
 
         <Row gutter={[12, 12]} align='bottom'>
           <Col xs={24} sm={10}>
             <Text strong className='sparkery-inspection-quick-label'>
-              Property *
+              {t('sparkery.inspectionAdmin.fields.property', {
+                defaultValue: 'Property',
+              })}{' '}
+              *
             </Text>
             <div className='sparkery-inspection-quick-field'>
               {properties.length === 0 ? (
                 <Text className='sparkery-inspection-quick-help'>
-                  No property templates yet. Add one in "Property Templates"
-                  first.
+                  {t('sparkery.inspectionAdmin.quick.noPropertyTemplates', {
+                    defaultValue:
+                      'No property templates yet. Add one in "Property Templates" first.',
+                  })}
                 </Text>
               ) : (
                 <Select
                   className='sparkery-inspection-full-width'
-                  placeholder='Select property'
+                  placeholder={t(
+                    'sparkery.inspectionAdmin.placeholders.selectProperty',
+                    {
+                      defaultValue: 'Select property',
+                    }
+                  )}
                   value={selectedPropertyId || null}
                   onChange={(val: string) => setSelectedPropertyId(val)}
                 >
@@ -683,7 +834,9 @@ const CleaningInspectionAdmin: React.FC = () => {
           </Col>
           <Col xs={24} sm={5}>
             <Text strong className='sparkery-inspection-quick-label'>
-              Check-out Date
+              {t('sparkery.inspectionAdmin.fields.checkOutDate', {
+                defaultValue: 'Check-out Date',
+              })}
             </Text>
             <Input
               type='date'
@@ -694,12 +847,19 @@ const CleaningInspectionAdmin: React.FC = () => {
           </Col>
           <Col xs={24} sm={5}>
             <Text strong className='sparkery-inspection-quick-label'>
-              Assigned Employees
+              {t('sparkery.inspectionAdmin.fields.assignedEmployees', {
+                defaultValue: 'Assigned Employees',
+              })}
             </Text>
             <div className='sparkery-inspection-quick-field'>
               <Select
                 className='sparkery-inspection-full-width'
-                placeholder='Optional'
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.optional',
+                  {
+                    defaultValue: 'Optional',
+                  }
+                )}
                 mode='multiple'
                 value={selectedEmployeeIds}
                 onChange={(vals: string[]) => setSelectedEmployeeIds(vals)}
@@ -723,7 +883,10 @@ const CleaningInspectionAdmin: React.FC = () => {
               disabled={!selectedPropertyId || properties.length === 0}
               className='sparkery-inspection-quick-start-btn'
             >
-              <RocketOutlined /> Start Inspection
+              <RocketOutlined />{' '}
+              {t('sparkery.inspectionAdmin.actions.startInspection', {
+                defaultValue: 'Start Inspection',
+              })}
             </Button>
           </Col>
         </Row>
@@ -731,7 +894,12 @@ const CleaningInspectionAdmin: React.FC = () => {
 
       <Card size='small' className='sparkery-inspection-search-card'>
         <Input
-          placeholder='Search by property name or inspection ID'
+          placeholder={t(
+            'sparkery.inspectionAdmin.placeholders.searchInspection',
+            {
+              defaultValue: 'Search by property name or inspection ID',
+            }
+          )}
           value={searchText}
           onChange={e => setSearchText(e.target.value)}
           allowClear
@@ -744,7 +912,12 @@ const CleaningInspectionAdmin: React.FC = () => {
             <Card key={item.id} size='small'>
               <Row align='middle' justify='space-between'>
                 <Col xs={24} sm={16}>
-                  <Text strong>{item.propertyId || 'Unnamed'}</Text>
+                  <Text strong>
+                    {item.propertyId ||
+                      t('sparkery.inspectionAdmin.labels.unnamed', {
+                        defaultValue: 'Unnamed',
+                      })}
+                  </Text>
                   <div>
                     <Text
                       type='secondary'
@@ -765,10 +938,16 @@ const CleaningInspectionAdmin: React.FC = () => {
                   <Space>
                     <Tag color={item.status === 'submitted' ? 'green' : 'blue'}>
                       {item.status === 'submitted'
-                        ? 'Submitted'
+                        ? t('sparkery.inspectionAdmin.status.submitted', {
+                            defaultValue: 'Submitted',
+                          })
                         : item.status === 'in_progress'
-                          ? 'In Progress'
-                          : 'Pending'}
+                          ? t('sparkery.inspectionAdmin.status.inProgress', {
+                              defaultValue: 'In Progress',
+                            })
+                          : t('sparkery.inspectionAdmin.status.pending', {
+                              defaultValue: 'Pending',
+                            })}
                     </Tag>
                     <Button
                       type='text'
@@ -781,7 +960,12 @@ const CleaningInspectionAdmin: React.FC = () => {
                       onClick={() => handleCopyLink(item)}
                     />
                     <Popconfirm
-                      title='Confirm delete?'
+                      title={t(
+                        'sparkery.inspectionAdmin.confirm.deleteInspection',
+                        {
+                          defaultValue: 'Confirm delete?',
+                        }
+                      )}
                       onConfirm={() => handleDelete(item.id)}
                     >
                       <Button type='text' danger icon={<DeleteOutlined />} />
@@ -796,7 +980,9 @@ const CleaningInspectionAdmin: React.FC = () => {
         <Card className='sparkery-inspection-empty-card'>
           <HomeOutlined className='sparkery-inspection-empty-icon' />
           <Title level={4} type='secondary'>
-            No inspections yet.
+            {t('sparkery.inspectionAdmin.empty.noInspections', {
+              defaultValue: 'No inspections yet.',
+            })}
           </Title>
         </Card>
       )}
@@ -824,6 +1010,7 @@ const PropertySettingsModal: React.FC<{
   properties: any[];
   onSave: (props: any[]) => void;
 }> = ({ open, onClose, properties, onSave }) => {
+  const { t } = useTranslation();
   const [messageApi, contextHolder] = message.useMessage();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -848,7 +1035,11 @@ const PropertySettingsModal: React.FC<{
   /** Add new property */
   const handleAdd = () => {
     if (!newName) {
-      messageApi.warning('Please enter property name');
+      messageApi.warning(
+        t('sparkery.inspectionAdmin.messages.enterPropertyName', {
+          defaultValue: 'Please enter property name',
+        })
+      );
       return;
     }
     const defaultSectionIds = Array.from(
@@ -887,7 +1078,11 @@ const PropertySettingsModal: React.FC<{
     setNewNotesZh('');
     setNewNoteImages([]);
     setNewOptionalSectionIds([]);
-    messageApi.success('Property added');
+    messageApi.success(
+      t('sparkery.inspectionAdmin.messages.propertyAdded', {
+        defaultValue: 'Property added',
+      })
+    );
   };
 
   /** Update property basic info (name, address, notes, etc.) */
@@ -969,7 +1164,11 @@ const PropertySettingsModal: React.FC<{
     // Refresh editingProperty
     const updated = newProps.find(p => p.id === propertyId);
     if (updated) setEditingProperty(updated);
-    messageApi.success('Section added');
+    messageApi.success(
+      t('sparkery.inspectionAdmin.messages.sectionAdded', {
+        defaultValue: 'Section added',
+      })
+    );
   };
 
   const handleApplyOfficeSections = (propertyId: string) => {
@@ -1011,7 +1210,11 @@ const PropertySettingsModal: React.FC<{
     if (updated) {
       setEditingProperty(updated);
     }
-    messageApi.success('Office areas added');
+    messageApi.success(
+      t('sparkery.inspectionAdmin.messages.officeAreasAdded', {
+        defaultValue: 'Office areas added',
+      })
+    );
   };
 
   const handleRemoveOfficeSectionsPreset = (propertyId: string) => {
@@ -1050,14 +1253,22 @@ const PropertySettingsModal: React.FC<{
     if (updated) {
       setEditingProperty(updated);
     }
-    messageApi.success('Office areas removed');
+    messageApi.success(
+      t('sparkery.inspectionAdmin.messages.officeAreasRemoved', {
+        defaultValue: 'Office areas removed',
+      })
+    );
   };
 
   const handleRemoveSection = (propertyId: string, sectionId: string) => {
     Modal.confirm({
-      title: 'Remove Section',
-      content:
-        'Removing this section will also remove its reference images and checklist. Continue?',
+      title: t('sparkery.inspectionAdmin.confirm.removeSectionTitle', {
+        defaultValue: 'Remove Section',
+      }),
+      content: t('sparkery.inspectionAdmin.confirm.removeSectionContent', {
+        defaultValue:
+          'Removing this section will also remove its reference images and checklist. Continue?',
+      }),
       onOk: () => {
         const newProps = properties.map(p => {
           if (p.id === propertyId) {
@@ -1076,7 +1287,11 @@ const PropertySettingsModal: React.FC<{
         // Refresh editingProperty
         const updated = newProps.find(p => p.id === propertyId);
         if (updated) setEditingProperty(updated);
-        messageApi.success('Section removed');
+        messageApi.success(
+          t('sparkery.inspectionAdmin.messages.sectionRemoved', {
+            defaultValue: 'Section removed',
+          })
+        );
       },
     });
   };
@@ -1194,7 +1409,11 @@ const PropertySettingsModal: React.FC<{
       return p;
     });
     onSave(newProps);
-    messageApi.success('Image removed');
+    messageApi.success(
+      t('sparkery.inspectionAdmin.messages.imageRemoved', {
+        defaultValue: 'Image removed',
+      })
+    );
   };
 
   /** Update checklist template for a property section */
@@ -1223,11 +1442,19 @@ const PropertySettingsModal: React.FC<{
 
   const handleDelete = (id: string) => {
     Modal.confirm({
-      title: 'Delete Property',
-      content: 'Are you sure you want to delete this property?',
+      title: t('sparkery.inspectionAdmin.confirm.deletePropertyTitle', {
+        defaultValue: 'Delete Property',
+      }),
+      content: t('sparkery.inspectionAdmin.confirm.deletePropertyContent', {
+        defaultValue: 'Are you sure you want to delete this property?',
+      }),
       onOk: () => {
         onSave(properties.filter(p => p.id !== id));
-        messageApi.success('Property deleted');
+        messageApi.success(
+          t('sparkery.inspectionAdmin.messages.propertyDeleted', {
+            defaultValue: 'Property deleted',
+          })
+        );
       },
     });
   };
@@ -1242,7 +1469,9 @@ const PropertySettingsModal: React.FC<{
   return (
     <>
       <Modal
-        title='Property Template Management'
+        title={t('sparkery.inspectionAdmin.propertyModal.title', {
+          defaultValue: 'Property Template Management',
+        })}
         open={open}
         onCancel={onClose}
         footer={null}
@@ -1258,11 +1487,17 @@ const PropertySettingsModal: React.FC<{
           }}
           className='sparkery-inspection-gap-16'
         >
-          Add Property
+          {t('sparkery.inspectionAdmin.propertyModal.addProperty', {
+            defaultValue: 'Add Property',
+          })}
         </Button>
 
         {properties.length === 0 ? (
-          <Empty description='No properties' />
+          <Empty
+            description={t('sparkery.inspectionAdmin.empty.noProperties', {
+              defaultValue: 'No properties',
+            })}
+          />
         ) : (
           properties.map(prop => (
             <Card
@@ -1281,14 +1516,20 @@ const PropertySettingsModal: React.FC<{
                     icon={<EditOutlined />}
                     onClick={() => setEditingProperty(prop)}
                   >
-                    Edit
+                    {t('sparkery.inspectionAdmin.actions.edit', {
+                      defaultValue: 'Edit',
+                    })}
                   </Button>
                   <Popconfirm
-                    title='Confirm delete?'
+                    title={t('sparkery.inspectionAdmin.confirm.confirmDelete', {
+                      defaultValue: 'Confirm delete?',
+                    })}
                     onConfirm={() => handleDelete(prop.id)}
                   >
                     <Button type='text' danger size='small'>
-                      Delete
+                      {t('sparkery.inspectionAdmin.actions.delete', {
+                        defaultValue: 'Delete',
+                      })}
                     </Button>
                   </Popconfirm>
                 </Space>
@@ -1301,7 +1542,10 @@ const PropertySettingsModal: React.FC<{
                 <div className='sparkery-inspection-gap-10'>
                   <Text strong className='sparkery-inspection-text-12'>
                     <InfoCircleOutlined className='sparkery-inspection-icon-4' />
-                    Notes:
+                    {t('sparkery.inspectionAdmin.labels.notes', {
+                      defaultValue: 'Notes',
+                    })}
+                    :
                   </Text>
                   {prop.notesZh && (
                     <Text className='sparkery-inspection-note-text'>
@@ -1323,12 +1567,24 @@ const PropertySettingsModal: React.FC<{
                         <img
                           key={idx}
                           src={img}
-                          alt={`Note ${idx + 1}`}
+                          alt={t(
+                            'sparkery.inspectionAdmin.labels.noteImageAlt',
+                            {
+                              defaultValue: 'Note {{index}}',
+                              index: idx + 1,
+                            }
+                          )}
                           className='sparkery-inspection-thumb-48'
                           onClick={() =>
                             setPreviewImage({
                               src: img,
-                              desc: `Note image ${idx + 1}`,
+                              desc: t(
+                                'sparkery.inspectionAdmin.labels.noteImageDesc',
+                                {
+                                  defaultValue: 'Note image {{index}}',
+                                  index: idx + 1,
+                                }
+                              ),
                             })
                           }
                         />
@@ -1339,7 +1595,10 @@ const PropertySettingsModal: React.FC<{
               )}
 
               <Text strong className='sparkery-inspection-text-12'>
-                Sections:{' '}
+                {t('sparkery.inspectionAdmin.labels.sections', {
+                  defaultValue: 'Sections',
+                })}
+                :{' '}
               </Text>
               {getActiveSections(prop).map(s => (
                 <Tag
@@ -1354,7 +1613,10 @@ const PropertySettingsModal: React.FC<{
               <div className='sparkery-inspection-divider-soft' />
 
               <Text strong className='sparkery-inspection-text-12'>
-                Reference Images:
+                {t('sparkery.inspectionAdmin.labels.referenceImages', {
+                  defaultValue: 'Reference Images',
+                })}
+                :
               </Text>
               <Row gutter={[12, 12]} className='sparkery-inspection-top-8'>
                 {getActiveSections(prop).map(section => {
@@ -1401,7 +1663,9 @@ const PropertySettingsModal: React.FC<{
                             type='secondary'
                             className='sparkery-inspection-text-10'
                           >
-                            No images
+                            {t('sparkery.inspectionAdmin.empty.noImages', {
+                              defaultValue: 'No images',
+                            })}
                           </Text>
                         )}
                         <Upload
@@ -1416,7 +1680,16 @@ const PropertySettingsModal: React.FC<{
                             icon={<PlusOutlined />}
                             className='sparkery-inspection-full-width sparkery-inspection-top-8'
                           >
-                            {images.length > 0 ? 'Add more' : 'Upload image'}
+                            {images.length > 0
+                              ? t('sparkery.inspectionAdmin.actions.addMore', {
+                                  defaultValue: 'Add more',
+                                })
+                              : t(
+                                  'sparkery.inspectionAdmin.actions.uploadImage',
+                                  {
+                                    defaultValue: 'Upload image',
+                                  }
+                                )}
                           </Button>
                         </Upload>
                       </div>
@@ -1429,7 +1702,9 @@ const PropertySettingsModal: React.FC<{
         )}
 
         <Modal
-          title='Add Property'
+          title={t('sparkery.inspectionAdmin.propertyModal.addProperty', {
+            defaultValue: 'Add Property',
+          })}
           open={isAddOpen}
           onCancel={() => {
             setIsAddOpen(false);
@@ -1448,28 +1723,53 @@ const PropertySettingsModal: React.FC<{
             size={12}
           >
             <div>
-              <Text strong>Name *</Text>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.name', {
+                  defaultValue: 'Name',
+                })}{' '}
+                *
+              </Text>
               <Input
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
-                placeholder='e.g. UNIT-101'
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.unitName',
+                  {
+                    defaultValue: 'e.g. UNIT-101',
+                  }
+                )}
                 className='sparkery-inspection-top-4'
               />
             </div>
             <div>
-              <Text strong>Address</Text>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.address', {
+                  defaultValue: 'Address',
+                })}
+              </Text>
               <Input
                 value={newAddress}
                 onChange={e => setNewAddress(e.target.value)}
-                placeholder='e.g. 123 Main St, Brisbane'
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.propertyAddress',
+                  {
+                    defaultValue: 'e.g. 123 Main St, Brisbane',
+                  }
+                )}
                 className='sparkery-inspection-top-4'
               />
             </div>
             <div>
-              <Text strong>Sections (optional)</Text>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.sectionsOptional', {
+                  defaultValue: 'Sections (optional)',
+                })}
+              </Text>
               <Text type='secondary' className='sparkery-inspection-help-text'>
-                Base sections are included by default. Add optional areas like
-                Meeting Room and Office Area.
+                {t('sparkery.inspectionAdmin.hints.sectionsOptional', {
+                  defaultValue:
+                    'Base sections are included by default. Add optional areas like Meeting Room and Office Area.',
+                })}
               </Text>
               <Space size={8} wrap className='sparkery-inspection-top-8'>
                 <Button
@@ -1480,13 +1780,17 @@ const PropertySettingsModal: React.FC<{
                     )
                   }
                 >
-                  Add office preset
+                  {t('sparkery.inspectionAdmin.actions.addOfficePreset', {
+                    defaultValue: 'Add office preset',
+                  })}
                 </Button>
                 <Button
                   size='small'
                   onClick={() => setNewOptionalSectionIds([])}
                 >
-                  Clear optional
+                  {t('sparkery.inspectionAdmin.actions.clearOptional', {
+                    defaultValue: 'Clear optional',
+                  })}
                 </Button>
               </Space>
               <div className='sparkery-inspection-top-8'>
@@ -1508,46 +1812,72 @@ const PropertySettingsModal: React.FC<{
             <div>
               <Text strong>
                 <InfoCircleOutlined className='sparkery-inspection-icon-4' />
-                Property Notes (Chinese)
+                {t('sparkery.inspectionAdmin.fields.propertyNotesChinese', {
+                  defaultValue: 'Property Notes (Chinese)',
+                })}
               </Text>
               <Input.TextArea
                 value={newNotesZh}
                 onChange={e => setNewNotesZh(e.target.value)}
-                placeholder='e.g. Key pickup instructions, lockbox location, entry method, and access code.'
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.notesChinese',
+                  {
+                    defaultValue:
+                      'e.g. Key pickup instructions, lockbox location, entry method, and access code.',
+                  }
+                )}
                 rows={6}
                 className='sparkery-inspection-top-4'
               />
               <Text type='secondary' className='sparkery-inspection-text-11'>
-                Chinese notes shown when cleaner uses Chinese UI.
+                {t('sparkery.inspectionAdmin.hints.notesChinese', {
+                  defaultValue:
+                    'Chinese notes shown when cleaner uses Chinese UI.',
+                })}
               </Text>
               <div className='sparkery-inspection-top-8'>
                 <Text strong>
                   <InfoCircleOutlined className='sparkery-inspection-icon-4' />
-                  Property Notes (English)
+                  {t('sparkery.inspectionAdmin.fields.propertyNotesEnglish', {
+                    defaultValue: 'Property Notes (English)',
+                  })}
                 </Text>
                 <Input.TextArea
                   value={newNotes}
                   onChange={e => setNewNotes(e.target.value)}
-                  placeholder='e.g. Key access: lockbox at mailroom, code 3091. Entry: building lobby.'
+                  placeholder={t(
+                    'sparkery.inspectionAdmin.placeholders.notesEnglish',
+                    {
+                      defaultValue:
+                        'e.g. Key access: lockbox at mailroom, code 3091. Entry: building lobby.',
+                    }
+                  )}
                   rows={6}
                   className='sparkery-inspection-top-4'
                 />
                 <Text type='secondary' className='sparkery-inspection-text-11'>
-                  English version of key pickup, access code, etc. Shown when
-                  cleaner switches to English.
+                  {t('sparkery.inspectionAdmin.hints.notesEnglish', {
+                    defaultValue:
+                      'English version of key pickup, access code, etc. Shown when cleaner switches to English.',
+                  })}
                 </Text>
               </div>
               <Text
                 type='secondary'
                 className='sparkery-inspection-bilingual-warning'
               >
-                Please fill both Chinese and English notes for bilingual output.
+                {t('sparkery.inspectionAdmin.hints.fillBothNotes', {
+                  defaultValue:
+                    'Please fill both Chinese and English notes for bilingual output.',
+                })}
               </Text>
               {/* Note images */}
               <div className='sparkery-inspection-top-8'>
                 <Text strong className='sparkery-inspection-subtitle'>
                   <CameraOutlined className='sparkery-inspection-icon-4' />
-                  Note Images (Optional)
+                  {t('sparkery.inspectionAdmin.fields.noteImagesOptional', {
+                    defaultValue: 'Note Images (Optional)',
+                  })}
                 </Text>
                 {newNoteImages.length > 0 && (
                   <div className='sparkery-inspection-note-image-grid'>
@@ -1558,12 +1888,24 @@ const PropertySettingsModal: React.FC<{
                       >
                         <img
                           src={img}
-                          alt={`Note image ${idx + 1}`}
+                          alt={t(
+                            'sparkery.inspectionAdmin.labels.noteImageAlt',
+                            {
+                              defaultValue: 'Note image {{index}}',
+                              index: idx + 1,
+                            }
+                          )}
                           className='sparkery-inspection-note-image-80'
                           onClick={() =>
                             setPreviewImage({
                               src: img,
-                              desc: `Note image ${idx + 1}`,
+                              desc: t(
+                                'sparkery.inspectionAdmin.labels.noteImageDesc',
+                                {
+                                  defaultValue: 'Note image {{index}}',
+                                  index: idx + 1,
+                                }
+                              ),
                             })
                           }
                         />
@@ -1607,12 +1949,16 @@ const PropertySettingsModal: React.FC<{
                     icon={<PlusOutlined />}
                     className='sparkery-inspection-full-width'
                   >
-                    Add Note Images
+                    {t('sparkery.inspectionAdmin.actions.addNoteImages', {
+                      defaultValue: 'Add Note Images',
+                    })}
                   </Button>
                 </Upload>
                 <Text type='secondary' className='sparkery-inspection-text-11'>
-                  Upload photos of key locations (lockbox, mailroom, entry
-                  points, etc.).
+                  {t('sparkery.inspectionAdmin.hints.noteImages', {
+                    defaultValue:
+                      'Upload photos of key locations (lockbox, mailroom, entry points, etc.).',
+                  })}
                 </Text>
               </div>
             </div>
@@ -1620,7 +1966,10 @@ const PropertySettingsModal: React.FC<{
         </Modal>
 
         <Modal
-          title={`Edit Property: ${editingProperty?.name || ''}`}
+          title={t('sparkery.inspectionAdmin.propertyModal.editProperty', {
+            defaultValue: 'Edit Property: {{name}}',
+            name: editingProperty?.name || '',
+          })}
           open={!!editingProperty}
           onCancel={() => setEditingProperty(null)}
           footer={null}
@@ -1635,12 +1984,17 @@ const PropertySettingsModal: React.FC<{
               >
                 <Title level={5} className='sparkery-inspection-title-no-top'>
                   <EditOutlined className='sparkery-inspection-icon-6' />
-                  Property Information
+                  {t('sparkery.inspectionAdmin.sections.propertyInformation', {
+                    defaultValue: 'Property Information',
+                  })}
                 </Title>
                 <Row gutter={[12, 12]}>
                   <Col xs={24} sm={12}>
                     <Text strong className='sparkery-inspection-text-12'>
-                      Name *
+                      {t('sparkery.inspectionAdmin.fields.name', {
+                        defaultValue: 'Name',
+                      })}{' '}
+                      *
                     </Text>
                     <Input
                       value={editingProperty.name}
@@ -1651,13 +2005,20 @@ const PropertySettingsModal: React.FC<{
                           e.target.value
                         )
                       }
-                      placeholder='e.g. UNIT-101'
+                      placeholder={t(
+                        'sparkery.inspectionAdmin.placeholders.unitName',
+                        {
+                          defaultValue: 'e.g. UNIT-101',
+                        }
+                      )}
                       className='sparkery-inspection-top-4'
                     />
                   </Col>
                   <Col xs={24} sm={12}>
                     <Text strong className='sparkery-inspection-text-12'>
-                      Address
+                      {t('sparkery.inspectionAdmin.fields.address', {
+                        defaultValue: 'Address',
+                      })}
                     </Text>
                     <Input
                       value={editingProperty.address || ''}
@@ -1668,14 +2029,24 @@ const PropertySettingsModal: React.FC<{
                           e.target.value
                         )
                       }
-                      placeholder='e.g. 123 Main St, Brisbane'
+                      placeholder={t(
+                        'sparkery.inspectionAdmin.placeholders.propertyAddress',
+                        {
+                          defaultValue: 'e.g. 123 Main St, Brisbane',
+                        }
+                      )}
                       className='sparkery-inspection-top-4'
                     />
                   </Col>
                   <Col xs={24}>
                     <Text strong className='sparkery-inspection-text-12'>
                       <InfoCircleOutlined className='sparkery-inspection-icon-4' />
-                      Property Notes (Chinese)
+                      {t(
+                        'sparkery.inspectionAdmin.fields.propertyNotesChinese',
+                        {
+                          defaultValue: 'Property Notes (Chinese)',
+                        }
+                      )}
                     </Text>
                     <Input.TextArea
                       value={editingProperty.notesZh || ''}
@@ -1686,7 +2057,13 @@ const PropertySettingsModal: React.FC<{
                           e.target.value
                         )
                       }
-                      placeholder='e.g. Key pickup instructions, lockbox location, entry method, and access code.'
+                      placeholder={t(
+                        'sparkery.inspectionAdmin.placeholders.notesChinese',
+                        {
+                          defaultValue:
+                            'e.g. Key pickup instructions, lockbox location, entry method, and access code.',
+                        }
+                      )}
                       rows={6}
                       className='sparkery-inspection-top-4'
                     />
@@ -1694,12 +2071,20 @@ const PropertySettingsModal: React.FC<{
                       type='secondary'
                       className='sparkery-inspection-text-11'
                     >
-                      Chinese notes shown when cleaner uses Chinese UI.
+                      {t('sparkery.inspectionAdmin.hints.notesChinese', {
+                        defaultValue:
+                          'Chinese notes shown when cleaner uses Chinese UI.',
+                      })}
                     </Text>
                     <div className='sparkery-inspection-top-8'>
                       <Text strong className='sparkery-inspection-text-12'>
                         <InfoCircleOutlined className='sparkery-inspection-icon-4' />
-                        Property Notes (English)
+                        {t(
+                          'sparkery.inspectionAdmin.fields.propertyNotesEnglish',
+                          {
+                            defaultValue: 'Property Notes (English)',
+                          }
+                        )}
                       </Text>
                       <Input.TextArea
                         value={editingProperty.notes || ''}
@@ -1710,7 +2095,13 @@ const PropertySettingsModal: React.FC<{
                             e.target.value
                           )
                         }
-                        placeholder='e.g. Key access: lockbox at mailroom, code 3091.'
+                        placeholder={t(
+                          'sparkery.inspectionAdmin.placeholders.notesEnglishShort',
+                          {
+                            defaultValue:
+                              'e.g. Key access: lockbox at mailroom, code 3091.',
+                          }
+                        )}
                         rows={6}
                         className='sparkery-inspection-top-4'
                       />
@@ -1718,21 +2109,28 @@ const PropertySettingsModal: React.FC<{
                         type='secondary'
                         className='sparkery-inspection-text-11'
                       >
-                        English version shown when language is set to English.
+                        {t('sparkery.inspectionAdmin.hints.notesEnglishShort', {
+                          defaultValue:
+                            'English version shown when language is set to English.',
+                        })}
                       </Text>
                     </div>
                     <Text
                       type='secondary'
                       className='sparkery-inspection-bilingual-warning'
                     >
-                      Please fill both Chinese and English notes for bilingual
-                      output.
+                      {t('sparkery.inspectionAdmin.hints.fillBothNotes', {
+                        defaultValue:
+                          'Please fill both Chinese and English notes for bilingual output.',
+                      })}
                     </Text>
                     {/* Note images (edit mode) */}
                     <div className='sparkery-inspection-top-8'>
                       <Text strong className='sparkery-inspection-subtitle'>
                         <CameraOutlined className='sparkery-inspection-icon-4' />
-                        Note Images
+                        {t('sparkery.inspectionAdmin.fields.noteImages', {
+                          defaultValue: 'Note Images',
+                        })}
                       </Text>
                       {(editingProperty.noteImages || []).length > 0 && (
                         <div className='sparkery-inspection-note-image-grid'>
@@ -1744,12 +2142,24 @@ const PropertySettingsModal: React.FC<{
                               >
                                 <img
                                   src={img}
-                                  alt={`Note image ${idx + 1}`}
+                                  alt={t(
+                                    'sparkery.inspectionAdmin.labels.noteImageAlt',
+                                    {
+                                      defaultValue: 'Note image {{index}}',
+                                      index: idx + 1,
+                                    }
+                                  )}
                                   className='sparkery-inspection-note-image-100'
                                   onClick={() =>
                                     setPreviewImage({
                                       src: img,
-                                      desc: `Note image ${idx + 1}`,
+                                      desc: t(
+                                        'sparkery.inspectionAdmin.labels.noteImageDesc',
+                                        {
+                                          defaultValue: 'Note image {{index}}',
+                                          index: idx + 1,
+                                        }
+                                      ),
                                     })
                                   }
                                 />
@@ -1783,15 +2193,19 @@ const PropertySettingsModal: React.FC<{
                           size='small'
                           icon={<PlusOutlined />}
                         >
-                          Add Note Images
+                          {t('sparkery.inspectionAdmin.actions.addNoteImages', {
+                            defaultValue: 'Add Note Images',
+                          })}
                         </Button>
                       </Upload>
                       <Text
                         type='secondary'
                         className='sparkery-inspection-help-text'
                       >
-                        Upload photos of key locations (lockbox, mailroom, entry
-                        points, etc.).
+                        {t('sparkery.inspectionAdmin.hints.noteImages', {
+                          defaultValue:
+                            'Upload photos of key locations (lockbox, mailroom, entry points, etc.).',
+                        })}
                       </Text>
                     </div>
                   </Col>
@@ -1800,9 +2214,15 @@ const PropertySettingsModal: React.FC<{
 
               <Divider className='sparkery-inspection-divider' />
 
-              <Title level={5}>Inspection Sections</Title>
+              <Title level={5}>
+                {t('sparkery.inspectionAdmin.sections.inspectionSections', {
+                  defaultValue: 'Inspection Sections',
+                })}
+              </Title>
               <Text type='secondary' className='sparkery-inspection-hint'>
-                Drag the <MenuOutlined /> handle to reorder section sequence.
+                {t('sparkery.inspectionAdmin.hints.reorderSections', {
+                  defaultValue: 'Drag the handle to reorder section sequence.',
+                })}
               </Text>
               <div className='sparkery-inspection-chip-row'>
                 {getActiveSections(editingProperty).map((section, idx) => {
@@ -1900,7 +2320,11 @@ const PropertySettingsModal: React.FC<{
                   );
                 })}
               </div>
-              <Title level={5}>Optional Sections</Title>
+              <Title level={5}>
+                {t('sparkery.inspectionAdmin.sections.optionalSections', {
+                  defaultValue: 'Optional Sections',
+                })}
+              </Title>
               <div className='sparkery-inspection-gap-8'>
                 <Space>
                   <Button
@@ -1910,7 +2334,9 @@ const PropertySettingsModal: React.FC<{
                       handleApplyOfficeSections(editingProperty.id)
                     }
                   >
-                    Add Office Areas
+                    {t('sparkery.inspectionAdmin.actions.addOfficeAreas', {
+                      defaultValue: 'Add Office Areas',
+                    })}
                   </Button>
                   <Button
                     size='small'
@@ -1920,7 +2346,9 @@ const PropertySettingsModal: React.FC<{
                       handleRemoveOfficeSectionsPreset(editingProperty.id)
                     }
                   >
-                    Remove Office Areas
+                    {t('sparkery.inspectionAdmin.actions.removeOfficeAreas', {
+                      defaultValue: 'Remove Office Areas',
+                    })}
                   </Button>
                 </Space>
               </div>
@@ -1940,7 +2368,9 @@ const PropertySettingsModal: React.FC<{
                 ))}
                 {getAvailableOptionalSections().length === 0 && (
                   <Text type='secondary'>
-                    All optional sections have been added
+                    {t('sparkery.inspectionAdmin.empty.allOptionalAdded', {
+                      defaultValue: 'All optional sections have been added',
+                    })}
                   </Text>
                 )}
               </div>
@@ -1950,14 +2380,18 @@ const PropertySettingsModal: React.FC<{
               {/* Checklist Template Editor */}
               <Title level={5}>
                 <CheckSquareOutlined className='sparkery-inspection-icon-8' />
-                Checklist Templates
+                {t('sparkery.inspectionAdmin.sections.checklistTemplates', {
+                  defaultValue: 'Checklist Templates',
+                })}
               </Title>
               <Text
                 type='secondary'
                 className='sparkery-inspection-hint-compact'
               >
-                Customize checklist items by section. Items with camera icon
-                require photo capture.
+                {t('sparkery.inspectionAdmin.hints.checklistTemplates', {
+                  defaultValue:
+                    'Customize checklist items by section. Items with camera icon require photo capture.',
+                })}
               </Text>
 
               <Collapse
@@ -1980,8 +2414,16 @@ const PropertySettingsModal: React.FC<{
                           className='sparkery-inspection-text-11'
                         >
                           {hasCustom
-                            ? `${checklistItems.length} items`
-                            : 'Using defaults'}
+                            ? t('sparkery.inspectionAdmin.labels.itemsCount', {
+                                defaultValue: '{{count}} items',
+                                count: checklistItems.length,
+                              })
+                            : t(
+                                'sparkery.inspectionAdmin.labels.usingDefaults',
+                                {
+                                  defaultValue: 'Using defaults',
+                                }
+                              )}
                         </Tag>
                       </Space>
                     ),
@@ -2010,7 +2452,13 @@ const PropertySettingsModal: React.FC<{
                             }}
                             className='sparkery-inspection-gap-12'
                           >
-                            Load default items ({defaultItems.length})
+                            {t(
+                              'sparkery.inspectionAdmin.actions.loadDefaultItems',
+                              {
+                                defaultValue: 'Load default items ({{count}})',
+                                count: defaultItems.length,
+                              }
+                            )}
                           </Button>
                         )}
 
@@ -2036,13 +2484,23 @@ const PropertySettingsModal: React.FC<{
                                     updated
                                   );
                                 }}
-                                placeholder='Chinese label'
+                                placeholder={t(
+                                  'sparkery.inspectionAdmin.placeholders.chineseLabel',
+                                  {
+                                    defaultValue: 'Chinese label',
+                                  }
+                                )}
                                 prefix={
                                   <Text
                                     type='secondary'
                                     className='sparkery-inspection-text-10'
                                   >
-                                    CN
+                                    {t(
+                                      'sparkery.inspectionAdmin.labels.chineseAbbr',
+                                      {
+                                        defaultValue: 'CN',
+                                      }
+                                    )}
                                   </Text>
                                 }
                               />
@@ -2061,18 +2519,35 @@ const PropertySettingsModal: React.FC<{
                                     updated
                                   );
                                 }}
-                                placeholder='English'
+                                placeholder={t(
+                                  'sparkery.inspectionAdmin.placeholders.englishLabel',
+                                  {
+                                    defaultValue: 'English',
+                                  }
+                                )}
                                 prefix={
                                   <Text
                                     type='secondary'
                                     className='sparkery-inspection-text-10'
                                   >
-                                    EN
+                                    {t(
+                                      'sparkery.inspectionAdmin.labels.englishAbbr',
+                                      {
+                                        defaultValue: 'EN',
+                                      }
+                                    )}
                                   </Text>
                                 }
                               />
                             </div>
-                            <Tooltip title='Requires photo'>
+                            <Tooltip
+                              title={t(
+                                'sparkery.inspectionAdmin.labels.requiresPhoto',
+                                {
+                                  defaultValue: 'Requires photo',
+                                }
+                              )}
+                            >
                               <Checkbox
                                 checked={item.requiredPhoto}
                                 onChange={e => {
@@ -2128,7 +2603,12 @@ const PropertySettingsModal: React.FC<{
                           }}
                           className='sparkery-inspection-full-width sparkery-inspection-top-4'
                         >
-                          Add Checklist Item
+                          {t(
+                            'sparkery.inspectionAdmin.actions.addChecklistItem',
+                            {
+                              defaultValue: 'Add Checklist Item',
+                            }
+                          )}
                         </Button>
                       </div>
                     ),
@@ -2162,7 +2642,9 @@ const PropertySettingsModal: React.FC<{
             <>
               <img
                 src={previewImage.src}
-                alt='Preview'
+                alt={t('sparkery.inspectionAdmin.labels.preview', {
+                  defaultValue: 'Preview',
+                })}
                 className='sparkery-inspection-preview-image'
               />
               {previewImage.desc && (
@@ -2187,6 +2669,7 @@ const EmployeesModal: React.FC<{
   employees: Employee[];
   onSave: (emps: Employee[]) => void;
 }> = ({ open, onClose, employees, onSave }) => {
+  const { t } = useTranslation();
   const [messageApi, contextHolder] = message.useMessage();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -2230,14 +2713,22 @@ const EmployeesModal: React.FC<{
   /** Save new employee */
   const handleAdd = () => {
     if (!formName.trim()) {
-      messageApi.warning('Please enter employee name');
+      messageApi.warning(
+        t('sparkery.inspectionAdmin.messages.enterEmployeeName', {
+          defaultValue: 'Please enter employee name',
+        })
+      );
       return;
     }
     const newEmp = buildEmployeeFromForm(`emp-${generateId()}`);
     onSave([...employees, newEmp]);
     setIsAddOpen(false);
     resetForm();
-    messageApi.success('Employee added');
+    messageApi.success(
+      t('sparkery.inspectionAdmin.messages.employeeAdded', {
+        defaultValue: 'Employee added',
+      })
+    );
   };
 
   /** Save edited employee */
@@ -2250,17 +2741,29 @@ const EmployeesModal: React.FC<{
     onSave(updated);
     setEditingEmployee(null);
     resetForm();
-    messageApi.success('Employee updated');
+    messageApi.success(
+      t('sparkery.inspectionAdmin.messages.employeeUpdated', {
+        defaultValue: 'Employee updated',
+      })
+    );
   };
 
   /** Delete an employee */
   const handleDelete = (id: string) => {
     Modal.confirm({
-      title: 'Confirm Delete',
-      content: 'Are you sure you want to delete this employee?',
+      title: t('sparkery.inspectionAdmin.confirm.confirmDelete', {
+        defaultValue: 'Confirm Delete',
+      }),
+      content: t('sparkery.inspectionAdmin.confirm.deleteEmployeeContent', {
+        defaultValue: 'Are you sure you want to delete this employee?',
+      }),
       onOk: () => {
         onSave(employees.filter(e => e.id !== id));
-        messageApi.success('Employee deleted');
+        messageApi.success(
+          t('sparkery.inspectionAdmin.messages.employeeDeleted', {
+            defaultValue: 'Employee deleted',
+          })
+        );
       },
     });
   };
@@ -2268,7 +2771,9 @@ const EmployeesModal: React.FC<{
   return (
     <>
       <Modal
-        title='Employee Management'
+        title={t('sparkery.inspectionAdmin.employeeModal.title', {
+          defaultValue: 'Employee Management',
+        })}
         open={open}
         onCancel={onClose}
         footer={null}
@@ -2281,11 +2786,17 @@ const EmployeesModal: React.FC<{
           onClick={handleOpenAdd}
           className='sparkery-inspection-gap-16'
         >
-          Add Employee
+          {t('sparkery.inspectionAdmin.employeeModal.addEmployee', {
+            defaultValue: 'Add Employee',
+          })}
         </Button>
 
         {employees.length === 0 ? (
-          <Empty description='No employees' />
+          <Empty
+            description={t('sparkery.inspectionAdmin.empty.noEmployees', {
+              defaultValue: 'No employees',
+            })}
+          />
         ) : (
           employees.map(emp => (
             <Card
@@ -2305,7 +2816,9 @@ const EmployeesModal: React.FC<{
                     icon={<EditOutlined />}
                     onClick={() => handleOpenEdit(emp)}
                   >
-                    Edit
+                    {t('sparkery.inspectionAdmin.actions.edit', {
+                      defaultValue: 'Edit',
+                    })}
                   </Button>
                   <Button
                     type='text'
@@ -2322,7 +2835,10 @@ const EmployeesModal: React.FC<{
                   type='secondary'
                   className='sparkery-inspection-text-12-block'
                 >
-                  Phone: {emp.phone}
+                  {t('sparkery.inspectionAdmin.fields.phone', {
+                    defaultValue: 'Phone',
+                  })}
+                  : {emp.phone}
                 </Text>
               )}
               {emp.notes && (
@@ -2330,7 +2846,10 @@ const EmployeesModal: React.FC<{
                   type='secondary'
                   className='sparkery-inspection-text-12-block'
                 >
-                  Notes: {emp.notes}
+                  {t('sparkery.inspectionAdmin.fields.notes', {
+                    defaultValue: 'Notes',
+                  })}
+                  : {emp.notes}
                 </Text>
               )}
             </Card>
@@ -2339,7 +2858,9 @@ const EmployeesModal: React.FC<{
 
         {/* Add Employee Modal */}
         <Modal
-          title='Add Employee'
+          title={t('sparkery.inspectionAdmin.employeeModal.addEmployee', {
+            defaultValue: 'Add Employee',
+          })}
           open={isAddOpen}
           onCancel={() => {
             setIsAddOpen(false);
@@ -2353,38 +2874,72 @@ const EmployeesModal: React.FC<{
             size={12}
           >
             <div>
-              <Text strong>Name *</Text>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.name', {
+                  defaultValue: 'Name',
+                })}{' '}
+                *
+              </Text>
               <Input
                 value={formName}
                 onChange={e => setFormName(e.target.value)}
-                placeholder='e.g. Zhang San'
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.employeeName',
+                  {
+                    defaultValue: 'e.g. Zhang San',
+                  }
+                )}
                 className='sparkery-inspection-top-4'
               />
             </div>
             <div>
-              <Text strong>English Name</Text>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.englishName', {
+                  defaultValue: 'English Name',
+                })}
+              </Text>
               <Input
                 value={formNameEn}
                 onChange={e => setFormNameEn(e.target.value)}
-                placeholder='e.g. Zhang San'
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.employeeName',
+                  {
+                    defaultValue: 'e.g. Zhang San',
+                  }
+                )}
                 className='sparkery-inspection-top-4'
               />
             </div>
             <div>
-              <Text strong>Phone</Text>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.phone', {
+                  defaultValue: 'Phone',
+                })}
+              </Text>
               <Input
                 value={formPhone}
                 onChange={e => setFormPhone(e.target.value)}
-                placeholder='e.g. 0412345678'
+                placeholder={t('sparkery.inspectionAdmin.placeholders.phone', {
+                  defaultValue: 'e.g. 0412345678',
+                })}
                 className='sparkery-inspection-top-4'
               />
             </div>
             <div>
-              <Text strong>Notes</Text>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.notes', {
+                  defaultValue: 'Notes',
+                })}
+              </Text>
               <Input.TextArea
                 value={formNotes}
                 onChange={e => setFormNotes(e.target.value)}
-                placeholder='Optional notes...'
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.optionalNotes',
+                  {
+                    defaultValue: 'Optional notes...',
+                  }
+                )}
                 rows={2}
                 className='sparkery-inspection-top-4'
               />
@@ -2394,7 +2949,9 @@ const EmployeesModal: React.FC<{
 
         {/* Edit Employee Modal */}
         <Modal
-          title='Edit Employee'
+          title={t('sparkery.inspectionAdmin.employeeModal.editEmployee', {
+            defaultValue: 'Edit Employee',
+          })}
           open={!!editingEmployee}
           onCancel={() => {
             setEditingEmployee(null);
@@ -2408,38 +2965,72 @@ const EmployeesModal: React.FC<{
             size={12}
           >
             <div>
-              <Text strong>Name *</Text>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.name', {
+                  defaultValue: 'Name',
+                })}{' '}
+                *
+              </Text>
               <Input
                 value={formName}
                 onChange={e => setFormName(e.target.value)}
-                placeholder='e.g. Zhang San'
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.employeeName',
+                  {
+                    defaultValue: 'e.g. Zhang San',
+                  }
+                )}
                 className='sparkery-inspection-top-4'
               />
             </div>
             <div>
-              <Text strong>English Name</Text>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.englishName', {
+                  defaultValue: 'English Name',
+                })}
+              </Text>
               <Input
                 value={formNameEn}
                 onChange={e => setFormNameEn(e.target.value)}
-                placeholder='e.g. Zhang San'
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.employeeName',
+                  {
+                    defaultValue: 'e.g. Zhang San',
+                  }
+                )}
                 className='sparkery-inspection-top-4'
               />
             </div>
             <div>
-              <Text strong>Phone</Text>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.phone', {
+                  defaultValue: 'Phone',
+                })}
+              </Text>
               <Input
                 value={formPhone}
                 onChange={e => setFormPhone(e.target.value)}
-                placeholder='e.g. 0412345678'
+                placeholder={t('sparkery.inspectionAdmin.placeholders.phone', {
+                  defaultValue: 'e.g. 0412345678',
+                })}
                 className='sparkery-inspection-top-4'
               />
             </div>
             <div>
-              <Text strong>Notes</Text>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.notes', {
+                  defaultValue: 'Notes',
+                })}
+              </Text>
               <Input.TextArea
                 value={formNotes}
                 onChange={e => setFormNotes(e.target.value)}
-                placeholder='Optional notes...'
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.optionalNotes',
+                  {
+                    defaultValue: 'Optional notes...',
+                  }
+                )}
                 rows={2}
                 className='sparkery-inspection-top-4'
               />

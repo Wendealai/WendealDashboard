@@ -1,4 +1,4 @@
-/**
+﻿/**
  * China Procurement Documentation System
  * Complete ATO-compliant purchase documentation with 10-section structure
  *
@@ -56,6 +56,7 @@ import {
   CloudOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import JsPDF from 'jspdf';
 import {
@@ -126,9 +127,9 @@ interface PurchaseItem {
   quantity: number;
 }
 
-// ──────────────────────── Draft System ──────────────────────────────
+// 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ Draft System 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
-/** 草稿元数据（保存在索引列表中） */
+/** 鑽夌鍏冩暟鎹紙淇濆瓨鍦ㄧ储寮曞垪琛ㄤ腑锛?*/
 interface DraftMeta {
   id: string;
   name: string;
@@ -136,15 +137,15 @@ interface DraftMeta {
   productName: string;
   createdAt: string;
   updatedAt: string;
-  /** 图片总数 */
+  /** 鍥剧墖鎬绘暟 */
   imageCount: number;
-  /** 采购明细条数 */
+  /** 閲囪喘鏄庣粏鏉℃暟 */
   itemCount: number;
-  /** 进度百分比 0-100 */
+  /** 杩涘害鐧惧垎姣?0-100 */
   progress: number;
 }
 
-/** 完整草稿数据（保存在单独的 localStorage key 中） */
+/** 瀹屾暣鑽夌鏁版嵁锛堜繚瀛樺湪鍗曠嫭鐨?localStorage key 涓級 */
 interface DraftData {
   meta: DraftMeta;
   currentRecord: Partial<PurchaseRecord>;
@@ -279,20 +280,69 @@ ${sectionsStr}
 };
 
 const ChinaProcurementReport: React.FC = () => {
+  const { t } = useTranslation();
   const [messageApi, contextHolder] = message.useMessage();
+  const platformLabel = useCallback(
+    (value: string) =>
+      t(`sparkery.procurement.platforms.${value}`, {
+        defaultValue:
+          PLATFORMS.find(platform => platform.value === value)?.label || value,
+      }),
+    [t]
+  );
+  const categoryLabel = useCallback(
+    (value: string) =>
+      t(`sparkery.procurement.categories.${value}`, {
+        defaultValue:
+          CATEGORIES.find(category => category.value === value)?.label || value,
+      }),
+    [t]
+  );
+  const sectionMetaMap = useRef(
+    new Map(DEFAULT_SECTIONS.map(section => [section.id, section]))
+  );
+  const sectionTitle = useCallback(
+    (sectionId: string) => {
+      const section = sectionMetaMap.current.get(sectionId);
+      return t(`sparkery.procurement.sections.${sectionId}.title`, {
+        defaultValue: section?.title || sectionId,
+      });
+    },
+    [t]
+  );
+  const sectionDescription = useCallback(
+    (sectionId: string) => {
+      const section = sectionMetaMap.current.get(sectionId);
+      return t(`sparkery.procurement.sections.${sectionId}.description`, {
+        defaultValue: section?.description || '',
+      });
+    },
+    [t]
+  );
+  const resolveSectionsWithLocale = useCallback(
+    (sections?: DocSection[]): DocSection[] =>
+      (sections || DEFAULT_SECTIONS.map(s => ({ ...s, images: [] }))).map(
+        section => ({
+          ...section,
+          title: sectionTitle(section.id),
+          description: sectionDescription(section.id),
+        })
+      ),
+    [sectionDescription, sectionTitle]
+  );
 
-  // ──────────────── Draft State ────────────────
-  /** 当前正在编辑的草稿 ID（null = 全新报告） */
+  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ Draft State 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+  /** 褰撳墠姝ｅ湪缂栬緫鐨勮崏绋?ID锛坣ull = 鍏ㄦ柊鎶ュ憡锛?*/
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
-  /** 草稿列表 Drawer 是否可见 */
+  /** 鑽夌鍒楄〃 Drawer 鏄惁鍙 */
   const [draftDrawerOpen, setDraftDrawerOpen] = useState(false);
-  /** 草稿索引列表 */
+  /** 鑽夌绱㈠紩鍒楄〃 */
   const [draftIndex, setDraftIndex] = useState<DraftMeta[]>([]);
-  /** 自上次保存后是否有未保存的修改 */
+  /** 鑷笂娆′繚瀛樺悗鏄惁鏈夋湭淇濆瓨鐨勪慨鏀?*/
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  /** 自动保存定时器 */
+  /** 鑷姩淇濆瓨瀹氭椂鍣?*/
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** 草稿重命名弹窗 */
+  /** 鑽夌閲嶅懡鍚嶅脊绐?*/
   const [renamingDraftId, setRenamingDraftId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
@@ -312,7 +362,7 @@ const ChinaProcurementReport: React.FC = () => {
 
   const [pdfGenerating, setPdfGenerating] = useState(false);
 
-  /** 订单截图识别中的 loading 状态 */
+  /** 璁㈠崟鎴浘璇嗗埆涓殑 loading 鐘舵€?*/
   const [recognizing, setRecognizing] = useState(false);
 
   // Purchase items state
@@ -335,13 +385,17 @@ const ChinaProcurementReport: React.FC = () => {
       })
       .catch(() => {
         if (!cancelled) {
-          messageApi.error('Failed to load cloud drafts / 云端草稿加载失败');
+          messageApi.error(
+            t('sparkery.procurement.messages.loadCloudDraftsFailed', {
+              defaultValue: 'Failed to load cloud drafts',
+            })
+          );
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [messageApi]);
+  }, [messageApi, t]);
 
   // Calculate subtotal for a single item
   const calculateItemSubtotal = (item: PurchaseItem) => {
@@ -391,7 +445,11 @@ const ChinaProcurementReport: React.FC = () => {
     if (purchaseItems.length > 1) {
       setPurchaseItems(prev => prev.filter(item => item.id !== id));
     } else {
-      messageApi.warning('Keep at least one row');
+      messageApi.warning(
+        t('sparkery.procurement.messages.keepAtLeastOneRow', {
+          defaultValue: 'Keep at least one row',
+        })
+      );
     }
   };
 
@@ -403,7 +461,11 @@ const ChinaProcurementReport: React.FC = () => {
       amountCNY: total,
       amountAUD: calculateAUD(total, prev.exchangeRate || 0.21),
     }));
-    messageApi.success('Total synced to Amount field');
+    messageApi.success(
+      t('sparkery.procurement.messages.totalSyncedToAmount', {
+        defaultValue: 'Total synced to Amount field',
+      })
+    );
   };
 
   // Calculate AUD amount
@@ -411,12 +473,10 @@ const ChinaProcurementReport: React.FC = () => {
     return Number((cny * rate).toFixed(2));
   };
 
-  // ═══════════════════════════════════════════════
-  //   DRAFT MANAGEMENT
-  // ═══════════════════════════════════════════════
-
+  // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?  //   DRAFT MANAGEMENT
+  // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
   /**
-   * 计算当前报告的进度百分比（基于图片数量）
+   * 璁＄畻褰撳墠鎶ュ憡鐨勮繘搴︾櫨鍒嗘瘮锛堝熀浜庡浘鐗囨暟閲忥級
    */
   const calculateDraftProgress = useCallback(() => {
     const totalImages = (currentRecord.sections || []).reduce(
@@ -428,7 +488,7 @@ const ChinaProcurementReport: React.FC = () => {
   }, [currentRecord.sections]);
 
   /**
-   * 生成草稿名称（自动根据内容命名）
+   * 鐢熸垚鑽夌鍚嶇О锛堣嚜鍔ㄦ牴鎹唴瀹瑰懡鍚嶏級
    */
   const generateDraftName = useCallback((): string => {
     const supplier = currentRecord.supplierName?.trim();
@@ -437,15 +497,20 @@ const ChinaProcurementReport: React.FC = () => {
     if (supplier && product) return `${supplier} - ${product}`;
     if (supplier) return `${supplier} (${date})`;
     if (product) return `${product} (${date})`;
-    return `Draft ${date} ${dayjs().format('HH:mm')}`;
+    return t('sparkery.procurement.labels.autoDraftName', {
+      defaultValue: 'Draft {{date}} {{time}}',
+      date,
+      time: dayjs().format('HH:mm'),
+    });
   }, [
     currentRecord.supplierName,
     currentRecord.productName,
     currentRecord.purchaseDate,
+    t,
   ]);
 
   /**
-   * 构建 DraftData 对象
+   * 鏋勫缓 DraftData 瀵硅薄
    */
   const buildDraftData = useCallback(
     (draftId: string, existingName?: string): DraftData => {
@@ -487,9 +552,7 @@ const ChinaProcurementReport: React.FC = () => {
   );
 
   /**
-   * 保存当前表单为草稿
-   * @param silent 是否静默（不显示 message）
-   */
+   * 淇濆瓨褰撳墠琛ㄥ崟涓鸿崏绋?   * @param silent 鏄惁闈欓粯锛堜笉鏄剧ず message锛?   */
   const handleSaveDraft = useCallback(
     async (silent = false) => {
       const draftId = currentDraftId || generateId();
@@ -500,7 +563,9 @@ const ChinaProcurementReport: React.FC = () => {
         await saveDraftToCloud(draft as any);
       } catch {
         messageApi.error(
-          'Save draft failed. Please check network and retry. / 草稿保存失败，请检查网络后重试'
+          t('sparkery.procurement.messages.saveDraftFailed', {
+            defaultValue: 'Save draft failed. Please check network and retry.',
+          })
         );
         return;
       }
@@ -513,24 +578,29 @@ const ChinaProcurementReport: React.FC = () => {
       setHasUnsavedChanges(false);
 
       if (!silent) {
-        messageApi.success('Draft saved successfully / 草稿已保存');
+        messageApi.success(
+          t('sparkery.procurement.messages.draftSaved', {
+            defaultValue: 'Draft saved successfully',
+          })
+        );
       }
     },
-    [currentDraftId, draftIndex, buildDraftData, messageApi]
+    [currentDraftId, draftIndex, buildDraftData, messageApi, t]
   );
 
-  /**
-   * 加载草稿到当前表单
-   */
   const handleLoadDraft = useCallback(
     async (draftId: string) => {
       const draft = await loadDraftDataFromCloud(draftId);
       if (!draft) {
-        messageApi.error('Draft not found or data corrupted');
+        messageApi.error(
+          t('sparkery.procurement.messages.draftNotFound', {
+            defaultValue: 'Draft not found or data corrupted',
+          })
+        );
         return;
       }
 
-      // 确保 sections 包含所有默认 section（兼容旧草稿）
+      // Ensure all sections exist for backward compatibility.
       const savedSections = draft.currentRecord.sections || [];
       const mergedSections = DEFAULT_SECTIONS.map(def => {
         const saved = savedSections.find((s: any) => s.id === def.id);
@@ -548,34 +618,36 @@ const ChinaProcurementReport: React.FC = () => {
       setHasUnsavedChanges(false);
       setDraftDrawerOpen(false);
 
-      messageApi.success(`Draft loaded: ${draft.meta.name} / 草稿已加载`);
+      messageApi.success(
+        t('sparkery.procurement.messages.draftLoaded', {
+          defaultValue: 'Draft loaded: {{name}}',
+          name: draft.meta.name,
+        })
+      );
     },
-    [messageApi]
+    [messageApi, t]
   );
 
-  /**
-   * 删除指定草稿
-   */
   const handleDeleteDraft = useCallback(
     async (draftId: string) => {
       await deleteDraftFromCloud(draftId);
       const newIndex = draftIndex.filter(d => d.id !== draftId);
       setDraftIndex(newIndex);
 
-      // 如果删除的是当前正在编辑的草稿，断开关联
       if (currentDraftId === draftId) {
         setCurrentDraftId(null);
         setHasUnsavedChanges(true);
       }
 
-      messageApi.success('Draft deleted / 草稿已删除');
+      messageApi.success(
+        t('sparkery.procurement.messages.draftDeleted', {
+          defaultValue: 'Draft deleted',
+        })
+      );
     },
-    [draftIndex, currentDraftId, messageApi]
+    [draftIndex, currentDraftId, messageApi, t]
   );
 
-  /**
-   * 重命名草稿
-   */
   const handleRenameDraft = useCallback(
     async (draftId: string, newName: string) => {
       await renameDraftInCloud(draftId, newName);
@@ -586,24 +658,32 @@ const ChinaProcurementReport: React.FC = () => {
 
       setRenamingDraftId(null);
       setRenameValue('');
-      messageApi.success('Draft renamed / 草稿已重命名');
+      messageApi.success(
+        t('sparkery.procurement.messages.draftRenamed', {
+          defaultValue: 'Draft renamed',
+        })
+      );
     },
-    [draftIndex, messageApi]
+    [draftIndex, messageApi, t]
   );
 
-  /**
-   * 新建空白报告（清空当前表单）
-   */
   const handleNewReport = useCallback(() => {
-    // 如果有未保存的更改，先提示
     if (hasUnsavedChanges) {
       Modal.confirm({
-        title: 'Unsaved changes / 有未保存的更改',
+        title: t('sparkery.procurement.confirm.unsavedChangesTitle', {
+          defaultValue: 'Unsaved changes',
+        }),
         icon: <ExclamationCircleOutlined />,
-        content:
-          'You have unsaved changes. Do you want to save before creating a new report? / 是否在新建前保存当前草稿？',
-        okText: 'Save & New / 保存后新建',
-        cancelText: 'Discard / 直接新建',
+        content: t('sparkery.procurement.confirm.unsavedChangesContent', {
+          defaultValue:
+            'You have unsaved changes. Do you want to save before creating a new report?',
+        }),
+        okText: t('sparkery.procurement.actions.saveAndNew', {
+          defaultValue: 'Save & New',
+        }),
+        cancelText: t('sparkery.procurement.actions.discardAndNew', {
+          defaultValue: 'Discard',
+        }),
         onOk: () => {
           return handleSaveDraft(true).then(() => {
             resetToBlank();
@@ -616,10 +696,10 @@ const ChinaProcurementReport: React.FC = () => {
     } else {
       resetToBlank();
     }
-  }, [hasUnsavedChanges, handleSaveDraft]);
+  }, [hasUnsavedChanges, handleSaveDraft, t]);
 
   /**
-   * 重置所有表单状态为空白
+   * 閲嶇疆鎵€鏈夎〃鍗曠姸鎬佷负绌虹櫧
    */
   const resetToBlank = () => {
     setCurrentRecord({
@@ -644,7 +724,7 @@ const ChinaProcurementReport: React.FC = () => {
     setHasUnsavedChanges(false);
   };
 
-  // ── 自动保存：表单变化时标记为未保存，debounce 60 秒后自动保存 ──
+  // Auto-save: mark dirty on form changes and debounce save to cloud.
   useEffect(() => {
     setHasUnsavedChanges(true);
 
@@ -652,7 +732,7 @@ const ChinaProcurementReport: React.FC = () => {
       clearTimeout(autoSaveTimerRef.current);
     }
 
-    // 仅在有实际内容时自动保存（避免空表单创建草稿）
+    // Only auto-save when there is meaningful content.
     const hasContent =
       (currentRecord.supplierName?.trim() || '') !== '' ||
       (currentRecord.productName?.trim() || '') !== '' ||
@@ -662,7 +742,7 @@ const ChinaProcurementReport: React.FC = () => {
     if (hasContent) {
       autoSaveTimerRef.current = setTimeout(() => {
         handleSaveDraft(true); // silent auto-save
-      }, 60000); // 60 秒自动保存
+      }, 60000);
     }
 
     return () => {
@@ -673,7 +753,7 @@ const ChinaProcurementReport: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentRecord, purchaseItems, gstEnabled]);
 
-  // ── 页面离开前提醒 ──
+  // Warn before leaving page with unsaved changes.
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
@@ -709,7 +789,12 @@ const ChinaProcurementReport: React.FC = () => {
           ) || [],
       }));
 
-      messageApi.success(`Uploaded: ${file.name}`);
+      messageApi.success(
+        t('sparkery.procurement.messages.uploadedFile', {
+          defaultValue: 'Uploaded: {{fileName}}',
+          fileName: file.name,
+        })
+      );
     };
     reader.readAsDataURL(file);
     return false;
@@ -754,42 +839,48 @@ const ChinaProcurementReport: React.FC = () => {
   };
 
   /**
-   * 识别 Platform Orders 截图中的商品信息，自动填充到采购明细
-   * 调用 Gemini Vision API，支持多 Key 自动轮询
+   * 璇嗗埆 Platform Orders 鎴浘涓殑鍟嗗搧淇℃伅锛岃嚜鍔ㄥ～鍏呭埌閲囪喘鏄庣粏
+   * 璋冪敤 Gemini Vision API锛屾敮鎸佸 Key 鑷姩杞
    */
   const handleRecognizeOrders = useCallback(async () => {
-    // 找到 platform-orders section
+    // 鎵惧埌 platform-orders section
     const platformSection = currentRecord.sections?.find(
       s => s.id === 'platform-orders'
     );
     if (!platformSection || platformSection.images.length === 0) {
-      messageApi.warning('请先在 Platform Orders 中上传订单截图');
+      messageApi.warning(
+        t('sparkery.procurement.messages.uploadPlatformOrderScreenshotsFirst', {
+          defaultValue:
+            'Please upload order screenshots in Platform Orders first',
+        })
+      );
       return;
     }
 
     setRecognizing(true);
     try {
-      // 将所有图片转换为 Gemini API 需要的格式
+      // 灏嗘墍鏈夊浘鐗囪浆鎹负 Gemini API 闇€瑕佺殑鏍煎紡
       const images = platformSection.images.map(img => parseDataUrl(img.file));
 
-      // 调用 Gemini Vision 识别
+      // 璋冪敤 Gemini Vision 璇嗗埆
       const recognizedItems = await recognizeOrderItems(images);
 
       if (recognizedItems.length === 0) {
         messageApi.warning(
-          '未从截图中识别到商品信息，请检查图片是否为订单截图'
+          t('sparkery.procurement.messages.noOrderItemsRecognized', {
+            defaultValue:
+              'No product information was recognized from screenshots. Please check whether the images are order screenshots.',
+          })
         );
         return;
       }
 
-      // 将识别结果填充到 purchaseItems
+      // Fill recognized results into purchase items.
       setPurchaseItems(prev => {
-        // 检查现有列表是否全部为空行（productName 为空且价格为 0）
         const hasOnlyEmptyRows = prev.every(
           item => !item.productName && item.unitPrice === 0
         );
 
-        // 将识别结果映射为 PurchaseItem
         const newItems = recognizedItems.map(item => ({
           id: generateId(),
           productName: item.productName,
@@ -798,33 +889,51 @@ const ChinaProcurementReport: React.FC = () => {
         }));
 
         if (hasOnlyEmptyRows) {
-          // 全部为空行时直接替换
           return newItems;
-        } else {
-          // 否则追加到末尾
-          return [...prev, ...newItems];
         }
+        return [...prev, ...newItems];
       });
 
       messageApi.success(
-        `成功识别 ${recognizedItems.length} 个商品，已填充到采购明细`
+        t('sparkery.procurement.messages.recognizedItemsFilled', {
+          defaultValue:
+            'Successfully recognized {{count}} items and filled them into purchase details',
+          count: recognizedItems.length,
+        })
       );
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(String(err));
-      messageApi.error(`订单识别失败: ${error.message}`);
+      messageApi.error(
+        t('sparkery.procurement.messages.orderRecognitionFailed', {
+          defaultValue: 'Order recognition failed: {{error}}',
+          error: error.message,
+        })
+      );
     } finally {
       setRecognizing(false);
     }
-  }, [currentRecord.sections, messageApi]);
+  }, [currentRecord.sections, messageApi, t]);
 
   // Check if required fields are filled
   const checkRequiredFields = () => {
     const missingFields: string[] = [];
 
-    if (!currentRecord.supplierName) missingFields.push('Supplier Name');
-    if (!currentRecord.productName) missingFields.push('Product Name');
+    if (!currentRecord.supplierName)
+      missingFields.push(
+        t('sparkery.procurement.fields.supplierName', {
+          defaultValue: 'Supplier Name',
+        })
+      );
+    if (!currentRecord.productName)
+      missingFields.push(
+        t('sparkery.procurement.fields.productName', {
+          defaultValue: 'Product Name',
+        })
+      );
     if (!currentRecord.amountCNY || currentRecord.amountCNY <= 0)
-      missingFields.push('Amount');
+      missingFields.push(
+        t('sparkery.procurement.fields.amount', { defaultValue: 'Amount' })
+      );
 
     // Check required sections have at least one image
     const missingRequiredSections = currentRecord.sections?.filter(
@@ -848,15 +957,21 @@ const ChinaProcurementReport: React.FC = () => {
     if (hasMissingFields) {
       const missingFieldsText =
         missingFields.length > 0
-          ? `Missing required fields: ${missingFields.join(', ')}`
+          ? `${t('sparkery.procurement.messages.missingRequiredFields', {
+              defaultValue: 'Missing required fields',
+            })}: ${missingFields.join(', ')}`
           : '';
       const missingSectionsText =
         missingRequiredSections.length > 0
-          ? `Missing required images: ${missingRequiredSections.map(s => s.title).join(', ')}`
+          ? `${t('sparkery.procurement.messages.missingRequiredImages', {
+              defaultValue: 'Missing required images',
+            })}: ${missingRequiredSections.map(s => sectionTitle(s.id)).join(', ')}`
           : '';
 
       Modal.confirm({
-        title: 'Some information is missing. Continue generating PDF?',
+        title: t('sparkery.procurement.messages.missingInfoContinueTitle', {
+          defaultValue: 'Some information is missing. Continue generating PDF?',
+        }),
         content: (
           <div>
             {missingFieldsText && (
@@ -870,12 +985,18 @@ const ChinaProcurementReport: React.FC = () => {
               </p>
             )}
             <p className='sparkery-procurement-missing-confirm'>
-              Do you want to continue generating PDF?
+              {t('sparkery.procurement.messages.continueGeneratePdf', {
+                defaultValue: 'Do you want to continue generating PDF?',
+              })}
             </p>
           </div>
         ),
-        okText: 'Continue',
-        cancelText: 'Go Back',
+        okText: t('sparkery.procurement.actions.continue', {
+          defaultValue: 'Continue',
+        }),
+        cancelText: t('sparkery.procurement.actions.goBack', {
+          defaultValue: 'Go Back',
+        }),
         onOk: () => {
           generatePDF();
         },
@@ -906,9 +1027,7 @@ const ChinaProcurementReport: React.FC = () => {
         ),
         exchangeRate: currentRecord.exchangeRate || 0.21,
         notes: currentRecord.notes || '',
-        sections:
-          currentRecord.sections ||
-          DEFAULT_SECTIONS.map(s => ({ ...s, images: [] })),
+        sections: resolveSectionsWithLocale(currentRecord.sections),
         createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
       };
 
@@ -932,14 +1051,25 @@ const ChinaProcurementReport: React.FC = () => {
         // Header
         pdf.setFontSize(10);
         pdf.setTextColor(100, 100, 100);
-        pdf.text(`China Procurement Report - ${dateStr}`, pageWidth / 2, 10, {
-          align: 'center',
-        });
+        pdf.text(
+          t('sparkery.procurement.pdf.headerTitle', {
+            defaultValue: 'China Procurement Report - {{date}}',
+            date: dateStr,
+          }),
+          pageWidth / 2,
+          10,
+          { align: 'center' }
+        );
         pdf.line(margin, 12, pageWidth - margin, 12);
         // Footer
         pdf.setFontSize(8);
         pdf.text(
-          `Page ${pageNum} of ${currentPage} - Generated for ATO Audit - Sparkery Business Records`,
+          t('sparkery.procurement.pdf.footer', {
+            defaultValue:
+              'Page {{page}} of {{total}} - Generated for ATO Audit - Sparkery Business Records',
+            page: pageNum,
+            total: currentPage,
+          }),
           pageWidth / 2,
           pageHeight - 10,
           { align: 'center' }
@@ -950,15 +1080,29 @@ const ChinaProcurementReport: React.FC = () => {
       // Cover Page - Page 1
       pdf.setFontSize(28);
       pdf.setTextColor(0, 0, 128);
-      pdf.text('China Procurement Report', pageWidth / 2, 40, {
-        align: 'center',
-      });
+      pdf.text(
+        t('sparkery.procurement.pdf.coverTitle', {
+          defaultValue: 'China Procurement Report',
+        }),
+        pageWidth / 2,
+        40,
+        {
+          align: 'center',
+        }
+      );
       pdf.setTextColor(0, 0, 0);
 
       pdf.setFontSize(14);
-      pdf.text(`Purchase Documentation Package`, pageWidth / 2, 55, {
-        align: 'center',
-      });
+      pdf.text(
+        t('sparkery.procurement.pdf.coverSubtitle', {
+          defaultValue: 'Purchase Documentation Package',
+        }),
+        pageWidth / 2,
+        55,
+        {
+          align: 'center',
+        }
+      );
 
       // Cover page info box
       currentY = 80;
@@ -967,36 +1111,66 @@ const ChinaProcurementReport: React.FC = () => {
       pdf.rect(margin, currentY - 5, pageWidth - 2 * margin, 100, 'F');
 
       pdf.setFontSize(11);
-      pdf.text(`Purchase ID: ${record.id}`, margin + 5, currentY + 5);
       pdf.text(
-        `Purchase Date: ${record.purchaseDate}`,
+        `${t('sparkery.procurement.pdf.labels.purchaseId', {
+          defaultValue: 'Purchase ID',
+        })}: ${record.id}`,
+        margin + 5,
+        currentY + 5
+      );
+      pdf.text(
+        `${t('sparkery.procurement.pdf.labels.purchaseDate', {
+          defaultValue: 'Purchase Date',
+        })}: ${record.purchaseDate}`,
         margin + 5,
         currentY + 15
       );
-      pdf.text(`Supplier: ${record.supplierName}`, margin + 5, currentY + 25);
       pdf.text(
-        `Platform: ${PLATFORMS.find(p => p.value === record.supplierPlatform)?.label || record.supplierPlatform}`,
+        `${t('sparkery.procurement.pdf.labels.supplier', {
+          defaultValue: 'Supplier',
+        })}: ${record.supplierName}`,
+        margin + 5,
+        currentY + 25
+      );
+      pdf.text(
+        `${t('sparkery.procurement.pdf.labels.platform', {
+          defaultValue: 'Platform',
+        })}: ${platformLabel(record.supplierPlatform)}`,
         margin + 5,
         currentY + 35
       );
-      pdf.text(`Product: ${record.productName}`, margin + 5, currentY + 45);
       pdf.text(
-        `Category: ${CATEGORIES.find(c => c.value === record.category)?.label || record.category}`,
+        `${t('sparkery.procurement.pdf.labels.product', {
+          defaultValue: 'Product',
+        })}: ${record.productName}`,
+        margin + 5,
+        currentY + 45
+      );
+      pdf.text(
+        `${t('sparkery.procurement.pdf.labels.category', {
+          defaultValue: 'Category',
+        })}: ${categoryLabel(record.category)}`,
         margin + 5,
         currentY + 55
       );
       pdf.text(
-        `Amount (CNY): ${record.amountCNY.toLocaleString()}`,
+        `${t('sparkery.procurement.pdf.labels.amountCny', {
+          defaultValue: 'Amount (CNY)',
+        })}: ${record.amountCNY.toLocaleString()}`,
         margin + 5,
         currentY + 65
       );
       pdf.text(
-        `Amount (AUD): $${record.amountAUD.toLocaleString()}`,
+        `${t('sparkery.procurement.pdf.labels.amountAud', {
+          defaultValue: 'Amount (AUD)',
+        })}: $${record.amountAUD.toLocaleString()}`,
         margin + 5,
         currentY + 75
       );
       pdf.text(
-        `Exchange Rate: ${record.exchangeRate}`,
+        `${t('sparkery.procurement.pdf.labels.exchangeRate', {
+          defaultValue: 'Exchange Rate',
+        })}: ${record.exchangeRate}`,
         margin + 5,
         currentY + 85
       );
@@ -1004,7 +1178,13 @@ const ChinaProcurementReport: React.FC = () => {
       // Add folder structure on cover page
       currentY = 190;
       pdf.setFontSize(10);
-      pdf.text('Folder Structure:', margin, currentY);
+      pdf.text(
+        `${t('sparkery.procurement.pdf.labels.folderStructure', {
+          defaultValue: 'Folder Structure',
+        })}:`,
+        margin,
+        currentY
+      );
       currentY += 8;
       pdf.setFontSize(9);
       const folderStructure = generateFolderStructure(record).split('\n');
@@ -1035,21 +1215,26 @@ const ChinaProcurementReport: React.FC = () => {
 
         pdf.setFontSize(7);
         pdf.text(
-          `[${section.folderName}] ${section.description} | ${section.images.length} imgs`,
+          `[${section.folderName}] ${section.description} | ${t(
+            'sparkery.procurement.pdf.labels.imagesShort',
+            {
+              defaultValue: '{{count}} imgs',
+              count: section.images.length,
+            }
+          )}`,
           margin,
           currentY
         );
         currentY += 2;
-        pdf.setFontSize(10); // 恢复默认字号
+        pdf.setFontSize(10); // 鎭㈠榛樿瀛楀彿
 
         // Add images - max 2 images per page
         let imagesOnCurrentPage = 0;
         const maxImagesPerPage = 2;
-        // 页面可用尺寸
+        // 椤甸潰鍙敤灏哄
         const availableWidth = pageWidth - 2 * margin; // 180mm
-        const availableHeight = pageHeight - 30 - 20; // 247mm (扣除顶部标题和底部页脚)
-        const pxToMm = 0.264; // 像素转毫米转换系数
-
+        const availableHeight = pageHeight - 30 - 20; // 247mm (鎵ｉ櫎椤堕儴鏍囬鍜屽簳閮ㄩ〉鑴?
+        const pxToMm = 0.264; // 鍍忕礌杞绫宠浆鎹㈢郴鏁?
         section.images.forEach((img, imgIndex) => {
           globalImgIndex++;
 
@@ -1073,52 +1258,42 @@ const ChinaProcurementReport: React.FC = () => {
             let imgHeight: number;
 
             if (imgObj.width && imgObj.height) {
-              // 转换为毫米，优先使用原始尺寸
               const originalWidth = imgObj.width * pxToMm;
               const originalHeight = imgObj.height * pxToMm;
               const aspectRatio = imgObj.width / imgObj.height;
               const isLandscape = imgObj.width >= imgObj.height;
 
               if (isLandscape) {
-                // 横版图片逻辑
                 if (originalWidth <= availableWidth) {
-                  // 原始宽度在页面范围内，使用原始尺寸
                   imgWidth = originalWidth;
                   imgHeight = originalHeight;
                 } else {
-                  // 原始宽度超出页面，按页面宽度缩放
                   imgWidth = availableWidth;
                   imgHeight = imgWidth / aspectRatio;
                 }
-                // 确保高度不超出页面
                 if (imgHeight > availableHeight) {
                   imgHeight = availableHeight;
                   imgWidth = imgHeight * aspectRatio;
                 }
               } else {
-                // 竖版图片逻辑
                 if (originalHeight <= availableHeight) {
-                  // 原始高度在页面范围内，使用原始尺寸
                   imgHeight = originalHeight;
                   imgWidth = originalWidth;
                 } else {
-                  // 原始高度超出页面，按页面高度缩放
                   imgHeight = availableHeight;
                   imgWidth = imgHeight * aspectRatio;
                 }
-                // 确保宽度不超出页面
                 if (imgWidth > availableWidth) {
                   imgWidth = availableWidth;
                   imgHeight = imgWidth / aspectRatio;
                 }
               }
             } else {
-              // 无法获取原始尺寸时的回退方案
               imgWidth = availableWidth;
               imgHeight = 80;
             }
 
-            // 居中显示
+            // 灞呬腑鏄剧ず
             const x = margin + (availableWidth - imgWidth) / 2;
 
             pdf.addImage(img.file, 'JPEG', x, currentY, imgWidth, imgHeight);
@@ -1129,7 +1304,9 @@ const ChinaProcurementReport: React.FC = () => {
             const imgRef = `${dateStr}_${dailySeqStr}_${imgSeqStr}`;
             pdf.setFontSize(8);
             pdf.text(
-              `Ref: ${imgRef}${section.tag ? ` [${section.tag}]` : ''}${img.description ? ' - ' + img.description : ''}`,
+              `${t('sparkery.procurement.pdf.labels.ref', {
+                defaultValue: 'Ref',
+              })}: ${imgRef}${section.tag ? ` [${section.tag}]` : ''}${img.description ? ' - ' + img.description : ''}`,
               margin,
               currentY
             );
@@ -1140,7 +1317,13 @@ const ChinaProcurementReport: React.FC = () => {
             pdf.setFontSize(10);
             const imgSeqStr = globalImgIndex.toString().padStart(3, '0');
             const imgRef = `${dateStr}_${dailySeqStr}_${imgSeqStr}`;
-            pdf.text(`[Image: ${imgRef} - ${img.name}]`, margin, currentY);
+            pdf.text(
+              `[${t('sparkery.procurement.pdf.labels.image', {
+                defaultValue: 'Image',
+              })}: ${imgRef} - ${img.name}]`,
+              margin,
+              currentY
+            );
             currentY += 3;
             imagesOnCurrentPage++;
           }
@@ -1156,10 +1339,20 @@ const ChinaProcurementReport: React.FC = () => {
       const fileName = `CN_Purchase_${dateStr}_${dailySeqStr}_Complete_Package.pdf`;
       pdf.save(fileName);
 
-      messageApi.success(`PDF generated: ${fileName}`);
+      messageApi.success(
+        t('sparkery.procurement.messages.pdfGenerated', {
+          defaultValue: 'PDF generated: {{fileName}}',
+          fileName,
+        })
+      );
     } catch (err: unknown) {
       const error = err instanceof Error ? err.message : String(err);
-      messageApi.error(`PDF generation failed: ${error}`);
+      messageApi.error(
+        t('sparkery.procurement.messages.pdfGenerationFailed', {
+          defaultValue: 'PDF generation failed: {{error}}',
+          error,
+        })
+      );
     } finally {
       setPdfGenerating(false);
     }
@@ -1186,9 +1379,7 @@ const ChinaProcurementReport: React.FC = () => {
         ),
         exchangeRate: currentRecord.exchangeRate || 0.21,
         notes: currentRecord.notes || '',
-        sections:
-          currentRecord.sections ||
-          DEFAULT_SECTIONS.map(s => ({ ...s, images: [] })),
+        sections: resolveSectionsWithLocale(currentRecord.sections),
         createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
       };
 
@@ -1209,16 +1400,28 @@ const ChinaProcurementReport: React.FC = () => {
       if (printWindow) {
         const fileName = generateFilename(record, dailySeq);
         messageApi.success(
-          `PDF preview opened. Use Ctrl+P (Cmd+P on Mac) to save as PDF: ${fileName}`
+          t('sparkery.procurement.messages.pdfPreviewOpened', {
+            defaultValue:
+              'PDF preview opened. Use Ctrl+P (Cmd+P on Mac) to save as PDF: {{fileName}}',
+            fileName,
+          })
         );
       } else {
         messageApi.error(
-          'Unable to open print window. Please check popup blocker settings.'
+          t('sparkery.procurement.messages.openPrintWindowFailed', {
+            defaultValue:
+              'Unable to open print window. Please check popup blocker settings.',
+          })
         );
       }
     } catch (err: unknown) {
       const error = err instanceof Error ? err.message : String(err);
-      messageApi.error(`PDF generation failed: ${error}`);
+      messageApi.error(
+        t('sparkery.procurement.messages.pdfGenerationFailed', {
+          defaultValue: 'PDF generation failed: {{error}}',
+          error,
+        })
+      );
     } finally {
       setPdfGenerating(false);
     }
@@ -1232,15 +1435,21 @@ const ChinaProcurementReport: React.FC = () => {
     if (hasMissingFields) {
       const missingFieldsText =
         missingFields.length > 0
-          ? `Missing required fields: ${missingFields.join(', ')}`
+          ? `${t('sparkery.procurement.messages.missingRequiredFields', {
+              defaultValue: 'Missing required fields',
+            })}: ${missingFields.join(', ')}`
           : '';
       const missingSectionsText =
         missingRequiredSections.length > 0
-          ? `Missing required images: ${missingRequiredSections.map(s => s.title).join(', ')}`
+          ? `${t('sparkery.procurement.messages.missingRequiredImages', {
+              defaultValue: 'Missing required images',
+            })}: ${missingRequiredSections.map(s => sectionTitle(s.id)).join(', ')}`
           : '';
 
       Modal.confirm({
-        title: 'Some information is missing. Continue generating PDF?',
+        title: t('sparkery.procurement.messages.missingInfoContinueTitle', {
+          defaultValue: 'Some information is missing. Continue generating PDF?',
+        }),
         content: (
           <div>
             {missingFieldsText && (
@@ -1254,12 +1463,18 @@ const ChinaProcurementReport: React.FC = () => {
               </p>
             )}
             <p className='sparkery-procurement-missing-confirm'>
-              Do you want to continue generating PDF?
+              {t('sparkery.procurement.messages.continueGeneratePdf', {
+                defaultValue: 'Do you want to continue generating PDF?',
+              })}
             </p>
           </div>
         ),
-        okText: 'Continue',
-        cancelText: 'Go Back',
+        okText: t('sparkery.procurement.actions.continue', {
+          defaultValue: 'Continue',
+        }),
+        cancelText: t('sparkery.procurement.actions.goBack', {
+          defaultValue: 'Go Back',
+        }),
         onOk: () => {
           generatePDFViaHTML();
         },
@@ -1280,9 +1495,12 @@ const ChinaProcurementReport: React.FC = () => {
     return Math.min(100, Math.round((totalImages / minRequired) * 100));
   };
 
-  /** 当前编辑的草稿名称 */
+  /** 褰撳墠缂栬緫鐨勮崏绋垮悕绉?*/
   const currentDraftName = currentDraftId
-    ? draftIndex.find(d => d.id === currentDraftId)?.name || 'Untitled Draft'
+    ? draftIndex.find(d => d.id === currentDraftId)?.name ||
+      t('sparkery.procurement.labels.untitledDraft', {
+        defaultValue: 'Untitled Draft',
+      })
     : null;
 
   const storagePercent = 0;
@@ -1291,7 +1509,7 @@ const ChinaProcurementReport: React.FC = () => {
     <div className='sparkery-tool-page sparkery-procurement-page'>
       {contextHolder}
 
-      {/* ═══════════ Draft Management Toolbar ═══════════ */}
+      {/* Draft Management Toolbar */}
       <Card
         size='small'
         className={`sparkery-procurement-draft-toolbar${currentDraftId ? ' sparkery-procurement-draft-toolbar-active' : ''}`}
@@ -1302,7 +1520,9 @@ const ChinaProcurementReport: React.FC = () => {
             {currentDraftId ? (
               <>
                 <Tag icon={<EditOutlined />} color='green'>
-                  Editing Draft
+                  {t('sparkery.procurement.labels.editingDraft', {
+                    defaultValue: 'Editing Draft',
+                  })}
                 </Tag>
                 <Text strong className='sparkery-procurement-meta-text'>
                   {currentDraftName}
@@ -1312,20 +1532,26 @@ const ChinaProcurementReport: React.FC = () => {
                     color='orange'
                     className='sparkery-procurement-unsaved-tag'
                   >
-                    Unsaved Changes
+                    {t('sparkery.procurement.labels.unsavedChanges', {
+                      defaultValue: 'Unsaved Changes',
+                    })}
                   </Tag>
                 )}
               </>
             ) : (
               <>
                 <Tag icon={<FileAddOutlined />} color='blue'>
-                  New Report
+                  {t('sparkery.procurement.actions.newReport', {
+                    defaultValue: 'New Report',
+                  })}
                 </Tag>
                 <Text
                   type='secondary'
                   className='sparkery-procurement-meta-text'
                 >
-                  Not saved as draft yet
+                  {t('sparkery.procurement.labels.notSavedAsDraftYet', {
+                    defaultValue: 'Not saved as draft yet',
+                  })}
                 </Text>
               </>
             )}
@@ -1333,7 +1559,11 @@ const ChinaProcurementReport: React.FC = () => {
 
           {/* Right: Actions */}
           <Space size='small' wrap>
-            <Tooltip title='Save current form as draft / 保存为草稿'>
+            <Tooltip
+              title={t('sparkery.procurement.tooltips.saveCurrentAsDraft', {
+                defaultValue: 'Save current form as draft',
+              })}
+            >
               <Button
                 className={
                   hasUnsavedChanges
@@ -1344,34 +1574,52 @@ const ChinaProcurementReport: React.FC = () => {
                 type={hasUnsavedChanges ? 'primary' : 'default'}
                 onClick={() => handleSaveDraft(false)}
               >
-                Save Draft
+                {t('sparkery.procurement.actions.saveDraft', {
+                  defaultValue: 'Save Draft',
+                })}
               </Button>
             </Tooltip>
-            <Tooltip title='Open saved drafts / 打开已保存草稿'>
+            <Tooltip
+              title={t('sparkery.procurement.tooltips.openSavedDrafts', {
+                defaultValue: 'Open saved drafts',
+              })}
+            >
               <Badge count={draftIndex.length} size='small' offset={[-4, 0]}>
                 <Button
                   icon={<FolderOpenOutlined />}
                   onClick={() => setDraftDrawerOpen(true)}
                 >
-                  My Drafts
+                  {t('sparkery.procurement.actions.myDrafts', {
+                    defaultValue: 'My Drafts',
+                  })}
                 </Button>
               </Badge>
             </Tooltip>
-            <Tooltip title='Start a blank new report / 新建空白报告'>
+            <Tooltip
+              title={t('sparkery.procurement.tooltips.startBlankReport', {
+                defaultValue: 'Start a blank new report',
+              })}
+            >
               <Button icon={<FileAddOutlined />} onClick={handleNewReport}>
-                New Report
+                {t('sparkery.procurement.actions.newReport', {
+                  defaultValue: 'New Report',
+                })}
               </Button>
             </Tooltip>
           </Space>
         </div>
       </Card>
 
-      {/* ═══════════ Drafts Drawer ═══════════ */}
+      {/* Drafts Drawer */}
       <Drawer
         title={
           <div className='sparkery-procurement-drawer-title'>
             <FolderOpenOutlined />
-            <span>Saved Drafts / 已保存的草稿</span>
+            <span>
+              {t('sparkery.procurement.drawer.savedDrafts', {
+                defaultValue: 'Saved Drafts',
+              })}
+            </span>
             <Tag>{draftIndex.length}</Tag>
           </div>
         }
@@ -1383,11 +1631,15 @@ const ChinaProcurementReport: React.FC = () => {
           <div className='sparkery-procurement-drawer-footer'>
             <Text type='secondary' className='sparkery-procurement-drawer-note'>
               <CloudOutlined className='sparkery-procurement-drawer-icon' />
-              Cloud drafts enabled / 云端草稿已启用
+              {t('sparkery.procurement.drawer.cloudDraftsEnabled', {
+                defaultValue: 'Cloud drafts enabled',
+              })}
             </Text>
             {storagePercent > 80 && (
               <Text type='danger' className='sparkery-procurement-drawer-note'>
-                Storage nearly full!
+                {t('sparkery.procurement.drawer.storageNearlyFull', {
+                  defaultValue: 'Storage nearly full!',
+                })}
               </Text>
             )}
           </div>
@@ -1396,7 +1648,9 @@ const ChinaProcurementReport: React.FC = () => {
         {draftIndex.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description='No saved drafts / 暂无保存的草稿'
+            description={t('sparkery.procurement.empty.noSavedDrafts', {
+              defaultValue: 'No saved drafts',
+            })}
           />
         ) : (
           <div className='sparkery-procurement-draft-list'>
@@ -1430,7 +1684,9 @@ const ChinaProcurementReport: React.FC = () => {
                             color='green'
                             className='sparkery-procurement-draft-current-tag'
                           >
-                            Current
+                            {t('sparkery.procurement.labels.current', {
+                              defaultValue: 'Current',
+                            })}
                           </Tag>
                         )}
                       </Text>
@@ -1442,7 +1698,10 @@ const ChinaProcurementReport: React.FC = () => {
                           type='secondary'
                           className='sparkery-procurement-draft-meta-text'
                         >
-                          Supplier: {draft.supplierName}
+                          {t('sparkery.procurement.labels.supplier', {
+                            defaultValue: 'Supplier',
+                          })}
+                          : {draft.supplierName}
                         </Text>
                       )}
                       {draft.productName && (
@@ -1450,7 +1709,10 @@ const ChinaProcurementReport: React.FC = () => {
                           type='secondary'
                           className='sparkery-procurement-draft-meta-text'
                         >
-                          Product: {draft.productName}
+                          {t('sparkery.procurement.labels.product', {
+                            defaultValue: 'Product',
+                          })}
+                          : {draft.productName}
                         </Text>
                       )}
                     </div>
@@ -1458,11 +1720,17 @@ const ChinaProcurementReport: React.FC = () => {
                     <div className='sparkery-procurement-draft-stats-row'>
                       <Tag className='sparkery-procurement-draft-stat-tag'>
                         <FileImageOutlined className='sparkery-procurement-draft-stat-icon' />
-                        {draft.imageCount} images
+                        {t('sparkery.procurement.labels.imageCount', {
+                          defaultValue: '{{count}} images',
+                          count: draft.imageCount,
+                        })}
                       </Tag>
                       <Tag className='sparkery-procurement-draft-stat-tag'>
                         <ShoppingCartOutlined className='sparkery-procurement-draft-stat-icon' />
-                        {draft.itemCount} items
+                        {t('sparkery.procurement.labels.itemCount', {
+                          defaultValue: '{{count}} items',
+                          count: draft.itemCount,
+                        })}
                       </Tag>
                       <Progress
                         percent={draft.progress}
@@ -1477,7 +1745,10 @@ const ChinaProcurementReport: React.FC = () => {
                       className='sparkery-procurement-draft-updated'
                     >
                       <ClockCircleOutlined className='sparkery-procurement-draft-updated-icon' />
-                      Updated: {draft.updatedAt}
+                      {t('sparkery.procurement.labels.updatedAt', {
+                        defaultValue: 'Updated: {{value}}',
+                        value: draft.updatedAt,
+                      })}
                     </Text>
                   </div>
 
@@ -1486,7 +1757,11 @@ const ChinaProcurementReport: React.FC = () => {
                     className='sparkery-procurement-draft-actions'
                     onClick={e => e.stopPropagation()}
                   >
-                    <Tooltip title='Open / 打开'>
+                    <Tooltip
+                      title={t('sparkery.procurement.tooltips.open', {
+                        defaultValue: 'Open',
+                      })}
+                    >
                       <Button
                         type='primary'
                         size='small'
@@ -1495,7 +1770,11 @@ const ChinaProcurementReport: React.FC = () => {
                         className='sparkery-procurement-draft-open-btn'
                       />
                     </Tooltip>
-                    <Tooltip title='Rename / 重命名'>
+                    <Tooltip
+                      title={t('sparkery.procurement.tooltips.rename', {
+                        defaultValue: 'Rename',
+                      })}
+                    >
                       <Button
                         size='small'
                         icon={<EditOutlined />}
@@ -1506,14 +1785,32 @@ const ChinaProcurementReport: React.FC = () => {
                       />
                     </Tooltip>
                     <Popconfirm
-                      title='Delete this draft? / 删除此草稿？'
-                      description='This action cannot be undone.'
+                      title={t(
+                        'sparkery.procurement.confirm.deleteDraftTitle',
+                        {
+                          defaultValue: 'Delete this draft?',
+                        }
+                      )}
+                      description={t(
+                        'sparkery.procurement.confirm.deleteDraftDescription',
+                        {
+                          defaultValue: 'This action cannot be undone.',
+                        }
+                      )}
                       onConfirm={() => handleDeleteDraft(draft.id)}
-                      okText='Delete'
-                      cancelText='Cancel'
+                      okText={t('sparkery.procurement.actions.delete', {
+                        defaultValue: 'Delete',
+                      })}
+                      cancelText={t('sparkery.procurement.actions.cancel', {
+                        defaultValue: 'Cancel',
+                      })}
                       okButtonProps={{ danger: true }}
                     >
-                      <Tooltip title='Delete / 删除'>
+                      <Tooltip
+                        title={t('sparkery.procurement.tooltips.delete', {
+                          defaultValue: 'Delete',
+                        })}
+                      >
                         <Button size='small' danger icon={<DeleteOutlined />} />
                       </Tooltip>
                     </Popconfirm>
@@ -1527,24 +1824,35 @@ const ChinaProcurementReport: React.FC = () => {
 
       <Title level={3} className='sparkery-tool-page-title'>
         <ShoppingCartOutlined className='sparkery-procurement-page-icon' />
-        China Procurement Documentation
+        {t('sparkery.procurement.title', {
+          defaultValue: 'China Procurement Documentation',
+        })}
       </Title>
       <Text className='sparkery-tool-page-subtitle' type='secondary'>
-        Complete ATO-compliant purchase documentation system with 10-section
-        structure
+        {t('sparkery.procurement.subtitle', {
+          defaultValue:
+            'Complete ATO-compliant purchase documentation system with 10-section structure',
+        })}
       </Text>
 
       <div className='sparkery-procurement-main'>
         {/* Basic Info Card */}
         <Card
-          title='Basic Information'
+          title={t('sparkery.procurement.cards.basicInformation', {
+            defaultValue: 'Basic Information',
+          })}
           size='small'
           className='sparkery-procurement-basic-card'
         >
           <Row gutter={16}>
             <Col xs={24} sm={12} md={8}>
               <div className='sparkery-procurement-field'>
-                <Text strong>Purchase Date *</Text>
+                <Text strong>
+                  {t('sparkery.procurement.fields.purchaseDate', {
+                    defaultValue: 'Purchase Date',
+                  })}{' '}
+                  *
+                </Text>
                 <Input
                   type='date'
                   value={currentRecord.purchaseDate}
@@ -1559,7 +1867,12 @@ const ChinaProcurementReport: React.FC = () => {
             </Col>
             <Col xs={24} sm={12} md={8}>
               <div className='sparkery-procurement-field'>
-                <Text strong>Platform *</Text>
+                <Text strong>
+                  {t('sparkery.procurement.fields.platform', {
+                    defaultValue: 'Platform',
+                  })}{' '}
+                  *
+                </Text>
                 <Select
                   className='sparkery-procurement-full-width'
                   value={currentRecord.supplierPlatform || null}
@@ -1572,7 +1885,7 @@ const ChinaProcurementReport: React.FC = () => {
                 >
                   {PLATFORMS.map(p => (
                     <Option key={p.value} value={p.value}>
-                      {p.label}
+                      {platformLabel(p.value)}
                     </Option>
                   ))}
                 </Select>
@@ -1580,7 +1893,12 @@ const ChinaProcurementReport: React.FC = () => {
             </Col>
             <Col xs={24} sm={12} md={8}>
               <div className='sparkery-procurement-field'>
-                <Text strong>Category *</Text>
+                <Text strong>
+                  {t('sparkery.procurement.fields.category', {
+                    defaultValue: 'Category',
+                  })}{' '}
+                  *
+                </Text>
                 <Select
                   className='sparkery-procurement-full-width'
                   value={currentRecord.category || null}
@@ -1590,7 +1908,7 @@ const ChinaProcurementReport: React.FC = () => {
                 >
                   {CATEGORIES.map(c => (
                     <Option key={c.value} value={c.value}>
-                      {c.label}
+                      {categoryLabel(c.value)}
                     </Option>
                   ))}
                 </Select>
@@ -1601,9 +1919,19 @@ const ChinaProcurementReport: React.FC = () => {
           <Row gutter={16}>
             <Col xs={24} sm={12}>
               <div className='sparkery-procurement-field'>
-                <Text strong>Supplier Name *</Text>
+                <Text strong>
+                  {t('sparkery.procurement.fields.supplierName', {
+                    defaultValue: 'Supplier Name',
+                  })}{' '}
+                  *
+                </Text>
                 <Input
-                  placeholder='e.g., Shanghai Trading Co.'
+                  placeholder={t(
+                    'sparkery.procurement.placeholders.supplierName',
+                    {
+                      defaultValue: 'e.g., Shanghai Trading Co.',
+                    }
+                  )}
                   value={currentRecord.supplierName}
                   onChange={e =>
                     setCurrentRecord(prev => ({
@@ -1616,9 +1944,19 @@ const ChinaProcurementReport: React.FC = () => {
             </Col>
             <Col xs={24} sm={12}>
               <div className='sparkery-procurement-field'>
-                <Text strong>Product Name *</Text>
+                <Text strong>
+                  {t('sparkery.procurement.fields.productName', {
+                    defaultValue: 'Product Name',
+                  })}{' '}
+                  *
+                </Text>
                 <Input
-                  placeholder='e.g., Microfiber Cloths 1000pcs'
+                  placeholder={t(
+                    'sparkery.procurement.placeholders.productName',
+                    {
+                      defaultValue: 'e.g., Microfiber Cloths 1000pcs',
+                    }
+                  )}
                   value={currentRecord.productName}
                   onChange={e =>
                     setCurrentRecord(prev => ({
@@ -1634,7 +1972,12 @@ const ChinaProcurementReport: React.FC = () => {
           <Row gutter={16}>
             <Col xs={24} sm={8}>
               <div className='sparkery-procurement-field'>
-                <Text strong>Amount (CNY) *</Text>
+                <Text strong>
+                  {t('sparkery.procurement.fields.amountCny', {
+                    defaultValue: 'Amount (CNY)',
+                  })}{' '}
+                  *
+                </Text>
                 <InputNumber
                   className='sparkery-procurement-full-width'
                   min={0}
@@ -1652,7 +1995,11 @@ const ChinaProcurementReport: React.FC = () => {
             </Col>
             <Col xs={24} sm={8}>
               <div className='sparkery-procurement-field'>
-                <Text strong>Exchange Rate (CNY→AUD)</Text>
+                <Text strong>
+                  {t('sparkery.procurement.fields.exchangeRate', {
+                    defaultValue: 'Exchange Rate (CNY->AUD)',
+                  })}
+                </Text>
                 <InputNumber
                   className='sparkery-procurement-full-width'
                   step={0.01}
@@ -1671,7 +2018,9 @@ const ChinaProcurementReport: React.FC = () => {
             <Col xs={24} sm={8}>
               <div className='sparkery-procurement-field'>
                 <Text strong className='sparkery-procurement-aud-label'>
-                  Amount (AUD)
+                  {t('sparkery.procurement.fields.amountAud', {
+                    defaultValue: 'Amount (AUD)',
+                  })}
                 </Text>
                 <div className='sparkery-procurement-aud-amount'>
                   $
@@ -1684,10 +2033,16 @@ const ChinaProcurementReport: React.FC = () => {
           </Row>
 
           <div className='sparkery-procurement-field'>
-            <Text strong>Notes</Text>
+            <Text strong>
+              {t('sparkery.procurement.fields.notes', {
+                defaultValue: 'Notes',
+              })}
+            </Text>
             <TextArea
               rows={2}
-              placeholder='Additional notes...'
+              placeholder={t('sparkery.procurement.placeholders.notes', {
+                defaultValue: 'Additional notes...',
+              })}
               value={currentRecord.notes}
               onChange={e =>
                 setCurrentRecord(prev => ({ ...prev, notes: e.target.value }))
@@ -1699,7 +2054,11 @@ const ChinaProcurementReport: React.FC = () => {
         {/* Progress */}
         <Card size='small' className='sparkery-procurement-progress-card'>
           <div className='sparkery-procurement-progress-row'>
-            <Text strong>Documentation Progress</Text>
+            <Text strong>
+              {t('sparkery.procurement.cards.documentationProgress', {
+                defaultValue: 'Documentation Progress',
+              })}
+            </Text>
             <Text>{calculateProgress()}%</Text>
           </div>
           <Progress
@@ -1710,7 +2069,9 @@ const ChinaProcurementReport: React.FC = () => {
 
         {/* Purchase Items Table */}
         <Card
-          title='Purchase Details'
+          title={t('sparkery.procurement.cards.purchaseDetails', {
+            defaultValue: 'Purchase Details',
+          })}
           size='small'
           className='sparkery-procurement-purchase-card'
           extra={
@@ -1721,7 +2082,9 @@ const ChinaProcurementReport: React.FC = () => {
                 icon={<PlusOutlined />}
                 onClick={addPurchaseItem}
               >
-                Add Item
+                {t('sparkery.procurement.actions.addItem', {
+                  defaultValue: 'Add Item',
+                })}
               </Button>
             </Space>
           }
@@ -1734,16 +2097,24 @@ const ChinaProcurementReport: React.FC = () => {
                     #
                   </th>
                   <th className='sparkery-procurement-th sparkery-procurement-th-name'>
-                    Product Name
+                    {t('sparkery.procurement.table.productName', {
+                      defaultValue: 'Product Name',
+                    })}
                   </th>
                   <th className='sparkery-procurement-th sparkery-procurement-th-price'>
-                    Unit Price (CNY)
+                    {t('sparkery.procurement.table.unitPriceCny', {
+                      defaultValue: 'Unit Price (CNY)',
+                    })}
                   </th>
                   <th className='sparkery-procurement-th sparkery-procurement-th-qty'>
-                    Quantity
+                    {t('sparkery.procurement.table.quantity', {
+                      defaultValue: 'Quantity',
+                    })}
                   </th>
                   <th className='sparkery-procurement-th sparkery-procurement-th-subtotal'>
-                    Subtotal (CNY)
+                    {t('sparkery.procurement.table.subtotalCny', {
+                      defaultValue: 'Subtotal (CNY)',
+                    })}
                   </th>
                   <th className='sparkery-procurement-th sparkery-procurement-th-actions'></th>
                 </tr>
@@ -1754,7 +2125,12 @@ const ChinaProcurementReport: React.FC = () => {
                     <td className='sparkery-procurement-td'>{index + 1}</td>
                     <td className='sparkery-procurement-td'>
                       <Input
-                        placeholder='Enter product name'
+                        placeholder={t(
+                          'sparkery.procurement.placeholders.enterProductName',
+                          {
+                            defaultValue: 'Enter product name',
+                          }
+                        )}
                         value={item.productName}
                         onChange={e =>
                           updatePurchaseItem(
@@ -1831,14 +2207,20 @@ const ChinaProcurementReport: React.FC = () => {
                     onChange={e => setGstEnabled(e.target.checked)}
                     className='sparkery-procurement-gst-checkbox'
                   />
-                  Enable GST (10%)
+                  {t('sparkery.procurement.labels.enableGst', {
+                    defaultValue: 'Enable GST (10%)',
+                  })}
                 </label>
               </Space>
             </Col>
             <Col xs={24} sm={12}>
               <div className='sparkery-procurement-summary'>
                 <div className='sparkery-procurement-summary-row'>
-                  <Text type='secondary'>Subtotal (excl. GST): </Text>
+                  <Text type='secondary'>
+                    {t('sparkery.procurement.labels.subtotalExclGst', {
+                      defaultValue: 'Subtotal (excl. GST):',
+                    })}{' '}
+                  </Text>
                   <Text strong className='sparkery-procurement-summary-value'>
                     CNY{' '}
                     {calculateTotalSubtotal().toLocaleString(undefined, {
@@ -1848,7 +2230,11 @@ const ChinaProcurementReport: React.FC = () => {
                 </div>
                 {gstEnabled && (
                   <div className='sparkery-procurement-summary-row'>
-                    <Text type='secondary'>GST (10%): </Text>
+                    <Text type='secondary'>
+                      {t('sparkery.procurement.labels.gst10', {
+                        defaultValue: 'GST (10%):',
+                      })}{' '}
+                    </Text>
                     <Text className='sparkery-procurement-summary-value'>
                       CNY{' '}
                       {calculateGstAmount().toLocaleString(undefined, {
@@ -1859,7 +2245,9 @@ const ChinaProcurementReport: React.FC = () => {
                 )}
                 <div className='sparkery-procurement-summary-row'>
                   <Text strong className='sparkery-procurement-total-label'>
-                    Total:{' '}
+                    {t('sparkery.procurement.labels.total', {
+                      defaultValue: 'Total:',
+                    })}{' '}
                   </Text>
                   <Text strong className='sparkery-procurement-total-value'>
                     CNY{' '}
@@ -1869,7 +2257,9 @@ const ChinaProcurementReport: React.FC = () => {
                   </Text>
                 </div>
                 <Button type='primary' size='small' onClick={syncTotalToAmount}>
-                  Sync to Amount Field
+                  {t('sparkery.procurement.actions.syncToAmountField', {
+                    defaultValue: 'Sync to Amount Field',
+                  })}
                 </Button>
               </div>
             </Col>
@@ -1877,7 +2267,13 @@ const ChinaProcurementReport: React.FC = () => {
         </Card>
 
         {/* Documentation Sections */}
-        <Card title='Documentation Sections (9 Parts)' size='small'>
+        <Card
+          title={t('sparkery.procurement.cards.documentationSections', {
+            defaultValue: 'Documentation Sections ({{count}} Parts)',
+            count: currentRecord.sections?.length || DEFAULT_SECTIONS.length,
+          })}
+          size='small'
+        >
           <Row gutter={[16, 16]}>
             {currentRecord.sections?.map((section, index) => (
               <Col span={8} key={section.id}>
@@ -1886,7 +2282,7 @@ const ChinaProcurementReport: React.FC = () => {
                   title={
                     <div className='sparkery-procurement-section-title-row'>
                       <span>
-                        {index + 1}. {section.title}
+                        {index + 1}. {sectionTitle(section.id)}
                         {section.required && (
                           <Text
                             type='danger'
@@ -1899,19 +2295,27 @@ const ChinaProcurementReport: React.FC = () => {
                       <Tag
                         color={section.images.length > 0 ? 'green' : 'default'}
                       >
-                        {section.images.length} images
+                        {t('sparkery.procurement.labels.imageCount', {
+                          defaultValue: '{{count}} images',
+                          count: section.images.length,
+                        })}
                       </Tag>
                     </div>
                   }
                 >
                   <div className='sparkery-procurement-section-desc'>
-                    <Text type='secondary'>{section.description}</Text>
+                    <Text type='secondary'>
+                      {sectionDescription(section.id)}
+                    </Text>
                     <br />
                     <Text
                       type='secondary'
                       className='sparkery-procurement-folder-note'
                     >
-                      Folder: {section.folderName}/
+                      {t('sparkery.procurement.labels.folder', {
+                        defaultValue: 'Folder',
+                      })}
+                      : {section.folderName}/
                     </Text>
                   </div>
 
@@ -1928,10 +2332,14 @@ const ChinaProcurementReport: React.FC = () => {
                       <UploadOutlined />
                     </p>
                     <p className='ant-upload-text'>
-                      Click or drag images to upload
+                      {t('sparkery.procurement.upload.clickOrDrag', {
+                        defaultValue: 'Click or drag images to upload',
+                      })}
                     </p>
                     <p className='ant-upload-hint'>
-                      Support for multiple image files
+                      {t('sparkery.procurement.upload.supportMultiple', {
+                        defaultValue: 'Support for multiple image files',
+                      })}
                     </p>
                   </Upload.Dragger>
 
@@ -1949,7 +2357,12 @@ const ChinaProcurementReport: React.FC = () => {
                               />
                               <Input
                                 size='small'
-                                placeholder='Description'
+                                placeholder={t(
+                                  'sparkery.procurement.placeholders.imageDescription',
+                                  {
+                                    defaultValue: 'Description',
+                                  }
+                                )}
                                 value={img.description}
                                 onChange={e =>
                                   handleImageDescriptionChange(
@@ -1970,7 +2383,9 @@ const ChinaProcurementReport: React.FC = () => {
                                   handleDeleteImage(section.id, img.id)
                                 }
                               >
-                                Delete
+                                {t('sparkery.procurement.actions.delete', {
+                                  defaultValue: 'Delete',
+                                })}
                               </Button>
                             </div>
                           </Col>
@@ -1979,7 +2394,7 @@ const ChinaProcurementReport: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Platform Orders 识别按钮：上传图片后显示 */}
+                  {/* Show recognize button after platform order images are uploaded */}
                   {section.id === 'platform-orders' &&
                     section.images.length > 0 && (
                       <Button
@@ -1990,8 +2405,14 @@ const ChinaProcurementReport: React.FC = () => {
                         className='sparkery-procurement-recognize-btn'
                       >
                         {recognizing
-                          ? '正在识别...'
-                          : `识别订单 / Recognize Orders (${section.images.length} images)`}
+                          ? t('sparkery.procurement.actions.recognizing', {
+                              defaultValue: 'Recognizing...',
+                            })
+                          : t('sparkery.procurement.actions.recognizeOrders', {
+                              defaultValue:
+                                'Recognize Orders ({{count}} images)',
+                              count: section.images.length,
+                            })}
                       </Button>
                     )}
                 </Card>
@@ -2003,7 +2424,12 @@ const ChinaProcurementReport: React.FC = () => {
         {/* Actions */}
         <Card size='small' className='sparkery-procurement-actions-card'>
           <Space wrap>
-            <Tooltip title='Professional HTML template with one-image-per-page layout, optimized for browser printing'>
+            <Tooltip
+              title={t('sparkery.procurement.tooltips.htmlTemplate', {
+                defaultValue:
+                  'Professional HTML template with one-image-per-page layout, optimized for browser printing',
+              })}
+            >
               <Button
                 type='primary'
                 size='large'
@@ -2012,17 +2438,26 @@ const ChinaProcurementReport: React.FC = () => {
                 loading={pdfGenerating}
                 className='sparkery-procurement-primary-action'
               >
-                Generate PDF (HTML Template)
+                {t('sparkery.procurement.actions.generatePdfHtml', {
+                  defaultValue: 'Generate PDF (HTML Template)',
+                })}
               </Button>
             </Tooltip>
-            <Tooltip title='Legacy jsPDF generation - basic layout with multiple images per page'>
+            <Tooltip
+              title={t('sparkery.procurement.tooltips.legacyPdf', {
+                defaultValue:
+                  'Legacy jsPDF generation - basic layout with multiple images per page',
+              })}
+            >
               <Button
                 size='large'
                 icon={<FilePdfOutlined />}
                 onClick={handleGeneratePDFReport}
                 loading={pdfGenerating}
               >
-                Generate PDF (Legacy)
+                {t('sparkery.procurement.actions.generatePdfLegacy', {
+                  defaultValue: 'Generate PDF (Legacy)',
+                })}
               </Button>
             </Tooltip>
             <Button
@@ -2048,14 +2483,17 @@ const ChinaProcurementReport: React.FC = () => {
                     ),
                     exchangeRate: currentRecord.exchangeRate || 0.21,
                     notes: currentRecord.notes || '',
-                    sections:
-                      currentRecord.sections ||
-                      DEFAULT_SECTIONS.map(s => ({ ...s, images: [] })),
+                    sections: resolveSectionsWithLocale(currentRecord.sections),
                     createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss'),
                   } as PurchaseRecord;
                   const structure = generateFolderStructure(record);
                   Modal.info({
-                    title: 'Recommended Folder Structure',
+                    title: t(
+                      'sparkery.procurement.modal.recommendedFolderTitle',
+                      {
+                        defaultValue: 'Recommended Folder Structure',
+                      }
+                    ),
                     content: (
                       <pre className='sparkery-procurement-folder-structure-pre'>
                         {structure}
@@ -2064,11 +2502,17 @@ const ChinaProcurementReport: React.FC = () => {
                     width: 600,
                   });
                 } else {
-                  messageApi.warning('Please enter product name first');
+                  messageApi.warning(
+                    t('sparkery.procurement.messages.enterProductNameFirst', {
+                      defaultValue: 'Please enter product name first',
+                    })
+                  );
                 }
               }}
             >
-              View Folder Structure
+              {t('sparkery.procurement.actions.viewFolderStructure', {
+                defaultValue: 'View Folder Structure',
+              })}
             </Button>
           </Space>
         </Card>
@@ -2076,40 +2520,70 @@ const ChinaProcurementReport: React.FC = () => {
 
       {/* Instructions */}
       <Alert
-        message='ATO Documentation Requirements'
+        message={t('sparkery.procurement.instructions.title', {
+          defaultValue: 'ATO Documentation Requirements',
+        })}
         description={
           <div>
             <p>
-              <strong>Required Sections (must have images):</strong>
+              <strong>
+                {t('sparkery.procurement.instructions.requiredSectionsTitle', {
+                  defaultValue: 'Required Sections (must have images):',
+                })}
+              </strong>
             </p>
             <ul>
-              <li>Purchase Summary (Cover)</li>
-              <li>Platform Orders</li>
-              <li>Payment Receipts</li>
-              <li>Delivery Photos</li>
-              <li>Exchange Rate Proof</li>
+              <li>{sectionTitle('purchase-summary')}</li>
+              <li>{sectionTitle('platform-orders')}</li>
+              <li>{sectionTitle('payment-receipts')}</li>
+              <li>{sectionTitle('delivery')}</li>
+              <li>{sectionTitle('exchange-rates')}</li>
             </ul>
             <p>
-              <strong>PDF Generation Options:</strong>
+              <strong>
+                {t('sparkery.procurement.instructions.pdfOptionsTitle', {
+                  defaultValue: 'PDF Generation Options:',
+                })}
+              </strong>
             </p>
             <ul>
               <li>
-                <strong>HTML Template (Recommended):</strong> Professional
-                layout with one image per page, fixed header/footer, and
-                responsive image sizing. Opens in a new window for browser
-                printing.
+                <strong>
+                  {t('sparkery.procurement.instructions.htmlTemplateTitle', {
+                    defaultValue: 'HTML Template (Recommended):',
+                  })}
+                </strong>{' '}
+                {t('sparkery.procurement.instructions.htmlTemplateDesc', {
+                  defaultValue:
+                    'Professional layout with one image per page, fixed header/footer, and responsive image sizing. Opens in a new window for browser printing.',
+                })}
               </li>
               <li>
-                <strong>Legacy Mode:</strong> Basic jsPDF generation with
-                multiple images per page.
+                <strong>
+                  {t('sparkery.procurement.instructions.legacyModeTitle', {
+                    defaultValue: 'Legacy Mode:',
+                  })}
+                </strong>{' '}
+                {t('sparkery.procurement.instructions.legacyModeDesc', {
+                  defaultValue:
+                    'Basic jsPDF generation with multiple images per page.',
+                })}
               </li>
             </ul>
             <p>
-              <strong>PDF Output:</strong>{' '}
+              <strong>
+                {t('sparkery.procurement.instructions.pdfOutputTitle', {
+                  defaultValue: 'PDF Output:',
+                })}
+              </strong>{' '}
               CN_Purchase_YYYYMMDD_Complete_Package.pdf
             </p>
             <p>
-              <strong>File Naming:</strong>{' '}
+              <strong>
+                {t('sparkery.procurement.instructions.fileNamingTitle', {
+                  defaultValue: 'File Naming:',
+                })}
+              </strong>{' '}
               [Type]_[Date]_[Description]_[Version].pdf
             </p>
           </div>

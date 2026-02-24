@@ -23,6 +23,7 @@ import type {
   DispatchEmployee,
   DispatchEmployeeLocation,
 } from './dispatch/types';
+import { useTranslation } from 'react-i18next';
 import './sparkery.css';
 
 const { Title, Text } = Typography;
@@ -36,6 +37,7 @@ interface ManualLocationFormValues {
 }
 
 const DispatchLocationReport: React.FC = () => {
+  const { t } = useTranslation();
   const [messageApi, contextHolder] = message.useMessage();
   const [employees, setEmployees] = useState<DispatchEmployee[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
@@ -70,7 +72,9 @@ const DispatchLocationReport: React.FC = () => {
       })
       .catch(() => {
         if (!cancelled) {
-          messageApi.error('Failed to load employees');
+          messageApi.error(
+            t('sparkery.dispatch.locationReport.messages.loadEmployeesFailed')
+          );
         }
       })
       .finally(() => {
@@ -81,15 +85,19 @@ const DispatchLocationReport: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [messageApi, queryEmployeeId]);
+  }, [messageApi, queryEmployeeId, t]);
 
   const reportCurrentLocation = () => {
     if (!selectedEmployeeId) {
-      messageApi.warning('Please select employee first');
+      messageApi.warning(
+        t('sparkery.dispatch.locationReport.messages.selectEmployeeFirst')
+      );
       return;
     }
     if (!navigator.geolocation) {
-      messageApi.error('Current device does not support geolocation');
+      messageApi.error(
+        t('sparkery.dispatch.locationReport.messages.geolocationUnsupported')
+      );
       return;
     }
 
@@ -107,16 +115,24 @@ const DispatchLocationReport: React.FC = () => {
             }
           );
           setLastReport(location);
-          messageApi.success('Location reported successfully');
+          messageApi.success(
+            t('sparkery.dispatch.locationReport.messages.locationReported')
+          );
         } catch {
-          messageApi.error('Failed to report location');
+          messageApi.error(
+            t('sparkery.dispatch.locationReport.messages.locationReportFailed')
+          );
         } finally {
           setReporting(false);
         }
       },
       error => {
         setReporting(false);
-        messageApi.error(`Location unavailable: ${error.message}`);
+        messageApi.error(
+          t('sparkery.dispatch.locationReport.messages.locationUnavailable', {
+            reason: error.message,
+          })
+        );
       },
       {
         enableHighAccuracy: true,
@@ -128,17 +144,22 @@ const DispatchLocationReport: React.FC = () => {
 
   const resolveManualLabel = (values: ManualLocationFormValues): string => {
     if (values.placeType === 'home') {
-      return 'Home';
+      return t('sparkery.dispatch.locationReport.manual.placeType.home');
     }
     if (values.placeType === 'departure') {
-      return 'Today Departure';
+      return t('sparkery.dispatch.locationReport.manual.placeType.departure');
     }
-    return values.customLabel?.trim() || 'Manual Location';
+    return (
+      values.customLabel?.trim() ||
+      t('sparkery.dispatch.locationReport.manual.placeType.manualFallback')
+    );
   };
 
   const reportManualLocation = async (values: ManualLocationFormValues) => {
     if (!selectedEmployeeId) {
-      messageApi.warning('Please select employee first');
+      messageApi.warning(
+        t('sparkery.dispatch.locationReport.messages.selectEmployeeFirst')
+      );
       return;
     }
 
@@ -155,18 +176,26 @@ const DispatchLocationReport: React.FC = () => {
       ) {
         const address = values.address?.trim();
         if (!address) {
-          messageApi.warning('Please input address or latitude/longitude');
+          messageApi.warning(
+            t(
+              'sparkery.dispatch.locationReport.messages.inputAddressOrCoordinates'
+            )
+          );
           return;
         }
         if (!isGoogleMapsConfigured()) {
           messageApi.error(
-            'Google Maps not configured. Please enter latitude and longitude.'
+            t(
+              'sparkery.dispatch.locationReport.messages.googleMapsNotConfigured'
+            )
           );
           return;
         }
         const geocoded = await geocodeAddress(address);
         if (!geocoded) {
-          messageApi.error('Address geocoding failed. Please refine address.');
+          messageApi.error(
+            t('sparkery.dispatch.locationReport.messages.addressGeocodeFailed')
+          );
           return;
         }
         lat = geocoded.lat;
@@ -187,9 +216,15 @@ const DispatchLocationReport: React.FC = () => {
         }
       );
       setLastReport(location);
-      messageApi.success('Manual location reported successfully');
+      messageApi.success(
+        t('sparkery.dispatch.locationReport.messages.manualLocationReported')
+      );
     } catch {
-      messageApi.error('Failed to report manual location');
+      messageApi.error(
+        t(
+          'sparkery.dispatch.locationReport.messages.manualLocationReportFailed'
+        )
+      );
     } finally {
       setManualReporting(false);
     }
@@ -206,29 +241,35 @@ const DispatchLocationReport: React.FC = () => {
         >
           <Title level={4} className='dispatch-location-report-title'>
             <EnvironmentOutlined className='dispatch-location-report-title-icon' />
-            Dispatch Location Report
+            {t('sparkery.dispatch.locationReport.title')}
           </Title>
           <Text type='secondary'>
-            Employee check-in / departure location reporting page
+            {t('sparkery.dispatch.locationReport.subtitle')}
           </Text>
           <Space size={[6, 6]} wrap className='dispatch-location-report-tags'>
             <Tag className='dispatch-location-report-tag'>
-              Employees: {employees.length}
+              {t('sparkery.dispatch.locationReport.tags.employees', {
+                count: employees.length,
+              })}
             </Tag>
             <Tag className='dispatch-location-report-tag dispatch-location-report-tag-selected'>
-              Selected: {selectedEmployeeId || 'None'}
+              {t('sparkery.dispatch.locationReport.tags.selected', {
+                value:
+                  selectedEmployeeId ||
+                  t('sparkery.dispatch.locationReport.tags.none'),
+              })}
             </Tag>
           </Space>
           <Alert
             type='info'
             showIcon
             className='dispatch-location-report-alert dispatch-location-report-alert-info'
-            message='Open this page on mobile or WeChat, choose your name, then tap "Report Current Location".'
+            message={t('sparkery.dispatch.locationReport.mobileHint')}
           />
           <Select
             className='dispatch-location-report-select'
             loading={loadingEmployees}
-            placeholder='Select employee'
+            placeholder={t('sparkery.dispatch.locationReport.selectEmployee')}
             value={selectedEmployeeId}
             onChange={setSelectedEmployeeId}
             options={employees.map(employee => ({
@@ -243,11 +284,11 @@ const DispatchLocationReport: React.FC = () => {
             loading={reporting}
             onClick={reportCurrentLocation}
           >
-            Report Current Location
+            {t('sparkery.dispatch.locationReport.actions.reportCurrent')}
           </Button>
           <Divider className='dispatch-location-report-divider-compact' />
           <Text strong className='dispatch-location-report-manual-title'>
-            Manual Location (Address / Departure Point)
+            {t('sparkery.dispatch.locationReport.manual.title')}
           </Text>
           <Form
             form={manualForm}
@@ -257,42 +298,72 @@ const DispatchLocationReport: React.FC = () => {
             onFinish={reportManualLocation}
           >
             <Form.Item
-              label='Location Type'
+              label={t('sparkery.dispatch.locationReport.manual.locationType')}
               name='placeType'
               rules={[{ required: true }]}
             >
               <Select>
-                <Select.Option value='home'>Home Address</Select.Option>
-                <Select.Option value='departure'>Today Departure</Select.Option>
-                <Select.Option value='custom'>Custom Label</Select.Option>
+                <Select.Option value='home'>
+                  {t('sparkery.dispatch.locationReport.manual.homeAddress')}
+                </Select.Option>
+                <Select.Option value='departure'>
+                  {t('sparkery.dispatch.locationReport.manual.todayDeparture')}
+                </Select.Option>
+                <Select.Option value='custom'>
+                  {t(
+                    'sparkery.dispatch.locationReport.manual.customLabelOption'
+                  )}
+                </Select.Option>
               </Select>
             </Form.Item>
             {manualPlaceType === 'custom' && (
               <Form.Item
-                label='Custom Label'
+                label={t('sparkery.dispatch.locationReport.manual.customLabel')}
                 name='customLabel'
                 rules={[
-                  { required: true, message: 'Please enter custom label' },
+                  {
+                    required: true,
+                    message: t(
+                      'sparkery.dispatch.locationReport.messages.enterCustomLabel'
+                    ),
+                  },
                 ]}
               >
-                <Input placeholder='e.g. Temporary Start Point' />
+                <Input
+                  placeholder={t(
+                    'sparkery.dispatch.locationReport.manual.customLabelPlaceholder'
+                  )}
+                />
               </Form.Item>
             )}
-            <Form.Item label='Address' name='address'>
-              <Input placeholder='Home address or today departure address' />
+            <Form.Item
+              label={t('sparkery.dispatch.locationReport.manual.address')}
+              name='address'
+            >
+              <Input
+                placeholder={t(
+                  'sparkery.dispatch.locationReport.manual.addressPlaceholder'
+                )}
+              />
             </Form.Item>
             <Text type='secondary' className='dispatch-location-report-tip'>
-              If address fails geocoding, fill coordinates directly.
+              {t('sparkery.dispatch.locationReport.manual.geocodeTip')}
             </Text>
             <div className='dispatch-location-grid'>
-              <Form.Item label='Latitude' name='lat'>
+              <Form.Item
+                label={t('sparkery.dispatch.locationReport.manual.latitude')}
+                name='lat'
+              >
                 <InputNumber
                   className='dispatch-form-number-full-width'
                   placeholder='-27.4705'
                   step={0.000001}
                 />
               </Form.Item>
-              <Form.Item label='Longitude' name='lng'>
+              <Form.Item
+                label={t('sparkery.dispatch.locationReport.manual.longitude')}
+                name='lng'
+              >
                 <InputNumber
                   className='dispatch-form-number-full-width'
                   placeholder='153.0260'
@@ -307,7 +378,7 @@ const DispatchLocationReport: React.FC = () => {
               className='dispatch-location-report-btn'
               loading={manualReporting}
             >
-              Report Manual Location
+              {t('sparkery.dispatch.locationReport.actions.reportManual')}
             </Button>
           </Form>
           {lastReport && (
@@ -315,8 +386,13 @@ const DispatchLocationReport: React.FC = () => {
               type='success'
               showIcon
               className='dispatch-location-report-alert dispatch-location-report-alert-success'
-              message={`Last report: ${lastReport.lat.toFixed(6)}, ${lastReport.lng.toFixed(6)}`}
-              description={`Updated at ${new Date(lastReport.updatedAt).toLocaleString()}`}
+              message={t('sparkery.dispatch.locationReport.lastReport', {
+                lat: lastReport.lat.toFixed(6),
+                lng: lastReport.lng.toFixed(6),
+              })}
+              description={t('sparkery.dispatch.locationReport.lastUpdatedAt', {
+                datetime: new Date(lastReport.updatedAt).toLocaleString(),
+              })}
             />
           )}
         </Space>

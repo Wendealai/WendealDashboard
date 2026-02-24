@@ -3,8 +3,8 @@
  * Handles iframe integration with Twenty CRM platform
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { Spin, Alert, Result, Button, Skeleton, Space, Tooltip } from 'antd';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { Spin, Alert, Result, Button, Skeleton, Space } from 'antd';
 import {
   ReloadOutlined,
   ExportOutlined,
@@ -37,6 +37,14 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [showOpenExternalHint, setShowOpenExternalHint] = useState(false);
 
+  const crmOrigin = useMemo(() => {
+    try {
+      return new URL(src, window.location.origin).origin;
+    } catch {
+      return '';
+    }
+  }, [src]);
+
   /**
    * Handle iframe load success
    */
@@ -45,21 +53,8 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
     setShowSkeleton(false);
     setError(null);
 
-    // Dispatch performance event
     window.dispatchEvent(new CustomEvent('crm-iframe-loaded'));
-
     console.log('CRM iframe loaded successfully');
-
-    // 监听 iframe 内的消息（用于调试登录问题）
-    const handleMessage = (event: MessageEvent) => {
-      // 只接受来自 CRM 域的消息
-      if (event.origin.includes('wendealai.com.au')) {
-        console.log('CRM message received:', event.data);
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
-    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   /**
@@ -71,19 +66,23 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
     setError(t('crm.errors.loadFailed', 'Failed to load CRM system'));
     setShowOpenExternalHint(true);
 
-    // Dispatch error event for monitoring
     window.dispatchEvent(new CustomEvent('crm-error'));
 
     console.error(
-      'CRM iframe failed to load - This may be due to X-Frame-Options blocking iframe embedding'
+      'CRM iframe failed to load - This may be due to X-Frame-Options/CSP or third-party cookie restrictions'
     );
   }, [t]);
 
   /**
-   * 在新窗口打开 CRM
+   * Open CRM in a new tab
    */
   const handleOpenExternal = useCallback(() => {
-    window.open(src, '_blank', 'noopener,noreferrer');
+    try {
+      const externalUrl = new URL(src, window.location.origin).toString();
+      window.open(externalUrl, '_blank', 'noopener,noreferrer');
+    } catch {
+      window.open(src, '_blank', 'noopener,noreferrer');
+    }
   }, [src]);
 
   /**
@@ -95,10 +94,8 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
     setError(null);
     setRetryCount(prev => prev + 1);
 
-    // Dispatch retry event for monitoring
     window.dispatchEvent(new CustomEvent('crm-retry'));
 
-    // Force reload by updating the key
     const iframe = document.querySelector('.crm-iframe') as HTMLIFrameElement;
     if (iframe) {
       iframe.src = src;
@@ -106,18 +103,18 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
   }, [src]);
 
   // Security sandbox attributes for iframe
-  // Twenty CRM 需要这些权限才能正常登录和运行
   const sandboxAttributes = [
-    'allow-same-origin', // Allow same-origin requests (必需：访问 cookies 和 localStorage)
-    'allow-scripts', // Allow JavaScript execution (必需：运行 Twenty CRM)
-    'allow-forms', // Allow form submission (必需：登录表单)
-    'allow-popups', // Allow popup windows (可能需要：OAuth 登录、文件预览等)
-    'allow-popups-to-escape-sandbox', // Allow popups to escape sandbox (OAuth 认证窗口)
-    'allow-modals', // Allow modals (必需：登录对话框、确认框等)
-    'allow-storage-access-by-user-activation', // Allow storage access (必需：保持登录状态)
-    'allow-downloads', // Allow downloads (可能需要：导出文件)
-    'allow-top-navigation', // Allow top navigation (登录重定向可能需要)
-    'allow-presentation', // Allow presentation mode
+    'allow-same-origin',
+    'allow-scripts',
+    'allow-forms',
+    'allow-popups',
+    'allow-popups-to-escape-sandbox',
+    'allow-modals',
+    'allow-storage-access-by-user-activation',
+    'allow-downloads',
+    'allow-top-navigation',
+    'allow-top-navigation-by-user-activation',
+    'allow-presentation',
   ].join(' ');
 
   // Dispatch load start event for performance monitoring
@@ -125,16 +122,29 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
     window.dispatchEvent(new CustomEvent('crm-iframe-load-start'));
   }, []);
 
+  // Optional cross-window debug logging for same CRM origin messages
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (!crmOrigin || event.origin !== crmOrigin) return;
+      console.log('CRM message received:', event.data);
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [crmOrigin]);
+
   return (
     <div className={`crm-container ${className}`}>
-      {/* 顶部提示栏：如果登录有问题，建议在新窗口打开 */}
       {!loading && !error && (
         <Alert
           message={
             <Space>
               <InfoCircleOutlined />
               <span>
-                如果登录遇到问题，请点击右侧按钮在新窗口打开 Twenty CRM
+                {t(
+                  'crm.loginHint',
+                  'If login is blocked in iframe, open Twenty CRM in a new tab.'
+                )}
               </span>
             </Space>
           }
@@ -148,14 +158,13 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
               icon={<ExportOutlined />}
               onClick={handleOpenExternal}
             >
-              在新窗口打开
+              {t('crm.openExternal', 'Open in new tab')}
             </Button>
           }
           style={{ marginBottom: '8px' }}
         />
       )}
 
-      {/* Loading State */}
       {loading && (
         <div className='crm-loading'>
           {showSkeleton ? (
@@ -183,7 +192,6 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
         </div>
       )}
 
-      {/* Error State */}
       {error && !loading && (
         <div className='crm-error'>
           <Result
@@ -194,10 +202,10 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
                 <p>{error}</p>
                 {showOpenExternalHint && (
                   <p style={{ marginTop: '8px', color: '#666' }}>
-                    如果 iframe 无法加载，这可能是因为 Twenty CRM
-                    的安全设置阻止了嵌入。
-                    <br />
-                    您可以点击下方按钮在新窗口中打开 CRM。
+                    {t(
+                      'crm.errors.iframeBlockedHint',
+                      'Embedding may be blocked by security settings or third-party cookie policies. Please open CRM in a new tab.'
+                    )}
                   </p>
                 )}
               </div>
@@ -221,7 +229,7 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
                   onClick={handleOpenExternal}
                   style={{ marginLeft: '8px' }}
                 >
-                  在新窗口打开 CRM
+                  {t('crm.openExternal', 'Open in new tab')}
                 </Button>
               ),
             ]}
@@ -229,10 +237,9 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
         </div>
       )}
 
-      {/* CRM Iframe */}
       {!error && (
         <iframe
-          key={retryCount} // Force re-render on retry
+          key={retryCount}
           src={src}
           title={title}
           className='crm-iframe'
@@ -247,12 +254,8 @@ const CRMContainer: React.FC<CRMContainerProps> = ({
             display: loading ? 'none' : 'block',
           }}
           allow='clipboard-read; clipboard-write; storage-access'
-          // @ts-expect-error credentialless is a valid HTML attribute but not yet in React types
-          credentialless='false'
         />
       )}
-
-      {/* Development mode indicator removed as requested */}
     </div>
   );
 };

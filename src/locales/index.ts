@@ -1,22 +1,48 @@
-import i18n from 'i18next';
+import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
-// Import language resources
 import zhCN from './zh-CN';
 import enUS from './en-US';
+import zhCNSparkeryOverrides from './zh-CN.sparkery-overrides';
 
-// Language resource configuration
+const i18n = i18next;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const mergeDeep = (
+  target: Record<string, unknown>,
+  source: Record<string, unknown>
+): Record<string, unknown> => {
+  const output: Record<string, unknown> = { ...target };
+
+  Object.entries(source).forEach(([key, value]) => {
+    const current = output[key];
+    if (isRecord(current) && isRecord(value)) {
+      output[key] = mergeDeep(current, value);
+      return;
+    }
+    output[key] = value;
+  });
+
+  return output;
+};
+
+const zhCNTranslation = mergeDeep(
+  zhCN as Record<string, unknown>,
+  zhCNSparkeryOverrides as Record<string, unknown>
+);
+
 const resources = {
   'zh-CN': {
-    translation: zhCN,
+    translation: zhCNTranslation,
   },
   'en-US': {
     translation: enUS,
   },
 };
 
-// Supported languages list
 export const supportedLanguages = [
   {
     key: 'zh-CN',
@@ -30,9 +56,7 @@ export const supportedLanguages = [
   },
 ];
 
-// Get default language
 const getDefaultLanguage = (): string => {
-  // Get from localStorage first
   const savedLanguage = localStorage.getItem('wendeal-dashboard-language');
   if (
     savedLanguage &&
@@ -41,11 +65,9 @@ const getDefaultLanguage = (): string => {
     return savedLanguage;
   }
 
-  // Default to English
   return 'en-US';
 };
 
-// Initialize i18n
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -54,28 +76,23 @@ i18n
     lng: getDefaultLanguage(),
     fallbackLng: 'en-US',
     debug: process.env.NODE_ENV === 'development',
-
     interpolation: {
-      escapeValue: false, // React already escapes by default
+      escapeValue: false,
     },
-
     detection: {
       order: ['localStorage', 'navigator', 'htmlTag'],
       caches: ['localStorage'],
       lookupLocalStorage: 'wendeal-dashboard-language',
     },
-
     react: {
       useSuspense: false,
     },
   });
 
-// Language switching function
 export const changeLanguage = (language: string) => {
   i18n.changeLanguage(language);
   localStorage.setItem('wendeal-dashboard-language', language);
 
-  // Trigger custom event to notify other components that language has changed
   window.dispatchEvent(
     new CustomEvent('languageChanged', {
       detail: { language },
@@ -83,10 +100,8 @@ export const changeLanguage = (language: string) => {
   );
 };
 
-// Get current language
 export const getCurrentLanguage = () => i18n.language;
 
-// Get current language info
 export const getCurrentLanguageInfo = () => {
   const currentLang = getCurrentLanguage();
   return (

@@ -26,6 +26,7 @@ import {
   loadGoogleMapsSdk,
   type GeoPoint,
 } from '@/services/googleMapsService';
+import { useTranslation } from 'react-i18next';
 
 const { Text } = Typography;
 
@@ -156,6 +157,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
   weekStart,
   onAssignJobsToEmployee,
 }) => {
+  const { t } = useTranslation();
   const [messageApi, contextHolder] = message.useMessage();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any | null>(null);
@@ -277,7 +279,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
   useEffect(() => {
     if (!isGoogleMapsConfigured()) {
       setMapError(
-        'Google Maps API key is missing. Please configure VITE_GOOGLE_MAPS_API_KEY.'
+        t('sparkery.dispatch.mapPlanner.errors.googleMapsApiKeyMissing')
       );
       return;
     }
@@ -298,7 +300,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
         };
         const maps = runtime.google?.maps;
         if (!maps) {
-          setMapError('Google Maps SDK loaded but maps object is unavailable.');
+          setMapError(
+            t('sparkery.dispatch.mapPlanner.errors.googleMapsObjectUnavailable')
+          );
           return;
         }
 
@@ -313,14 +317,16 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
       })
       .catch(error => {
         setMapError(
-          error instanceof Error ? error.message : 'Failed to initialize map.'
+          error instanceof Error
+            ? error.message
+            : t('sparkery.dispatch.mapPlanner.errors.initializeMapFailed')
         );
       });
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const validJobIds = new Set(scopedExecutableJobs.map(job => job.id));
@@ -434,7 +440,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
     run()
       .catch(() => {
         setMapError(
-          'Failed to geocode addresses. Please verify Google Maps setup and customer addresses.'
+          t('sparkery.dispatch.mapPlanner.errors.geocodeAddressesFailed')
         );
       })
       .finally(() => {
@@ -446,7 +452,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [geocodeRetryVersion, jobCoords, mapReady, scopedExecutableJobs]);
+  }, [geocodeRetryVersion, jobCoords, mapReady, scopedExecutableJobs, t]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) {
@@ -498,10 +504,10 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
         const html = `
           <div class="dispatch-map-infowindow">
             <div class="dispatch-map-infowindow-title">${escapeHtml(job.title)}</div>
-            <div><strong>Customer:</strong> ${escapeHtml(job.customerName || 'N/A')}</div>
-            <div><strong>Time:</strong> ${escapeHtml(job.scheduledStartTime)} - ${escapeHtml(job.scheduledEndTime)}</div>
-            <div><strong>Type:</strong> ${escapeHtml(job.serviceType)}</div>
-            <div class="dispatch-map-infowindow-row-top"><strong>Address:</strong> ${escapeHtml(job.customerAddress || '')}</div>
+            <div><strong>${escapeHtml(t('sparkery.dispatch.mapPlanner.infoWindow.customer'))}:</strong> ${escapeHtml(job.customerName || t('sparkery.dispatch.common.noCustomer'))}</div>
+            <div><strong>${escapeHtml(t('sparkery.dispatch.mapPlanner.infoWindow.time'))}:</strong> ${escapeHtml(job.scheduledStartTime)} - ${escapeHtml(job.scheduledEndTime)}</div>
+            <div><strong>${escapeHtml(t('sparkery.dispatch.mapPlanner.infoWindow.type'))}:</strong> ${escapeHtml(t(`sparkery.dispatch.common.serviceType.${job.serviceType}`))}</div>
+            <div class="dispatch-map-infowindow-row-top"><strong>${escapeHtml(t('sparkery.dispatch.mapPlanner.infoWindow.address'))}:</strong> ${escapeHtml(job.customerAddress || '')}</div>
           </div>
         `;
         infoWindowRef.current.setContent(html);
@@ -553,10 +559,10 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
         const html = `
           <div class="dispatch-map-infowindow">
             <div class="dispatch-map-infowindow-title">${escapeHtml(employee.name)}</div>
-            <div><strong>Status:</strong> ${escapeHtml(employee.status)}</div>
-            <div><strong>Updated:</strong> ${escapeHtml(dayjs(location.updatedAt).format('YYYY-MM-DD HH:mm:ss'))}</div>
-            <div><strong>Source:</strong> ${escapeHtml(location.source)}</div>
-            <div class="dispatch-map-infowindow-row-top"><strong>Coordinate:</strong> ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</div>
+            <div><strong>${escapeHtml(t('sparkery.dispatch.mapPlanner.infoWindow.status'))}:</strong> ${escapeHtml(t(`sparkery.dispatch.adminSetup.employeeStatus.${employee.status}`))}</div>
+            <div><strong>${escapeHtml(t('sparkery.dispatch.mapPlanner.infoWindow.updated'))}:</strong> ${escapeHtml(dayjs(location.updatedAt).format('YYYY-MM-DD HH:mm:ss'))}</div>
+            <div><strong>${escapeHtml(t('sparkery.dispatch.mapPlanner.infoWindow.source'))}:</strong> ${escapeHtml(location.source)}</div>
+            <div class="dispatch-map-infowindow-row-top"><strong>${escapeHtml(t('sparkery.dispatch.mapPlanner.infoWindow.coordinate'))}:</strong> ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</div>
           </div>
         `;
         infoWindowRef.current.setContent(html);
@@ -587,30 +593,39 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
     mapReady,
     scopedExecutableJobs,
     selectedJobIds,
+    t,
   ]);
 
   const handleCopyLocationLink = async (employeeId?: string) => {
     const url = getLocationReportLink(employeeId);
     try {
       if (!navigator.clipboard?.writeText) {
-        messageApi.warning(`Copy not supported. Open this link: ${url}`);
+        messageApi.warning(
+          t('sparkery.dispatch.mapPlanner.messages.copyNotSupported', { url })
+        );
         return;
       }
       await navigator.clipboard.writeText(url);
-      messageApi.success('Location report link copied');
+      messageApi.success(
+        t('sparkery.dispatch.mapPlanner.messages.locationLinkCopied')
+      );
     } catch {
-      messageApi.error('Failed to copy location report link');
+      messageApi.error(
+        t('sparkery.dispatch.mapPlanner.messages.copyLocationLinkFailed')
+      );
     }
   };
 
   const handleCalculateRoute = async () => {
     if (!selectedEmployeeId) {
-      setRouteError('Please select an employee first');
+      setRouteError(
+        t('sparkery.dispatch.mapPlanner.messages.selectEmployeeFirst')
+      );
       return;
     }
     if (selectedJobIds.length === 0) {
       setRouteError(
-        'Please select at least one job from the "Selectable Jobs" list'
+        t('sparkery.dispatch.mapPlanner.messages.selectAtLeastOneJob')
       );
       return;
     }
@@ -619,7 +634,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
     const employeeLocation = employee?.currentLocation;
     if (!employeeLocation) {
       setRouteError(
-        'Employee location is missing. Ask the employee to report location first.'
+        t('sparkery.dispatch.mapPlanner.messages.employeeLocationMissing')
       );
       return;
     }
@@ -630,7 +645,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
 
     if (selectedScopedJobs.length !== selectedJobIds.length) {
       setRouteError(
-        'Some selected jobs are not in current map scope anymore. Please reselect.'
+        t('sparkery.dispatch.mapPlanner.messages.selectedJobsOutOfScope')
       );
       return;
     }
@@ -709,7 +724,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
 
       if (failedJobIds.size > 0) {
         setRouteError(
-          'Some selected jobs still cannot resolve address. Please fix address and retry.'
+          t(
+            'sparkery.dispatch.mapPlanner.messages.selectedJobsAddressUnresolved'
+          )
         );
         return;
       }
@@ -773,7 +790,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
       }
 
       if (ordered.length === 0) {
-        setRouteError('Failed to build route order');
+        setRouteError(
+          t('sparkery.dispatch.mapPlanner.messages.buildRouteOrderFailed')
+        );
         return;
       }
 
@@ -785,7 +804,13 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
         const stepOriginLabel =
           index === 0
             ? employeeLocation.label ||
-              `Employee location (${employeeLocation.lat.toFixed(5)}, ${employeeLocation.lng.toFixed(5)})`
+              t(
+                'sparkery.dispatch.mapPlanner.messages.employeeLocationCoordinates',
+                {
+                  lat: employeeLocation.lat.toFixed(5),
+                  lng: employeeLocation.lng.toFixed(5),
+                }
+              )
             : ordered[index - 1]!.job.customerAddress ||
               ordered[index - 1]!.job.title;
         const stepDestinationLabel = item.job.customerAddress || item.job.title;
@@ -793,7 +818,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
         return {
           jobId: item.job.id,
           title: item.job.title,
-          customerName: item.job.customerName || 'N/A',
+          customerName:
+            item.job.customerName ||
+            t('sparkery.dispatch.mapPlanner.common.na'),
           customerAddress: item.job.customerAddress || '',
           fromAddress: stepOriginLabel,
           toAddress: stepDestinationLabel,
@@ -819,7 +846,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
       const routePoints = ordered.map(item => item.point);
       const destination = routePoints[routePoints.length - 1];
       if (!destination) {
-        setRouteError('Failed to build navigation URL');
+        setRouteError(
+          t('sparkery.dispatch.mapPlanner.messages.buildNavigationUrlFailed')
+        );
         return;
       }
       const waypoints = routePoints.slice(0, -1);
@@ -838,12 +867,16 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
         steps,
         totalDistanceKm,
         totalDurationMin,
-        nextCommuteDistanceText: steps[0]?.distanceText || 'N/A',
-        nextCommuteDurationText: steps[0]?.durationText || 'N/A',
+        nextCommuteDistanceText:
+          steps[0]?.distanceText || t('sparkery.dispatch.mapPlanner.common.na'),
+        nextCommuteDurationText:
+          steps[0]?.durationText || t('sparkery.dispatch.mapPlanner.common.na'),
         overviewNavigationUrl,
       });
     } catch {
-      setRouteError('Route calculation failed. Please retry.');
+      setRouteError(
+        t('sparkery.dispatch.mapPlanner.messages.routeCalculationFailed')
+      );
     } finally {
       setPlanningRoute(false);
     }
@@ -856,15 +889,20 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
 
     await onAssignJobsToEmployee(routeResult.orderedJobIds, selectedEmployeeId);
     messageApi.success(
-      `Assigned ${routeResult.orderedJobIds.length} jobs to ${
-        selectedEmployee?.name || 'employee'
-      }`
+      t('sparkery.dispatch.mapPlanner.messages.assignedJobsToEmployee', {
+        count: routeResult.orderedJobIds.length,
+        employee:
+          selectedEmployee?.name ||
+          t('sparkery.dispatch.mapPlanner.common.employee'),
+      })
     );
   };
 
   const handleGenerateWeeklyPlanLink = async () => {
     if (!selectedEmployeeId) {
-      messageApi.warning('Please select an employee first');
+      messageApi.warning(
+        t('sparkery.dispatch.mapPlanner.messages.selectEmployeeFirst')
+      );
       return;
     }
 
@@ -894,13 +932,17 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
       orderedJobIds = Array.from(new Set(fallbackSelectedIds));
       if (orderedJobIds.length > 0) {
         messageApi.info(
-          'No assigned weekly jobs found for this employee yet. Using currently selected jobs.'
+          t(
+            'sparkery.dispatch.mapPlanner.messages.noAssignedWeeklyJobsFallback'
+          )
         );
       }
     }
 
     if (orderedJobIds.length === 0) {
-      messageApi.warning('Please select at least one job first');
+      messageApi.warning(
+        t('sparkery.dispatch.mapPlanner.messages.selectAtLeastOneJob')
+      );
       return;
     }
 
@@ -920,7 +962,48 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
       // Ignore clipboard failures; still open link.
     }
     window.open(url, '_blank', 'noopener,noreferrer');
-    messageApi.success('Weekly plan link generated');
+    messageApi.success(
+      t('sparkery.dispatch.mapPlanner.messages.weeklyPlanLinkGenerated')
+    );
+  };
+
+  const handleGenerateEmployeeTasksLink = async () => {
+    if (!selectedEmployeeId) {
+      messageApi.warning(
+        t('sparkery.dispatch.mapPlanner.messages.selectEmployeeFirst')
+      );
+      return;
+    }
+
+    const orderedJobIds = Array.from(
+      new Set([
+        ...(routeResult?.orderedJobIds || []),
+        ...selectedJobIds,
+        ...weeklyAssignedJobsForEmployee.map(job => job.id),
+      ])
+    );
+
+    const params = new URLSearchParams({
+      employeeId: selectedEmployeeId,
+      weekStart,
+      weekEnd,
+    });
+    if (orderedJobIds.length > 0) {
+      params.set('jobIds', orderedJobIds.join(','));
+    }
+
+    const url = `${window.location.origin}/dispatch-employee-tasks?${params.toString()}`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+    } catch {
+      // Ignore clipboard failures; still open link.
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+    messageApi.success(
+      t('sparkery.dispatch.mapPlanner.messages.employeeTasksLinkGenerated')
+    );
   };
 
   const geocodeFailurePreview = geocodeFailedJobs
@@ -947,7 +1030,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
     <Card
       size='small'
       className='dispatch-map-planner-card'
-      title='Dispatch Map Planner (MVP)'
+      title={t('sparkery.dispatch.mapPlanner.title')}
       extra={
         <Space size={8} wrap className='dispatch-map-planner-top-tags'>
           <Segmented
@@ -955,16 +1038,26 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
             className='dispatch-map-planner-scope-toggle'
             value={mapScope}
             options={[
-              { label: 'Today', value: 'today' },
-              { label: 'Week', value: 'week' },
+              {
+                label: t('sparkery.dispatch.mapPlanner.scope.today'),
+                value: 'today',
+              },
+              {
+                label: t('sparkery.dispatch.mapPlanner.scope.week'),
+                value: 'week',
+              },
             ]}
             onChange={value => setMapScope(value as MapScope)}
           />
           <Tag color='blue' className='dispatch-map-planner-top-tag'>
-            Jobs in scope: {scopedExecutableJobs.length}
+            {t('sparkery.dispatch.mapPlanner.tags.jobsInScope', {
+              count: scopedExecutableJobs.length,
+            })}
           </Tag>
           <Tag color='green' className='dispatch-map-planner-top-tag'>
-            Employees located: {employeesWithLocation.length}
+            {t('sparkery.dispatch.mapPlanner.tags.employeesLocated', {
+              count: employeesWithLocation.length,
+            })}
           </Tag>
         </Space>
       }
@@ -975,8 +1068,12 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
           className='dispatch-map-planner-alert dispatch-map-planner-alert-warning'
           type='warning'
           showIcon
-          message='Google Maps is not configured'
-          description='Set VITE_GOOGLE_MAPS_API_KEY, then refresh the page to enable map pins and routing.'
+          message={t(
+            'sparkery.dispatch.mapPlanner.alerts.googleMapsNotConfigured'
+          )}
+          description={t(
+            'sparkery.dispatch.mapPlanner.alerts.googleMapsNotConfiguredDesc'
+          )}
         />
       )}
       {mapError && (
@@ -992,10 +1089,12 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
           className='dispatch-map-planner-alert dispatch-map-planner-alert-info'
           type='info'
           showIcon
-          message={`Today view hides ${dateFilteredOutJobs.length} jobs scheduled on other dates`}
+          message={t('sparkery.dispatch.mapPlanner.alerts.todayHidesJobs', {
+            count: dateFilteredOutJobs.length,
+          })}
           action={
             <Button size='small' onClick={() => setMapScope('week')}>
-              Show Week
+              {t('sparkery.dispatch.mapPlanner.actions.showWeek')}
             </Button>
           }
         />
@@ -1005,8 +1104,12 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
           className='dispatch-map-planner-alert dispatch-map-planner-alert-warning'
           type='warning'
           showIcon
-          message={`${executableJobsWithoutAddress.length} executable jobs do not have customer address`}
-          description='Jobs without an address cannot be pinned on the map.'
+          message={t('sparkery.dispatch.mapPlanner.alerts.jobsMissingAddress', {
+            count: executableJobsWithoutAddress.length,
+          })}
+          description={t(
+            'sparkery.dispatch.mapPlanner.alerts.jobsMissingAddressDesc'
+          )}
         />
       )}
       {geocodeFailedJobs.length > 0 && (
@@ -1014,19 +1117,23 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
           className='dispatch-map-planner-alert dispatch-map-planner-alert-error'
           type='error'
           showIcon
-          message={`${geocodeFailedJobs.length} jobs failed geocoding`}
+          message={t('sparkery.dispatch.mapPlanner.alerts.jobsGeocodeFailed', {
+            count: geocodeFailedJobs.length,
+          })}
           description={
             <Space direction='vertical' size={6}>
               {geocodeFailurePreview && (
                 <Text type='secondary'>
-                  Address sample: {geocodeFailurePreview}
+                  {t('sparkery.dispatch.mapPlanner.alerts.addressSample', {
+                    value: geocodeFailurePreview,
+                  })}
                 </Text>
               )}
               <Button
                 size='small'
                 onClick={() => setGeocodeRetryVersion(version => version + 1)}
               >
-                Retry Geocoding
+                {t('sparkery.dispatch.mapPlanner.actions.retryGeocoding')}
               </Button>
             </Space>
           }
@@ -1037,13 +1144,15 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
           <div ref={mapContainerRef} className='dispatch-map-planner-canvas' />
           <div className='dispatch-map-planner-stats'>
             <Text type='secondary' className='dispatch-map-planner-stats-text'>
-              Scope jobs: {scopedExecutableJobs.length} | Pinned:{' '}
-              {jobsWithCoords.length} | Waiting geocode:{' '}
-              {jobsWithoutCoords.length}
+              {t('sparkery.dispatch.mapPlanner.stats.summary', {
+                scope: scopedExecutableJobs.length,
+                pinned: jobsWithCoords.length,
+                waiting: jobsWithoutCoords.length,
+              })}
             </Text>
             {geocodeLoading && (
               <Text type='secondary' className='dispatch-map-planner-geocode'>
-                Geocoding addresses...
+                {t('sparkery.dispatch.mapPlanner.stats.geocodingAddresses')}
               </Text>
             )}
           </div>
@@ -1058,7 +1167,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
               type='info'
               showIcon
               className='dispatch-map-planner-onboarding-alert'
-              message='Employee location onboarding'
+              message={t('sparkery.dispatch.mapPlanner.onboarding.title')}
               description={
                 <Space
                   direction='vertical'
@@ -1069,19 +1178,19 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                     type='secondary'
                     className='dispatch-map-planner-onboarding-step'
                   >
-                    1) Send the location-report link to employee phone.
+                    {t('sparkery.dispatch.mapPlanner.onboarding.step1')}
                   </Text>
                   <Text
                     type='secondary'
                     className='dispatch-map-planner-onboarding-step'
                   >
-                    2) Employee opens the page and taps Report Current Location.
+                    {t('sparkery.dispatch.mapPlanner.onboarding.step2')}
                   </Text>
                   <Text
                     type='secondary'
                     className='dispatch-map-planner-onboarding-step'
                   >
-                    3) Refresh employees to see real-time map marker.
+                    {t('sparkery.dispatch.mapPlanner.onboarding.step3')}
                   </Text>
                   <Space wrap>
                     <Button
@@ -1089,7 +1198,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                       className='dispatch-map-planner-link-btn'
                       onClick={() => handleCopyLocationLink(selectedEmployeeId)}
                     >
-                      Copy Location Link
+                      {t(
+                        'sparkery.dispatch.mapPlanner.actions.copyLocationLink'
+                      )}
                     </Button>
                     <Button
                       size='small'
@@ -1099,7 +1210,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                       rel='noreferrer'
                       className='dispatch-map-planner-link-open'
                     >
-                      Open Location Page
+                      {t(
+                        'sparkery.dispatch.mapPlanner.actions.openLocationPage'
+                      )}
                     </Button>
                   </Space>
                 </Space>
@@ -1109,7 +1222,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
             {employeesWithoutLocation.length > 0 && (
               <Card
                 size='small'
-                title='Employees without location'
+                title={t(
+                  'sparkery.dispatch.mapPlanner.employeesWithoutLocation.title'
+                )}
                 className='dispatch-map-planner-unlocated-card'
               >
                 <List
@@ -1126,7 +1241,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                           className='dispatch-map-planner-link-btn'
                           onClick={() => handleCopyLocationLink(employee.id)}
                         >
-                          Copy Link
+                          {t('sparkery.dispatch.mapPlanner.actions.copyLink')}
                         </Button>,
                       ]}
                     >
@@ -1142,7 +1257,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
               classNames={{
                 popup: { root: 'dispatch-map-planner-select-popup' },
               }}
-              placeholder='Select employee (location required for route)'
+              placeholder={t(
+                'sparkery.dispatch.mapPlanner.placeholders.selectEmployee'
+              )}
               value={selectedEmployeeId}
               onChange={value => {
                 setSelectedEmployeeId(value);
@@ -1151,7 +1268,15 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
               }}
               options={employees.map(employee => ({
                 value: employee.id,
-                label: `${employee.name}${employee.currentLocation ? ' (located)' : ' (no location)'}`,
+                label: `${employee.name}${
+                  employee.currentLocation
+                    ? t(
+                        'sparkery.dispatch.mapPlanner.employeeLocationSuffix.located'
+                      )
+                    : t(
+                        'sparkery.dispatch.mapPlanner.employeeLocationSuffix.noLocation'
+                      )
+                }`,
               }))}
             />
             <Select
@@ -1160,7 +1285,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                 popup: { root: 'dispatch-map-planner-job-select-popup' },
               }}
               mode='multiple'
-              placeholder='Select jobs to assign and route'
+              placeholder={t(
+                'sparkery.dispatch.mapPlanner.placeholders.selectJobs'
+              )}
               value={selectedJobIds}
               onChange={values => {
                 setSelectedJobIds(values);
@@ -1172,19 +1299,23 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
               options={scopedExecutableJobs.map(job => ({
                 value: job.id,
                 label: `${job.scheduledDate} ${job.scheduledStartTime} | ${
-                  job.customerName || 'Customer'
-                } | ${job.customerAddress}${jobCoords[job.id] ? '' : ' (waiting geocode)'}`,
+                  job.customerName || t('sparkery.dispatch.common.customer')
+                } | ${job.customerAddress}${
+                  jobCoords[job.id]
+                    ? ''
+                    : t('sparkery.dispatch.mapPlanner.jobSuffix.waitingGeocode')
+                }`,
               }))}
             />
             <Card
               size='small'
-              title='Selectable Jobs'
+              title={t('sparkery.dispatch.mapPlanner.selectableJobsTitle')}
               className='dispatch-map-planner-jobs-card'
             >
               {scopedExecutableJobs.length === 0 ? (
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description='No jobs in current scope'
+                  description={t('sparkery.dispatch.mapPlanner.noJobsInScope')}
                 />
               ) : (
                 <div className='dispatch-map-planner-job-scroll'>
@@ -1233,8 +1364,10 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                                 className='dispatch-map-planner-job-tag'
                               >
                                 {jobCoords[job.id]
-                                  ? 'Pinned'
-                                  : 'Waiting Geocode'}
+                                  ? t('sparkery.dispatch.mapPlanner.jobPinned')
+                                  : t(
+                                      'sparkery.dispatch.mapPlanner.jobWaitingGeocode'
+                                    )}
                               </Tag>
                             </Space>
                             <div>
@@ -1242,8 +1375,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                                 type='secondary'
                                 className='dispatch-map-planner-job-meta'
                               >
-                                {job.customerName || 'Customer'} |{' '}
-                                {job.customerAddress}
+                                {job.customerName ||
+                                  t('sparkery.dispatch.common.customer')}{' '}
+                                | {job.customerAddress}
                               </Text>
                             </div>
                           </div>
@@ -1261,21 +1395,32 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
               loading={planningRoute}
               disabled={!isGoogleMapsConfigured()}
             >
-              Calculate Recommended Route
+              {t(
+                'sparkery.dispatch.mapPlanner.actions.calculateRecommendedRoute'
+              )}
             </Button>
             <Button
               className='dispatch-map-planner-action-btn'
               onClick={handleAssignWithRoute}
               disabled={!routeResult || !selectedEmployeeId}
             >
-              Assign Jobs by Route
+              {t('sparkery.dispatch.mapPlanner.actions.assignJobsByRoute')}
             </Button>
             <Button
               className='dispatch-map-planner-action-btn'
               onClick={handleGenerateWeeklyPlanLink}
               disabled={!selectedEmployeeId}
             >
-              Generate Weekly Plan Link
+              {t('sparkery.dispatch.mapPlanner.actions.generateWeeklyPlanLink')}
+            </Button>
+            <Button
+              className='dispatch-map-planner-action-btn'
+              onClick={handleGenerateEmployeeTasksLink}
+              disabled={!selectedEmployeeId}
+            >
+              {t(
+                'sparkery.dispatch.mapPlanner.actions.generateEmployeeTasksLink'
+              )}
             </Button>
             {routeError && (
               <Alert
@@ -1291,8 +1436,17 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                   type='info'
                   showIcon
                   className='dispatch-map-planner-route-alert dispatch-map-planner-route-alert-info'
-                  message={`Next commute: ${routeResult.nextCommuteDistanceText} / ${routeResult.nextCommuteDurationText}`}
-                  description={`Total route: ${routeResult.totalDistanceKm.toFixed(1)} km, around ${Math.round(routeResult.totalDurationMin)} mins`}
+                  message={t('sparkery.dispatch.mapPlanner.route.nextCommute', {
+                    distance: routeResult.nextCommuteDistanceText,
+                    duration: routeResult.nextCommuteDurationText,
+                  })}
+                  description={t(
+                    'sparkery.dispatch.mapPlanner.route.totalRoute',
+                    {
+                      distance: routeResult.totalDistanceKm.toFixed(1),
+                      duration: Math.round(routeResult.totalDurationMin),
+                    }
+                  )}
                 />
                 <Space size={8} wrap>
                   <Button
@@ -1302,7 +1456,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                     rel='noreferrer'
                     className='dispatch-link-button-inline'
                   >
-                    Open Full Navigation
+                    {t(
+                      'sparkery.dispatch.mapPlanner.actions.openFullNavigation'
+                    )}
                   </Button>
                 </Space>
                 <Divider className='dispatch-divider-compact' />
@@ -1320,7 +1476,7 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                           target='_blank'
                           rel='noreferrer'
                         >
-                          Navigate
+                          {t('sparkery.dispatch.mapPlanner.actions.navigate')}
                         </a>,
                       ]}
                     >
@@ -1352,7 +1508,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                                 {step.customerName}
                               </Text>
                               <Tag className='dispatch-map-planner-route-item-service-tag'>
-                                {step.serviceType}
+                                {t(
+                                  `sparkery.dispatch.common.serviceType.${step.serviceType}`
+                                )}
                               </Tag>
                               <Tag className='dispatch-map-planner-route-item-time-tag'>
                                 {step.scheduledTime}
@@ -1369,17 +1527,24 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                                 type='secondary'
                                 className='dispatch-map-planner-route-item-leg-from'
                               >
-                                From: {step.fromAddress}
+                                {t('sparkery.dispatch.mapPlanner.route.from', {
+                                  value: step.fromAddress,
+                                })}
                               </Text>
                               <Text
                                 type='secondary'
                                 className='dispatch-map-planner-route-item-leg-to'
                               >
-                                To: {step.toAddress}
+                                {t('sparkery.dispatch.mapPlanner.route.to', {
+                                  value: step.toAddress,
+                                })}
                               </Text>
                             </div>
                             <Text className='dispatch-map-planner-route-item-commute'>
-                              Commute: {step.distanceText} / {step.durationText}
+                              {t('sparkery.dispatch.mapPlanner.route.commute', {
+                                distance: step.distanceText,
+                                duration: step.durationText,
+                              })}
                             </Text>
                           </div>
                         }
@@ -1394,7 +1559,9 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
                 type='secondary'
                 className='dispatch-map-planner-selection-hint'
               >
-                Selected {selectedJobs.length} jobs for route planning.
+                {t('sparkery.dispatch.mapPlanner.selectionHint', {
+                  count: selectedJobs.length,
+                })}
               </Text>
             )}
           </Space>

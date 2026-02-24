@@ -4,11 +4,14 @@
 
 import React from 'react';
 import { Card, Space, Tag, Typography } from 'antd';
+import { useTranslation } from 'react-i18next';
 import '../sparkery.css';
 
 const { Paragraph, Text, Title } = Typography;
 
 const ReimbursementPage: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
     <div className='sparkery-reimbursement-page sparkery-reimbursement-shell'>
       <Card className='sparkery-reimbursement-card'>
@@ -19,36 +22,37 @@ const ReimbursementPage: React.FC = () => {
         >
           <Space size={[6, 6]} wrap className='sparkery-reimbursement-tags'>
             <Tag className='sparkery-reimbursement-tag sparkery-reimbursement-tag-ready'>
-              Ready
+              {t('sparkery.reimbursement.tags.ready')}
             </Tag>
-            <Tag className='sparkery-reimbursement-tag'>Sparkery Internal</Tag>
+            <Tag className='sparkery-reimbursement-tag'>
+              {t('sparkery.reimbursement.tags.internal')}
+            </Tag>
           </Space>
           <Title level={4} className='sparkery-reimbursement-title'>
-            Reimbursement Workspace
+            {t('sparkery.reimbursement.title')}
           </Title>
           <Paragraph className='sparkery-reimbursement-description'>
-            This page is reserved for internal reimbursement workflows and
-            reporting.
+            {t('sparkery.reimbursement.description')}
           </Paragraph>
           <div className='sparkery-reimbursement-notes'>
             <Text strong className='sparkery-reimbursement-notes-title'>
-              Planned modules
+              {t('sparkery.reimbursement.plannedModulesTitle')}
             </Text>
             <Text type='secondary' className='sparkery-reimbursement-note-item'>
-              1. Submit reimbursement request
+              {t('sparkery.reimbursement.plannedModules.submitRequest')}
             </Text>
             <Text type='secondary' className='sparkery-reimbursement-note-item'>
-              2. Approval status tracking
+              {t('sparkery.reimbursement.plannedModules.approvalTracking')}
             </Text>
             <Text type='secondary' className='sparkery-reimbursement-note-item'>
-              3. Export monthly reimbursement summary
+              {t('sparkery.reimbursement.plannedModules.monthlyExport')}
             </Text>
           </div>
         </Space>
       </Card>
       <Card className='sparkery-reimbursement-card sparkery-reimbursement-card-tip'>
         <Text type='secondary' className='sparkery-reimbursement-tip'>
-          You can access this page from the Sparkery navigation menu.
+          {t('sparkery.reimbursement.tip')}
         </Text>
       </Card>
     </div>

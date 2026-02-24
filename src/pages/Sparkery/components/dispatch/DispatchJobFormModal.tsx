@@ -17,6 +17,7 @@ import type {
   DispatchWeekday,
   UpsertDispatchCustomerProfilePayload,
 } from '../../dispatch/types';
+import { useTranslation } from 'react-i18next';
 
 const getTodayDateKey = (): string => {
   const now = new Date();
@@ -47,6 +48,7 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
   onSubmit,
   onAddCustomerProfile,
 }) => {
+  const { t } = useTranslation();
   const [form] = Form.useForm<CreateDispatchJobPayload>();
   const recurringEnabled = Form.useWatch('recurringEnabled', form);
   const MAX_IMAGE_SIZE_MB = 2;
@@ -69,13 +71,13 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
     []
   );
   const weekdayOptions: Array<{ value: DispatchWeekday; label: string }> = [
-    { value: 1, label: 'Monday' },
-    { value: 2, label: 'Tuesday' },
-    { value: 3, label: 'Wednesday' },
-    { value: 4, label: 'Thursday' },
-    { value: 5, label: 'Friday' },
-    { value: 6, label: 'Saturday' },
-    { value: 7, label: 'Sunday' },
+    { value: 1, label: t('sparkery.dispatch.common.weekday.full.1') },
+    { value: 2, label: t('sparkery.dispatch.common.weekday.full.2') },
+    { value: 3, label: t('sparkery.dispatch.common.weekday.full.3') },
+    { value: 4, label: t('sparkery.dispatch.common.weekday.full.4') },
+    { value: 5, label: t('sparkery.dispatch.common.weekday.full.5') },
+    { value: 6, label: t('sparkery.dispatch.common.weekday.full.6') },
+    { value: 7, label: t('sparkery.dispatch.common.weekday.full.7') },
   ];
 
   const handleCustomerProfileChange = (value: string) => {
@@ -140,7 +142,9 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
   const handleAddLongTermCustomer = async () => {
     const values = form.getFieldsValue();
     if (!values.customerName) {
-      message.warning('Please fill customer name first');
+      message.warning(
+        t('sparkery.dispatch.jobForm.messages.fillCustomerNameFirst')
+      );
       return;
     }
 
@@ -186,7 +190,9 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
     const saved = await onAddCustomerProfile(payload);
 
     form.setFieldsValue({ customerProfileId: saved.id });
-    message.success('Added to long-term customer list');
+    message.success(
+      t('sparkery.dispatch.jobForm.messages.addedToLongTermCustomerList')
+    );
   };
 
   const toBase64 = (file: File): Promise<string> => {
@@ -259,7 +265,11 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
 
   return (
     <Modal
-      title={initialValue ? 'Edit Job' : 'Create Job'}
+      title={
+        initialValue
+          ? t('sparkery.dispatch.jobForm.modal.editJob')
+          : t('sparkery.dispatch.jobForm.modal.createJob')
+      }
       open={open}
       onCancel={onCancel}
       onOk={() => form.submit()}
@@ -308,24 +318,40 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           await onSubmit(normalized);
         }}
       >
-        <div className='dispatch-job-form-section-title'>Job Details</div>
-        <Form.Item label='Title' name='title' rules={[{ required: true }]}>
-          <Input placeholder='Job title' />
+        <div className='dispatch-job-form-section-title'>
+          {t('sparkery.dispatch.jobForm.sections.jobDetails')}
+        </div>
+        <Form.Item
+          label={t('sparkery.dispatch.jobForm.fields.title')}
+          name='title'
+          rules={[{ required: true }]}
+        >
+          <Input
+            placeholder={t('sparkery.dispatch.jobForm.placeholders.jobTitle')}
+          />
         </Form.Item>
         <Form.Item
-          label='Service Type'
+          label={t('sparkery.dispatch.jobForm.fields.serviceType')}
           name='serviceType'
           rules={[{ required: true }]}
         >
           <Select>
-            <Select.Option value='bond'>Bond</Select.Option>
-            <Select.Option value='airbnb'>Airbnb</Select.Option>
-            <Select.Option value='regular'>Regular</Select.Option>
-            <Select.Option value='commercial'>Commercial</Select.Option>
+            <Select.Option value='bond'>
+              {t('sparkery.dispatch.common.serviceType.bond')}
+            </Select.Option>
+            <Select.Option value='airbnb'>
+              {t('sparkery.dispatch.common.serviceType.airbnb')}
+            </Select.Option>
+            <Select.Option value='regular'>
+              {t('sparkery.dispatch.common.serviceType.regular')}
+            </Select.Option>
+            <Select.Option value='commercial'>
+              {t('sparkery.dispatch.common.serviceType.commercial')}
+            </Select.Option>
           </Select>
         </Form.Item>
         <Form.Item
-          label='Priority'
+          label={t('sparkery.dispatch.jobForm.fields.priority')}
           name='priority'
           rules={[{ required: true }]}
         >
@@ -335,10 +361,17 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
             max={5}
           />
         </Form.Item>
-        <div className='dispatch-job-form-section-title'>Customer</div>
-        <Form.Item label='Customer Library' name='customerProfileId'>
+        <div className='dispatch-job-form-section-title'>
+          {t('sparkery.dispatch.jobForm.sections.customer')}
+        </div>
+        <Form.Item
+          label={t('sparkery.dispatch.jobForm.fields.customerLibrary')}
+          name='customerProfileId'
+        >
           <Select
-            placeholder='Select recurring customer'
+            placeholder={t(
+              'sparkery.dispatch.jobForm.placeholders.selectRecurringCustomer'
+            )}
             allowClear
             onChange={handleCustomerProfileChange}
           >
@@ -348,32 +381,61 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
               </Select.Option>
             ))}
             <Select.Option value='__new__'>
-              + New One-time Customer
+              {t('sparkery.dispatch.jobForm.newOneTimeCustomer')}
             </Select.Option>
           </Select>
         </Form.Item>
-        <Form.Item label='Customer Name' name='customerName'>
-          <Input placeholder='Customer name' />
+        <Form.Item
+          label={t('sparkery.dispatch.jobForm.fields.customerName')}
+          name='customerName'
+        >
+          <Input
+            placeholder={t(
+              'sparkery.dispatch.jobForm.placeholders.customerName'
+            )}
+          />
         </Form.Item>
-        <Form.Item label='Description' name='description'>
+        <Form.Item
+          label={t('sparkery.dispatch.jobForm.fields.description')}
+          name='description'
+        >
           <Input.TextArea
             autoSize={{ minRows: 3, maxRows: 10 }}
-            placeholder='Task content/description'
+            placeholder={t(
+              'sparkery.dispatch.jobForm.placeholders.taskDescription'
+            )}
             className='dispatch-textarea-vertical'
           />
         </Form.Item>
-        <Form.Item label='Notes' name='notes'>
+        <Form.Item
+          label={t('sparkery.dispatch.jobForm.fields.notes')}
+          name='notes'
+        >
           <Input.TextArea
             autoSize={{ minRows: 4, maxRows: 12 }}
-            placeholder='Important notes / special requirements'
+            placeholder={t('sparkery.dispatch.jobForm.placeholders.notes')}
             className='dispatch-textarea-vertical'
           />
         </Form.Item>
-        <Form.Item label='Address' name='customerAddress'>
-          <Input placeholder='Customer address' />
+        <Form.Item
+          label={t('sparkery.dispatch.jobForm.fields.address')}
+          name='customerAddress'
+        >
+          <Input
+            placeholder={t(
+              'sparkery.dispatch.jobForm.placeholders.customerAddress'
+            )}
+          />
         </Form.Item>
-        <Form.Item label='Phone' name='customerPhone'>
-          <Input placeholder='Customer phone' />
+        <Form.Item
+          label={t('sparkery.dispatch.jobForm.fields.phone')}
+          name='customerPhone'
+        >
+          <Input
+            placeholder={t(
+              'sparkery.dispatch.jobForm.placeholders.customerPhone'
+            )}
+          />
         </Form.Item>
         <Form.Item>
           <Button
@@ -381,56 +443,69 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
             block
             className='dispatch-job-form-secondary-btn'
           >
-            Add to Long-term Customer List
+            {t('sparkery.dispatch.jobForm.actions.addToLongTermCustomerList')}
           </Button>
         </Form.Item>
-        <div className='dispatch-job-form-section-title'>Pricing</div>
+        <div className='dispatch-job-form-section-title'>
+          {t('sparkery.dispatch.jobForm.sections.pricing')}
+        </div>
         <div className='dispatch-job-form-pricing-grid'>
           <Form.Item
-            label='Pricing Mode'
+            label={t('sparkery.dispatch.jobForm.fields.pricingMode')}
             name='pricingMode'
-            tooltip='Recurring jobs should use recurring fixed fee.'
+            tooltip={t('sparkery.dispatch.jobForm.tooltips.pricingMode')}
             className='dispatch-job-form-pricing-item'
           >
             <Select>
               <Select.Option value='one_time_manual'>
-                One-time Manual
+                {t('sparkery.dispatch.jobForm.pricingMode.oneTimeManual')}
               </Select.Option>
               <Select.Option value='recurring_fixed'>
-                Recurring Fixed
+                {t('sparkery.dispatch.jobForm.pricingMode.recurringFixed')}
               </Select.Option>
             </Select>
           </Form.Item>
           <Form.Item
-            label='Base Cleaning Fee (AUD)'
+            label={t('sparkery.dispatch.jobForm.fields.baseCleaningFeeAud')}
             name='baseFee'
-            rules={[{ required: true, message: 'Please input base fee' }]}
+            rules={[
+              {
+                required: true,
+                message: t('sparkery.dispatch.jobForm.messages.inputBaseFee'),
+              },
+            ]}
             className='dispatch-job-form-pricing-item'
           >
             <InputNumber
               className='dispatch-form-number-full-width'
               min={0}
               precision={2}
-              placeholder='e.g. 180'
+              placeholder={t('sparkery.dispatch.jobForm.placeholders.baseFee')}
             />
           </Form.Item>
           <Form.Item
-            label='Initial Adjustment (optional)'
+            label={t(
+              'sparkery.dispatch.jobForm.fields.initialAdjustmentOptional'
+            )}
             name='manualAdjustment'
-            tooltip='Use positive value for extra charge, negative for discount.'
+            tooltip={t('sparkery.dispatch.jobForm.tooltips.initialAdjustment')}
             className='dispatch-job-form-pricing-item'
           >
             <InputNumber
               className='dispatch-form-number-full-width'
               precision={2}
-              placeholder='e.g. +25 or -10'
+              placeholder={t(
+                'sparkery.dispatch.jobForm.placeholders.adjustment'
+              )}
             />
           </Form.Item>
         </div>
-        <div className='dispatch-job-form-section-title'>Schedule</div>
+        <div className='dispatch-job-form-section-title'>
+          {t('sparkery.dispatch.jobForm.sections.schedule')}
+        </div>
         <div className='dispatch-job-form-time-grid'>
           <Form.Item
-            label='Date'
+            label={t('sparkery.dispatch.jobForm.fields.date')}
             name='scheduledDate'
             rules={[{ required: true }]}
             className='dispatch-job-form-time-item'
@@ -438,7 +513,7 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
             <Input type='date' />
           </Form.Item>
           <Form.Item
-            label='Start Time'
+            label={t('sparkery.dispatch.jobForm.fields.startTime')}
             name='scheduledStartTime'
             rules={[{ required: true }]}
             className='dispatch-job-form-time-item'
@@ -446,7 +521,7 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
             <Input type='time' />
           </Form.Item>
           <Form.Item
-            label='End Time'
+            label={t('sparkery.dispatch.jobForm.fields.endTime')}
             name='scheduledEndTime'
             rules={[{ required: true }]}
             className='dispatch-job-form-time-item'
@@ -454,19 +529,25 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
             <Input type='time' />
           </Form.Item>
         </div>
-        <div className='dispatch-job-form-section-title'>Recurring Rules</div>
+        <div className='dispatch-job-form-section-title'>
+          {t('sparkery.dispatch.jobForm.sections.recurringRules')}
+        </div>
         <Form.Item
-          label='Recurring Weekly Task'
+          label={t('sparkery.dispatch.jobForm.fields.recurringWeeklyTask')}
           name='recurringEnabled'
-          tooltip='Enable this if this job should be generated every week'
+          tooltip={t('sparkery.dispatch.jobForm.tooltips.recurringWeeklyTask')}
         >
           <Select>
-            <Select.Option value={false}>Disabled</Select.Option>
-            <Select.Option value={true}>Enabled</Select.Option>
+            <Select.Option value={false}>
+              {t('sparkery.dispatch.common.disabled')}
+            </Select.Option>
+            <Select.Option value={true}>
+              {t('sparkery.dispatch.common.enabled')}
+            </Select.Option>
           </Select>
         </Form.Item>
         <Form.Item
-          label='Recurring Weekdays'
+          label={t('sparkery.dispatch.jobForm.fields.recurringWeekdays')}
           name='recurringWeekdays'
           rules={[
             {
@@ -478,7 +559,11 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
                   return Promise.resolve();
                 }
                 return Promise.reject(
-                  new Error('Please select at least one recurring weekday')
+                  new Error(
+                    t(
+                      'sparkery.dispatch.jobForm.messages.selectAtLeastOneRecurringWeekday'
+                    )
+                  )
                 );
               },
             },
@@ -486,14 +571,18 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
         >
           <Select
             mode='multiple'
-            placeholder='e.g. Wednesday + Sunday'
+            placeholder={t(
+              'sparkery.dispatch.jobForm.placeholders.recurringWeekdays'
+            )}
             options={weekdayOptions}
             maxTagCount={3}
           />
         </Form.Item>
-        <div className='dispatch-job-form-section-title'>Images</div>
+        <div className='dispatch-job-form-section-title'>
+          {t('sparkery.dispatch.jobForm.sections.images')}
+        </div>
         <Form.Item
-          label='Images'
+          label={t('sparkery.dispatch.jobForm.fields.images')}
           name='imageUrls'
           initialValue={uploadInitialFiles}
           valuePropName='fileList'
@@ -505,7 +594,11 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
             beforeUpload={file => {
               const isTooLarge = file.size / 1024 / 1024 > MAX_IMAGE_SIZE_MB;
               if (isTooLarge) {
-                message.error(`Each image must be <= ${MAX_IMAGE_SIZE_MB}MB`);
+                message.error(
+                  t('sparkery.dispatch.jobForm.messages.imageSizeLimit', {
+                    size: MAX_IMAGE_SIZE_MB,
+                  })
+                );
                 return Upload.LIST_IGNORE;
               }
               return false;
@@ -513,11 +606,14 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
             multiple
             maxCount={MAX_IMAGE_COUNT}
           >
-            + Upload
+            {t('sparkery.dispatch.jobForm.actions.upload')}
           </Upload>
         </Form.Item>
         <div className='dispatch-job-form-help'>
-          Up to {MAX_IMAGE_COUNT} images, each {'<='} {MAX_IMAGE_SIZE_MB}MB.
+          {t('sparkery.dispatch.jobForm.imageHelp', {
+            count: MAX_IMAGE_COUNT,
+            size: MAX_IMAGE_SIZE_MB,
+          })}
         </div>
       </Form>
     </Modal>

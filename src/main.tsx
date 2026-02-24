@@ -39,7 +39,6 @@ runtime.__WENDEAL_GOOGLE_CALENDAR_CONFIG__ = {
 
 // 在开发环境中启动MSW (暂时禁用以解决CORS问题)
 if (import.meta.env.DEV) {
-  console.log('MSW已临时禁用以解决webhook CORS问题');
   // import('./mocks').then(({ worker }) => {
   //   worker.start({
   //     onUnhandledRequest: (request) => {
@@ -49,8 +48,7 @@ if (import.meta.env.DEV) {
   //           request.url.hostname !== 'localhost') {
   //         return;
   //       }
-  //       // 对于其他未处理的请求，记录警告
-  //       console.warn('MSW: Unhandled request:', request.method, request.url);
+  //       // 对于其他未处理的请求，记录警�?  //       console.warn('MSW: Unhandled request:', request.method, request.url);
   //     },
   //     serviceWorker: {
   //       url: '/mockServiceWorker.js',
@@ -58,6 +56,14 @@ if (import.meta.env.DEV) {
   //     quiet: false, // 显示启动信息
   //   });
   // });
+}
+
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Keep app usable even if service worker registration fails.
+    });
+  });
 }
 
 createRoot(document.getElementById('root')!).render(
