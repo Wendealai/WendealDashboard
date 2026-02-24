@@ -437,6 +437,71 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                 <WorkflowCard
                   workflow={
                     {
+                      id: 'invoice-ingestion-assistant-workflow',
+                      name: 'Invoice Ingestion Assistant',
+                      description:
+                        'Capture receipts, OCR extract, review, and one-click sync to Xero',
+                      status: 'active' as const,
+                      type: 'invoice-ocr' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any
+                  }
+                  selected={
+                    selectedWorkflow?.id ===
+                    'invoice-ingestion-assistant-workflow'
+                  }
+                  loading={false}
+                  error={null}
+                  onClick={() =>
+                    handleWorkflowSelect({
+                      id: 'invoice-ingestion-assistant-workflow',
+                      name: 'Invoice Ingestion Assistant',
+                      description:
+                        'Capture receipts, OCR extract, review, and one-click sync to Xero',
+                      status: 'active' as const,
+                      type: 'invoice-ocr' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any)
+                  }
+                  onTrigger={() => {
+                    handleWorkflowSelect({
+                      id: 'invoice-ingestion-assistant-workflow',
+                      name: 'Invoice Ingestion Assistant',
+                      description:
+                        'Capture receipts, OCR extract, review, and one-click sync to Xero',
+                      status: 'active' as const,
+                      type: 'invoice-ocr' as const,
+                      executionCount: 0,
+                      successRate: 0,
+                      author: { id: 'system', name: 'System' },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    } as any);
+                  }}
+                  onSettings={() => {
+                    handleOpenSettings(
+                      'invoice-ingestion-assistant-workflow',
+                      'Invoice Ingestion Assistant'
+                    );
+                  }}
+                  size='small'
+                  showActions={false}
+                />
+              </Col>
+
+              {/* Tools Workflow card */}
+              <Col xs={24} sm={24} md={12} lg={8} xl={6}>
+                <WorkflowCard
+                  workflow={
+                    {
                       id: 'tools-workflow',
                       name: t('tools.workflow.title'),
                       description: t('tools.workflow.subtitle'),

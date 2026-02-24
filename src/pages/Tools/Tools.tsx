@@ -31,6 +31,7 @@ import UniversalOCRPage from './components/UniversalOCRPage';
 import SmartOpportunities from './components/SmartOpportunities';
 import TaxInvoiceReceipt from './components/TaxInvoiceReceipt';
 import ToolsWorkflowContainer from './components/ToolsWorkflowContainer';
+import InvoiceIngestionAssistant from './components/InvoiceIngestionAssistant';
 import type { Workflow } from './types';
 
 const { Title, Text } = Typography;
@@ -176,9 +177,12 @@ const Tools: React.FC = () => {
                         : selectedWorkflow?.id ===
                             'tax-invoice-receipt-workflow'
                           ? 'Tax Invoice/Receipt'
-                          : selectedWorkflow?.id === 'invoice-shelf-workflow'
-                            ? 'InvoiceShelf'
-                            : t('informationDashboard.title')}
+                          : selectedWorkflow?.id ===
+                              'invoice-ingestion-assistant-workflow'
+                            ? 'Invoice Ingestion Assistant'
+                            : selectedWorkflow?.id === 'invoice-shelf-workflow'
+                              ? 'InvoiceShelf'
+                              : t('informationDashboard.title')}
                 </span>
               </Space>
             }
@@ -193,6 +197,9 @@ const Tools: React.FC = () => {
               <SmartOpportunities />
             ) : selectedWorkflow?.id === 'tax-invoice-receipt-workflow' ? (
               <TaxInvoiceReceipt />
+            ) : selectedWorkflow?.id ===
+              'invoice-ingestion-assistant-workflow' ? (
+              <InvoiceIngestionAssistant />
             ) : selectedWorkflow?.id === 'tools-workflow' ? (
               <ToolsWorkflowContainer
                 src='https://vert.wendealai.com'

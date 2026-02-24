@@ -8,3 +8,6 @@ export * from './invoiceOCR';
 
 // 导出 Universal OCR 相关类型
 export * from './universalOCR';
+
+// Export invoice ingestion assistant types
+export * from './invoiceIngestionAssistant';
