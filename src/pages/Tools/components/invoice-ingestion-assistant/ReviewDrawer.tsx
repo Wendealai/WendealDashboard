@@ -57,6 +57,12 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({
   onAutoClassify,
   onApplyQuickGst,
 }) => {
+  const isPdfPreview = Boolean(
+    reviewingDoc &&
+      (reviewingDoc.mime_type === 'application/pdf' ||
+        reviewingDoc.file_name.toLowerCase().endsWith('.pdf'))
+  );
+
   return (
     <Drawer
       title='Review Before Sync'
@@ -95,15 +101,28 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({
               title='Original Document'
               style={{ marginBottom: 12 }}
             >
-              <img
-                src={reviewImageUrl}
-                alt={reviewingDoc.file_name}
-                style={{
-                  width: '100%',
-                  borderRadius: 8,
-                  objectFit: 'contain',
-                }}
-              />
+              {isPdfPreview ? (
+                <iframe
+                  src={reviewImageUrl}
+                  title={reviewingDoc.file_name}
+                  style={{
+                    width: '100%',
+                    height: 520,
+                    border: 0,
+                    borderRadius: 8,
+                  }}
+                />
+              ) : (
+                <img
+                  src={reviewImageUrl}
+                  alt={reviewingDoc.file_name}
+                  style={{
+                    width: '100%',
+                    borderRadius: 8,
+                    objectFit: 'contain',
+                  }}
+                />
+              )}
             </Card>
           )}
           <Form form={reviewForm} layout='vertical'>

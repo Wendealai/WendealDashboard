@@ -128,6 +128,7 @@ export interface BatchActionSummary {
   succeeded: number;
   failed: number;
   skipped: number;
+  conflicted: number;
 }
 
 export interface UploadBatchSummary extends BatchActionSummary {

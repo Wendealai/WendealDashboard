@@ -49,6 +49,8 @@ import SupplierDirectoryModal from './invoice-ingestion-assistant/SupplierDirect
 
 const { Text } = Typography;
 const { Dragger } = Upload;
+const MAX_UPLOAD_SIZE_MB = 15;
+const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 
 const STATUS_COLOR_MAP: Record<string, string> = {
   uploaded: 'default',
@@ -81,11 +83,20 @@ const statusText = (status: InvoiceAssistantDocument['status']): string => {
 const toDateString = (value: Dayjs | null): string | null =>
   value ? value.format('YYYY-MM-DD') : null;
 
-const parseAliases = (raw: string): string[] =>
+const parseAliases = (raw: string): string[] => {
+  const unique = new Set<string>();
   raw
-    .split(',')
+    .split(/[,;\n]+/)
     .map(item => item.trim())
-    .filter(item => item.length > 0);
+    .filter(item => item.length > 0)
+    .forEach(item => unique.add(item.toUpperCase()));
+  return [...unique];
+};
+
+const isPdfFile = (file: File): boolean =>
+  file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+const isImageFile = (file: File): boolean => file.type.startsWith('image/');
 
 const InvoiceIngestionAssistant: React.FC = () => {
   const message = useMessage();
@@ -226,6 +237,15 @@ const InvoiceIngestionAssistant: React.FC = () => {
     () => selectedRowKeys.map(item => String(item)),
     [selectedRowKeys]
   );
+  const hasAnyRunningAction = Boolean(actionLoading);
+
+  useEffect(() => {
+    const visibleIds = new Set(filteredDocuments.map(item => item.document_id));
+    setSelectedRowKeys(current => {
+      const next = current.filter(key => visibleIds.has(String(key)));
+      return next.length === current.length ? current : next;
+    });
+  }, [filteredDocuments]);
 
   const withAction = useCallback(
     async (key: string, action: () => Promise<void>) => {
@@ -281,7 +301,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
         );
       refreshState();
       message.success(
-        `Recognized ${summary.succeeded}/${summary.total}. Failed: ${summary.failed}.`
+        `Recognized ${summary.succeeded}/${summary.total}. Failed: ${summary.failed}. Conflicted: ${summary.conflicted}.`
       );
     });
   }, [ensureSelection, message, refreshState, selectedDocumentIds, withAction]);
@@ -295,7 +315,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
         invoiceIngestionAssistantService.markReadyToSync(selectedDocumentIds);
       refreshState();
       message.success(
-        `Ready items: ${summary.succeeded}/${summary.total}. Blocked: ${summary.failed}.`
+        `Ready items: ${summary.succeeded}/${summary.total}. Blocked: ${summary.failed}. Conflicted: ${summary.conflicted}.`
       );
     });
   }, [ensureSelection, message, refreshState, selectedDocumentIds, withAction]);
@@ -311,7 +331,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
         );
       refreshState();
       message.success(
-        `Synced ${summary.succeeded}/${summary.total}. Failed: ${summary.failed}.`
+        `Synced ${summary.succeeded}/${summary.total}. Failed: ${summary.failed}. Conflicted: ${summary.conflicted}.`
       );
     });
   }, [ensureSelection, message, refreshState, selectedDocumentIds, withAction]);
@@ -486,13 +506,25 @@ const InvoiceIngestionAssistant: React.FC = () => {
 
   const handleDeleteDocument = useCallback(
     async (documentId: string) => {
-      await removeInvoiceSourceBlob(documentId);
+      let blobCleanupFailed = false;
+      try {
+        await removeInvoiceSourceBlob(documentId);
+      } catch (error) {
+        blobCleanupFailed = true;
+        console.error(`Failed to remove local blob for ${documentId}:`, error);
+      }
       invoiceIngestionAssistantService.deleteDocument(documentId);
       setSelectedRowKeys(current =>
         current.filter(item => String(item) !== documentId)
       );
       refreshState();
-      message.success('Queue item deleted.');
+      if (blobCleanupFailed) {
+        message.warning(
+          'Queue item removed, but local file cleanup failed. You can continue safely.'
+        );
+      } else {
+        message.success('Queue item deleted.');
+      }
     },
     [message, refreshState]
   );
@@ -579,6 +611,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
           <Space wrap>
             <Button
               size='small'
+              disabled={hasAnyRunningAction}
               onClick={() => setReviewingDocId(record.document_id)}
             >
               Review
@@ -588,11 +621,12 @@ const InvoiceIngestionAssistant: React.FC = () => {
               description='This will remove local file cache and queue metadata.'
               okText='Delete'
               cancelText='Cancel'
+              disabled={hasAnyRunningAction}
               onConfirm={() => {
                 void handleDeleteDocument(record.document_id);
               }}
             >
-              <Button size='small' danger>
+              <Button size='small' danger disabled={hasAnyRunningAction}>
                 Delete
               </Button>
             </Popconfirm>
@@ -600,13 +634,34 @@ const InvoiceIngestionAssistant: React.FC = () => {
         ),
       },
     ],
-    [handleDeleteDocument]
+    [handleDeleteDocument, hasAnyRunningAction]
   );
 
   const uploadProps: UploadProps = {
     multiple: true,
     accept: 'image/*,.pdf',
-    beforeUpload: () => false,
+    beforeUpload: file => {
+      if (!isPdfFile(file) && !isImageFile(file)) {
+        message.error('Only image or PDF files are supported.');
+        return Upload.LIST_IGNORE;
+      }
+      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+        message.error(`Each file must be <= ${MAX_UPLOAD_SIZE_MB}MB.`);
+        return Upload.LIST_IGNORE;
+      }
+      const duplicatePending = pendingFileList.some(item => {
+        const origin = item.originFileObj;
+        if (!origin) {
+          return false;
+        }
+        return origin.name === file.name && origin.size === file.size;
+      });
+      if (duplicatePending) {
+        message.warning(`Skipped duplicate file: ${file.name}`);
+        return Upload.LIST_IGNORE;
+      }
+      return false;
+    },
     fileList: pendingFileList,
     onChange: info => setPendingFileList(info.fileList),
   };
@@ -653,12 +708,14 @@ const InvoiceIngestionAssistant: React.FC = () => {
           <Space>
             <Button
               icon={<SafetyCertificateOutlined />}
+              disabled={hasAnyRunningAction}
               onClick={() => setSettingsVisible(true)}
             >
               Settings
             </Button>
             <Button
               icon={<DatabaseOutlined />}
+              disabled={hasAnyRunningAction}
               onClick={() => setSupplierVisible(true)}
             >
               Supplier Directory
@@ -683,6 +740,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
             type='primary'
             icon={<CloudUploadOutlined />}
             loading={actionLoading === 'archive'}
+            disabled={hasAnyRunningAction && actionLoading !== 'archive'}
             onClick={() => {
               void handleArchiveUpload();
             }}
@@ -719,7 +777,11 @@ const InvoiceIngestionAssistant: React.FC = () => {
             ]}
           />
           <DatePicker value={dateFilter} onChange={setDateFilter} allowClear />
-          <Button icon={<ReloadOutlined />} onClick={refreshState}>
+          <Button
+            icon={<ReloadOutlined />}
+            disabled={hasAnyRunningAction}
+            onClick={refreshState}
+          >
             Refresh
           </Button>
         </Space>
@@ -728,6 +790,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
           <Button
             icon={<FileSearchOutlined />}
             loading={actionLoading === 'recognize'}
+            disabled={hasAnyRunningAction && actionLoading !== 'recognize'}
             onClick={() => {
               void handleRecognizeSelected();
             }}
@@ -737,6 +800,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
           <Button
             icon={<SyncOutlined />}
             loading={actionLoading === 'ready'}
+            disabled={hasAnyRunningAction && actionLoading !== 'ready'}
             onClick={() => {
               void handleReadySelected();
             }}
@@ -747,6 +811,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
             type='primary'
             icon={<SyncOutlined />}
             loading={actionLoading === 'sync'}
+            disabled={hasAnyRunningAction && actionLoading !== 'sync'}
             onClick={() => {
               void handleSyncSelected();
             }}
@@ -757,7 +822,10 @@ const InvoiceIngestionAssistant: React.FC = () => {
 
         <Space wrap style={{ marginBottom: 12 }}>
           <DatePicker value={nightBatchDate} onChange={setNightBatchDate} />
-          <Button onClick={handleNightBatchSelect}>
+          <Button
+            disabled={hasAnyRunningAction}
+            onClick={handleNightBatchSelect}
+          >
             Night Batch: Select Day Pending
           </Button>
           <Text type='secondary'>

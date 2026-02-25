@@ -22,7 +22,6 @@ import WorkflowCard from '@/components/workflow/WorkflowCard';
 interface WorkflowSidebarProps {
   className?: string;
   onWorkflowSelect?: (workflow: WorkflowInfo | null) => void;
-  onWorkflowTriggered?: (workflowId: string, executionId: string) => void;
 }
 
 interface BuiltinWorkflowConfig {
@@ -57,25 +56,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
 
     const [selectedWorkflow, setSelectedWorkflow] =
       useState<WorkflowInfo | null>(null);
-    const [lastUpdatedTimes, setLastUpdatedTimes] = useState<
-      Record<string, Date>
-    >(() => {
-      try {
-        const savedTimes = localStorage.getItem('lastUpdatedTimes');
-        if (!savedTimes) {
-          return {};
-        }
-        const parsed = JSON.parse(savedTimes);
-        const converted: Record<string, Date> = {};
-        Object.keys(parsed).forEach(key => {
-          converted[key] = new Date(parsed[key]);
-        });
-        return converted;
-      } catch (error) {
-        console.error('Failed to load Last Updated times:', error);
-        return {};
-      }
-    });
     const [settingsModalVisible, setSettingsModalVisible] = useState(false);
     const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(
       null
@@ -87,17 +67,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
     useEffect(() => {
       dispatch(fetchWorkflows({}));
     }, [dispatch]);
-
-    useEffect(() => {
-      try {
-        localStorage.setItem(
-          'lastUpdatedTimes',
-          JSON.stringify(lastUpdatedTimes)
-        );
-      } catch (error) {
-        console.error('Failed to save Last Updated times:', error);
-      }
-    }, [lastUpdatedTimes]);
 
     const handleWorkflowSelect = useCallback(
       (workflow: WorkflowInfo) => {
@@ -284,7 +253,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
                     selected={selectedWorkflow?.id === workflow.id}
                     loading={false}
                     error={null}
-                    lastUpdated={lastUpdatedTimes[workflow.id]}
                     onClick={() => handleWorkflowSelect(workflow)}
                     onTrigger={() => handleWorkflowSelect(workflow)}
                     onSettings={() =>

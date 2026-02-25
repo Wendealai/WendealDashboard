@@ -283,9 +283,19 @@ interface DocumentPatch {
 
 const applyDocumentPatches = (
   patches: DocumentPatch[]
-): { applied: number; conflicts: number } => {
+): {
+  applied: number;
+  conflicts: number;
+  appliedDocumentIds: Set<string>;
+  conflictedDocumentIds: Set<string>;
+} => {
   if (patches.length === 0) {
-    return { applied: 0, conflicts: 0 };
+    return {
+      applied: 0,
+      conflicts: 0,
+      appliedDocumentIds: new Set<string>(),
+      conflictedDocumentIds: new Set<string>(),
+    };
   }
 
   const latestState = readState();
@@ -294,6 +304,9 @@ const applyDocumentPatches = (
     patchById.set(patch.documentId, patch);
   }
 
+  const unresolvedPatchIds = new Set<string>(patchById.keys());
+  const appliedDocumentIds = new Set<string>();
+  const conflictedDocumentIds = new Set<string>();
   let applied = 0;
   let conflicts = 0;
   const nextDocuments = latestState.documents.map(doc => {
@@ -301,13 +314,21 @@ const applyDocumentPatches = (
     if (!patch) {
       return doc;
     }
+    unresolvedPatchIds.delete(doc.document_id);
     if (doc.updated_at !== patch.baseUpdatedAt) {
       conflicts += 1;
+      conflictedDocumentIds.add(doc.document_id);
       return doc;
     }
     applied += 1;
+    appliedDocumentIds.add(doc.document_id);
     return patch.next;
   });
+
+  if (unresolvedPatchIds.size > 0) {
+    conflicts += unresolvedPatchIds.size;
+    unresolvedPatchIds.forEach(id => conflictedDocumentIds.add(id));
+  }
 
   if (applied > 0) {
     writeState({
@@ -316,7 +337,7 @@ const applyDocumentPatches = (
     });
   }
 
-  return { applied, conflicts };
+  return { applied, conflicts, appliedDocumentIds, conflictedDocumentIds };
 };
 
 const buildArchiveFileName = (fileName: string): string => {
@@ -652,12 +673,14 @@ const fallbackExtraction = (
 const summarizeBatch = (
   total: number,
   succeeded: number,
-  failed: number
+  failed: number,
+  conflicted = 0
 ): BatchActionSummary => ({
   total,
   succeeded,
   failed,
-  skipped: Math.max(total - succeeded - failed, 0),
+  conflicted,
+  skipped: Math.max(total - succeeded - failed - conflicted, 0),
 });
 
 class InvoiceIngestionAssistantService {
@@ -927,6 +950,7 @@ class InvoiceIngestionAssistantService {
     );
     let succeeded = 0;
     let failed = 0;
+    let conflicted = 0;
 
     const taskResults = await runWithConcurrency(
       targetDocs,
@@ -996,12 +1020,18 @@ class InvoiceIngestionAssistantService {
       MAX_BATCH_CONCURRENCY
     );
 
+    const patchResult = applyDocumentPatches(
+      taskResults
+        .map(result => result.patch)
+        .filter((patch): patch is DocumentPatch => Boolean(patch))
+    );
+    conflicted += patchResult.conflicts;
+
     for (const result of taskResults) {
       if (!result.patch) {
         continue;
       }
-      const patchResult = applyDocumentPatches([result.patch]);
-      if (patchResult.applied === 0) {
+      if (!patchResult.appliedDocumentIds.has(result.patch.documentId)) {
         continue;
       }
       if (result.outcome === 'success') {
@@ -1011,7 +1041,7 @@ class InvoiceIngestionAssistantService {
       }
     }
 
-    return summarizeBatch(documentIds.length, succeeded, failed);
+    return summarizeBatch(documentIds.length, succeeded, failed, conflicted);
   }
 
   private async recognizeDocument(
@@ -1094,6 +1124,7 @@ class InvoiceIngestionAssistantService {
     const idSet = new Set(documentIds);
     let succeeded = 0;
     let failed = 0;
+    let conflicted = 0;
     const patches: Array<{
       outcome: 'success' | 'failed';
       patch: DocumentPatch;
@@ -1151,9 +1182,11 @@ class InvoiceIngestionAssistantService {
       });
     }
 
+    const patchResult = applyDocumentPatches(patches.map(item => item.patch));
+    conflicted += patchResult.conflicts;
+
     for (const item of patches) {
-      const patchResult = applyDocumentPatches([item.patch]);
-      if (patchResult.applied === 0) {
+      if (!patchResult.appliedDocumentIds.has(item.patch.documentId)) {
         continue;
       }
       if (item.outcome === 'success') {
@@ -1163,7 +1196,7 @@ class InvoiceIngestionAssistantService {
       }
     }
 
-    return summarizeBatch(documentIds.length, succeeded, failed);
+    return summarizeBatch(documentIds.length, succeeded, failed, conflicted);
   }
 
   async batchSyncToXero(documentIds: string[]): Promise<SyncBatchSummary> {
@@ -1174,6 +1207,7 @@ class InvoiceIngestionAssistantService {
     );
     let succeeded = 0;
     let failed = 0;
+    let conflicted = 0;
     const syncedDocumentIds = new Set<string>();
 
     const taskResults = await runWithConcurrency(
@@ -1283,6 +1317,13 @@ class InvoiceIngestionAssistantService {
       MAX_BATCH_CONCURRENCY
     );
 
+    const patchResult = applyDocumentPatches(
+      taskResults
+        .map(result => result.patch)
+        .filter((patch): patch is DocumentPatch => Boolean(patch))
+    );
+    conflicted += patchResult.conflicts;
+
     for (const result of taskResults) {
       if (!result.patch) {
         if (result.outcome === 'success') {
@@ -1291,8 +1332,7 @@ class InvoiceIngestionAssistantService {
         }
         continue;
       }
-      const patchResult = applyDocumentPatches([result.patch]);
-      if (patchResult.applied === 0) {
+      if (!patchResult.appliedDocumentIds.has(result.patch.documentId)) {
         continue;
       }
       if (result.outcome === 'success') {
@@ -1303,10 +1343,12 @@ class InvoiceIngestionAssistantService {
       }
     }
 
-    await this.cleanupSyncedSourceBlobs();
+    void this.cleanupSyncedSourceBlobs().catch(error => {
+      console.error('Async blob cleanup failed:', error);
+    });
 
     return {
-      ...summarizeBatch(documentIds.length, succeeded, failed),
+      ...summarizeBatch(documentIds.length, succeeded, failed, conflicted),
       synced_document_ids: [...syncedDocumentIds],
     };
   }

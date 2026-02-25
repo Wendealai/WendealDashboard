@@ -198,6 +198,49 @@ describe('invoiceIngestionAssistantService', () => {
     );
   });
 
+  it('reports conflicts when document changed during recognize batch', async () => {
+    const doc = makeDocument({
+      status: 'uploaded',
+      review: null,
+      drive_file_id: null,
+      drive_url: null,
+    });
+    writeAssistantState({
+      version: 1,
+      documents: [doc],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    let resolveBlob!: (value: unknown) => void;
+    (getInvoiceSourceBlob as jest.Mock).mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveBlob = resolve;
+        })
+    );
+
+    const running = invoiceIngestionAssistantService.batchRecognize(['doc_1']);
+
+    const midState = readAssistantState();
+    midState.documents[0].updated_at = '2026-02-20T09:00:00.000Z';
+    writeAssistantState(midState);
+
+    resolveBlob({
+      document_id: 'doc_1',
+      blob: new Blob(['binary'], { type: 'image/jpeg' }),
+      file_name: 'receipt-2026-02-20-100.00.jpg',
+      mime_type: 'image/jpeg',
+      updated_at: '2026-02-20T08:00:00.000Z',
+    });
+
+    const summary = await running;
+
+    expect(summary.conflicted).toBe(1);
+    expect(summary.succeeded).toBe(0);
+    expect(summary.failed).toBe(0);
+  });
+
   it('retries xero sync on transient failure and then succeeds', async () => {
     const settings: InvoiceAssistantSettings = {
       ...baseSettings,
