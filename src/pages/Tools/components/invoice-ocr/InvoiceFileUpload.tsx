@@ -135,6 +135,14 @@ interface InvoiceFileUploadProps {
     hasBusinessData?: boolean;
     schemaWarnings?: string[];
     idempotencyKey?: string;
+    diagnostics?: {
+      httpStatus?: number;
+      contentType?: string;
+      attemptCount?: number;
+      elapsedMs?: number;
+      transportWarnings?: string[];
+    };
+    rawResponse?: unknown;
   }) => void;
 }
 
@@ -515,6 +523,11 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           const hasBusinessData = Boolean(webhookResponse.hasBusinessData);
           const schemaWarnings =
             webhookResponse.diagnostics?.schemaWarnings || [];
+          const attemptCount = webhookResponse.diagnostics?.attemptCount || 1;
+          if (attemptCount > 1) {
+            message.info(`请求在第 ${attemptCount} 次重试后成功`);
+          }
+          const responseDiagnostics = webhookResponse.diagnostics;
 
           // 准备完成数据
           const completedData = {
@@ -529,6 +542,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             schemaWarnings,
             idempotencyKey:
               webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
+            rawResponse: webhookResponse.data,
+            ...(responseDiagnostics
+              ? { diagnostics: responseDiagnostics }
+              : {}),
           };
 
           if (!hasBusinessData) {
@@ -541,6 +558,8 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               idempotencyKey:
                 webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
               schemaWarnings: schemaWarnings.join(','),
+              attemptCount: webhookResponse.diagnostics?.attemptCount || 0,
+              elapsedMs: webhookResponse.diagnostics?.elapsedMs || 0,
             });
           } else {
             trackInvoiceOcrEvent('invoice_ocr_upload_completed', {
@@ -549,6 +568,8 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               idempotencyKey:
                 webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
               fileCount: files.length,
+              attemptCount: webhookResponse.diagnostics?.attemptCount || 1,
+              elapsedMs: webhookResponse.diagnostics?.elapsedMs || 0,
             });
           }
 

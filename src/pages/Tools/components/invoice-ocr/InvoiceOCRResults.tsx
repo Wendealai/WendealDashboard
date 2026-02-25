@@ -122,6 +122,14 @@ interface InvoiceOCRResultsProps {
     hasBusinessData?: boolean;
     schemaWarnings?: string[];
     idempotencyKey?: string;
+    diagnostics?: {
+      httpStatus?: number;
+      contentType?: string;
+      attemptCount?: number;
+      elapsedMs?: number;
+      transportWarnings?: string[];
+    };
+    rawResponse?: unknown;
     /** 增强版webhook响应数据 */
     enhancedData?: EnhancedWebhookResponse;
   };
@@ -385,6 +393,34 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     },
     [message]
   );
+
+  const handleExportDiagnostics = useCallback(() => {
+    if (!completedData) {
+      message.warning('暂无可导出的诊断信息');
+      return;
+    }
+
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      executionId: completedData.executionId || '',
+      requestKey: completedData.idempotencyKey || '',
+      hasBusinessData: Boolean(completedData.hasBusinessData),
+      schemaWarnings: completedData.schemaWarnings || [],
+      diagnostics: completedData.diagnostics || {},
+      rawResponse: completedData.rawResponse || null,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `invoice-ocr-diagnostics-${Date.now()}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    message.success('诊断信息已导出');
+  }, [completedData, message]);
 
   /**
    * 结果表格列定义
@@ -1062,6 +1098,25 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                         Request Key: {completedData.idempotencyKey}
                       </Tag>
                     )}
+                    {typeof completedData.diagnostics?.attemptCount ===
+                      'number' && (
+                      <Tag color='geekblue' style={{ padding: '4px 8px' }}>
+                        Attempts: {completedData.diagnostics.attemptCount}
+                      </Tag>
+                    )}
+                    {typeof completedData.diagnostics?.elapsedMs ===
+                      'number' && (
+                      <Tag color='cyan' style={{ padding: '4px 8px' }}>
+                        Elapsed: {completedData.diagnostics.elapsedMs}ms
+                      </Tag>
+                    )}
+                    <Button
+                      size='small'
+                      icon={<DownloadOutlined />}
+                      onClick={handleExportDiagnostics}
+                    >
+                      导出诊断
+                    </Button>
                   </Space>
                 </div>
               )}
@@ -1367,6 +1422,24 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                       Request Key: {completedData.idempotencyKey}
                     </Tag>
                   )}
+                  {typeof completedData.diagnostics?.attemptCount ===
+                    'number' && (
+                    <Tag color='geekblue' style={{ padding: '4px 8px' }}>
+                      Attempts: {completedData.diagnostics.attemptCount}
+                    </Tag>
+                  )}
+                  {typeof completedData.diagnostics?.elapsedMs === 'number' && (
+                    <Tag color='cyan' style={{ padding: '4px 8px' }}>
+                      Elapsed: {completedData.diagnostics.elapsedMs}ms
+                    </Tag>
+                  )}
+                  <Button
+                    size='small'
+                    icon={<DownloadOutlined />}
+                    onClick={handleExportDiagnostics}
+                  >
+                    导出诊断
+                  </Button>
                 </Space>
               </div>
             )}
@@ -1444,6 +1517,18 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                   showIcon
                   message='响应诊断'
                   description={`Schema warnings: ${completedData.schemaWarnings.join(', ')}`}
+                />
+              )}
+            {completedData.diagnostics?.transportWarnings &&
+              completedData.diagnostics.transportWarnings.length > 0 && (
+                <Alert
+                  style={{ marginTop: 12, textAlign: 'left' }}
+                  type='info'
+                  showIcon
+                  message='传输层诊断'
+                  description={completedData.diagnostics.transportWarnings.join(
+                    ' | '
+                  )}
                 />
               )}
 

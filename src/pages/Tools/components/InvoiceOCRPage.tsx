@@ -62,6 +62,7 @@ import {
 import { getInvoiceOcrConfig } from '@/config/invoiceOcrConfig';
 import { invoiceOCRService } from '../../../services/invoiceOCRService';
 import { trackInvoiceOcrEvent } from '@/services/invoiceOcrTelemetry';
+import { n8nWebhookService } from '@/services/n8nWebhookService';
 import InvoiceFileUpload from './invoice-ocr/InvoiceFileUpload';
 import InvoiceOCRResults from './invoice-ocr/InvoiceOCRResults';
 import InvoiceOCRSettings from './invoice-ocr/InvoiceOCRSettings';
@@ -106,6 +107,7 @@ const InvoiceOCRPage: React.FC = () => {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [isPollingResults, setIsPollingResults] = useState(false);
   const [resultsRefreshToken, setResultsRefreshToken] = useState(0);
+  const [testingWebhook, setTestingWebhook] = useState(false);
 
   // Data state
   const [uploadedFiles, setUploadedFiles] = useState<InvoiceOCRFile[]>([]);
@@ -127,6 +129,14 @@ const InvoiceOCRPage: React.FC = () => {
     hasBusinessData?: boolean;
     schemaWarnings?: string[];
     idempotencyKey?: string;
+    diagnostics?: {
+      httpStatus?: number;
+      contentType?: string;
+      attemptCount?: number;
+      elapsedMs?: number;
+      transportWarnings?: string[];
+    };
+    rawResponse?: unknown;
     /** 增强版webhook响应数据 */
     enhancedData?: EnhancedWebhookResponse;
   } | null>(null);
@@ -276,6 +286,14 @@ const InvoiceOCRPage: React.FC = () => {
       hasBusinessData?: boolean;
       schemaWarnings?: string[];
       idempotencyKey?: string;
+      diagnostics?: {
+        httpStatus?: number;
+        contentType?: string;
+        attemptCount?: number;
+        elapsedMs?: number;
+        transportWarnings?: string[];
+      };
+      rawResponse?: unknown;
       /** 增强版webhook响应数据 */
       enhancedData?: EnhancedWebhookResponse;
     }) => {
@@ -324,6 +342,25 @@ const InvoiceOCRPage: React.FC = () => {
     },
     [invoiceOcrConfig.workflowId, message, showError, stopResultPolling, t]
   );
+
+  const handleTestWebhookConnection = useCallback(async () => {
+    setTestingWebhook(true);
+    try {
+      const isReachable = await n8nWebhookService.testWebhookConnection(
+        invoiceOcrConfig.webhookUrl
+      );
+      if (isReachable) {
+        message.success('Webhook 连通性检查通过');
+      } else {
+        message.warning('Webhook 不可达，请检查 URL、网络或 n8n 服务状态');
+      }
+    } catch (testError) {
+      console.error('Webhook health check failed:', testError);
+      message.error('Webhook 连通性检查失败');
+    } finally {
+      setTestingWebhook(false);
+    }
+  }, [invoiceOcrConfig.webhookUrl, message]);
 
   /**
    * Load data when component initializes
@@ -461,6 +498,12 @@ const InvoiceOCRPage: React.FC = () => {
               onClick={() => setSettingsVisible(true)}
             >
               {t('common.settings')}
+            </Button>
+            <Button
+              loading={testingWebhook}
+              onClick={handleTestWebhookConnection}
+            >
+              检查Webhook
             </Button>
             {isPollingResults && (
               <Badge status='processing' text='结果同步中' />

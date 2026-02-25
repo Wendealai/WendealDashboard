@@ -21,6 +21,9 @@ export interface N8NWebhookResponse {
     contentType: string;
     schemaWarnings: string[];
     idempotencyKey: string;
+    attemptCount: number;
+    elapsedMs: number;
+    transportWarnings: string[];
   };
 }
 
@@ -40,6 +43,10 @@ export interface N8NFileUploadRequest {
  */
 export class N8NWebhookService {
   private readonly defaultTimeout = 120000; // 2分钟超时，给OCR处理更多时间
+  private readonly defaultMaxAttempts = 3;
+  private readonly retryableStatusCodes = new Set([
+    408, 425, 429, 500, 502, 503, 504,
+  ]);
 
   private isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -55,6 +62,64 @@ export class N8NWebhookService {
       hash = (hash * 33) ^ value.charCodeAt(index);
     }
     return Math.abs(hash >>> 0).toString(16);
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  private buildBackoffDelay(attempt: number): number {
+    const safeAttempt = Math.max(1, attempt);
+    const base = 300 * 2 ** (safeAttempt - 1);
+    const jitter = Math.floor(Math.random() * 120);
+    return Math.min(5000, base + jitter);
+  }
+
+  private isRetryableResponseStatus(status: number): boolean {
+    return this.retryableStatusCodes.has(status);
+  }
+
+  private isRetryableTransportError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    const normalized = error.message.toLowerCase();
+    return (
+      error.name === 'AbortError' ||
+      normalized.includes('timeout') ||
+      normalized.includes('network') ||
+      normalized.includes('failed to fetch') ||
+      normalized.includes('econnrefused') ||
+      normalized.includes('enotfound')
+    );
+  }
+
+  private async parseWebhookResponseBody(response: Response): Promise<{
+    data: unknown;
+    contentType: string;
+  }> {
+    const contentType = response.headers.get('content-type') || 'unknown';
+    if (contentType.includes('application/json')) {
+      const data = await response.json();
+      return { data, contentType };
+    }
+
+    const textResponse = await response.text();
+    console.log('收到非JSON响应:', textResponse);
+    try {
+      return {
+        data: JSON.parse(textResponse),
+        contentType,
+      };
+    } catch {
+      return {
+        data: { message: textResponse },
+        contentType,
+      };
+    }
   }
 
   private generateIdempotencyKey(request: N8NFileUploadRequest): string {
@@ -247,70 +312,116 @@ export class N8NWebhookService {
       formData.append('timestamp', new Date().toISOString());
       formData.append('source', 'wendeal-dashboard');
       formData.append('version', '1.0');
-
-      // 发送请求到n8n webhook
       console.log('发送请求到n8n webhook...');
 
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'User-Agent': 'WendealDashboard/1.0',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-Idempotency-Key': idempotencyKey,
-        },
-        signal: AbortSignal.timeout(this.defaultTimeout),
-      });
+      const startTime = Date.now();
+      let responseData: unknown = null;
+      let response: Response | null = null;
+      let contentType = 'unknown';
+      let normalized: {
+        hasBusinessData: boolean;
+        warnings: string[];
+        executionId?: string;
+      } = {
+        hasBusinessData: false,
+        warnings: [],
+      };
+      let transportWarnings: string[] = [];
+      let attemptCount = 0;
+      let lastError: unknown = null;
 
-      console.log('收到n8n响应:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-      });
-
-      // 解析响应内容
-      let responseData: unknown;
-      const contentType = response.headers.get('content-type');
-
-      if (contentType && contentType.includes('application/json')) {
-        responseData = await response.json();
-      } else {
-        const textResponse = await response.text();
-        console.log('收到非JSON响应:', textResponse);
+      for (
+        attemptCount = 1;
+        attemptCount <= this.defaultMaxAttempts;
+        attemptCount += 1
+      ) {
         try {
-          responseData = JSON.parse(textResponse);
-        } catch {
-          responseData = { message: textResponse };
+          response = await fetch(webhookUrl, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'User-Agent': 'WendealDashboard/1.0',
+              'X-Requested-With': 'XMLHttpRequest',
+              'X-Idempotency-Key': idempotencyKey,
+            },
+            signal: AbortSignal.timeout(this.defaultTimeout),
+          });
+
+          console.log('收到n8n响应:', {
+            attemptCount,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+          });
+
+          const parsed = await this.parseWebhookResponseBody(response);
+          responseData = parsed.data;
+          contentType = parsed.contentType;
+
+          console.log('解析后的n8n响应数据:', responseData);
+          normalized = this.normalizeBusinessPayload(responseData);
+
+          if (!response.ok && !normalized.hasBusinessData) {
+            const retryableStatus = this.isRetryableResponseStatus(
+              response.status
+            );
+            const remainingAttempts = this.defaultMaxAttempts - attemptCount;
+
+            console.warn('n8n webhook响应状态非200且无业务数据:', {
+              attemptCount,
+              status: response.status,
+              statusText: response.statusText,
+              retryableStatus,
+              remainingAttempts,
+              schemaWarnings: normalized.warnings,
+            });
+
+            if (retryableStatus && remainingAttempts > 0) {
+              const delay = this.buildBackoffDelay(attemptCount);
+              transportWarnings = [
+                ...transportWarnings,
+                `attempt_${attemptCount}_http_${response.status}_retry_after_${delay}ms`,
+              ];
+              await this.sleep(delay);
+              continue;
+            }
+
+            throw new Error(
+              `Webhook请求失败: ${response.status} ${response.statusText}`
+            );
+          }
+
+          break;
+        } catch (attemptError) {
+          lastError = attemptError;
+          const retryableError = this.isRetryableTransportError(attemptError);
+          const remainingAttempts = this.defaultMaxAttempts - attemptCount;
+
+          if (retryableError && remainingAttempts > 0) {
+            const delay = this.buildBackoffDelay(attemptCount);
+            transportWarnings = [
+              ...transportWarnings,
+              `attempt_${attemptCount}_transport_retry_after_${delay}ms`,
+            ];
+            await this.sleep(delay);
+            continue;
+          }
+
+          throw attemptError;
         }
       }
 
-      console.log('解析后的n8n响应数据:', responseData);
+      if (!response) {
+        throw lastError instanceof Error
+          ? lastError
+          : new Error('Webhook request failed with no response');
+      }
 
-      const normalized = this.normalizeBusinessPayload(responseData);
+      const elapsedMs = Date.now() - startTime;
       const googleSheetsUrl = this.extractGoogleSheetsUrl(responseData);
 
-      // 检查响应状态 - 如果包含有效数据，即使状态码不是200也继续处理
-      if (!response.ok) {
-        console.warn('n8n webhook响应状态非200:', {
-          status: response.status,
-          statusText: response.statusText,
-          hasData: !!responseData,
-          hasBusinessData: normalized.hasBusinessData,
-          schemaWarnings: normalized.warnings,
-        });
-
-        if (!normalized.hasBusinessData) {
-          console.error('n8n webhook响应错误且无有效数据:', {
-            status: response.status,
-            statusText: response.statusText,
-            body: responseData,
-          });
-          throw new Error(
-            `Webhook请求失败: ${response.status} ${response.statusText}`
-          );
-        } else {
-          console.log('响应状态非200但包含有效数据，继续处理...');
-        }
+      if (!response.ok && normalized.hasBusinessData) {
+        console.log('响应状态非200但包含有效数据，继续处理...');
       }
       console.log('提取的Google Sheets URL:', googleSheetsUrl);
 
@@ -342,9 +453,12 @@ export class N8NWebhookService {
         hasBusinessData: normalized.hasBusinessData,
         diagnostics: {
           httpStatus: response.status,
-          contentType: contentType || 'unknown',
+          contentType,
           schemaWarnings: normalized.warnings,
           idempotencyKey,
+          attemptCount,
+          elapsedMs,
+          transportWarnings,
         },
       };
 
@@ -457,6 +571,9 @@ export class N8NWebhookService {
           contentType: response.headers.get('content-type') || 'unknown',
           schemaWarnings: [],
           idempotencyKey: 'ocr-result-forwarding',
+          attemptCount: 1,
+          elapsedMs: 0,
+          transportWarnings: [],
         },
       };
     } catch (error) {
