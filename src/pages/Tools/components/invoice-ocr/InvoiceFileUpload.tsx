@@ -229,6 +229,17 @@ const extractEnhancedData = (payload: unknown): unknown => {
   return null;
 };
 
+const FILE_FINGERPRINT_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+const chunkFiles = <T,>(items: T[], chunkSize: number): T[][] => {
+  const size = Math.max(1, chunkSize);
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+};
+
 const readFileHeaderHex = async (file: File, length = 8): Promise<string> => {
   const buffer = await file.slice(0, length).arrayBuffer();
   const bytes = new Uint8Array(buffer);
@@ -553,14 +564,112 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
       let activeTraceId = '';
 
       try {
-        const files = fileList.map(file => file.originFileObj as File);
+        const rawFiles = fileList.map(file => file.originFileObj as File);
+        const fingerprints = await Promise.all(
+          rawFiles.map(async file => ({
+            file,
+            fingerprint: await invoiceOCRService.computeFileFingerprint(file),
+          }))
+        );
+        const dedupedInBatchMap = new Map<
+          string,
+          { file: File; fingerprint: string }
+        >();
+        for (const item of fingerprints) {
+          if (dedupedInBatchMap.has(item.fingerprint)) {
+            message.warning(
+              `文件 ${item.file.name} 与已选文件内容重复，已自动去重`
+            );
+            continue;
+          }
+          dedupedInBatchMap.set(item.fingerprint, item);
+        }
+        const dedupedFiles = Array.from(dedupedInBatchMap.values());
+        const cachedEntries: Array<{
+          file: File;
+          fingerprint: string;
+          cacheEntry: NonNullable<
+            ReturnType<typeof invoiceOCRService.getFingerprintCacheEntry>
+          >;
+        }> = [];
+        const filesToUpload: Array<{ file: File; fingerprint: string }> = [];
+        for (const item of dedupedFiles) {
+          const cacheEntry = invoiceOCRService.getFingerprintCacheEntry(
+            item.fingerprint
+          );
+          const cacheFresh = Boolean(
+            cacheEntry &&
+              cacheEntry.workflowId === workflowId &&
+              Date.now() - new Date(cacheEntry.lastSeenAt).getTime() <=
+                FILE_FINGERPRINT_CACHE_TTL_MS
+          );
+          if (cacheFresh) {
+            cachedEntries.push({
+              file: item.file,
+              fingerprint: item.fingerprint,
+              cacheEntry: cacheEntry!,
+            });
+          } else {
+            filesToUpload.push(item);
+          }
+        }
+        const files = filesToUpload.map(item => item.file);
         const idempotencyKey = buildLocalIdempotencyKey(workflowId, files);
         const traceId = buildInvoiceOcrTraceId(workflowId);
         activeTraceId = traceId;
 
+        if (cachedEntries.length > 0) {
+          message.info(
+            `检测到 ${cachedEntries.length} 个重复文件，已复用历史识别缓存并跳过上传`
+          );
+        }
+        if (files.length === 0) {
+          const firstCache = cachedEntries[0]?.cacheEntry || null;
+          try {
+            onOCRCompleted?.({
+              executionId: firstCache?.executionId || '',
+              traceId: firstCache?.traceId || traceId,
+              processedFiles: rawFiles.length,
+              totalFiles: rawFiles.length,
+              hasBusinessData: true,
+              schemaWarnings: ['all_files_reused_from_local_fingerprint_cache'],
+              idempotencyKey: firstCache?.idempotencyKey || idempotencyKey,
+              rawResponse: {
+                reusedFiles: cachedEntries.map(item => item.file.name),
+              },
+              ...(firstCache?.googleSheetsUrl
+                ? { googleSheetsUrl: firstCache.googleSheetsUrl }
+                : {}),
+            });
+          } catch (callbackError) {
+            console.error(
+              'onOCRCompleted回调执行失败(缓存命中):',
+              callbackError
+            );
+          }
+          setFileList([]);
+          onFileListChange?.([]);
+          setUploading(false);
+          setUploadProgress(0);
+          setEstimatedRemainingSec(null);
+          message.success('全部文件命中历史缓存，无需重复上传');
+          trackInvoiceOcrEvent('invoice_ocr_upload_completed', {
+            workflowId,
+            fileCount: rawFiles.length,
+            dedupedCount: cachedEntries.length,
+            traceId,
+            cacheOnly: true,
+          });
+          return;
+        }
+
+        const uploadChunkSize = Math.max(1, invoiceOcrConfig.uploadChunkSize);
+        const uploadChunks = chunkFiles(filesToUpload, uploadChunkSize);
+
         trackInvoiceOcrEvent('invoice_ocr_upload_started', {
           workflowId,
           fileCount: files.length,
+          dedupedCount: cachedEntries.length,
           idempotencyKey,
           traceId,
         });
@@ -576,6 +685,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
 
         console.log('开始上传PDF文件到n8n webhook:', {
           fileCount: files.length,
+          chunkCount: uploadChunks.length,
           webhookUrl: resolvedWebhookUrl,
           workflowId,
         });
@@ -597,24 +707,46 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           });
         }, 300);
 
-        // 直接发送文件到n8n webhook
-        const webhookResponse = await n8nWebhookService.uploadFilesToWebhook(
-          resolvedWebhookUrl,
-          {
-            files,
-            workflowId,
-            batchName:
-              batchName ||
-              invoiceOCRService.generateBatchName('invoice-upload'),
-            idempotencyKey,
-            metadata: {
-              traceId,
-              processingOptions: memoizedProcessingOptions,
-              timestamp: new Date().toISOString(),
-              source: 'wendeal-dashboard',
-            },
+        const webhookResponses: any[] = [];
+        for (
+          let chunkIndex = 0;
+          chunkIndex < uploadChunks.length;
+          chunkIndex += 1
+        ) {
+          const currentChunk = uploadChunks[chunkIndex];
+          if (!currentChunk) {
+            continue;
           }
-        );
+          const webhookResponse = await n8nWebhookService.uploadFilesToWebhook(
+            resolvedWebhookUrl,
+            {
+              files: currentChunk.map(item => item.file),
+              workflowId,
+              batchName:
+                batchName ||
+                invoiceOCRService.generateBatchName(
+                  `invoice-upload-${chunkIndex + 1}`
+                ),
+              idempotencyKey: `${idempotencyKey}:chunk-${chunkIndex + 1}`,
+              metadata: {
+                traceId,
+                processingOptions: memoizedProcessingOptions,
+                timestamp: new Date().toISOString(),
+                source: 'wendeal-dashboard',
+                chunkIndex: chunkIndex + 1,
+                totalChunks: uploadChunks.length,
+              },
+            }
+          );
+          webhookResponses.push(webhookResponse);
+          setUploadProgress(prev => {
+            const chunkProgress = Math.round(
+              30 + ((chunkIndex + 1) / uploadChunks.length) * 65
+            );
+            return Math.max(prev, Math.min(95, chunkProgress));
+          });
+        }
+        const webhookResponse = webhookResponses[webhookResponses.length - 1];
 
         // 完成上传进度
         if (progressInterval) {
@@ -651,34 +783,90 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           );
 
           const enhancedData = extractEnhancedData(webhookResponse.data);
-          const hasBusinessData = Boolean(webhookResponse.hasBusinessData);
-          const schemaWarnings =
-            webhookResponse.diagnostics?.schemaWarnings || [];
-          const attemptCount = webhookResponse.diagnostics?.attemptCount || 1;
+          const hasBusinessData = webhookResponses.some(response =>
+            Boolean(response.hasBusinessData)
+          );
+          const schemaWarnings = Array.from(
+            new Set(
+              webhookResponses.flatMap(
+                response => response.diagnostics?.schemaWarnings || []
+              )
+            )
+          );
+          const attemptCount = webhookResponses.reduce((total, response) => {
+            return total + (response.diagnostics?.attemptCount || 1);
+          }, 0);
+          const elapsedMs = webhookResponses.reduce((total, response) => {
+            return total + (response.diagnostics?.elapsedMs || 0);
+          }, 0);
+          const executionId =
+            webhookResponses.find(response => response.executionId)
+              ?.executionId || '';
+          const googleSheetsUrl = webhookResponses.find(
+            response => response.googleSheetsUrl
+          )?.googleSheetsUrl;
+          const transportWarnings = Array.from(
+            new Set(
+              webhookResponses.flatMap(
+                response => response.diagnostics?.transportWarnings || []
+              )
+            )
+          );
+          const responseDiagnostics = webhookResponse.diagnostics
+            ? {
+                ...webhookResponse.diagnostics,
+                schemaWarnings,
+                attemptCount,
+                elapsedMs,
+                transportWarnings,
+              }
+            : undefined;
           if (attemptCount > 1) {
             message.info(`请求在第 ${attemptCount} 次重试后成功`);
           }
-          const responseDiagnostics = webhookResponse.diagnostics;
 
           // 准备完成数据
           const completedData = {
-            executionId: webhookResponse.executionId || '',
+            executionId,
             traceId,
             googleSheetsUrl:
-              webhookResponse.googleSheetsUrl ||
+              googleSheetsUrl ||
               'https://docs.google.com/spreadsheets/d/1K8VGSofJUBK7yCTqtaPNQvSZ1HeGDNZOvO2UQ6SRJzg/edit?usp=sharing',
-            processedFiles: files.length,
-            totalFiles: files.length,
+            processedFiles: rawFiles.length,
+            totalFiles: rawFiles.length,
             enhancedData: enhancedData,
             hasBusinessData,
             schemaWarnings,
             idempotencyKey:
               webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
-            rawResponse: webhookResponse.data,
+            rawResponse: webhookResponses.map(response => response.data),
             ...(responseDiagnostics
               ? { diagnostics: responseDiagnostics }
               : {}),
           };
+
+          for (const cached of cachedEntries) {
+            invoiceOCRService.saveFingerprintCacheEntry({
+              ...cached.cacheEntry,
+              fingerprint: cached.fingerprint,
+            });
+          }
+          for (const item of filesToUpload) {
+            invoiceOCRService.saveFingerprintCacheEntry({
+              fingerprint: item.fingerprint,
+              workflowId,
+              fileName: item.file.name,
+              fileSize: item.file.size,
+              fileType: item.file.type,
+              lastSeenAt: new Date().toISOString(),
+              ...(executionId ? { executionId } : {}),
+              ...(completedData.idempotencyKey
+                ? { idempotencyKey: completedData.idempotencyKey }
+                : {}),
+              ...(traceId ? { traceId } : {}),
+              ...(googleSheetsUrl ? { googleSheetsUrl } : {}),
+            });
+          }
 
           if (!hasBusinessData) {
             message.warning(
@@ -686,24 +874,27 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             );
             trackInvoiceOcrEvent('invoice_ocr_empty_response', {
               workflowId,
-              executionId: webhookResponse.executionId || '',
+              executionId,
               idempotencyKey:
                 webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
               traceId,
               schemaWarnings: schemaWarnings.join(','),
-              attemptCount: webhookResponse.diagnostics?.attemptCount || 0,
-              elapsedMs: webhookResponse.diagnostics?.elapsedMs || 0,
+              attemptCount,
+              elapsedMs,
             });
           } else {
             trackInvoiceOcrEvent('invoice_ocr_upload_completed', {
               workflowId,
-              executionId: webhookResponse.executionId || '',
+              executionId,
               idempotencyKey:
                 webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
               traceId,
-              fileCount: files.length,
-              attemptCount: webhookResponse.diagnostics?.attemptCount || 1,
-              elapsedMs: webhookResponse.diagnostics?.elapsedMs || 0,
+              fileCount: rawFiles.length,
+              uploadedFileCount: files.length,
+              dedupedCount: cachedEntries.length,
+              chunkCount: uploadChunks.length,
+              attemptCount,
+              elapsedMs,
             });
           }
 
@@ -871,11 +1062,13 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
       onOCRProcess,
       onFileListChange,
       workflowId,
+      invoiceOcrConfig.uploadChunkSize,
       resolvedWebhookUrl,
       batchName,
       memoizedProcessingOptions,
       message,
       showError,
+      onOCRCompleted,
       onUploadError,
     ]);
 

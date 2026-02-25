@@ -68,10 +68,31 @@ export interface InvoiceOcrClientHealthSnapshot {
 
 export interface InvoiceOcrSupplierTemplateRule {
   supplierName: string;
+  aliases?: string[];
   industry?: string;
   defaultTags?: string[];
   fieldMappings: Record<string, string>;
   updatedAt: string;
+}
+
+export interface InvoiceOcrFileFingerprintCacheEntry {
+  fingerprint: string;
+  workflowId: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  lastSeenAt: string;
+  executionId?: string;
+  idempotencyKey?: string;
+  traceId?: string;
+  googleSheetsUrl?: string;
+}
+
+export interface InvoiceOcrManualCorrectionHistoryEntry {
+  updatedAt: string;
+  actor: string;
+  diffKeys: string[];
+  patch: Record<string, unknown>;
 }
 
 /**
@@ -123,6 +144,10 @@ export class InvoiceOCRService {
   private readonly supplierTemplateStorageKey = 'invoiceOCR_supplier_templates';
   private readonly manualCorrectionStoragePrefix =
     'invoiceOCR_manual_corrections';
+  private readonly fingerprintCacheStorageKey =
+    'invoiceOCR_file_fingerprint_cache_v1';
+  private readonly fingerprintCacheMaxEntries = 1000;
+  private readonly manualCorrectionHistoryMaxEntries = 30;
 
   // ==================== Workflow Management ====================
 
@@ -1216,6 +1241,125 @@ export class InvoiceOCRService {
     return `${prefix}-${timestamp}-${random}`;
   }
 
+  async computeFileFingerprint(file: File): Promise<string> {
+    try {
+      if (
+        typeof globalThis.crypto !== 'undefined' &&
+        globalThis.crypto?.subtle &&
+        typeof TextEncoder !== 'undefined'
+      ) {
+        const fileBuffer = await file.arrayBuffer();
+        const meta = new TextEncoder().encode(
+          `${file.name}|${file.size}|${file.type}|${file.lastModified}|`
+        );
+        const merged = new Uint8Array(meta.byteLength + fileBuffer.byteLength);
+        merged.set(meta, 0);
+        merged.set(new Uint8Array(fileBuffer), meta.byteLength);
+        const digest = await globalThis.crypto.subtle.digest(
+          'SHA-256',
+          merged.buffer
+        );
+        return Array.from(new Uint8Array(digest))
+          .map(byte => byte.toString(16).padStart(2, '0'))
+          .join('');
+      }
+    } catch (error) {
+      console.warn('Failed to compute cryptographic fingerprint:', error);
+    }
+
+    const fallbackSource = [
+      file.name,
+      file.size,
+      file.type,
+      file.lastModified,
+    ].join('|');
+    return this.hashString(fallbackSource);
+  }
+
+  getFingerprintCacheEntry(
+    fingerprint: string
+  ): InvoiceOcrFileFingerprintCacheEntry | null {
+    const store = this.readFingerprintCacheStore();
+    const entry = store[fingerprint];
+    return entry || null;
+  }
+
+  saveFingerprintCacheEntry(entry: InvoiceOcrFileFingerprintCacheEntry): void {
+    const store = this.readFingerprintCacheStore();
+    store[entry.fingerprint] = {
+      ...entry,
+      lastSeenAt: new Date().toISOString(),
+    };
+    this.writeFingerprintCacheStore(store);
+  }
+
+  findPotentialDuplicateResultIds(results: InvoiceOCRResult[]): string[] {
+    const grouped = new Map<string, string[]>();
+    const toRecord = (value: unknown): Record<string, unknown> =>
+      typeof value === 'object' && value !== null && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : {};
+    const readString = (
+      record: Record<string, unknown>,
+      key: string
+    ): string =>
+      typeof record[key] === 'string' ? (record[key] as string).trim() : '';
+    const readAmount = (value: unknown): string => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value.toFixed(2);
+      }
+      if (typeof value === 'string') {
+        const normalized = Number(value.replace(/[^\d.-]/g, ''));
+        if (Number.isFinite(normalized)) {
+          return normalized.toFixed(2);
+        }
+      }
+      return '';
+    };
+
+    for (const result of results) {
+      const extracted = toRecord(result.extractedData);
+      const basic = toRecord(extracted.basic);
+      const vendor = toRecord(extracted.vendor);
+      const invoiceNumber =
+        readString(extracted, 'invoiceNumber') ||
+        readString(extracted, 'invoiceNo') ||
+        readString(basic, 'invoiceNumber');
+      const vendorName =
+        readString(extracted, 'vendorName') ||
+        readString(extracted, 'supplier') ||
+        readString(vendor, 'name');
+      const invoiceDate =
+        readString(extracted, 'invoiceDate') ||
+        readString(extracted, 'date') ||
+        readString(basic, 'invoiceDate');
+      const amount = readAmount(
+        extracted.totalAmount ||
+          basic.totalAmount ||
+          extracted.amount ||
+          extracted.invoiceAmount
+      );
+
+      if (!invoiceNumber || !amount) {
+        continue;
+      }
+
+      const duplicateKey = [
+        invoiceNumber.toLowerCase(),
+        vendorName.toLowerCase(),
+        invoiceDate,
+        amount,
+      ].join('|');
+      const bucket = grouped.get(duplicateKey) || [];
+      bucket.push(result.id);
+      grouped.set(duplicateKey, bucket);
+    }
+
+    return Array.from(grouped.values())
+      .filter(bucket => bucket.length > 1)
+      .flat();
+  }
+
   getSupplierTemplateRules(): InvoiceOcrSupplierTemplateRule[] {
     try {
       const raw = localStorage.getItem(this.supplierTemplateStorageKey);
@@ -1233,8 +1377,20 @@ export class InvoiceOCRService {
   saveSupplierTemplateRule(
     rule: Omit<InvoiceOcrSupplierTemplateRule, 'updatedAt'>
   ): InvoiceOcrSupplierTemplateRule[] {
+    const normalizedAliases = Array.isArray(rule.aliases)
+      ? Array.from(
+          new Set(
+            rule.aliases
+              .map(alias => alias.trim())
+              .filter(alias => alias.length > 0)
+          )
+        )
+      : undefined;
     const nextRule: InvoiceOcrSupplierTemplateRule = {
       ...rule,
+      ...(normalizedAliases && normalizedAliases.length > 0
+        ? { aliases: normalizedAliases }
+        : {}),
       updatedAt: new Date().toISOString(),
     };
     const existing = this.getSupplierTemplateRules();
@@ -1253,9 +1409,21 @@ export class InvoiceOCRService {
     extractedData: Record<string, unknown>
   ): Record<string, unknown> {
     const normalizedSupplier = supplierName.trim().toLowerCase();
-    const matchedRule = this.getSupplierTemplateRules().find(
-      rule => rule.supplierName.trim().toLowerCase() === normalizedSupplier
-    );
+    const matchedRule = this.getSupplierTemplateRules().find(rule => {
+      const candidates = [
+        rule.supplierName,
+        ...(Array.isArray(rule.aliases) ? rule.aliases : []),
+      ]
+        .map(candidate => candidate.trim().toLowerCase())
+        .filter(candidate => candidate.length > 0);
+      return candidates.some(candidate => {
+        return (
+          normalizedSupplier === candidate ||
+          normalizedSupplier.includes(candidate) ||
+          candidate.includes(normalizedSupplier)
+        );
+      });
+    });
     if (!matchedRule) {
       return extractedData;
     }
@@ -1316,14 +1484,39 @@ export class InvoiceOCRService {
   saveManualCorrection(
     workflowId: string,
     resultId: string,
-    patch: Record<string, unknown>
+    patch: Record<string, unknown>,
+    options?: {
+      actor?: string;
+      diffKeys?: string[];
+    }
   ): void {
     const key = `${this.manualCorrectionStoragePrefix}:${workflowId}`;
     const raw = localStorage.getItem(key);
-    const store = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    const store = raw
+      ? (JSON.parse(raw) as Record<string, Record<string, unknown>>)
+      : {};
+    const existing = store[resultId];
+    const history = Array.isArray(existing?.history)
+      ? [...(existing.history as InvoiceOcrManualCorrectionHistoryEntry[])]
+      : [];
+    const updatedAt = new Date().toISOString();
+    const historyEntry: InvoiceOcrManualCorrectionHistoryEntry = {
+      updatedAt,
+      actor: options?.actor?.trim() || 'local_user',
+      diffKeys: Array.isArray(options?.diffKeys)
+        ? options.diffKeys.filter(keyItem => typeof keyItem === 'string')
+        : Object.keys(patch),
+      patch,
+    };
+    const nextHistory = [historyEntry, ...history].slice(
+      0,
+      this.manualCorrectionHistoryMaxEntries
+    );
     store[resultId] = {
       patch,
-      updatedAt: new Date().toISOString(),
+      updatedAt,
+      actor: historyEntry.actor,
+      history: nextHistory,
     };
     localStorage.setItem(key, JSON.stringify(store));
   }
@@ -1347,6 +1540,65 @@ export class InvoiceOCRService {
       console.error('Failed to get manual correction:', error);
       return null;
     }
+  }
+
+  getManualCorrectionHistory(
+    workflowId: string,
+    resultId: string
+  ): InvoiceOcrManualCorrectionHistoryEntry[] {
+    const entry = this.getManualCorrection(workflowId, resultId);
+    if (!entry || !Array.isArray(entry.history)) {
+      return [];
+    }
+    return entry.history.filter(
+      item =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as { updatedAt?: unknown }).updatedAt === 'string'
+    ) as InvoiceOcrManualCorrectionHistoryEntry[];
+  }
+
+  private hashString(value: string): string {
+    let hash = 5381;
+    for (let index = 0; index < value.length; index += 1) {
+      hash = (hash * 33) ^ value.charCodeAt(index);
+    }
+    return Math.abs(hash >>> 0).toString(16);
+  }
+
+  private readFingerprintCacheStore(): Record<
+    string,
+    InvoiceOcrFileFingerprintCacheEntry
+  > {
+    try {
+      const raw = localStorage.getItem(this.fingerprintCacheStorageKey);
+      if (!raw) {
+        return {};
+      }
+      const parsed = JSON.parse(raw) as Record<
+        string,
+        InvoiceOcrFileFingerprintCacheEntry
+      >;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (error) {
+      console.error('Failed to read fingerprint cache store:', error);
+      return {};
+    }
+  }
+
+  private writeFingerprintCacheStore(
+    store: Record<string, InvoiceOcrFileFingerprintCacheEntry>
+  ): void {
+    const entries = Object.entries(store).sort((a, b) => {
+      const timeA = new Date(a[1].lastSeenAt).getTime();
+      const timeB = new Date(b[1].lastSeenAt).getTime();
+      return timeB - timeA;
+    });
+    const trimmed = entries.slice(0, this.fingerprintCacheMaxEntries);
+    localStorage.setItem(
+      this.fingerprintCacheStorageKey,
+      JSON.stringify(Object.fromEntries(trimmed))
+    );
   }
 }
 

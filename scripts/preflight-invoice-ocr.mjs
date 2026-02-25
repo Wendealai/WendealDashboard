@@ -55,6 +55,7 @@ const webhookUrl = envVars.VITE_INVOICE_OCR_WEBHOOK_URL;
 const workflowId = envVars.VITE_INVOICE_OCR_WORKFLOW_ID;
 const pollInterval = envVars.VITE_INVOICE_OCR_POLL_INTERVAL_MS;
 const pollTimeout = envVars.VITE_INVOICE_OCR_POLL_TIMEOUT_MS;
+const uploadChunkSize = envVars.VITE_INVOICE_OCR_UPLOAD_CHUNK_SIZE;
 const telemetryEndpoint = envVars.VITE_INVOICE_OCR_TELEMETRY_ENDPOINT;
 const supabaseUrl = envVars.VITE_SUPABASE_URL;
 const supabaseAnonKey = envVars.VITE_SUPABASE_ANON_KEY;
@@ -94,6 +95,17 @@ if (pollInterval && pollTimeout) {
     errors.push(
       'VITE_INVOICE_OCR_POLL_TIMEOUT_MS must be greater than VITE_INVOICE_OCR_POLL_INTERVAL_MS.'
     );
+  }
+}
+
+if (uploadChunkSize) {
+  const normalized = toPositiveInt(uploadChunkSize);
+  if (!normalized) {
+    errors.push(
+      'VITE_INVOICE_OCR_UPLOAD_CHUNK_SIZE must be a positive integer.'
+    );
+  } else if (normalized > 50) {
+    errors.push('VITE_INVOICE_OCR_UPLOAD_CHUNK_SIZE must be <= 50.');
   }
 }
 

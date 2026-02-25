@@ -114,6 +114,7 @@ describe('InvoiceOCRPage diagnostics', () => {
       resultPollingTimeoutMs: 300,
       resultPollingFailureThreshold: 3,
       postSuccessRediagnoseDelayMs: 120000,
+      uploadChunkSize: 10,
       debug: false,
     });
     mockInvoiceService.getResultsListWithRetry.mockResolvedValue([]);
@@ -185,6 +186,7 @@ describe('InvoiceOCRPage diagnostics', () => {
       resultPollingTimeoutMs: 180,
       resultPollingFailureThreshold: 3,
       postSuccessRediagnoseDelayMs: 120000,
+      uploadChunkSize: 10,
       debug: false,
     });
 

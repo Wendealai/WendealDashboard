@@ -6,6 +6,7 @@ type InvoiceOcrRuntimeConfig = {
   resultPollingTimeoutMs?: number;
   resultPollingFailureThreshold?: number;
   postSuccessRediagnoseDelayMs?: number;
+  uploadChunkSize?: number;
   telemetryEndpoint?: string;
   debug?: boolean;
 };
@@ -27,6 +28,7 @@ export interface InvoiceOcrConfig {
   resultPollingTimeoutMs: number;
   resultPollingFailureThreshold: number;
   postSuccessRediagnoseDelayMs: number;
+  uploadChunkSize: number;
   telemetryEndpoint?: string;
   debug: boolean;
 }
@@ -39,6 +41,7 @@ const DEFAULT_RESULT_POLLING_HIDDEN_INTERVAL_MS = 12000;
 const DEFAULT_RESULT_POLLING_TIMEOUT_MS = 120000;
 const DEFAULT_RESULT_POLLING_FAILURE_THRESHOLD = 3;
 const DEFAULT_POST_SUCCESS_REDIAGNOSE_DELAY_MS = 30000;
+const DEFAULT_UPLOAD_CHUNK_SIZE = 10;
 
 const toNonEmptyString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') {
@@ -132,6 +135,11 @@ export const getInvoiceOcrConfig = (): InvoiceOcrConfig => {
     toPositiveInteger(import.meta.env.VITE_INVOICE_OCR_REDIAGNOSE_DELAY_MS) ||
     DEFAULT_POST_SUCCESS_REDIAGNOSE_DELAY_MS;
 
+  const uploadChunkSize =
+    toPositiveInteger(runtime.uploadChunkSize) ||
+    toPositiveInteger(import.meta.env.VITE_INVOICE_OCR_UPLOAD_CHUNK_SIZE) ||
+    DEFAULT_UPLOAD_CHUNK_SIZE;
+
   const telemetryEndpoint =
     toNonEmptyString(runtime.telemetryEndpoint) ||
     toNonEmptyString(import.meta.env.VITE_INVOICE_OCR_TELEMETRY_ENDPOINT);
@@ -149,6 +157,7 @@ export const getInvoiceOcrConfig = (): InvoiceOcrConfig => {
     resultPollingTimeoutMs,
     resultPollingFailureThreshold,
     postSuccessRediagnoseDelayMs,
+    uploadChunkSize,
     ...(telemetryEndpoint ? { telemetryEndpoint } : {}),
     debug,
   };

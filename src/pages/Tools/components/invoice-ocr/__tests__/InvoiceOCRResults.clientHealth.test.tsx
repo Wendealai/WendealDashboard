@@ -34,10 +34,12 @@ jest.mock('@/services/invoiceOCRService', () => ({
     getResults: jest.fn(),
     getBatchTasks: jest.fn(),
     getManualCorrection: jest.fn(() => null),
+    getManualCorrectionHistory: jest.fn(() => []),
     applySupplierTemplateRule: jest.fn(
       (_: string, data: Record<string, unknown>) => data
     ),
     inferInvoiceIndustryTags: jest.fn(() => []),
+    findPotentialDuplicateResultIds: jest.fn(() => []),
   },
 }));
 

@@ -89,6 +89,7 @@ import type { ColumnsType } from 'antd/es/table';
 import {
   invoiceOCRService,
   type InvoiceOcrClientHealthSnapshot,
+  type InvoiceOcrManualCorrectionHistoryEntry,
 } from '../../../../services/invoiceOCRService';
 import { redactSensitiveData } from '@/services/invoiceOcrDiagnosticToolkit';
 import type {
@@ -357,6 +358,9 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const [quickFilter, setQuickFilter] = useState<ResultQuickFilter>('all');
   const [manualCorrectionVisible, setManualCorrectionVisible] = useState(false);
   const [manualCorrectionDraft, setManualCorrectionDraft] = useState('{}');
+  const [manualCorrectionHistory, setManualCorrectionHistory] = useState<
+    InvoiceOcrManualCorrectionHistoryEntry[]
+  >([]);
 
   /**
    * 加载 OCR 结果数据
@@ -706,6 +710,12 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
         ? selectedResult.extractedData
         : {});
     setManualCorrectionDraft(JSON.stringify(defaultPatch, null, 2));
+    setManualCorrectionHistory(
+      invoiceOCRService.getManualCorrectionHistory(
+        workflowId,
+        selectedResult.id
+      )
+    );
     setManualCorrectionVisible(true);
   }, [selectedResult, workflowId]);
 
@@ -721,12 +731,22 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       invoiceOCRService.saveManualCorrection(
         workflowId,
         selectedResult.id,
-        parsed
+        parsed,
+        {
+          actor: 'dashboard_user',
+          diffKeys: Object.keys(parsed),
+        }
       );
       const nextResult = applyPatchToResult(selectedResult, parsed);
       setSelectedResult(nextResult);
       setResults(prev =>
         prev.map(item => (item.id === selectedResult.id ? nextResult : item))
+      );
+      setManualCorrectionHistory(
+        invoiceOCRService.getManualCorrectionHistory(
+          workflowId,
+          selectedResult.id
+        )
       );
       setManualCorrectionVisible(false);
       message.success('手动修正已保存并应用');
@@ -815,6 +835,11 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     return next.filter(item => getSearchableText(item).includes(keyword));
   }, [quickFilter, results, searchKeyword]);
 
+  const duplicateResultIds = useMemo(
+    () => new Set(invoiceOCRService.findPotentialDuplicateResultIds(results)),
+    [results]
+  );
+
   /**
    * 结果表格列定义
    */
@@ -898,6 +923,34 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             {tags.slice(0, 3).map(tag => (
               <Tag key={`${record.id}-${String(tag)}`} color='geekblue'>
                 {tag}
+              </Tag>
+            ))}
+          </Space>
+        ) : (
+          <Text type='secondary'>-</Text>
+        );
+      },
+    },
+    {
+      title: '风控提示',
+      key: 'risk',
+      render: (_, record) => {
+        const riskTags: string[] = [];
+        if (duplicateResultIds.has(record.id)) {
+          riskTags.push('疑似重复');
+        }
+        if (
+          typeof record.confidence === 'number' &&
+          record.confidence > 0 &&
+          record.confidence < 0.8
+        ) {
+          riskTags.push('低置信度');
+        }
+        return riskTags.length > 0 ? (
+          <Space size={[4, 4]} wrap>
+            {riskTags.map(risk => (
+              <Tag key={`${record.id}-${risk}`} color='warning'>
+                {risk}
               </Tag>
             ))}
           </Space>
@@ -2166,6 +2219,15 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
 
       {/* 结果表格 */}
       <Card>
+        {duplicateResultIds.size > 0 && (
+          <Alert
+            style={{ marginBottom: 12 }}
+            type='warning'
+            showIcon
+            message='检测到疑似重复发票'
+            description={`当前有 ${duplicateResultIds.size} 条结果疑似重复，请优先核查发票号、金额和日期。`}
+          />
+        )}
         <Table
           columns={resultColumns}
           dataSource={filteredResults}
@@ -2212,6 +2274,29 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
           autoSize={{ minRows: 10, maxRows: 20 }}
           placeholder='例如：{"invoiceNumber":"INV-2026-001","vendorName":"供应商A"}'
         />
+        {manualCorrectionHistory.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <Text strong>最近修正记录</Text>
+            <List
+              size='small'
+              style={{ marginTop: 8 }}
+              dataSource={manualCorrectionHistory.slice(0, 5)}
+              renderItem={item => (
+                <List.Item>
+                  <Space size='small' wrap>
+                    <Tag color='blue'>{item.actor}</Tag>
+                    <Text type='secondary'>
+                      {new Date(item.updatedAt).toLocaleString('zh-CN')}
+                    </Text>
+                    <Text type='secondary'>
+                      变更字段: {item.diffKeys.join(', ') || 'N/A'}
+                    </Text>
+                  </Space>
+                </List.Item>
+              )}
+            />
+          </div>
+        )}
       </Modal>
 
       {/* 错误模态框 */}
