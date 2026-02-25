@@ -64,21 +64,21 @@ Updated: 2026-02-25
 ## Phase 5 (2026-02-25)
 
 - [x] Add file-content fingerprint dedupe and historical cache reuse.
-- [ ] Add resumable chunk upload with interruption recovery.
+- [x] Add resumable chunk upload with interruption recovery.
 - [ ] Add idempotency-key unique constraint at persistence layer.
 - [ ] Add webhook request signature verification (HMAC).
 - [ ] Add global queue concurrency cap with lease timeout reclaim.
 - [ ] Add failed-file quarantine lane and isolated retry workflow.
 - [x] Add field-level manual correction audit history.
 - [ ] Add RBAC guard for manual correction actions.
-- [ ] Add result version diff view (original vs corrected).
+- [x] Add result version diff view (original vs corrected).
 - [x] Add fuzzy duplicate invoice detection (number/vendor/date/amount).
 - [ ] Add multi-currency and tax-rate normalization with rate timestamp.
 - [ ] Add SLA dashboard (P50/P95 latency, failure rate, retry rate).
 - [ ] Add OpenTelemetry linkage for frontend and backend traces.
 - [ ] Add alert severity tiers with quiet-window suppression.
 - [x] Add supplier template alias matching and priority fallback.
-- [ ] Add customizable table columns with persistence.
+- [x] Add customizable table columns with persistence.
 - [ ] Add batch operation orchestration (batch tag/confirm/export).
 - [ ] Add data quality scorecard (completeness/accuracy/consistency).
 - [ ] Add scheduled diagnostics snapshot archive.

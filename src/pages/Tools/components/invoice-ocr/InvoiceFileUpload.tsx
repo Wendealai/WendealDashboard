@@ -230,6 +230,114 @@ const extractEnhancedData = (payload: unknown): unknown => {
 };
 
 const FILE_FINGERPRINT_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const FILE_UPLOAD_RESUME_STORAGE_PREFIX = 'invoiceOCR_upload_resume_v1';
+const FILE_UPLOAD_RESUME_TTL_MS = 12 * 60 * 60 * 1000;
+
+interface InvoiceOcrChunkUploadSummary {
+  chunkIndex: number;
+  hasBusinessData: boolean;
+  executionId?: string;
+  googleSheetsUrl?: string;
+  idempotencyKey?: string;
+  attemptCount?: number;
+  elapsedMs?: number;
+  schemaWarnings?: string[];
+  transportWarnings?: string[];
+  httpStatus?: number;
+  contentType?: string;
+}
+
+interface InvoiceOcrUploadResumeState {
+  version: 1;
+  workflowId: string;
+  sessionKey: string;
+  idempotencyKey: string;
+  traceId: string;
+  chunkSize: number;
+  totalChunks: number;
+  fingerprintSequence: string[];
+  chunkSummaries: InvoiceOcrChunkUploadSummary[];
+  updatedAt: string;
+}
+
+const buildUploadSessionKey = (
+  workflowId: string,
+  fingerprints: string[],
+  chunkSize: number
+): string => {
+  const source = `${workflowId}|${chunkSize}|${fingerprints.join('|')}`;
+  let hash = 5381;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = (hash * 33) ^ source.charCodeAt(index);
+  }
+  return `session-${Math.abs(hash >>> 0).toString(16)}`;
+};
+
+const getUploadResumeStorageKey = (workflowId: string, sessionKey: string) =>
+  `${FILE_UPLOAD_RESUME_STORAGE_PREFIX}:${workflowId}:${sessionKey}`;
+
+const readUploadResumeState = (
+  workflowId: string,
+  sessionKey: string
+): InvoiceOcrUploadResumeState | null => {
+  try {
+    const storageKey = getUploadResumeStorageKey(workflowId, sessionKey);
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as InvoiceOcrUploadResumeState;
+    if (
+      !parsed ||
+      parsed.version !== 1 ||
+      parsed.workflowId !== workflowId ||
+      parsed.sessionKey !== sessionKey ||
+      !Array.isArray(parsed.chunkSummaries)
+    ) {
+      localStorage.removeItem(storageKey);
+      return null;
+    }
+    const updatedAt = new Date(parsed.updatedAt).getTime();
+    if (!Number.isFinite(updatedAt)) {
+      localStorage.removeItem(storageKey);
+      return null;
+    }
+    if (Date.now() - updatedAt > FILE_UPLOAD_RESUME_TTL_MS) {
+      localStorage.removeItem(storageKey);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const writeUploadResumeState = (
+  workflowId: string,
+  sessionKey: string,
+  payload: Omit<InvoiceOcrUploadResumeState, 'updatedAt'>
+): void => {
+  try {
+    const storageKey = getUploadResumeStorageKey(workflowId, sessionKey);
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        ...payload,
+        updatedAt: new Date().toISOString(),
+      } satisfies InvoiceOcrUploadResumeState)
+    );
+  } catch (error) {
+    console.warn('Failed to persist upload resume state:', error);
+  }
+};
+
+const clearUploadResumeState = (workflowId: string, sessionKey: string) => {
+  try {
+    localStorage.removeItem(getUploadResumeStorageKey(workflowId, sessionKey));
+  } catch {
+    // noop
+  }
+};
 
 const chunkFiles = <T,>(items: T[], chunkSize: number): T[][] => {
   const size = Math.max(1, chunkSize);
@@ -277,6 +385,43 @@ const hasSupportedFileSignature = async (file: File): Promise<boolean> => {
     return false;
   }
 };
+
+const toChunkUploadSummary = (
+  chunkIndex: number,
+  response: any
+): InvoiceOcrChunkUploadSummary => ({
+  chunkIndex,
+  hasBusinessData: Boolean(response?.hasBusinessData),
+  ...(typeof response?.executionId === 'string' && response.executionId
+    ? { executionId: response.executionId }
+    : {}),
+  ...(typeof response?.googleSheetsUrl === 'string' && response.googleSheetsUrl
+    ? { googleSheetsUrl: response.googleSheetsUrl }
+    : {}),
+  ...(typeof response?.diagnostics?.idempotencyKey === 'string' &&
+  response.diagnostics.idempotencyKey
+    ? { idempotencyKey: response.diagnostics.idempotencyKey }
+    : {}),
+  ...(typeof response?.diagnostics?.attemptCount === 'number'
+    ? { attemptCount: response.diagnostics.attemptCount }
+    : {}),
+  ...(typeof response?.diagnostics?.elapsedMs === 'number'
+    ? { elapsedMs: response.diagnostics.elapsedMs }
+    : {}),
+  ...(typeof response?.diagnostics?.httpStatus === 'number'
+    ? { httpStatus: response.diagnostics.httpStatus }
+    : {}),
+  ...(typeof response?.diagnostics?.contentType === 'string' &&
+  response.diagnostics.contentType
+    ? { contentType: response.diagnostics.contentType }
+    : {}),
+  ...(Array.isArray(response?.diagnostics?.schemaWarnings)
+    ? { schemaWarnings: response.diagnostics.schemaWarnings }
+    : {}),
+  ...(Array.isArray(response?.diagnostics?.transportWarnings)
+    ? { transportWarnings: response.diagnostics.transportWarnings }
+    : {}),
+});
 
 /**
  * Invoice OCR 文件上传组件
@@ -562,6 +707,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
 
       let progressInterval: NodeJS.Timeout | null = null;
       let activeTraceId = '';
+      let activeUploadSessionKey = '';
 
       try {
         const rawFiles = fileList.map(file => file.originFileObj as File);
@@ -614,8 +760,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           }
         }
         const files = filesToUpload.map(item => item.file);
-        const idempotencyKey = buildLocalIdempotencyKey(workflowId, files);
-        const traceId = buildInvoiceOcrTraceId(workflowId);
+        const baseIdempotencyKey = buildLocalIdempotencyKey(workflowId, files);
+        const baseTraceId = buildInvoiceOcrTraceId(workflowId);
+        let idempotencyKey = baseIdempotencyKey;
+        let traceId = baseTraceId;
         activeTraceId = traceId;
 
         if (cachedEntries.length > 0) {
@@ -665,6 +813,65 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
 
         const uploadChunkSize = Math.max(1, invoiceOcrConfig.uploadChunkSize);
         const uploadChunks = chunkFiles(filesToUpload, uploadChunkSize);
+        const uploadFingerprintSequence = filesToUpload.map(
+          item => item.fingerprint
+        );
+        const uploadSessionKey = buildUploadSessionKey(
+          workflowId,
+          uploadFingerprintSequence,
+          uploadChunkSize
+        );
+        activeUploadSessionKey = uploadSessionKey;
+        const chunkSummaryMap = new Map<number, InvoiceOcrChunkUploadSummary>();
+        let resumedChunkCount = 0;
+
+        const resumeState = readUploadResumeState(workflowId, uploadSessionKey);
+        if (
+          resumeState &&
+          resumeState.totalChunks === uploadChunks.length &&
+          resumeState.chunkSize === uploadChunkSize &&
+          resumeState.fingerprintSequence.join('|') ===
+            uploadFingerprintSequence.join('|')
+        ) {
+          if (resumeState.idempotencyKey) {
+            idempotencyKey = resumeState.idempotencyKey;
+          }
+          if (resumeState.traceId) {
+            traceId = resumeState.traceId;
+            activeTraceId = traceId;
+          }
+          for (const summary of resumeState.chunkSummaries) {
+            if (
+              typeof summary.chunkIndex === 'number' &&
+              summary.chunkIndex >= 0 &&
+              summary.chunkIndex < uploadChunks.length
+            ) {
+              chunkSummaryMap.set(summary.chunkIndex, summary);
+            }
+          }
+          resumedChunkCount = chunkSummaryMap.size;
+          if (resumedChunkCount > 0) {
+            message.info(
+              `检测到上次中断，已恢复 ${resumedChunkCount}/${uploadChunks.length} 个分片进度`
+            );
+          }
+        } else if (resumeState) {
+          clearUploadResumeState(workflowId, uploadSessionKey);
+        }
+
+        writeUploadResumeState(workflowId, uploadSessionKey, {
+          version: 1,
+          workflowId,
+          sessionKey: uploadSessionKey,
+          idempotencyKey,
+          traceId,
+          chunkSize: uploadChunkSize,
+          totalChunks: uploadChunks.length,
+          fingerprintSequence: uploadFingerprintSequence,
+          chunkSummaries: Array.from(chunkSummaryMap.values()).sort(
+            (a, b) => a.chunkIndex - b.chunkIndex
+          ),
+        });
 
         trackInvoiceOcrEvent('invoice_ocr_upload_started', {
           workflowId,
@@ -672,6 +879,8 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           dedupedCount: cachedEntries.length,
           idempotencyKey,
           traceId,
+          resumedChunkCount,
+          resumed: resumedChunkCount > 0,
         });
 
         try {
@@ -707,7 +916,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           });
         }, 300);
 
-        const webhookResponses: any[] = [];
+        const webhookResponsesByChunk = new Map<number, any>();
         for (
           let chunkIndex = 0;
           chunkIndex < uploadChunks.length;
@@ -717,6 +926,16 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           if (!currentChunk) {
             continue;
           }
+          if (chunkSummaryMap.has(chunkIndex)) {
+            setUploadProgress(prev => {
+              const chunkProgress = Math.round(
+                30 + ((chunkIndex + 1) / uploadChunks.length) * 65
+              );
+              return Math.max(prev, Math.min(95, chunkProgress));
+            });
+            continue;
+          }
+
           const webhookResponse = await n8nWebhookService.uploadFilesToWebhook(
             resolvedWebhookUrl,
             {
@@ -738,7 +957,27 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               },
             }
           );
-          webhookResponses.push(webhookResponse);
+          if (!webhookResponse?.success) {
+            throw new Error(webhookResponse?.message || 'n8n工作流处理失败');
+          }
+          webhookResponsesByChunk.set(chunkIndex, webhookResponse);
+          chunkSummaryMap.set(
+            chunkIndex,
+            toChunkUploadSummary(chunkIndex, webhookResponse)
+          );
+          writeUploadResumeState(workflowId, uploadSessionKey, {
+            version: 1,
+            workflowId,
+            sessionKey: uploadSessionKey,
+            idempotencyKey,
+            traceId,
+            chunkSize: uploadChunkSize,
+            totalChunks: uploadChunks.length,
+            fingerprintSequence: uploadFingerprintSequence,
+            chunkSummaries: Array.from(chunkSummaryMap.values()).sort(
+              (a, b) => a.chunkIndex - b.chunkIndex
+            ),
+          });
           setUploadProgress(prev => {
             const chunkProgress = Math.round(
               30 + ((chunkIndex + 1) / uploadChunks.length) * 65
@@ -746,7 +985,27 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             return Math.max(prev, Math.min(95, chunkProgress));
           });
         }
-        const webhookResponse = webhookResponses[webhookResponses.length - 1];
+        const orderedChunkSummaries = Array.from(chunkSummaryMap.values()).sort(
+          (a, b) => a.chunkIndex - b.chunkIndex
+        );
+        if (orderedChunkSummaries.length !== uploadChunks.length) {
+          throw new Error('分片上传未完成，请重试继续续传');
+        }
+        const latestChunkSummary =
+          orderedChunkSummaries[orderedChunkSummaries.length - 1];
+        const latestChunkResponse = webhookResponsesByChunk.get(
+          uploadChunks.length - 1
+        );
+        const rawChunkPayload = uploadChunks.map((_, chunkIndex) => {
+          const response = webhookResponsesByChunk.get(chunkIndex);
+          if (response) {
+            return response.data;
+          }
+          return {
+            resumedFromCheckpoint: true,
+            chunkIndex: chunkIndex + 1,
+          };
+        });
 
         // 完成上传进度
         if (progressInterval) {
@@ -755,66 +1014,88 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         }
         setUploadProgress(100);
 
-        console.log('n8n webhook响应:', webhookResponse);
+        console.log(
+          'n8n webhook响应:',
+          latestChunkResponse || latestChunkSummary
+        );
 
-        if (webhookResponse.success) {
+        if (orderedChunkSummaries.length === uploadChunks.length) {
           console.log('=== WEBHOOK 响应成功 ===');
           console.log(
             '完整的webhookResponse:',
-            JSON.stringify(redactSensitiveData(webhookResponse), null, 2)
+            JSON.stringify(
+              redactSensitiveData(latestChunkResponse || latestChunkSummary),
+              null,
+              2
+            )
           );
 
           // 显示成功消息
           message.success('文件已提交到识别工作流');
+          if (resumedChunkCount > 0) {
+            message.info(
+              `本次已基于断点续传恢复 ${resumedChunkCount} 个历史分片`
+            );
+          }
 
           // 处理工作流返回的数据
           console.log('=== 分析 WEBHOOK 响应数据结构 ===');
           console.log(
             'webhookResponse.data 类型:',
-            typeof webhookResponse.data
+            typeof latestChunkResponse?.data
           );
           console.log(
             'webhookResponse.data 是否为数组:',
-            Array.isArray(webhookResponse.data)
+            Array.isArray(latestChunkResponse?.data)
           );
           console.log(
             'webhookResponse.data 内容:',
-            redactSensitiveData(webhookResponse.data)
+            redactSensitiveData(latestChunkResponse?.data)
           );
 
-          const enhancedData = extractEnhancedData(webhookResponse.data);
-          const hasBusinessData = webhookResponses.some(response =>
-            Boolean(response.hasBusinessData)
+          const enhancedData = extractEnhancedData(latestChunkResponse?.data);
+          const hasBusinessData = orderedChunkSummaries.some(summary =>
+            Boolean(summary.hasBusinessData)
           );
           const schemaWarnings = Array.from(
             new Set(
-              webhookResponses.flatMap(
-                response => response.diagnostics?.schemaWarnings || []
+              orderedChunkSummaries.flatMap(
+                summary => summary.schemaWarnings || []
               )
             )
           );
-          const attemptCount = webhookResponses.reduce((total, response) => {
-            return total + (response.diagnostics?.attemptCount || 1);
-          }, 0);
-          const elapsedMs = webhookResponses.reduce((total, response) => {
-            return total + (response.diagnostics?.elapsedMs || 0);
+          const attemptCount = orderedChunkSummaries.reduce(
+            (total, summary) => {
+              return total + (summary.attemptCount || 1);
+            },
+            0
+          );
+          const elapsedMs = orderedChunkSummaries.reduce((total, summary) => {
+            return total + (summary.elapsedMs || 0);
           }, 0);
           const executionId =
-            webhookResponses.find(response => response.executionId)
+            orderedChunkSummaries.find(summary => summary.executionId)
               ?.executionId || '';
-          const googleSheetsUrl = webhookResponses.find(
-            response => response.googleSheetsUrl
+          const googleSheetsUrl = orderedChunkSummaries.find(
+            summary => summary.googleSheetsUrl
           )?.googleSheetsUrl;
           const transportWarnings = Array.from(
             new Set(
-              webhookResponses.flatMap(
-                response => response.diagnostics?.transportWarnings || []
+              orderedChunkSummaries.flatMap(
+                summary => summary.transportWarnings || []
               )
             )
           );
-          const responseDiagnostics = webhookResponse.diagnostics
+          const responseDiagnostics = latestChunkSummary
             ? {
-                ...webhookResponse.diagnostics,
+                ...(typeof latestChunkSummary.httpStatus === 'number'
+                  ? { httpStatus: latestChunkSummary.httpStatus }
+                  : {}),
+                ...(latestChunkSummary.contentType
+                  ? { contentType: latestChunkSummary.contentType }
+                  : {}),
+                idempotencyKey:
+                  latestChunkSummary.idempotencyKey || idempotencyKey,
                 schemaWarnings,
                 attemptCount,
                 elapsedMs,
@@ -838,8 +1119,8 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             hasBusinessData,
             schemaWarnings,
             idempotencyKey:
-              webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
-            rawResponse: webhookResponses.map(response => response.data),
+              latestChunkSummary?.idempotencyKey || idempotencyKey,
+            rawResponse: rawChunkPayload,
             ...(responseDiagnostics
               ? { diagnostics: responseDiagnostics }
               : {}),
@@ -867,6 +1148,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               ...(googleSheetsUrl ? { googleSheetsUrl } : {}),
             });
           }
+          clearUploadResumeState(workflowId, uploadSessionKey);
 
           if (!hasBusinessData) {
             message.warning(
@@ -876,7 +1158,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               workflowId,
               executionId,
               idempotencyKey:
-                webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
+                latestChunkSummary?.idempotencyKey || idempotencyKey,
               traceId,
               schemaWarnings: schemaWarnings.join(','),
               attemptCount,
@@ -887,7 +1169,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               workflowId,
               executionId,
               idempotencyKey:
-                webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
+                latestChunkSummary?.idempotencyKey || idempotencyKey,
               traceId,
               fileCount: rawFiles.length,
               uploadedFileCount: files.length,
@@ -895,6 +1177,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               chunkCount: uploadChunks.length,
               attemptCount,
               elapsedMs,
+              resumedChunkCount,
             });
           }
 
@@ -914,8 +1197,6 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           onFileListChange?.([]);
 
           console.log('=== OCR处理流程完成 ===');
-        } else {
-          throw new Error(webhookResponse.message || 'n8n工作流处理失败');
         }
       } catch (error) {
         // 清理进度状态
@@ -924,6 +1205,9 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           progressInterval = null;
         }
         console.error('发送文件到n8n失败:', error);
+        if (activeUploadSessionKey) {
+          message.info('已保存分片上传断点，可重试后自动续传');
+        }
 
         // 获取更详细的错误信息
         const mappedError = normalizeInvoiceOcrError(error, 'upload');

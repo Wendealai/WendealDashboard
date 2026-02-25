@@ -57,6 +57,7 @@ import {
   Tabs,
   Input,
   Radio,
+  Checkbox,
 } from 'antd';
 
 import { useMessage } from '@/hooks';
@@ -217,6 +218,76 @@ const getFileTypeIcon = (fileName: string): React.ReactNode => {
 };
 
 type ResultQuickFilter = 'all' | 'completed' | 'low_confidence' | 'recent_24h';
+type ResultColumnKey =
+  | 'fileName'
+  | 'status'
+  | 'confidence'
+  | 'extractedData'
+  | 'industryTags'
+  | 'risk'
+  | 'completedAt';
+
+interface ResultVersionDiffEntry {
+  field: string;
+  originalValue: string;
+  correctedValue: string;
+}
+
+const RESULT_COLUMN_STORAGE_PREFIX = 'invoiceOCR_results_columns_v1';
+const RESULT_COLUMN_OPTIONS: Array<{ key: ResultColumnKey; label: string }> = [
+  { key: 'fileName', label: '文件名' },
+  { key: 'status', label: '状态' },
+  { key: 'confidence', label: '置信度' },
+  { key: 'extractedData', label: '已提取字段' },
+  { key: 'industryTags', label: '行业标签' },
+  { key: 'risk', label: '风控提示' },
+  { key: 'completedAt', label: '处理时间' },
+];
+const DEFAULT_RESULT_COLUMN_KEYS = RESULT_COLUMN_OPTIONS.map(
+  option => option.key
+);
+
+const readPersistedResultColumns = (workflowId: string): ResultColumnKey[] => {
+  try {
+    if (!workflowId) {
+      return DEFAULT_RESULT_COLUMN_KEYS;
+    }
+    const raw = localStorage.getItem(
+      `${RESULT_COLUMN_STORAGE_PREFIX}:${workflowId}`
+    );
+    if (!raw) {
+      return DEFAULT_RESULT_COLUMN_KEYS;
+    }
+    const parsed = JSON.parse(raw) as string[];
+    if (!Array.isArray(parsed)) {
+      return DEFAULT_RESULT_COLUMN_KEYS;
+    }
+    const allowed = new Set<ResultColumnKey>(DEFAULT_RESULT_COLUMN_KEYS);
+    const next = parsed.filter((key): key is ResultColumnKey =>
+      allowed.has(key as ResultColumnKey)
+    );
+    return next.length > 0 ? next : DEFAULT_RESULT_COLUMN_KEYS;
+  } catch {
+    return DEFAULT_RESULT_COLUMN_KEYS;
+  }
+};
+
+const persistResultColumns = (
+  workflowId: string,
+  columns: ResultColumnKey[]
+): void => {
+  try {
+    if (!workflowId) {
+      return;
+    }
+    localStorage.setItem(
+      `${RESULT_COLUMN_STORAGE_PREFIX}:${workflowId}`,
+      JSON.stringify(columns)
+    );
+  } catch {
+    // noop
+  }
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -324,6 +395,75 @@ const applyPatchToResult = (
   return next;
 };
 
+const stringifyDiffValue = (value: unknown): string => {
+  if (typeof value === 'undefined') {
+    return '(空)';
+  }
+  if (value === null) {
+    return 'null';
+  }
+  if (typeof value === 'string') {
+    return value || '(空字符串)';
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
+const buildResultVersionDiffEntries = (
+  originalResult: InvoiceOCRResult | null,
+  correctedResult: InvoiceOCRResult
+): ResultVersionDiffEntry[] => {
+  const originalExtracted: Record<string, unknown> = isRecord(
+    originalResult?.extractedData
+  )
+    ? originalResult.extractedData
+    : {};
+  const correctedExtracted: Record<string, unknown> = isRecord(
+    correctedResult.extractedData
+  )
+    ? correctedResult.extractedData
+    : {};
+  const keys = Array.from(
+    new Set([
+      ...Object.keys(originalExtracted),
+      ...Object.keys(correctedExtracted),
+    ])
+  ).sort((left, right) => left.localeCompare(right));
+  const diffs: ResultVersionDiffEntry[] = [];
+  for (const key of keys) {
+    const originalValue = stringifyDiffValue(originalExtracted[key]);
+    const correctedValue = stringifyDiffValue(correctedExtracted[key]);
+    if (originalValue !== correctedValue) {
+      diffs.push({
+        field: `extractedData.${key}`,
+        originalValue,
+        correctedValue,
+      });
+    }
+  }
+  if (originalResult?.status !== correctedResult.status) {
+    diffs.push({
+      field: 'status',
+      originalValue: originalResult?.status || '(空)',
+      correctedValue: correctedResult.status || '(空)',
+    });
+  }
+  if (originalResult?.confidence !== correctedResult.confidence) {
+    diffs.push({
+      field: 'confidence',
+      originalValue: stringifyDiffValue(originalResult?.confidence),
+      correctedValue: stringifyDiffValue(correctedResult.confidence),
+    });
+  }
+  return diffs;
+};
+
 /**
  * Invoice OCR 结果展示组件
  * 展示 OCR 处理结果、统计信息和提供后续操作
@@ -361,6 +501,12 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const [manualCorrectionHistory, setManualCorrectionHistory] = useState<
     InvoiceOcrManualCorrectionHistoryEntry[]
   >([]);
+  const [originalResultSnapshots, setOriginalResultSnapshots] = useState<
+    Record<string, InvoiceOCRResult>
+  >({});
+  const [visibleColumnKeys, setVisibleColumnKeys] = useState<ResultColumnKey[]>(
+    () => readPersistedResultColumns(workflowId)
+  );
 
   /**
    * 加载 OCR 结果数据
@@ -376,6 +522,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
         page: 1,
         pageSize: 100,
       });
+      const baseSnapshots: Record<string, InvoiceOCRResult> = {};
       const normalizedResults = (resultsData.items || []).map(item => {
         const vendorName = getResultVendorName(item);
         const baseExtracted = isRecord(item.extractedData)
@@ -389,29 +536,17 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
               )
             : baseExtracted;
 
-        let mergedResult: InvoiceOCRResult = {
+        let baseResult: InvoiceOCRResult = {
           ...item,
           extractedData: withSupplierTemplate as unknown as NonNullable<
             InvoiceOCRResult['extractedData']
           >,
         };
 
-        const correctionEntry = invoiceOCRService.getManualCorrection(
-          workflowId,
-          item.id
-        );
-        const patch =
-          isRecord(correctionEntry) && isRecord(correctionEntry.patch)
-            ? correctionEntry.patch
-            : null;
-        if (patch) {
-          mergedResult = applyPatchToResult(mergedResult, patch);
-        }
-
         const extractedForTag: Record<string, unknown> = isRecord(
-          mergedResult.extractedData
+          baseResult.extractedData
         )
-          ? { ...mergedResult.extractedData }
+          ? { ...baseResult.extractedData }
           : {};
         const inferredTags =
           invoiceOCRService.inferInvoiceIndustryTags(extractedForTag);
@@ -429,16 +564,32 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
           if (typeof currentIndustry !== 'string' || !currentIndustry.trim()) {
             extractedForTag['industry'] = inferredTags[0];
           }
-          mergedResult = {
-            ...mergedResult,
+          baseResult = {
+            ...baseResult,
             extractedData: extractedForTag as unknown as NonNullable<
               InvoiceOCRResult['extractedData']
             >,
           };
         }
 
+        baseSnapshots[item.id] = baseResult;
+
+        const correctionEntry = invoiceOCRService.getManualCorrection(
+          workflowId,
+          item.id
+        );
+        const patch =
+          isRecord(correctionEntry) && isRecord(correctionEntry.patch)
+            ? correctionEntry.patch
+            : null;
+        let mergedResult = baseResult;
+        if (patch) {
+          mergedResult = applyPatchToResult(baseResult, patch);
+        }
+
         return mergedResult;
       });
+      setOriginalResultSnapshots(baseSnapshots);
       setResults(normalizedResults);
 
       // 加载批处理任务
@@ -468,6 +619,14 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       void loadResults();
     }
   }, [loadResults, refreshToken]);
+
+  useEffect(() => {
+    setVisibleColumnKeys(readPersistedResultColumns(workflowId));
+  }, [workflowId]);
+
+  useEffect(() => {
+    persistResultColumns(workflowId, visibleColumnKeys);
+  }, [workflowId, visibleColumnKeys]);
 
   /**
    * 查看结果详情
@@ -840,10 +999,43 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     [results]
   );
 
+  const currentResultDiffEntries = useMemo(() => {
+    if (!selectedResult) {
+      return [] as ResultVersionDiffEntry[];
+    }
+    const original = originalResultSnapshots[selectedResult.id] || null;
+    return buildResultVersionDiffEntries(original, selectedResult);
+  }, [originalResultSnapshots, selectedResult]);
+
+  const handleToggleResultColumn = useCallback(
+    (columnKey: ResultColumnKey, checked: boolean) => {
+      setVisibleColumnKeys(prev => {
+        if (checked) {
+          if (prev.includes(columnKey)) {
+            return prev;
+          }
+          return [...prev, columnKey];
+        }
+        const next = prev.filter(item => item !== columnKey);
+        if (next.length === 0) {
+          message.warning('至少保留一列结果字段');
+          return prev;
+        }
+        return next;
+      });
+    },
+    [message]
+  );
+
+  const handleResetResultColumns = useCallback(() => {
+    setVisibleColumnKeys(DEFAULT_RESULT_COLUMN_KEYS);
+    message.success('已恢复默认列配置');
+  }, [message]);
+
   /**
    * 结果表格列定义
    */
-  const resultColumns: ColumnsType<InvoiceOCRResult> = [
+  const fullResultColumns: ColumnsType<InvoiceOCRResult> = [
     {
       title: '文件名',
       dataIndex: 'originalFile',
@@ -1010,6 +1202,29 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       ),
     },
   ];
+
+  const resultColumns = useMemo(() => {
+    const visibility = new Set<ResultColumnKey>(visibleColumnKeys);
+    const filtered = fullResultColumns.filter(column => {
+      const key = String(column.key || '');
+      if (key === 'actions') {
+        return true;
+      }
+      return visibility.has(key as ResultColumnKey);
+    });
+    const actionsColumn = filtered.find(
+      column => String(column.key) === 'actions'
+    );
+    if (!actionsColumn) {
+      const fallback = fullResultColumns.find(
+        column => String(column.key) === 'actions'
+      );
+      if (fallback) {
+        filtered.push(fallback);
+      }
+    }
+    return filtered;
+  }, [fullResultColumns, visibleColumnKeys]);
 
   /**
    * 渲染财务统计摘要
@@ -1519,6 +1734,46 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             )
           )}
         </Descriptions>
+
+        <Divider>版本差异（原始 vs 当前）</Divider>
+        {currentResultDiffEntries.length === 0 ? (
+          <Text type='secondary'>当前记录未检测到手动修正差异</Text>
+        ) : (
+          <Table
+            size='small'
+            rowKey='field'
+            pagination={false}
+            dataSource={currentResultDiffEntries}
+            columns={[
+              {
+                title: '字段',
+                dataIndex: 'field',
+                key: 'field',
+                width: 220,
+              },
+              {
+                title: '原始值',
+                dataIndex: 'originalValue',
+                key: 'originalValue',
+                render: (value: string) => (
+                  <Text code style={{ whiteSpace: 'pre-wrap' }}>
+                    {value}
+                  </Text>
+                ),
+              },
+              {
+                title: '修正后',
+                dataIndex: 'correctedValue',
+                key: 'correctedValue',
+                render: (value: string) => (
+                  <Text code style={{ whiteSpace: 'pre-wrap' }}>
+                    {value}
+                  </Text>
+                ),
+              },
+            ]}
+          />
+        )}
       </Modal>
     );
   };
@@ -2186,6 +2441,50 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
               >
                 批量下载
               </Button>
+              <Dropdown
+                trigger={['click']}
+                dropdownRender={() => (
+                  <div
+                    style={{
+                      background: '#fff',
+                      border: '1px solid #f0f0f0',
+                      borderRadius: 8,
+                      boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+                      padding: 12,
+                      minWidth: 220,
+                    }}
+                    onClick={event => event.stopPropagation()}
+                  >
+                    <Space direction='vertical' style={{ width: '100%' }}>
+                      {RESULT_COLUMN_OPTIONS.map(option => (
+                        <Checkbox
+                          key={option.key}
+                          checked={visibleColumnKeys.includes(option.key)}
+                          onChange={event =>
+                            handleToggleResultColumn(
+                              option.key,
+                              event.target.checked
+                            )
+                          }
+                        >
+                          {option.label}
+                        </Checkbox>
+                      ))}
+                    </Space>
+                    <Divider style={{ margin: '10px 0' }} />
+                    <Button
+                      type='link'
+                      size='small'
+                      onClick={handleResetResultColumns}
+                      style={{ padding: 0 }}
+                    >
+                      恢复默认
+                    </Button>
+                  </div>
+                )}
+              >
+                <Button icon={<BarChartOutlined />}>列设置</Button>
+              </Dropdown>
               <Button icon={<ReloadOutlined />} onClick={loadResults}>
                 刷新
               </Button>
