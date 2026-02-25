@@ -93,6 +93,9 @@ import type { EnhancedWebhookResponse } from '@/types/workflow';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
+type InvoiceOcrTelemetryRuntime = typeof globalThis & {
+  __WENDEAL_INVOICE_OCR_TELEMETRY_BUFFER__?: unknown[];
+};
 
 /**
  * Invoice OCR 结果展示组件属性接口
@@ -377,17 +380,17 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     );
   }, [selectedResults, results, onGoogleSheetsRedirect]);
 
-  const handleCopyExecutionId = useCallback(
-    async (value?: string) => {
+  const handleCopyValue = useCallback(
+    async (value?: string, label = '内容') => {
       if (!value) {
         return;
       }
 
       try {
         await navigator.clipboard.writeText(value);
-        message.success('Execution ID 已复制');
+        message.success(`${label} 已复制`);
       } catch (copyError) {
-        console.error('Failed to copy execution ID:', copyError);
+        console.error(`Failed to copy ${label}:`, copyError);
         message.error('复制失败，请手动复制');
       }
     },
@@ -400,6 +403,13 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       return;
     }
 
+    const runtime = globalThis as InvoiceOcrTelemetryRuntime;
+    const telemetryBuffer = Array.isArray(
+      runtime.__WENDEAL_INVOICE_OCR_TELEMETRY_BUFFER__
+    )
+      ? runtime.__WENDEAL_INVOICE_OCR_TELEMETRY_BUFFER__.slice(-100)
+      : [];
+
     const payload = {
       exportedAt: new Date().toISOString(),
       executionId: completedData.executionId || '',
@@ -408,6 +418,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       schemaWarnings: completedData.schemaWarnings || [],
       diagnostics: completedData.diagnostics || {},
       rawResponse: completedData.rawResponse || null,
+      telemetryBuffer,
     };
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -1087,7 +1098,10 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                         size='small'
                         icon={<CopyOutlined />}
                         onClick={() =>
-                          void handleCopyExecutionId(completedData.executionId)
+                          void handleCopyValue(
+                            completedData.executionId,
+                            'Execution ID'
+                          )
                         }
                       >
                         复制 ID
@@ -1097,6 +1111,20 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                       <Tag color='purple' style={{ padding: '4px 8px' }}>
                         Request Key: {completedData.idempotencyKey}
                       </Tag>
+                    )}
+                    {completedData.idempotencyKey && (
+                      <Button
+                        size='small'
+                        icon={<CopyOutlined />}
+                        onClick={() =>
+                          void handleCopyValue(
+                            completedData.idempotencyKey,
+                            'Request Key'
+                          )
+                        }
+                      >
+                        复制 Key
+                      </Button>
                     )}
                     {typeof completedData.diagnostics?.attemptCount ===
                       'number' && (
@@ -1411,7 +1439,10 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                       size='small'
                       icon={<CopyOutlined />}
                       onClick={() =>
-                        void handleCopyExecutionId(completedData.executionId)
+                        void handleCopyValue(
+                          completedData.executionId,
+                          'Execution ID'
+                        )
                       }
                     >
                       复制 ID
@@ -1421,6 +1452,20 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                     <Tag color='purple' style={{ padding: '4px 8px' }}>
                       Request Key: {completedData.idempotencyKey}
                     </Tag>
+                  )}
+                  {completedData.idempotencyKey && (
+                    <Button
+                      size='small'
+                      icon={<CopyOutlined />}
+                      onClick={() =>
+                        void handleCopyValue(
+                          completedData.idempotencyKey,
+                          'Request Key'
+                        )
+                      }
+                    >
+                      复制 Key
+                    </Button>
                   )}
                   {typeof completedData.diagnostics?.attemptCount ===
                     'number' && (

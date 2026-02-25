@@ -7,7 +7,9 @@ export type InvoiceOcrTelemetryEventName =
   | 'invoice_ocr_empty_response'
   | 'invoice_ocr_polling_started'
   | 'invoice_ocr_polling_timeout'
-  | 'invoice_ocr_polling_completed';
+  | 'invoice_ocr_polling_completed'
+  | 'invoice_ocr_polling_failed'
+  | 'invoice_ocr_webhook_health_checked';
 
 export interface InvoiceOcrTelemetryEvent {
   event: InvoiceOcrTelemetryEventName;

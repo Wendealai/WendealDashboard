@@ -62,7 +62,10 @@ import {
 import { getInvoiceOcrConfig } from '@/config/invoiceOcrConfig';
 import { invoiceOCRService } from '../../../services/invoiceOCRService';
 import { trackInvoiceOcrEvent } from '@/services/invoiceOcrTelemetry';
-import { n8nWebhookService } from '@/services/n8nWebhookService';
+import {
+  n8nWebhookService,
+  type WebhookConnectionCheckResult,
+} from '@/services/n8nWebhookService';
 import InvoiceFileUpload from './invoice-ocr/InvoiceFileUpload';
 import InvoiceOCRResults from './invoice-ocr/InvoiceOCRResults';
 import InvoiceOCRSettings from './invoice-ocr/InvoiceOCRSettings';
@@ -76,6 +79,7 @@ import type { EnhancedWebhookResponse } from '@/types/workflow';
 const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Step } = Steps;
+const MAX_POLLING_FAILURES = 3;
 
 /**
  * Invoice OCR processing status
@@ -108,6 +112,9 @@ const InvoiceOCRPage: React.FC = () => {
   const [isPollingResults, setIsPollingResults] = useState(false);
   const [resultsRefreshToken, setResultsRefreshToken] = useState(0);
   const [testingWebhook, setTestingWebhook] = useState(false);
+  const [pollingErrorHint, setPollingErrorHint] = useState<string | null>(null);
+  const [webhookHealth, setWebhookHealth] =
+    useState<WebhookConnectionCheckResult | null>(null);
 
   // Data state
   const [uploadedFiles, setUploadedFiles] = useState<InvoiceOCRFile[]>([]);
@@ -154,8 +161,10 @@ const InvoiceOCRPage: React.FC = () => {
       stopResultPolling();
       const pollStartedAt = Date.now();
       let pollingBusy = false;
+      let consecutiveFailures = 0;
 
       setIsPollingResults(true);
+      setPollingErrorHint(null);
       trackInvoiceOcrEvent('invoice_ocr_polling_started', {
         workflowId: invoiceOcrConfig.workflowId,
         executionId: executionId || '',
@@ -171,6 +180,8 @@ const InvoiceOCRPage: React.FC = () => {
             invoiceOcrConfig.workflowId,
             { page: 1, pageSize: 100 }
           );
+          consecutiveFailures = 0;
+          setPollingErrorHint(null);
           setOcrResults(latestResults);
 
           const hasExecutionMatch = executionId
@@ -207,6 +218,9 @@ const InvoiceOCRPage: React.FC = () => {
           const elapsed = Date.now() - pollStartedAt;
           if (elapsed >= invoiceOcrConfig.resultPollingTimeoutMs) {
             stopResultPolling();
+            setPollingErrorHint(
+              '轮询结果超时，请点击“刷新结果”或“检查Webhook”。'
+            );
             trackInvoiceOcrEvent('invoice_ocr_polling_timeout', {
               workflowId: invoiceOcrConfig.workflowId,
               executionId: executionId || '',
@@ -218,6 +232,26 @@ const InvoiceOCRPage: React.FC = () => {
           }
         } catch (pollError) {
           console.error('Invoice OCR result polling failed:', pollError);
+          consecutiveFailures += 1;
+          const pollErrorMessage =
+            pollError instanceof Error ? pollError.message : 'unknown_error';
+          setPollingErrorHint(
+            `结果轮询失败（${consecutiveFailures}/${MAX_POLLING_FAILURES}），系统将自动重试。`
+          );
+
+          if (consecutiveFailures >= MAX_POLLING_FAILURES) {
+            stopResultPolling();
+            setPollingErrorHint(
+              '连续轮询失败，无法同步最新结果。请检查 Supabase 连通性或点击“检查Webhook”。'
+            );
+            trackInvoiceOcrEvent('invoice_ocr_polling_failed', {
+              workflowId: invoiceOcrConfig.workflowId,
+              executionId: executionId || '',
+              attempts: consecutiveFailures,
+              reason: pollErrorMessage,
+            });
+            message.error('结果同步失败，请检查数据连接并稍后重试。');
+          }
         } finally {
           pollingBusy = false;
         }
@@ -253,6 +287,7 @@ const InvoiceOCRPage: React.FC = () => {
       processStartIsoRef.current = new Date().toISOString();
       baselineResultCountRef.current = ocrResults.length;
       setCompletedData(null);
+      setPollingErrorHint(null);
       setProcessingStatus('processing');
       setLoading(true);
       setError(null);
@@ -302,6 +337,7 @@ const InvoiceOCRPage: React.FC = () => {
       setProcessingStatus('completed');
       setCurrentStep(3);
       setLoading(false);
+      setPollingErrorHint(null);
 
       const hasResultPayload = Boolean(
         data?.hasBusinessData ||
@@ -326,6 +362,7 @@ const InvoiceOCRPage: React.FC = () => {
       const errorMessage = err.message || t('invoiceOCR.upload.processFailed');
       stopResultPolling();
       setError(errorMessage);
+      setPollingErrorHint(null);
       setProcessingStatus('error');
       setLoading(false);
       message.error(errorMessage);
@@ -346,13 +383,33 @@ const InvoiceOCRPage: React.FC = () => {
   const handleTestWebhookConnection = useCallback(async () => {
     setTestingWebhook(true);
     try {
-      const isReachable = await n8nWebhookService.testWebhookConnection(
+      const health = await n8nWebhookService.testWebhookConnectionDetailed(
         invoiceOcrConfig.webhookUrl
       );
-      if (isReachable) {
-        message.success('Webhook 连通性检查通过');
+
+      setWebhookHealth(health);
+      trackInvoiceOcrEvent('invoice_ocr_webhook_health_checked', {
+        workflowId: invoiceOcrConfig.workflowId,
+        reachable: health.reachable,
+        status: health.status || 0,
+        latencyMs: health.latencyMs,
+        errorMessage: health.errorMessage || '',
+      });
+
+      if (health.reachable) {
+        const statusLabel =
+          typeof health.status === 'number' ? `HTTP ${health.status}` : 'OK';
+        message.success(
+          `Webhook 连通性检查通过（${statusLabel}，${health.latencyMs}ms）`
+        );
+      } else if (typeof health.status === 'number') {
+        message.warning(
+          `Webhook 异常（HTTP ${health.status} ${health.statusText || ''}）`
+        );
       } else {
-        message.warning('Webhook 不可达，请检查 URL、网络或 n8n 服务状态');
+        message.error(
+          `Webhook 不可达：${health.errorMessage || '请检查 URL、网络或 n8n 服务'}`
+        );
       }
     } catch (testError) {
       console.error('Webhook health check failed:', testError);
@@ -360,7 +417,7 @@ const InvoiceOCRPage: React.FC = () => {
     } finally {
       setTestingWebhook(false);
     }
-  }, [invoiceOcrConfig.webhookUrl, message]);
+  }, [invoiceOcrConfig.webhookUrl, invoiceOcrConfig.workflowId, message]);
 
   /**
    * Load data when component initializes
@@ -420,6 +477,7 @@ const InvoiceOCRPage: React.FC = () => {
     setProcessingStatus('idle');
     setCurrentStep(0);
     setError(null);
+    setPollingErrorHint(null);
     setCompletedData(null);
   };
 
@@ -477,6 +535,36 @@ const InvoiceOCRPage: React.FC = () => {
     }
   };
 
+  const renderWebhookHealthBadge = () => {
+    if (!webhookHealth) {
+      return <Badge status='default' text='Webhook 未检查' />;
+    }
+
+    const checkedTime = new Date(webhookHealth.checkedAt).toLocaleTimeString(
+      'zh-CN',
+      { hour12: false }
+    );
+    if (webhookHealth.reachable) {
+      return (
+        <Badge
+          status='success'
+          text={`Webhook 正常 (${webhookHealth.latencyMs}ms @ ${checkedTime})`}
+        />
+      );
+    }
+
+    const statusText =
+      typeof webhookHealth.status === 'number'
+        ? `HTTP ${webhookHealth.status}`
+        : '不可达';
+    return (
+      <Badge
+        status='error'
+        text={`Webhook 异常 (${statusText} @ ${checkedTime})`}
+      />
+    );
+  };
+
   /**
    * Render page header
    */
@@ -505,6 +593,7 @@ const InvoiceOCRPage: React.FC = () => {
             >
               检查Webhook
             </Button>
+            {renderWebhookHealthBadge()}
             {isPollingResults && (
               <Badge status='processing' text='结果同步中' />
             )}
@@ -557,6 +646,23 @@ const InvoiceOCRPage: React.FC = () => {
           type='info'
           showIcon
           style={{ marginTop: 16 }}
+        />
+      )}
+      {pollingErrorHint && (
+        <Alert
+          message='结果同步异常'
+          description={pollingErrorHint}
+          type='warning'
+          showIcon
+          style={{ marginTop: 16 }}
+          action={
+            <Button
+              size='small'
+              onClick={() => void handleTestWebhookConnection()}
+            >
+              检查Webhook
+            </Button>
+          }
         />
       )}
     </Card>

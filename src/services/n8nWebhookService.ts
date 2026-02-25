@@ -27,6 +27,16 @@ export interface N8NWebhookResponse {
   };
 }
 
+export interface WebhookConnectionCheckResult {
+  reachable: boolean;
+  status?: number;
+  statusText?: string;
+  latencyMs: number;
+  errorMessage?: string;
+  checkedAt: string;
+  requestUrl: string;
+}
+
 /**
  * N8N文件上传请求接口
  */
@@ -583,56 +593,88 @@ export class N8NWebhookService {
   }
 
   /**
+   * 测试webhook连接（详细结果）
+   * @param webhookUrl webhook URL
+   * @returns Promise<WebhookConnectionCheckResult>
+   */
+  async testWebhookConnectionDetailed(
+    webhookUrl: string
+  ): Promise<WebhookConnectionCheckResult> {
+    const checkedAt = new Date().toISOString();
+    const startTime = Date.now();
+    console.log('测试webhook连接:', webhookUrl);
+
+    if (!this.isValidWebhookUrl(webhookUrl)) {
+      console.error('无效的webhook URL');
+      return {
+        reachable: false,
+        latencyMs: 0,
+        errorMessage: 'invalid_webhook_url',
+        checkedAt,
+        requestUrl: webhookUrl,
+      };
+    }
+
+    // 在开发环境中使用相对路径，让Vite代理处理
+    let requestUrl = webhookUrl;
+    if (
+      process.env.NODE_ENV === 'development' &&
+      webhookUrl.includes('n8n.wendealai.com')
+    ) {
+      const url = new URL(webhookUrl);
+      requestUrl = url.pathname;
+      console.log('开发环境使用代理路径测试连接:', requestUrl);
+    }
+
+    const fetchOptions: RequestInit = {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'WendealDashboard/1.0',
+      },
+      signal: AbortSignal.timeout(5000),
+    };
+    if (process.env.NODE_ENV !== 'development') {
+      fetchOptions.mode = 'cors';
+    }
+
+    try {
+      const response = await fetch(requestUrl, fetchOptions);
+      const latencyMs = Date.now() - startTime;
+
+      console.log('Webhook连接测试结果:', {
+        status: response.status,
+        statusText: response.statusText,
+        latencyMs,
+      });
+
+      return {
+        reachable: response.status < 500,
+        status: response.status,
+        statusText: response.statusText,
+        latencyMs,
+        checkedAt,
+        requestUrl,
+      };
+    } catch (error) {
+      console.error('Webhook连接测试失败:', error);
+      return {
+        reachable: false,
+        latencyMs: Date.now() - startTime,
+        errorMessage: error instanceof Error ? error.message : 'unknown_error',
+        checkedAt,
+        requestUrl,
+      };
+    }
+  }
+
+  /**
    * 测试webhook连接
    * @param webhookUrl webhook URL
    * @returns Promise<boolean>
    */
   async testWebhookConnection(webhookUrl: string): Promise<boolean> {
-    try {
-      console.log('测试webhook连接:', webhookUrl);
-
-      if (!this.isValidWebhookUrl(webhookUrl)) {
-        console.error('无效的webhook URL');
-        return false;
-      }
-
-      // 在开发环境中使用相对路径，让Vite代理处理
-      let requestUrl = webhookUrl;
-      if (
-        process.env.NODE_ENV === 'development' &&
-        webhookUrl.includes('n8n.wendealai.com')
-      ) {
-        // 从完整URL中提取webhook路径部分
-        const url = new URL(webhookUrl);
-        requestUrl = url.pathname; // 例如: /webhook/sora2
-        console.log('开发环境使用代理路径测试连接:', requestUrl);
-      }
-
-      const fetchOptions: RequestInit = {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'WendealDashboard/1.0',
-        },
-        signal: AbortSignal.timeout(5000), // 5秒超时
-      };
-
-      // 在开发环境中不需要设置mode，因为代理会处理CORS
-      if (process.env.NODE_ENV !== 'development') {
-        fetchOptions.mode = 'cors';
-      }
-
-      const response = await fetch(requestUrl, fetchOptions);
-
-      console.log('Webhook连接测试结果:', {
-        status: response.status,
-        statusText: response.statusText,
-      });
-
-      return response.status < 500; // 接受4xx和2xx状态码
-    } catch (error) {
-      console.error('Webhook连接测试失败:', error);
-      return false;
-    }
+    const result = await this.testWebhookConnectionDetailed(webhookUrl);
+    return result.reachable;
   }
 
   /**
