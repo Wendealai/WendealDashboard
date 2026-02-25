@@ -21,6 +21,7 @@ export interface N8NWebhookResponse {
     contentType: string;
     schemaWarnings: string[];
     idempotencyKey: string;
+    traceId?: string;
     attemptCount: number;
     elapsedMs: number;
     transportWarnings: string[];
@@ -54,6 +55,7 @@ export interface N8NFileUploadRequest {
 export class N8NWebhookService {
   private readonly defaultTimeout = 120000; // 2分钟超时，给OCR处理更多时间
   private readonly defaultMaxAttempts = 3;
+  private readonly maxBatchFiles = 50;
   private readonly retryableStatusCodes = new Set([
     408, 425, 429, 500, 502, 503, 504,
   ]);
@@ -295,6 +297,11 @@ export class N8NWebhookService {
       // 验证文件
       this.validateFiles(request.files);
       const idempotencyKey = this.generateIdempotencyKey(request);
+      const traceId =
+        typeof request.metadata?.traceId === 'string' &&
+        request.metadata.traceId.trim()
+          ? request.metadata.traceId.trim()
+          : undefined;
 
       // 创建FormData
       const formData = new FormData();
@@ -316,6 +323,9 @@ export class N8NWebhookService {
       }
       if (request.metadata) {
         formData.append('metadata', JSON.stringify(request.metadata));
+      }
+      if (traceId) {
+        formData.append('traceId', traceId);
       }
 
       // 添加时间戳和来源标识
@@ -353,6 +363,7 @@ export class N8NWebhookService {
               'User-Agent': 'WendealDashboard/1.0',
               'X-Requested-With': 'XMLHttpRequest',
               'X-Idempotency-Key': idempotencyKey,
+              ...(traceId ? { 'X-Trace-Id': traceId } : {}),
             },
             signal: AbortSignal.timeout(this.defaultTimeout),
           });
@@ -466,6 +477,7 @@ export class N8NWebhookService {
           contentType,
           schemaWarnings: normalized.warnings,
           idempotencyKey,
+          ...(traceId ? { traceId } : {}),
           attemptCount,
           elapsedMs,
           transportWarnings,
@@ -503,7 +515,7 @@ export class N8NWebhookService {
         }
         if (error.message.includes('415')) {
           throw new Error(
-            'Unsupported media type - please ensure you are uploading supported file formats (PDF, JPEG, PNG, TIFF, BMP).'
+            'Unsupported media type - please ensure you are uploading supported file formats (PDF, JPEG, PNG, TIFF, BMP, DOC, DOCX, XLS, XLSX).'
           );
         }
       }
@@ -699,14 +711,24 @@ export class N8NWebhookService {
     if (!files || files.length === 0) {
       throw new Error('No files provided');
     }
+    if (files.length > this.maxBatchFiles) {
+      throw new Error(
+        `Too many files in one batch. Maximum is ${this.maxBatchFiles}.`
+      );
+    }
 
     const maxFileSize = 50 * 1024 * 1024; // 50MB
     const allowedTypes = [
       'application/pdf',
       'image/jpeg',
+      'image/jpg',
       'image/png',
       'image/tiff',
       'image/bmp',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/msword',
+      'application/vnd.ms-excel',
     ];
 
     for (const file of files) {

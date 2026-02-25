@@ -66,6 +66,14 @@ export interface InvoiceOcrClientHealthSnapshot {
   supabase?: InvoiceOcrSupabaseCheckResult | null;
 }
 
+export interface InvoiceOcrSupplierTemplateRule {
+  supplierName: string;
+  industry?: string;
+  defaultTags?: string[];
+  fieldMappings: Record<string, string>;
+  updatedAt: string;
+}
+
 /**
  * Invoice OCR Service Class
  *
@@ -112,6 +120,9 @@ export interface InvoiceOcrClientHealthSnapshot {
 export class InvoiceOCRService {
   private readonly baseUrl = '/invoice-ocr';
   private readonly defaultHealthCheckTimeoutMs = 8000;
+  private readonly supplierTemplateStorageKey = 'invoiceOCR_supplier_templates';
+  private readonly manualCorrectionStoragePrefix =
+    'invoiceOCR_manual_corrections';
 
   // ==================== Workflow Management ====================
 
@@ -774,6 +785,54 @@ export class InvoiceOCRService {
     return response.items || [];
   }
 
+  async getResultsListWithRetry(
+    workflowId: string,
+    params: InvoiceOCRQueryParams = {},
+    options?: { maxAttempts?: number; baseDelayMs?: number }
+  ): Promise<InvoiceOCRResult[]> {
+    const maxAttempts = Math.max(1, options?.maxAttempts || 3);
+    const baseDelayMs = Math.max(100, options?.baseDelayMs || 250);
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await this.getResultsList(workflowId, params);
+      } catch (error) {
+        lastError = error;
+        const knownError = error as {
+          response?: { status?: number };
+          message?: string;
+        };
+        const httpStatus = knownError.response?.status;
+        const message =
+          typeof knownError.message === 'string'
+            ? knownError.message.toLowerCase()
+            : '';
+        const retryableStatus =
+          typeof httpStatus === 'number' &&
+          (httpStatus === 408 ||
+            httpStatus === 425 ||
+            httpStatus === 429 ||
+            httpStatus >= 500);
+        const retryableNetwork =
+          message.includes('network') ||
+          message.includes('failed to fetch') ||
+          message.includes('timeout');
+
+        if (attempt >= maxAttempts || (!retryableStatus && !retryableNetwork)) {
+          break;
+        }
+
+        const delay = this.buildBackoffDelay(attempt, baseDelayMs);
+        await this.sleep(delay);
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error('Failed to load OCR results after retries');
+  }
+
   // ==================== Configuration & Testing ====================
 
   /**
@@ -1086,6 +1145,19 @@ export class InvoiceOCRService {
     }
   }
 
+  private async sleep(ms: number): Promise<void> {
+    await new Promise(resolve => {
+      globalThis.setTimeout(resolve, ms);
+    });
+  }
+
+  private buildBackoffDelay(attempt: number, baseDelayMs: number): number {
+    const safeAttempt = Math.max(1, attempt);
+    const exponential = baseDelayMs * 2 ** (safeAttempt - 1);
+    const jitter = Math.floor(Math.random() * 120);
+    return Math.min(5000, exponential + jitter);
+  }
+
   // ==================== Utility Methods ====================
 
   /**
@@ -1101,6 +1173,10 @@ export class InvoiceOCRService {
       'image/png',
       'image/tiff',
       'image/bmp',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/msword',
+      'application/vnd.ms-excel',
     ];
     return supportedTypes.includes(file.type);
   }
@@ -1138,6 +1214,139 @@ export class InvoiceOCRService {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const random = Math.random().toString(36).substring(2, 8);
     return `${prefix}-${timestamp}-${random}`;
+  }
+
+  getSupplierTemplateRules(): InvoiceOcrSupplierTemplateRule[] {
+    try {
+      const raw = localStorage.getItem(this.supplierTemplateStorageKey);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw) as InvoiceOcrSupplierTemplateRule[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.error('Failed to load supplier template rules:', error);
+      return [];
+    }
+  }
+
+  saveSupplierTemplateRule(
+    rule: Omit<InvoiceOcrSupplierTemplateRule, 'updatedAt'>
+  ): InvoiceOcrSupplierTemplateRule[] {
+    const nextRule: InvoiceOcrSupplierTemplateRule = {
+      ...rule,
+      updatedAt: new Date().toISOString(),
+    };
+    const existing = this.getSupplierTemplateRules();
+    const deduped = existing.filter(
+      item =>
+        item.supplierName.trim().toLowerCase() !==
+        nextRule.supplierName.trim().toLowerCase()
+    );
+    const next = [nextRule, ...deduped];
+    localStorage.setItem(this.supplierTemplateStorageKey, JSON.stringify(next));
+    return next;
+  }
+
+  applySupplierTemplateRule(
+    supplierName: string,
+    extractedData: Record<string, unknown>
+  ): Record<string, unknown> {
+    const normalizedSupplier = supplierName.trim().toLowerCase();
+    const matchedRule = this.getSupplierTemplateRules().find(
+      rule => rule.supplierName.trim().toLowerCase() === normalizedSupplier
+    );
+    if (!matchedRule) {
+      return extractedData;
+    }
+
+    const output: Record<string, unknown> = { ...extractedData };
+    for (const [fromKey, toKey] of Object.entries(matchedRule.fieldMappings)) {
+      if (!toKey || typeof output[fromKey] === 'undefined') {
+        continue;
+      }
+      output[toKey] = output[fromKey];
+    }
+
+    const currentTags = Array.isArray(output.tags)
+      ? (output.tags as unknown[]).filter(tag => typeof tag === 'string')
+      : [];
+    const ruleTags = Array.isArray(matchedRule.defaultTags)
+      ? matchedRule.defaultTags
+      : [];
+    output.tags = Array.from(new Set([...currentTags, ...ruleTags]));
+    if (matchedRule.industry) {
+      output.industry = matchedRule.industry;
+    }
+    return output;
+  }
+
+  inferInvoiceIndustryTags(extractedData: Record<string, unknown>): string[] {
+    const sourceText = JSON.stringify(extractedData).toLowerCase();
+    const tags = new Set<string>();
+
+    if (sourceText.includes('logistics') || sourceText.includes('freight')) {
+      tags.add('物流');
+    }
+    if (
+      sourceText.includes('consulting') ||
+      sourceText.includes('service fee')
+    ) {
+      tags.add('咨询服务');
+    }
+    if (sourceText.includes('software') || sourceText.includes('saas')) {
+      tags.add('软件订阅');
+    }
+    if (
+      sourceText.includes('construction') ||
+      sourceText.includes('contractor')
+    ) {
+      tags.add('工程');
+    }
+    if (
+      sourceText.includes('medical') ||
+      sourceText.includes('clinic') ||
+      sourceText.includes('pharma')
+    ) {
+      tags.add('医疗');
+    }
+    return Array.from(tags);
+  }
+
+  saveManualCorrection(
+    workflowId: string,
+    resultId: string,
+    patch: Record<string, unknown>
+  ): void {
+    const key = `${this.manualCorrectionStoragePrefix}:${workflowId}`;
+    const raw = localStorage.getItem(key);
+    const store = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    store[resultId] = {
+      patch,
+      updatedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(key, JSON.stringify(store));
+  }
+
+  getManualCorrection(
+    workflowId: string,
+    resultId: string
+  ): Record<string, unknown> | null {
+    try {
+      const key = `${this.manualCorrectionStoragePrefix}:${workflowId}`;
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const entry = parsed[resultId];
+      return typeof entry === 'object' && entry !== null
+        ? (entry as Record<string, unknown>)
+        : null;
+    } catch (error) {
+      console.error('Failed to get manual correction:', error);
+      return null;
+    }
   }
 }
 

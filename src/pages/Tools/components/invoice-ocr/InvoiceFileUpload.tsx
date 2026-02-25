@@ -60,6 +60,8 @@ import {
   CloudUploadOutlined,
   ExclamationCircleOutlined,
   ScanOutlined,
+  ArrowUpOutlined,
+  RedoOutlined,
 } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
 import {
@@ -69,6 +71,11 @@ import {
 import { invoiceOCRService } from '../../../../services/invoiceOCRService';
 import { n8nWebhookService } from '../../../../services/n8nWebhookService';
 import { trackInvoiceOcrEvent } from '@/services/invoiceOcrTelemetry';
+import {
+  buildInvoiceOcrTraceId,
+  redactSensitiveData,
+} from '@/services/invoiceOcrDiagnosticToolkit';
+import { normalizeInvoiceOcrError } from '@/services/invoiceOcrErrorMap';
 import type {
   InvoiceOCRWorkflow,
   InvoiceOCRBatchTask,
@@ -128,6 +135,7 @@ interface InvoiceFileUploadProps {
   /** OCR处理完成回调 */
   onOCRCompleted?: (data: {
     executionId?: string;
+    traceId?: string;
     googleSheetsUrl?: string;
     processedFiles?: number;
     totalFiles?: number;
@@ -156,6 +164,26 @@ const SUPPORTED_FILE_TYPES = {
   'image/png': { icon: FileImageOutlined, color: '#1890ff', name: 'PNG' },
   'image/tiff': { icon: FileImageOutlined, color: '#722ed1', name: 'TIFF' },
   'image/bmp': { icon: FileImageOutlined, color: '#fa8c16', name: 'BMP' },
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+    icon: FileTextOutlined,
+    color: '#2f54eb',
+    name: 'DOCX',
+  },
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+    icon: FileTextOutlined,
+    color: '#13c2c2',
+    name: 'XLSX',
+  },
+  'application/msword': {
+    icon: FileTextOutlined,
+    color: '#2f54eb',
+    name: 'DOC',
+  },
+  'application/vnd.ms-excel': {
+    icon: FileTextOutlined,
+    color: '#13c2c2',
+    name: 'XLS',
+  },
 } as const;
 
 /**
@@ -201,6 +229,44 @@ const extractEnhancedData = (payload: unknown): unknown => {
   return null;
 };
 
+const readFileHeaderHex = async (file: File, length = 8): Promise<string> => {
+  const buffer = await file.slice(0, length).arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  return Array.from(bytes)
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+const hasSupportedFileSignature = async (file: File): Promise<boolean> => {
+  try {
+    const header = await readFileHeaderHex(file, 8);
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+
+    if (header.startsWith('25504446')) return true; // PDF
+    if (header.startsWith('ffd8ff')) return true; // JPEG
+    if (header.startsWith('89504e47')) return true; // PNG
+    if (header.startsWith('49492a00') || header.startsWith('4d4d002a'))
+      return true; // TIFF
+    if (header.startsWith('424d')) return true; // BMP
+    if (
+      header.startsWith('504b0304') &&
+      (extension === 'docx' || extension === 'xlsx')
+    ) {
+      return true; // OOXML
+    }
+    if (
+      header.startsWith('d0cf11e0') &&
+      (extension === 'doc' || extension === 'xls')
+    ) {
+      return true; // Legacy OLE format
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Invoice OCR 文件上传组件
  * 支持多文件上传、进度显示、文件预览和删除功能
@@ -228,6 +294,9 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
     const [fileList, setFileList] = useState<UploadFile[]>([]);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [estimatedRemainingSec, setEstimatedRemainingSec] = useState<
+      number | null
+    >(null);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [previewFile, setPreviewFile] = useState<UploadFile | null>(null);
     const message = useMessage();
@@ -268,8 +337,8 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         const isSupported = invoiceOCRService.validateFileType(file);
         if (!isSupported) {
           showError({
-            title: 'Unsupported file type',
-            message: `${file.type}. Supported formats: PDF, JPEG, PNG, TIFF, BMP`,
+            title: '文件类型不支持',
+            message: `${file.type}。当前支持 PDF、JPEG、PNG、TIFF、BMP、DOCX、XLSX`,
           });
         }
         return isSupported;
@@ -288,10 +357,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         );
         if (!isValidSize) {
           showError({
-            title: 'File size exceeds limit',
+            title: '文件大小超出限制',
             message: `${invoiceOCRService.formatFileSize(
               file.size
-            )}. Maximum allowed: ${maxFileSize}MB`,
+            )}。最大允许 ${maxFileSize}MB`,
           });
         }
         return isValidSize;
@@ -303,7 +372,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
      * Validation before file upload
      */
     const beforeUpload = useCallback(
-      (file: File, fileList: File[]): boolean => {
+      async (file: File, fileList: File[]): Promise<boolean> => {
         // Validate file type
         if (!validateFileType(file)) {
           return false;
@@ -317,8 +386,8 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         // Validate file count
         if (fileList.length > maxFiles) {
           showError({
-            title: 'Upload limit exceeded',
-            message: `Maximum ${maxFiles} files can be uploaded`,
+            title: '超出上传数量限制',
+            message: `最多可上传 ${maxFiles} 个文件`,
           });
           return false;
         }
@@ -332,13 +401,22 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         );
 
         if (isDuplicate) {
-          message.warning(`File "${file.name}" already exists`);
+          message.warning(`文件“${file.name}”已存在`);
+          return false;
+        }
+
+        const signatureValid = await hasSupportedFileSignature(file);
+        if (!signatureValid) {
+          showError({
+            title: '文件内容校验失败',
+            message: '文件头签名与支持格式不匹配，可能是错误扩展名或损坏文件。',
+          });
           return false;
         }
 
         return false; // Prevent auto upload, manual control
       },
-      [validateFileType, validateFileSize, maxFiles, message]
+      [validateFileType, validateFileSize, maxFiles, message, showError]
     );
 
     /**
@@ -377,6 +455,42 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
       [fileList, onFileListChange]
     );
 
+    const handleMoveToTop = useCallback(
+      (file: UploadFile) => {
+        const target = fileList.find(item => item.uid === file.uid);
+        if (!target) {
+          return;
+        }
+        const reordered = [
+          target,
+          ...fileList.filter(item => item.uid !== file.uid),
+        ];
+        setFileList(reordered);
+        onFileListChange?.(reordered);
+      },
+      [fileList, onFileListChange]
+    );
+
+    const handleRevalidateFile = useCallback(
+      async (file: UploadFile) => {
+        const origin = file.originFileObj as File | undefined;
+        if (!origin) {
+          message.warning('无法重新校验该文件');
+          return;
+        }
+
+        const typeOk = validateFileType(origin);
+        const sizeOk = validateFileSize(origin);
+        const signatureOk = await hasSupportedFileSignature(origin);
+        if (typeOk && sizeOk && signatureOk) {
+          message.success(`文件 ${file.name} 校验通过`);
+          return;
+        }
+        message.error(`文件 ${file.name} 校验失败，请替换后重试`);
+      },
+      [message, validateFileSize, validateFileType]
+    );
+
     /**
      * Preview file
      */
@@ -390,9 +504,9 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
      */
     const handleClearFiles = useCallback(() => {
       confirm({
-        title: 'Confirm Clear',
+        title: '确认清空',
         icon: <ExclamationCircleOutlined />,
-        content: 'Are you sure you want to clear all files?',
+        content: '确定要清空当前已选文件吗？',
         onOk() {
           setFileList([]);
           onFileListChange?.([]);
@@ -405,7 +519,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
      */
     const handleOCRProcess = useCallback(async () => {
       if (fileList.length === 0) {
-        message.warning('Please select files to recognize first');
+        message.warning('请先选择待识别文件');
         return;
       }
 
@@ -414,12 +528,12 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         !validateInvoiceOcrWebhookUrl(resolvedWebhookUrl)
       ) {
         const configError =
-          'Webhook URL is missing or invalid. Please check Invoice OCR settings.';
+          'Webhook 地址缺失或格式无效，请先检查 Invoice OCR 配置。';
         message.error(configError);
         const configException = new Error(configError);
         onUploadError?.(configException);
         showError({
-          title: 'Invalid webhook configuration',
+          title: 'Webhook 配置无效',
           message: configError,
         });
         trackInvoiceOcrEvent('invoice_ocr_upload_failed', {
@@ -430,19 +544,25 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
       }
 
       // 设置上传状态
+      const startedAt = Date.now();
       setUploading(true);
       setUploadProgress(0);
+      setEstimatedRemainingSec(null);
 
       let progressInterval: NodeJS.Timeout | null = null;
+      let activeTraceId = '';
 
       try {
         const files = fileList.map(file => file.originFileObj as File);
         const idempotencyKey = buildLocalIdempotencyKey(workflowId, files);
+        const traceId = buildInvoiceOcrTraceId(workflowId);
+        activeTraceId = traceId;
 
         trackInvoiceOcrEvent('invoice_ocr_upload_started', {
           workflowId,
           fileCount: files.length,
           idempotencyKey,
+          traceId,
         });
 
         try {
@@ -466,7 +586,14 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             if (prev >= 90) {
               return prev;
             }
-            return prev + Math.random() * 15;
+            const nextProgress = Math.min(90, prev + Math.random() * 15);
+            const elapsedMs = Date.now() - startedAt;
+            if (elapsedMs > 0 && nextProgress > 0) {
+              const estimatedTotalMs = elapsedMs / (nextProgress / 100);
+              const remainingMs = Math.max(0, estimatedTotalMs - elapsedMs);
+              setEstimatedRemainingSec(Math.ceil(remainingMs / 1000));
+            }
+            return nextProgress;
           });
         }, 300);
 
@@ -481,6 +608,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               invoiceOCRService.generateBatchName('invoice-upload'),
             idempotencyKey,
             metadata: {
+              traceId,
               processingOptions: memoizedProcessingOptions,
               timestamp: new Date().toISOString(),
               source: 'wendeal-dashboard',
@@ -501,11 +629,11 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           console.log('=== WEBHOOK 响应成功 ===');
           console.log(
             '完整的webhookResponse:',
-            JSON.stringify(webhookResponse, null, 2)
+            JSON.stringify(redactSensitiveData(webhookResponse), null, 2)
           );
 
           // 显示成功消息
-          message.success('Files successfully sent to workflow!');
+          message.success('文件已提交到识别工作流');
 
           // 处理工作流返回的数据
           console.log('=== 分析 WEBHOOK 响应数据结构 ===');
@@ -517,7 +645,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             'webhookResponse.data 是否为数组:',
             Array.isArray(webhookResponse.data)
           );
-          console.log('webhookResponse.data 内容:', webhookResponse.data);
+          console.log(
+            'webhookResponse.data 内容:',
+            redactSensitiveData(webhookResponse.data)
+          );
 
           const enhancedData = extractEnhancedData(webhookResponse.data);
           const hasBusinessData = Boolean(webhookResponse.hasBusinessData);
@@ -532,6 +663,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           // 准备完成数据
           const completedData = {
             executionId: webhookResponse.executionId || '',
+            traceId,
             googleSheetsUrl:
               webhookResponse.googleSheetsUrl ||
               'https://docs.google.com/spreadsheets/d/1K8VGSofJUBK7yCTqtaPNQvSZ1HeGDNZOvO2UQ6SRJzg/edit?usp=sharing',
@@ -557,6 +689,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               executionId: webhookResponse.executionId || '',
               idempotencyKey:
                 webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
+              traceId,
               schemaWarnings: schemaWarnings.join(','),
               attemptCount: webhookResponse.diagnostics?.attemptCount || 0,
               elapsedMs: webhookResponse.diagnostics?.elapsedMs || 0,
@@ -567,6 +700,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               executionId: webhookResponse.executionId || '',
               idempotencyKey:
                 webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
+              traceId,
               fileCount: files.length,
               attemptCount: webhookResponse.diagnostics?.attemptCount || 1,
               elapsedMs: webhookResponse.diagnostics?.elapsedMs || 0,
@@ -601,8 +735,9 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         console.error('发送文件到n8n失败:', error);
 
         // 获取更详细的错误信息
-        let errorTitle = 'File upload failed';
-        let errorMessage = 'Unknown error';
+        const mappedError = normalizeInvoiceOcrError(error, 'upload');
+        let errorTitle = mappedError.title;
+        let errorMessage = mappedError.message;
         let errorDetails = undefined;
 
         if (error instanceof Error) {
@@ -614,54 +749,51 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             error.message.includes('Failed to fetch') ||
             error.message.includes('NetworkError')
           ) {
-            errorTitle = 'Network connection failed';
-            errorMessage =
-              'Unable to connect to the workflow service. Please check your network connection and try again.';
+            errorTitle = '网络连接失败';
+            errorMessage = '无法连接到工作流服务，请检查网络连接后重试。';
           }
           // 检查是否是超时错误
           else if (
             error.message.includes('timeout') ||
             error.message.includes('AbortError')
           ) {
-            errorTitle = 'Request timeout';
+            errorTitle = '请求超时';
             errorMessage =
-              'The request took too long to complete. This may be due to large files or slow network. Please try again with smaller files or check your connection.';
+              '请求处理时间过长，可能与文件体积或网络速度有关，请稍后重试。';
           }
           // 检查是否是服务器错误
           else if (
             error.message.includes('500') ||
             error.message.includes('Internal Server Error')
           ) {
-            errorTitle = 'Server error';
-            errorMessage =
-              'The workflow service encountered an internal error. Please try again later or contact support if the problem persists.';
+            errorTitle = '服务端错误';
+            errorMessage = '工作流服务发生内部错误，请稍后重试。';
           }
           // 检查是否是认证错误
           else if (
             error.message.includes('401') ||
             error.message.includes('403')
           ) {
-            errorTitle = 'Authentication failed';
-            errorMessage =
-              'Access denied. Please check your workflow configuration and ensure the webhook URL is correct.';
+            errorTitle = '认证失败';
+            errorMessage = '请求被拒绝，请检查 webhook 地址与认证配置。';
           }
           // 检查是否是文件格式错误
           else if (
             error.message.includes('format') ||
             error.message.includes('type')
           ) {
-            errorTitle = 'File format error';
+            errorTitle = '文件格式错误';
             errorMessage =
-              'One or more files have an unsupported format. Please ensure all files are PDF, JPEG, PNG, TIFF, or BMP format.';
+              '存在不支持的文件格式，请使用 PDF、JPEG、PNG、TIFF、BMP、DOCX、XLSX。';
           }
           // 检查是否是n8n工作流错误
           else if (
             error.message.includes('n8n工作流处理失败') ||
             error.message.includes('Error in workflow')
           ) {
-            errorTitle = 'Workflow execution error';
+            errorTitle = '工作流执行失败';
             errorMessage =
-              'The n8n workflow encountered an error during execution. This could be due to: 1) Workflow configuration issues, 2) Missing required nodes or credentials, 3) Invalid file processing logic. Please check the n8n workflow logs and ensure all nodes are properly configured.';
+              'n8n 工作流执行发生错误，请检查节点配置、凭据权限与执行日志。';
           }
         }
 
@@ -719,8 +851,9 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         });
         trackInvoiceOcrEvent('invoice_ocr_upload_failed', {
           workflowId,
-          reason: errorMessage,
+          reason: `${mappedError.code}:${errorMessage}`,
           fileCount: fileList.length,
+          traceId: activeTraceId,
         });
         onUploadError?.(
           error instanceof Error
@@ -731,6 +864,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         // 重置上传状态
         setUploading(false);
         setUploadProgress(0);
+        setEstimatedRemainingSec(null);
       }
     }, [
       fileList,
@@ -750,7 +884,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
      */
     const handleStartUpload = useCallback(async () => {
       if (fileList.length === 0) {
-        message.warning('Please select files to upload first');
+        message.warning('请先选择要上传的文件');
         return;
       }
 
@@ -786,9 +920,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         clearInterval(progressInterval);
         setUploadProgress(100);
 
-        message.success(
-          `Files uploaded successfully! Batch task ID: ${batchTask.id}`
-        );
+        message.success(`文件上传成功，批次 ID：${batchTask.id}`);
 
         // Clear file list
         setFileList([]);
@@ -796,13 +928,11 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         onUploadSuccess?.(batchTask);
       } catch (error) {
         showError({
-          title: 'Upload failed',
-          message: error instanceof Error ? error.message : 'Unknown error',
+          title: '上传失败',
+          message: error instanceof Error ? error.message : '未知错误',
           details: error instanceof Error ? error.stack : undefined,
         });
-        onUploadError?.(
-          error instanceof Error ? error : new Error('Upload failed')
-        );
+        onUploadError?.(error instanceof Error ? error : new Error('上传失败'));
       } finally {
         setUploading(false);
         setUploadProgress(0);
@@ -829,7 +959,27 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         return (
           <List.Item
             actions={[
-              <Tooltip key='preview' title='Preview'>
+              <Tooltip key='move-top' title='置顶'>
+                <Button
+                  type='text'
+                  size='small'
+                  icon={<ArrowUpOutlined />}
+                  onClick={() => handleMoveToTop(file)}
+                  disabled={uploading}
+                />
+              </Tooltip>,
+              <Tooltip key='revalidate' title='重新校验'>
+                <Button
+                  type='text'
+                  size='small'
+                  icon={<RedoOutlined />}
+                  onClick={() => {
+                    void handleRevalidateFile(file);
+                  }}
+                  disabled={uploading}
+                />
+              </Tooltip>,
+              <Tooltip key='preview' title='预览'>
                 <Button
                   type='text'
                   size='small'
@@ -837,7 +987,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
                   onClick={() => handlePreviewFile(file)}
                 />
               </Tooltip>,
-              <Tooltip key='delete' title='Delete'>
+              <Tooltip key='delete' title='删除'>
                 <Button
                   type='text'
                   size='small'
@@ -870,7 +1020,13 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           </List.Item>
         );
       },
-      [handlePreviewFile, handleRemoveFile, uploading]
+      [
+        handleMoveToTop,
+        handlePreviewFile,
+        handleRemoveFile,
+        handleRevalidateFile,
+        uploading,
+      ]
     );
 
     /**
@@ -908,7 +1064,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
 
     return (
       <div className='invoice-file-upload'>
-        <Card title='File Upload' className='upload-card'>
+        <Card title='文件上传' className='upload-card'>
           {/* Upload area */}
           <Dragger
             multiple
@@ -918,18 +1074,16 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             onRemove={handleRemoveFile}
             onPreview={handlePreviewFile}
             disabled={uploading}
-            accept='.pdf,.jpg,.jpeg,.png,.tiff,.bmp'
+            accept='.pdf,.jpg,.jpeg,.png,.tiff,.bmp,.doc,.docx,.xls,.xlsx'
             className='upload-dragger'
           >
             <p className='ant-upload-drag-icon'>
               <InboxOutlined style={{ fontSize: '48px', color: '#1890ff' }} />
             </p>
-            <p className='ant-upload-text'>
-              Click or drag files to this area to upload
-            </p>
+            <p className='ant-upload-text'>点击或拖拽文件到此处上传</p>
             <p className='ant-upload-hint'>
-              Supports PDF, JPEG, PNG, TIFF, BMP formats, max {maxFileSize}MB
-              per file, up to {maxFiles} files
+              支持 PDF、JPEG、PNG、TIFF、BMP、DOCX、XLSX，单文件不超过{' '}
+              {maxFileSize}MB，最多 {maxFiles} 个文件
             </p>
           </Dragger>
 
@@ -967,7 +1121,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
                     color: '#1890ff',
                   }}
                 >
-                  🚀 Uploading files to workflow...
+                  正在上传并提交识别流程...
                 </Text>
               </div>
               <Progress
@@ -1002,8 +1156,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
                   fontStyle: 'italic',
                 }}
               >
-                Please wait while we process your files... OCR processing may
-                take 1-2 minutes depending on file size and complexity.
+                正在处理文件，请稍候。识别时长取决于文件大小与复杂度。
+                {typeof estimatedRemainingSec === 'number' &&
+                  estimatedRemainingSec > 0 &&
+                  ` 预计剩余约 ${estimatedRemainingSec} 秒。`}
               </Text>
             </div>
           )}
@@ -1018,7 +1174,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               >
                 <Col>
                   <Title level={5} style={{ margin: 0 }}>
-                    Selected Files ({fileStats.count}/{maxFiles})
+                    已选文件 ({fileStats.count}/{maxFiles})
                   </Title>
                 </Col>
                 <Col>
@@ -1032,7 +1188,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
                         !fileStats.hasFiles || ocrProcessing || uploading
                       }
                     >
-                      Upload & Recognize
+                      上传并识别
                     </Button>
                     <Button
                       icon={<CloudUploadOutlined />}
@@ -1040,7 +1196,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
                       loading={uploading}
                       disabled={!fileStats.canUpload}
                     >
-                      Upload Only
+                      仅上传
                     </Button>
                     <Button
                       icon={<DeleteOutlined />}
@@ -1049,7 +1205,7 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
                         uploading || !fileStats.hasFiles || ocrProcessing
                       }
                     >
-                      Clear
+                      清空
                     </Button>
                   </Space>
                 </Col>
@@ -1067,21 +1223,13 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           {/* Usage tips */}
           {!fileStats.hasFiles && (
             <Alert
-              message='Usage Tips'
+              message='使用提示'
               description={
                 <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                  <li>Support batch upload of multiple invoice files</li>
-                  <li>
-                    Support PDF and common image formats (JPEG, PNG, TIFF, BMP)
-                  </li>
-                  <li>
-                    Recommend uploading clear, complete invoice images for best
-                    recognition results
-                  </li>
-                  <li>
-                    OCR recognition and data extraction will be performed
-                    automatically after upload
-                  </li>
+                  <li>支持批量上传多张发票文件</li>
+                  <li>支持 PDF、图片及 Office 文件（DOCX、XLSX）</li>
+                  <li>建议上传清晰且完整的发票，提升识别准确率</li>
+                  <li>上传后系统将自动完成 OCR 识别与字段提取</li>
                 </ul>
               }
               type='info'

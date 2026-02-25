@@ -29,7 +29,7 @@
  * @see {@link invoiceOCRService} - Service for result operations
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
   Table,
@@ -55,6 +55,8 @@ import {
   Menu,
   Collapse,
   Tabs,
+  Input,
+  Radio,
 } from 'antd';
 
 import { useMessage } from '@/hooks';
@@ -88,6 +90,7 @@ import {
   invoiceOCRService,
   type InvoiceOcrClientHealthSnapshot,
 } from '../../../../services/invoiceOCRService';
+import { redactSensitiveData } from '@/services/invoiceOcrDiagnosticToolkit';
 import type {
   InvoiceOCRResult,
   InvoiceOCRBatchTask,
@@ -122,6 +125,7 @@ interface InvoiceOCRResultsProps {
   /** 处理完成的数据 */
   completedData?: {
     executionId?: string;
+    traceId?: string;
     googleSheetsUrl?: string;
     processedFiles?: number;
     totalFiles?: number;
@@ -211,6 +215,114 @@ const getFileTypeIcon = (fileName: string): React.ReactNode => {
   }
 };
 
+type ResultQuickFilter = 'all' | 'completed' | 'low_confidence' | 'recent_24h';
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const getStringField = (
+  record: Record<string, unknown>,
+  key: string
+): string => {
+  const value = record[key];
+  return typeof value === 'string' ? value : '';
+};
+
+const getRecordField = (
+  record: Record<string, unknown>,
+  key: string
+): Record<string, unknown> => {
+  const value = record[key];
+  return isRecord(value) ? value : {};
+};
+
+const getSearchableText = (result: InvoiceOCRResult): string => {
+  const fileName = result.originalFile?.name || '';
+  const executionId = result.executionId || '';
+  const extracted = isRecord(result.extractedData) ? result.extractedData : {};
+  const vendor = getRecordField(extracted, 'vendor');
+  const basic = getRecordField(extracted, 'basic');
+  const vendorCandidates = [
+    getStringField(extracted, 'vendorName'),
+    getStringField(vendor, 'name'),
+    getStringField(extracted, 'supplier'),
+  ]
+    .filter((item): item is string => typeof item === 'string')
+    .join(' ');
+  const invoiceCandidates = [
+    getStringField(extracted, 'invoiceNumber'),
+    getStringField(basic, 'invoiceNumber'),
+    getStringField(extracted, 'invoiceNo'),
+  ]
+    .filter((item): item is string => typeof item === 'string')
+    .join(' ');
+  return [fileName, executionId, vendorCandidates, invoiceCandidates]
+    .join(' ')
+    .toLowerCase();
+};
+
+const getResultVendorName = (result: InvoiceOCRResult): string => {
+  const extracted = isRecord(result.extractedData) ? result.extractedData : {};
+  const vendorName = getStringField(extracted, 'vendorName').trim();
+  if (vendorName) {
+    return vendorName;
+  }
+  const vendor = getRecordField(extracted, 'vendor');
+  const vendorFromNested = getStringField(vendor, 'name').trim();
+  if (vendorFromNested) {
+    return vendorFromNested;
+  }
+  const supplier = getStringField(extracted, 'supplier').trim();
+  if (supplier) {
+    return supplier;
+  }
+  return '';
+};
+
+const applyPatchToResult = (
+  result: InvoiceOCRResult,
+  patch: Record<string, unknown>
+): InvoiceOCRResult => {
+  const next = { ...result } as InvoiceOCRResult;
+  const extracted = isRecord(result.extractedData) ? result.extractedData : {};
+  const nextExtracted: Record<string, unknown> = { ...extracted };
+
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === 'extractedData' && isRecord(value)) {
+      Object.assign(nextExtracted, value);
+      continue;
+    }
+    if (key === 'status' && typeof value === 'string') {
+      next.status = value as InvoiceOCRResult['status'];
+      continue;
+    }
+    if (key === 'confidence' && typeof value === 'number') {
+      next.confidence = value;
+      continue;
+    }
+    if (key === 'executionId' && typeof value === 'string') {
+      next.executionId = value;
+      continue;
+    }
+    if (key === 'startedAt' && typeof value === 'string') {
+      next.startedAt = value;
+      continue;
+    }
+    if (key === 'completedAt') {
+      if (typeof value === 'string') {
+        next.completedAt = value;
+      }
+      continue;
+    }
+    nextExtracted[key] = value;
+  }
+
+  next.extractedData = nextExtracted as unknown as NonNullable<
+    InvoiceOCRResult['extractedData']
+  >;
+  return next;
+};
+
 /**
  * Invoice OCR 结果展示组件
  * 展示 OCR 处理结果、统计信息和提供后续操作
@@ -241,6 +353,10 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const [selectedResult, setSelectedResult] = useState<InvoiceOCRResult | null>(
     null
   );
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [quickFilter, setQuickFilter] = useState<ResultQuickFilter>('all');
+  const [manualCorrectionVisible, setManualCorrectionVisible] = useState(false);
+  const [manualCorrectionDraft, setManualCorrectionDraft] = useState('{}');
 
   /**
    * 加载 OCR 结果数据
@@ -256,7 +372,70 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
         page: 1,
         pageSize: 100,
       });
-      setResults(resultsData.items || []);
+      const normalizedResults = (resultsData.items || []).map(item => {
+        const vendorName = getResultVendorName(item);
+        const baseExtracted = isRecord(item.extractedData)
+          ? { ...item.extractedData }
+          : {};
+        const withSupplierTemplate =
+          vendorName && Object.keys(baseExtracted).length > 0
+            ? invoiceOCRService.applySupplierTemplateRule(
+                vendorName,
+                baseExtracted
+              )
+            : baseExtracted;
+
+        let mergedResult: InvoiceOCRResult = {
+          ...item,
+          extractedData: withSupplierTemplate as unknown as NonNullable<
+            InvoiceOCRResult['extractedData']
+          >,
+        };
+
+        const correctionEntry = invoiceOCRService.getManualCorrection(
+          workflowId,
+          item.id
+        );
+        const patch =
+          isRecord(correctionEntry) && isRecord(correctionEntry.patch)
+            ? correctionEntry.patch
+            : null;
+        if (patch) {
+          mergedResult = applyPatchToResult(mergedResult, patch);
+        }
+
+        const extractedForTag: Record<string, unknown> = isRecord(
+          mergedResult.extractedData
+        )
+          ? { ...mergedResult.extractedData }
+          : {};
+        const inferredTags =
+          invoiceOCRService.inferInvoiceIndustryTags(extractedForTag);
+        if (inferredTags.length > 0) {
+          const existingTagField = extractedForTag['industryTags'];
+          const currentTags = Array.isArray(existingTagField)
+            ? existingTagField.filter(
+                (itemTag): itemTag is string => typeof itemTag === 'string'
+              )
+            : [];
+          extractedForTag['industryTags'] = Array.from(
+            new Set([...currentTags, ...inferredTags])
+          );
+          const currentIndustry = extractedForTag['industry'];
+          if (typeof currentIndustry !== 'string' || !currentIndustry.trim()) {
+            extractedForTag['industry'] = inferredTags[0];
+          }
+          mergedResult = {
+            ...mergedResult,
+            extractedData: extractedForTag as unknown as NonNullable<
+              InvoiceOCRResult['extractedData']
+            >,
+          };
+        }
+
+        return mergedResult;
+      });
+      setResults(normalizedResults);
 
       // 加载批处理任务
       const batchTasksData = await invoiceOCRService.getBatchTasks(workflowId, {
@@ -301,40 +480,43 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   /**
    * 下载结果文件
    */
-  const handleDownloadResult = useCallback(async (result: InvoiceOCRResult) => {
-    try {
-      await invoiceOCRService.downloadResult(workflowId, result.id);
-      message.success('File downloaded successfully');
-    } catch (error) {
-      showError({
-        title: 'Download failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        details: error instanceof Error ? error.stack : undefined,
-      });
-    }
-  }, []);
+  const handleDownloadResult = useCallback(
+    async (result: InvoiceOCRResult) => {
+      try {
+        await invoiceOCRService.downloadResult(workflowId, result.id);
+        message.success('结果文件下载成功');
+      } catch (error) {
+        showError({
+          title: '下载失败',
+          message: error instanceof Error ? error.message : '未知错误',
+          details: error instanceof Error ? error.stack : undefined,
+        });
+      }
+    },
+    [message, showError, workflowId]
+  );
 
   /**
    * 批量下载结果
    */
   const handleBatchDownload = useCallback(async () => {
     if (selectedResults.length === 0) {
-      message.warning('Please select results to download first');
+      message.warning('请先选择需要下载的结果');
       return;
     }
 
     try {
       const resultIds = selectedResults.map(result => result.id);
       await invoiceOCRService.downloadResults(workflowId, resultIds);
-      message.success('Batch download successful');
+      message.success('批量下载成功');
     } catch (error) {
       showError({
-        title: 'Batch download failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        title: '批量下载失败',
+        message: error instanceof Error ? error.message : '未知错误',
         details: error instanceof Error ? error.stack : undefined,
       });
     }
-  }, [selectedResults]);
+  }, [message, selectedResults, showError, workflowId]);
 
   /**
    * 删除结果
@@ -342,24 +524,24 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const handleDeleteResult = useCallback(
     async (result: InvoiceOCRResult) => {
       confirm({
-        title: 'Confirm Delete',
-        content: `Are you sure you want to delete the result "${result.originalFile?.name || result.id}"?`,
+        title: '确认删除',
+        content: `确定删除结果「${result.originalFile?.name || result.id}」吗？`,
         onOk: async () => {
           try {
             await invoiceOCRService.deleteResult(workflowId, result.id);
-            message.success('Deleted successfully');
+            message.success('删除成功');
             loadResults();
           } catch (error) {
             showError({
-              title: 'Delete failed',
-              message: error instanceof Error ? error.message : 'Unknown error',
+              title: '删除失败',
+              message: error instanceof Error ? error.message : '未知错误',
               details: error instanceof Error ? error.stack : undefined,
             });
           }
         },
       });
     },
-    [loadResults]
+    [loadResults, message, showError, workflowId]
   );
 
   /**
@@ -382,7 +564,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     message.success(
       `正在跳转到 Google Sheets，将导出 ${targetResults.length} 条结果`
     );
-  }, [selectedResults, results, onGoogleSheetsRedirect]);
+  }, [onGoogleSheetsRedirect, results, selectedResults]);
 
   const handleCopyValue = useCallback(
     async (value?: string, label = '内容') => {
@@ -414,9 +596,10 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       ? runtime.__WENDEAL_INVOICE_OCR_TELEMETRY_BUFFER__.slice(-100)
       : [];
 
-    const payload = {
+    const payload = redactSensitiveData({
       exportedAt: new Date().toISOString(),
       executionId: completedData.executionId || '',
+      traceId: completedData.traceId || '',
       requestKey: completedData.idempotencyKey || '',
       hasBusinessData: Boolean(completedData.hasBusinessData),
       schemaWarnings: completedData.schemaWarnings || [],
@@ -424,7 +607,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       rawResponse: completedData.rawResponse || null,
       clientHealth: completedData.clientHealth || null,
       telemetryBuffer,
-    };
+    });
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: 'application/json',
@@ -507,23 +690,148 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     return alerts.length > 0 ? <>{alerts}</> : null;
   }, [completedData]);
 
+  const handleOpenManualCorrection = useCallback(() => {
+    if (!selectedResult) {
+      return;
+    }
+    const saved = invoiceOCRService.getManualCorrection(
+      workflowId,
+      selectedResult.id
+    );
+    const savedPatch =
+      isRecord(saved) && isRecord(saved.patch) ? saved.patch : null;
+    const defaultPatch =
+      savedPatch ||
+      (isRecord(selectedResult.extractedData)
+        ? selectedResult.extractedData
+        : {});
+    setManualCorrectionDraft(JSON.stringify(defaultPatch, null, 2));
+    setManualCorrectionVisible(true);
+  }, [selectedResult, workflowId]);
+
+  const handleSaveManualCorrection = useCallback(() => {
+    if (!selectedResult) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(manualCorrectionDraft) as unknown;
+      if (!isRecord(parsed)) {
+        throw new Error('手动修正内容必须是 JSON 对象');
+      }
+      invoiceOCRService.saveManualCorrection(
+        workflowId,
+        selectedResult.id,
+        parsed
+      );
+      const nextResult = applyPatchToResult(selectedResult, parsed);
+      setSelectedResult(nextResult);
+      setResults(prev =>
+        prev.map(item => (item.id === selectedResult.id ? nextResult : item))
+      );
+      setManualCorrectionVisible(false);
+      message.success('手动修正已保存并应用');
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown_error';
+      message.error(`手动修正保存失败：${reason}`);
+    }
+  }, [manualCorrectionDraft, message, selectedResult, workflowId]);
+
+  const handleSaveSupplierTemplateRule = useCallback(() => {
+    if (!selectedResult) {
+      return;
+    }
+    const supplierName = getResultVendorName(selectedResult);
+    if (!supplierName) {
+      message.warning('未识别到供应商名称，无法保存模板');
+      return;
+    }
+    const extracted: Record<string, unknown> = isRecord(
+      selectedResult.extractedData
+    )
+      ? selectedResult.extractedData
+      : {};
+    const inferredTags = invoiceOCRService.inferInvoiceIndustryTags(extracted);
+    const fieldMappings = Object.keys(extracted).reduce(
+      (acc, key) => ({
+        ...acc,
+        [key]: key,
+      }),
+      {} as Record<string, string>
+    );
+    const industryCandidate =
+      typeof extracted['industry'] === 'string' && extracted['industry'].trim()
+        ? extracted['industry'].trim()
+        : inferredTags[0];
+    invoiceOCRService.saveSupplierTemplateRule({
+      supplierName,
+      ...(industryCandidate ? { industry: industryCandidate } : {}),
+      defaultTags: inferredTags,
+      fieldMappings,
+    });
+    const applied = invoiceOCRService.applySupplierTemplateRule(
+      supplierName,
+      extracted
+    );
+    const nextResult: InvoiceOCRResult = {
+      ...selectedResult,
+      extractedData: applied as unknown as NonNullable<
+        InvoiceOCRResult['extractedData']
+      >,
+    };
+    setSelectedResult(nextResult);
+    setResults(prev =>
+      prev.map(item => (item.id === selectedResult.id ? nextResult : item))
+    );
+    message.success(`供应商模板已保存：${supplierName}`);
+  }, [message, selectedResult]);
+
+  const filteredResults = useMemo(() => {
+    let next = [...results];
+    if (quickFilter === 'completed') {
+      next = next.filter(item => item.status === 'completed');
+    } else if (quickFilter === 'low_confidence') {
+      next = next.filter(
+        item =>
+          typeof item.confidence === 'number' &&
+          item.confidence > 0 &&
+          item.confidence < 0.8
+      );
+    } else if (quickFilter === 'recent_24h') {
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      next = next.filter(item => {
+        const dateValue = item.completedAt || item.startedAt;
+        if (!dateValue) {
+          return false;
+        }
+        const timestamp = new Date(dateValue).getTime();
+        return Number.isFinite(timestamp) && timestamp >= cutoff;
+      });
+    }
+
+    const keyword = searchKeyword.trim().toLowerCase();
+    if (!keyword) {
+      return next;
+    }
+    return next.filter(item => getSearchableText(item).includes(keyword));
+  }, [quickFilter, results, searchKeyword]);
+
   /**
    * 结果表格列定义
    */
   const resultColumns: ColumnsType<InvoiceOCRResult> = [
     {
-      title: 'File Name',
+      title: '文件名',
       dataIndex: 'originalFile',
       key: 'fileName',
       render: (originalFile: any) => (
         <Space>
           {getFileTypeIcon(originalFile?.name || '')}
-          <Text strong>{originalFile?.name || ''}</Text>
+          <Text strong>{originalFile?.name || '-'}</Text>
         </Space>
       ),
     },
     {
-      title: 'Status',
+      title: '状态',
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
@@ -533,21 +841,21 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             <Space>
               {getStatusIcon(status)}
               {status === 'completed'
-                ? 'Completed'
+                ? '已完成'
                 : status === 'processing'
-                  ? 'Processing'
+                  ? '处理中'
                   : status === 'failed'
-                    ? 'Failed'
+                    ? '失败'
                     : status === 'pending'
-                      ? 'Pending'
-                      : 'Cancelled'}
+                      ? '等待中'
+                      : '已取消'}
             </Space>
           }
         />
       ),
     },
     {
-      title: 'Confidence',
+      title: '置信度',
       dataIndex: 'confidence',
       key: 'confidence',
       render: (confidence: number) => (
@@ -565,29 +873,55 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       ),
     },
     {
-      title: 'Extracted Fields',
-      dataIndex: 'extractedFields',
-      key: 'extractedFields',
+      title: '已提取字段',
+      dataIndex: 'extractedData',
+      key: 'extractedData',
       render: (fields: any) => (
-        <Tag color='blue'>{Object.keys(fields || {}).length} fields</Tag>
+        <Tag color='blue'>{Object.keys(fields || {}).length} 项</Tag>
       ),
     },
     {
-      title: 'Processed Time',
+      title: '行业标签',
+      key: 'industryTags',
+      render: (_, record) => {
+        const extracted: Record<string, unknown> = isRecord(
+          record.extractedData
+        )
+          ? record.extractedData
+          : {};
+        const tagField = extracted['industryTags'];
+        const tags = Array.isArray(tagField)
+          ? tagField.filter((tag): tag is string => typeof tag === 'string')
+          : [];
+        return tags.length > 0 ? (
+          <Space size={[4, 4]} wrap>
+            {tags.slice(0, 3).map(tag => (
+              <Tag key={`${record.id}-${String(tag)}`} color='geekblue'>
+                {tag}
+              </Tag>
+            ))}
+          </Space>
+        ) : (
+          <Text type='secondary'>-</Text>
+        );
+      },
+    },
+    {
+      title: '处理时间',
       dataIndex: 'completedAt',
       key: 'completedAt',
       render: (completedAt: string) => (
         <Text type='secondary'>
-          {completedAt ? new Date(completedAt).toLocaleString('en-US') : 'N/A'}
+          {completedAt ? new Date(completedAt).toLocaleString('zh-CN') : 'N/A'}
         </Text>
       ),
     },
     {
-      title: 'Actions',
+      title: '操作',
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Tooltip title='View Details'>
+          <Tooltip title='查看详情'>
             <Button
               type='text'
               size='small'
@@ -595,7 +929,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
               onClick={() => handleViewDetail(record)}
             />
           </Tooltip>
-          <Tooltip title='Download Result'>
+          <Tooltip title='下载结果'>
             <Button
               type='text'
               size='small'
@@ -612,7 +946,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                   onClick={() => handleDeleteResult(record)}
                   danger
                 >
-                  Delete
+                  删除
                 </Menu.Item>
               </Menu>
             }
@@ -976,7 +1310,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     if (batchTasks.length === 0) return null;
 
     return (
-      <Card title='Batch Tasks' size='small' style={{ marginBottom: 16 }}>
+      <Card title='批处理任务' size='small' style={{ marginBottom: 16 }}>
         <List
           size='small'
           dataSource={batchTasks}
@@ -988,7 +1322,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                   size='small'
                   onClick={() => onBatchTaskSelect?.(task)}
                 >
-                  View Details
+                  查看详情
                 </Button>,
               ]}
             >
@@ -1038,6 +1372,15 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
         open={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={[
+          <Button key='manual-correction' onClick={handleOpenManualCorrection}>
+            手动修正
+          </Button>,
+          <Button
+            key='supplier-template'
+            onClick={handleSaveSupplierTemplateRule}
+          >
+            保存供应商模板
+          </Button>,
           <Button
             key='download'
             icon={<DownloadOutlined />}
@@ -1080,6 +1423,34 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             {selectedResult.completedAt
               ? new Date(selectedResult.completedAt).toLocaleString('zh-CN')
               : 'N/A'}
+          </Descriptions.Item>
+          <Descriptions.Item label='行业标签' span={2}>
+            {(() => {
+              const extracted = isRecord(selectedResult.extractedData)
+                ? selectedResult.extractedData
+                : {};
+              const extractedRecord: Record<string, unknown> = extracted;
+              const tagField = extractedRecord['industryTags'];
+              const tags = Array.isArray(tagField)
+                ? tagField.filter(
+                    (tag): tag is string => typeof tag === 'string'
+                  )
+                : [];
+              return tags.length > 0 ? (
+                <Space size={[4, 4]} wrap>
+                  {tags.map(tag => (
+                    <Tag
+                      key={`${selectedResult.id}-${String(tag)}`}
+                      color='blue'
+                    >
+                      {tag}
+                    </Tag>
+                  ))}
+                </Space>
+              ) : (
+                <Text type='secondary'>暂无</Text>
+              );
+            })()}
           </Descriptions.Item>
         </Descriptions>
 
@@ -1154,12 +1525,14 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                 }}
               />
               <Title level={2} style={{ color: '#52c41a', marginBottom: 8 }}>
-                🎉 Invoice Processing Completed!
+                发票识别处理完成
               </Title>
               <Text type='secondary' style={{ fontSize: 16 }}>
-                Your invoices have been successfully processed and analyzed
+                发票已完成识别与结构化分析
               </Text>
-              {(completedData.executionId || completedData.idempotencyKey) && (
+              {(completedData.executionId ||
+                completedData.idempotencyKey ||
+                completedData.traceId) && (
                 <div style={{ marginTop: 12 }}>
                   <Space size='middle' wrap>
                     {completedData.executionId && (
@@ -1186,6 +1559,11 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                         Request Key: {completedData.idempotencyKey}
                       </Tag>
                     )}
+                    {completedData.traceId && (
+                      <Tag color='geekblue' style={{ padding: '4px 8px' }}>
+                        Trace ID: {completedData.traceId}
+                      </Tag>
+                    )}
                     {completedData.idempotencyKey && (
                       <Button
                         size='small'
@@ -1203,13 +1581,13 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                     {typeof completedData.diagnostics?.attemptCount ===
                       'number' && (
                       <Tag color='geekblue' style={{ padding: '4px 8px' }}>
-                        Attempts: {completedData.diagnostics.attemptCount}
+                        重试次数: {completedData.diagnostics.attemptCount}
                       </Tag>
                     )}
                     {typeof completedData.diagnostics?.elapsedMs ===
                       'number' && (
                       <Tag color='cyan' style={{ padding: '4px 8px' }}>
-                        Elapsed: {completedData.diagnostics.elapsedMs}ms
+                        耗时: {completedData.diagnostics.elapsedMs}ms
                       </Tag>
                     )}
                     <Button
@@ -1229,7 +1607,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             {/* 处理建议 */}
             {enhancedData.results[0]?.recommendations &&
               enhancedData.results[0].recommendations.length > 0 && (
-                <Card title='💡 Recommendations' style={{ marginBottom: 24 }}>
+                <Card title='💡 处理建议' style={{ marginBottom: 24 }}>
                   <List
                     dataSource={enhancedData.results[0].recommendations}
                     renderItem={(recommendation: string) => (
@@ -1272,7 +1650,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                       fontSize: '16px',
                     }}
                   >
-                    View Google Sheets
+                    查看 Google Sheets
                   </Button>
                 )}
                 <Button
@@ -1294,7 +1672,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                     fontSize: '16px',
                   }}
                 >
-                  View Google Drive
+                  查看 Google Drive
                 </Button>
                 <Button
                   size='large'
@@ -1311,18 +1689,18 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                     padding: '0 24px',
                   }}
                 >
-                  Process New Files
+                  处理新文件
                 </Button>
               </Space>
             </Card>
 
             {/* 财务摘要 */}
             {enhancedData.results[0]?.financialSummary && (
-              <Card title='💰 Financial Summary' style={{ marginBottom: 24 }}>
+              <Card title='💰 财务汇总' style={{ marginBottom: 24 }}>
                 <Row gutter={[16, 16]}>
                   <Col xs={12} sm={8} md={8}>
                     <Statistic
-                      title='Average Amount'
+                      title='平均金额'
                       value={
                         enhancedData.results[0].financialSummary.averageAmount
                       }
@@ -1333,7 +1711,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                   </Col>
                   <Col xs={12} sm={8} md={8}>
                     <Statistic
-                      title='Min Amount'
+                      title='最小金额'
                       value={enhancedData.results[0].financialSummary.minAmount}
                       precision={2}
                       prefix='$'
@@ -1342,7 +1720,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                   </Col>
                   <Col xs={12} sm={8} md={8}>
                     <Statistic
-                      title='Max Amount'
+                      title='最大金额'
                       value={enhancedData.results[0].financialSummary.maxAmount}
                       precision={2}
                       prefix='$'
@@ -1355,10 +1733,10 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
 
             {/* 处理详情 */}
             {enhancedData.results[0]?.processingDetails && (
-              <Card title='📋 Processing Details' style={{ marginBottom: 24 }}>
+              <Card title='📋 处理详情' style={{ marginBottom: 24 }}>
                 <Tabs defaultActiveKey='successful'>
                   <TabPane
-                    tab={`✅ Successful (${enhancedData.results[0].processingDetails.successfulInvoices?.length || 0})`}
+                    tab={`✅ 成功 (${enhancedData.results[0].processingDetails.successfulInvoices?.length || 0})`}
                     key='successful'
                   >
                     {enhancedData.results[0].processingDetails
@@ -1376,15 +1754,15 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                                   style={{ color: '#52c41a' }}
                                 />
                               }
-                              title={`Invoice #${item.invoiceNumber || 'N/A'} (Index: ${item.index || 'N/A'})`}
+                              title={`发票号 #${item.invoiceNumber || 'N/A'}（序号 ${item.index || 'N/A'}）`}
                               description={
                                 <div>
                                   <div>
-                                    <strong>Vendor:</strong>{' '}
+                                    <strong>供应商：</strong>{' '}
                                     {item.vendorName || 'N/A'}
                                   </div>
                                   <div>
-                                    <strong>Total Amount:</strong> $
+                                    <strong>金额：</strong> $
                                     {item.totalAmount || 'N/A'}
                                   </div>
                                 </div>
@@ -1394,11 +1772,11 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                         )}
                       />
                     ) : (
-                      <Empty description='No successful invoices' />
+                      <Empty description='暂无成功发票' />
                     )}
                   </TabPane>
                   <TabPane
-                    tab={`❌ Failed (${enhancedData.results[0].processingDetails.failedExtractions?.length || 0})`}
+                    tab={`❌ 失败 (${enhancedData.results[0].processingDetails.failedExtractions?.length || 0})`}
                     key='failed'
                   >
                     {enhancedData.results[0].processingDetails.failedExtractions
@@ -1417,17 +1795,17 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                                 />
                               }
                               title={item.fileName || item.documentId}
-                              description={item.error || 'Processing failed'}
+                              description={item.error || '处理失败'}
                             />
                           </List.Item>
                         )}
                       />
                     ) : (
-                      <Empty description='No failed extractions' />
+                      <Empty description='暂无失败记录' />
                     )}
                   </TabPane>
                   <TabPane
-                    tab={`⚠️ Quality Issues (${enhancedData.results[0].processingDetails.qualityIssues?.length || 0})`}
+                    tab={`⚠️ 质量问题 (${enhancedData.results[0].processingDetails.qualityIssues?.length || 0})`}
                     key='quality'
                   >
                     {enhancedData.results[0].processingDetails.qualityIssues
@@ -1446,15 +1824,13 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                                 />
                               }
                               title={item.fileName || item.documentId}
-                              description={
-                                item.issue || 'Quality issue detected'
-                              }
+                              description={item.issue || '检测到质量问题'}
                             />
                           </List.Item>
                         )}
                       />
                     ) : (
-                      <Empty description='No quality issues' />
+                      <Empty description='暂无质量问题' />
                     )}
                   </TabPane>
                 </Tabs>
@@ -1502,7 +1878,9 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
               </Text>
             </div>
 
-            {(completedData.executionId || completedData.idempotencyKey) && (
+            {(completedData.executionId ||
+              completedData.idempotencyKey ||
+              completedData.traceId) && (
               <div style={{ marginBottom: 20 }}>
                 <Space size='middle' wrap>
                   {completedData.executionId && (
@@ -1529,6 +1907,11 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                       Request Key: {completedData.idempotencyKey}
                     </Tag>
                   )}
+                  {completedData.traceId && (
+                    <Tag color='geekblue' style={{ padding: '4px 8px' }}>
+                      Trace ID: {completedData.traceId}
+                    </Tag>
+                  )}
                   {completedData.idempotencyKey && (
                     <Button
                       size='small'
@@ -1546,12 +1929,12 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                   {typeof completedData.diagnostics?.attemptCount ===
                     'number' && (
                     <Tag color='geekblue' style={{ padding: '4px 8px' }}>
-                      Attempts: {completedData.diagnostics.attemptCount}
+                      重试次数: {completedData.diagnostics.attemptCount}
                     </Tag>
                   )}
                   {typeof completedData.diagnostics?.elapsedMs === 'number' && (
                     <Tag color='cyan' style={{ padding: '4px 8px' }}>
-                      Elapsed: {completedData.diagnostics.elapsedMs}ms
+                      耗时: {completedData.diagnostics.elapsedMs}ms
                     </Tag>
                   )}
                   <Button
@@ -1637,7 +2020,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                   type='info'
                   showIcon
                   message='响应诊断'
-                  description={`Schema warnings: ${completedData.schemaWarnings.join(', ')}`}
+                  description={`Schema 警告: ${completedData.schemaWarnings.join(', ')}`}
                 />
               )}
             {completedData.diagnostics?.transportWarnings &&
@@ -1665,15 +2048,50 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
 
     // 默认空状态
     return (
-      <Empty
-        image={<FileTextOutlined style={{ fontSize: 64, color: '#d9d9d9' }} />}
-        description={
-          <Space direction='vertical'>
-            <Text>暂无 OCR 处理结果</Text>
-            <Text type='secondary'>请先上传发票文件进行处理</Text>
-          </Space>
-        }
-      />
+      <Card>
+        <Empty
+          image={
+            <FileTextOutlined style={{ fontSize: 64, color: '#d9d9d9' }} />
+          }
+          description={
+            <Space direction='vertical'>
+              <Text>暂无 OCR 处理结果</Text>
+              <Text type='secondary'>请先上传发票文件进行处理</Text>
+            </Space>
+          }
+        />
+        <Alert
+          style={{ marginTop: 16 }}
+          showIcon
+          type='info'
+          message='下一步建议'
+          description='可先点击“刷新结果”；如果仍为空，请返回上传新文件，或导出诊断信息排查链路。'
+        />
+        <Space style={{ marginTop: 16 }} wrap>
+          <Button icon={<ReloadOutlined />} onClick={loadResults}>
+            刷新结果
+          </Button>
+          <Button
+            type='primary'
+            onClick={() => {
+              if (onProcessNewFiles) {
+                onProcessNewFiles();
+                return;
+              }
+              window.location.reload();
+            }}
+          >
+            返回上传
+          </Button>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={handleExportDiagnostics}
+            disabled={!completedData}
+          >
+            导出诊断
+          </Button>
+        </Space>
+      </Card>
     );
   }
 
@@ -1687,18 +2105,19 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
 
       {/* 操作栏 */}
       <Card size='small' style={{ marginBottom: 16 }}>
-        <Row justify='space-between' align='middle'>
-          <Col>
-            <Space>
+        <Row justify='space-between' align='middle' gutter={[12, 12]}>
+          <Col xs={24} lg={12}>
+            <Space wrap>
               <Text strong>OCR 处理结果</Text>
-              <Badge count={results.length} showZero />
+              <Badge count={filteredResults.length} showZero />
+              <Text type='secondary'>总计 {results.length} 条</Text>
               {selectedResults.length > 0 && (
                 <Text type='secondary'>已选择 {selectedResults.length} 项</Text>
               )}
             </Space>
           </Col>
-          <Col>
-            <Space>
+          <Col xs={24} lg={12} style={{ textAlign: 'right' }}>
+            <Space wrap>
               <Button
                 type='primary'
                 icon={<GoogleOutlined />}
@@ -1720,13 +2139,36 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             </Space>
           </Col>
         </Row>
+        <Row gutter={[12, 12]} style={{ marginTop: 12 }}>
+          <Col xs={24} lg={14}>
+            <Radio.Group
+              value={quickFilter}
+              onChange={event => setQuickFilter(event.target.value)}
+              optionType='button'
+              buttonStyle='solid'
+            >
+              <Radio.Button value='all'>全部</Radio.Button>
+              <Radio.Button value='completed'>仅已完成</Radio.Button>
+              <Radio.Button value='low_confidence'>低置信度</Radio.Button>
+              <Radio.Button value='recent_24h'>近24小时</Radio.Button>
+            </Radio.Group>
+          </Col>
+          <Col xs={24} lg={10}>
+            <Input.Search
+              allowClear
+              value={searchKeyword}
+              onChange={event => setSearchKeyword(event.target.value)}
+              placeholder='搜索发票号 / 供应商 / 执行ID / 文件名'
+            />
+          </Col>
+        </Row>
       </Card>
 
       {/* 结果表格 */}
       <Card>
         <Table
           columns={resultColumns}
-          dataSource={results}
+          dataSource={filteredResults}
           rowKey='id'
           size='small'
           rowSelection={{
@@ -1747,6 +2189,30 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
 
       {/* 结果详情模态框 */}
       {renderDetailModal()}
+
+      <Modal
+        title='手动修正 JSON'
+        open={manualCorrectionVisible}
+        onCancel={() => setManualCorrectionVisible(false)}
+        onOk={handleSaveManualCorrection}
+        okText='保存修正'
+        cancelText='取消'
+        width={760}
+      >
+        <Alert
+          showIcon
+          type='info'
+          style={{ marginBottom: 12 }}
+          message='支持输入 JSON 对象'
+          description='支持直接覆盖 extractedData 字段，或以 { "extractedData": { ... } } 形式提交局部补丁。'
+        />
+        <Input.TextArea
+          value={manualCorrectionDraft}
+          onChange={event => setManualCorrectionDraft(event.target.value)}
+          autoSize={{ minRows: 10, maxRows: 20 }}
+          placeholder='例如：{"invoiceNumber":"INV-2026-001","vendorName":"供应商A"}'
+        />
+      </Modal>
 
       {/* 错误模态框 */}
       <ErrorModal

@@ -48,6 +48,7 @@ import {
   Modal,
   Descriptions,
   Tag,
+  List,
 } from 'antd';
 import { useMessage } from '@/hooks';
 import { useErrorModal } from '@/hooks/useErrorModal';
@@ -59,6 +60,7 @@ import {
   EyeOutlined,
   CheckCircleOutlined,
   InfoCircleOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
 import { getInvoiceOcrConfig } from '@/config/invoiceOcrConfig';
 import {
@@ -72,6 +74,14 @@ import {
   n8nWebhookService,
   type WebhookConnectionCheckResult,
 } from '@/services/n8nWebhookService';
+import {
+  appendInvoiceOcrDiagnosticHistory,
+  buildInvoiceOcrTraceId,
+  getInvoiceOcrDiagnosticHistory,
+  redactSensitiveData,
+  type InvoiceOcrDiagnosticHistoryEntry,
+} from '@/services/invoiceOcrDiagnosticToolkit';
+import { normalizeInvoiceOcrError } from '@/services/invoiceOcrErrorMap';
 import InvoiceFileUpload from './invoice-ocr/InvoiceFileUpload';
 import InvoiceOCRResults from './invoice-ocr/InvoiceOCRResults';
 import InvoiceOCRSettings from './invoice-ocr/InvoiceOCRSettings';
@@ -85,7 +95,6 @@ import type { EnhancedWebhookResponse } from '@/types/workflow';
 const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Step } = Steps;
-const MAX_POLLING_FAILURES = 3;
 type InvoiceOcrTelemetryRuntime = typeof globalThis & {
   __WENDEAL_INVOICE_OCR_TELEMETRY_BUFFER__?: unknown[];
 };
@@ -109,7 +118,9 @@ const InvoiceOCRPage: React.FC = () => {
   const { isVisible, errorInfo, showError, hideError } = useErrorModal();
   const invoiceOcrConfig = useMemo(() => getInvoiceOcrConfig(), []);
   const pollingTimerRef = useRef<number | null>(null);
+  const postSuccessDiagnosticsTimerRef = useRef<number | null>(null);
   const autoDiagnosticsDoneRef = useRef(false);
+  const currentTraceIdRef = useRef('');
   const processStartIsoRef = useRef<string>('');
   const baselineResultCountRef = useRef<number>(0);
 
@@ -126,6 +137,9 @@ const InvoiceOCRPage: React.FC = () => {
   const [testingSupabase, setTestingSupabase] = useState(false);
   const [runningDiagnostics, setRunningDiagnostics] = useState(false);
   const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
+  const [diagnosticHistory, setDiagnosticHistory] = useState<
+    InvoiceOcrDiagnosticHistoryEntry[]
+  >([]);
   const [pollingErrorHint, setPollingErrorHint] = useState<string | null>(null);
   const [webhookHealth, setWebhookHealth] =
     useState<WebhookConnectionCheckResult | null>(null);
@@ -148,6 +162,7 @@ const InvoiceOCRPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [completedData, setCompletedData] = useState<{
     executionId?: string;
+    traceId?: string;
     googleSheetsUrl?: string;
     processedFiles?: number;
     totalFiles?: number;
@@ -169,10 +184,17 @@ const InvoiceOCRPage: React.FC = () => {
 
   const stopResultPolling = useCallback(() => {
     if (pollingTimerRef.current) {
-      window.clearInterval(pollingTimerRef.current);
+      window.clearTimeout(pollingTimerRef.current);
       pollingTimerRef.current = null;
     }
     setIsPollingResults(false);
+  }, []);
+
+  const clearPostSuccessDiagnosticsTimer = useCallback(() => {
+    if (postSuccessDiagnosticsTimerRef.current) {
+      window.clearTimeout(postSuccessDiagnosticsTimerRef.current);
+      postSuccessDiagnosticsTimerRef.current = null;
+    }
   }, []);
 
   const buildClientHealthSnapshot = useCallback(
@@ -204,8 +226,12 @@ const InvoiceOCRPage: React.FC = () => {
   );
 
   const runFullDiagnostics = useCallback(
-    async (options?: { silent?: boolean }) => {
+    async (options?: {
+      silent?: boolean;
+      source?: InvoiceOcrDiagnosticHistoryEntry['source'];
+    }) => {
       const silent = Boolean(options?.silent);
+      const source = options?.source || 'manual_diagnostics';
       setRunningDiagnostics(true);
 
       try {
@@ -253,6 +279,24 @@ const InvoiceOCRPage: React.FC = () => {
           resultSync.reachable &&
           supabase.configured &&
           supabase.reachable;
+
+        const snapshot = redactSensitiveData({
+          capturedAt: new Date().toISOString(),
+          webhook,
+          resultSync,
+          supabase,
+          traceId: currentTraceIdRef.current || '',
+        }) as Record<string, unknown>;
+        const history = appendInvoiceOcrDiagnosticHistory({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          capturedAt: new Date().toISOString(),
+          workflowId: invoiceOcrConfig.workflowId,
+          source,
+          healthy: allHealthy,
+          snapshot,
+        });
+        setDiagnosticHistory(history);
+
         if (!silent) {
           if (allHealthy) {
             message.success('诊断通过：Webhook、结果同步、Supabase 均正常');
@@ -265,8 +309,9 @@ const InvoiceOCRPage: React.FC = () => {
           'Failed to run full invoice OCR diagnostics:',
           diagnosticError
         );
+        const mapped = normalizeInvoiceOcrError(diagnosticError, 'unknown');
         if (!silent) {
-          message.error('一键诊断执行失败');
+          message.error(`${mapped.title}：${mapped.message}`);
         }
       } finally {
         setRunningDiagnostics(false);
@@ -276,6 +321,7 @@ const InvoiceOCRPage: React.FC = () => {
       invoiceOcrConfig.webhookUrl,
       invoiceOcrConfig.workflowId,
       message,
+      currentTraceIdRef,
       setResultSyncHealth,
       setSupabaseHealth,
       setWebhookHealth,
@@ -290,9 +336,10 @@ const InvoiceOCRPage: React.FC = () => {
       ? runtime.__WENDEAL_INVOICE_OCR_TELEMETRY_BUFFER__.slice(-200)
       : [];
 
-    const payload = {
+    const payload = redactSensitiveData({
       exportedAt: new Date().toISOString(),
       workflowId: invoiceOcrConfig.workflowId,
+      traceId: currentTraceIdRef.current || '',
       processingStatus,
       isPollingResults,
       pollingErrorHint,
@@ -309,8 +356,9 @@ const InvoiceOCRPage: React.FC = () => {
         : null,
       stats,
       resultCount: ocrResults.length,
+      diagnosticHistory,
       telemetryBuffer,
-    };
+    });
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: 'application/json',
@@ -325,6 +373,60 @@ const InvoiceOCRPage: React.FC = () => {
   }, [
     buildClientHealthSnapshot,
     completedData,
+    currentTraceIdRef,
+    diagnosticHistory,
+    error,
+    invoiceOcrConfig.workflowId,
+    isPollingResults,
+    message,
+    ocrResults.length,
+    pollingErrorHint,
+    processingStatus,
+    stats,
+  ]);
+
+  const handleCopyPageDiagnostics = useCallback(async () => {
+    try {
+      const runtime = globalThis as InvoiceOcrTelemetryRuntime;
+      const telemetryBuffer = Array.isArray(
+        runtime.__WENDEAL_INVOICE_OCR_TELEMETRY_BUFFER__
+      )
+        ? runtime.__WENDEAL_INVOICE_OCR_TELEMETRY_BUFFER__.slice(-200)
+        : [];
+      const payload = redactSensitiveData({
+        exportedAt: new Date().toISOString(),
+        workflowId: invoiceOcrConfig.workflowId,
+        traceId: currentTraceIdRef.current || '',
+        processingStatus,
+        isPollingResults,
+        pollingErrorHint,
+        pageError: error,
+        currentHealth: buildClientHealthSnapshot(),
+        latestExecution: completedData
+          ? {
+              executionId: completedData.executionId || '',
+              requestKey: completedData.idempotencyKey || '',
+              hasBusinessData: Boolean(completedData.hasBusinessData),
+              schemaWarnings: completedData.schemaWarnings || [],
+              diagnostics: completedData.diagnostics || {},
+            }
+          : null,
+        stats,
+        resultCount: ocrResults.length,
+        diagnosticHistory,
+        telemetryBuffer,
+      });
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      message.success('诊断 JSON 已复制到剪贴板');
+    } catch (copyError) {
+      console.error('Failed to copy diagnostics:', copyError);
+      message.error('复制失败，请使用“导出诊断”');
+    }
+  }, [
+    buildClientHealthSnapshot,
+    completedData,
+    currentTraceIdRef,
+    diagnosticHistory,
     error,
     invoiceOcrConfig.workflowId,
     isPollingResults,
@@ -341,6 +443,11 @@ const InvoiceOCRPage: React.FC = () => {
       const pollStartedAt = Date.now();
       let pollingBusy = false;
       let consecutiveFailures = 0;
+      let pollingStopped = false;
+      const failureThreshold = Math.max(
+        1,
+        invoiceOcrConfig.resultPollingFailureThreshold
+      );
 
       setIsPollingResults(true);
       setPollingErrorHint(null);
@@ -349,15 +456,39 @@ const InvoiceOCRPage: React.FC = () => {
         executionId: executionId || '',
       });
 
+      const getNextInterval = (): number => {
+        if (
+          typeof document !== 'undefined' &&
+          document.visibilityState === 'hidden'
+        ) {
+          return invoiceOcrConfig.resultPollingHiddenIntervalMs;
+        }
+        return invoiceOcrConfig.resultPollingIntervalMs;
+      };
+
+      const scheduleNextPoll = () => {
+        if (pollingStopped) {
+          return;
+        }
+        if (pollingTimerRef.current) {
+          window.clearTimeout(pollingTimerRef.current);
+        }
+        pollingTimerRef.current = window.setTimeout(
+          () => void tryLoadResults(),
+          getNextInterval()
+        );
+      };
+
       const tryLoadResults = async () => {
-        if (pollingBusy) {
+        if (pollingBusy || pollingStopped) {
           return;
         }
         pollingBusy = true;
         try {
-          const latestResults = await invoiceOCRService.getResultsList(
+          const latestResults = await invoiceOCRService.getResultsListWithRetry(
             invoiceOcrConfig.workflowId,
-            { page: 1, pageSize: 100 }
+            { page: 1, pageSize: 100 },
+            { maxAttempts: 3, baseDelayMs: 250 }
           );
           consecutiveFailures = 0;
           setPollingErrorHint(null);
@@ -383,6 +514,7 @@ const InvoiceOCRPage: React.FC = () => {
             latestResults.length > baselineResultCountRef.current;
 
           if (hasExecutionMatch || hasFreshResult || hasIncrementalResults) {
+            pollingStopped = true;
             stopResultPolling();
             setResultsRefreshToken(prev => prev + 1);
             trackInvoiceOcrEvent('invoice_ocr_polling_completed', {
@@ -396,6 +528,7 @@ const InvoiceOCRPage: React.FC = () => {
 
           const elapsed = Date.now() - pollStartedAt;
           if (elapsed >= invoiceOcrConfig.resultPollingTimeoutMs) {
+            pollingStopped = true;
             stopResultPolling();
             setPollingErrorHint(
               '轮询结果超时，请点击“刷新结果”或执行“一键诊断”定位问题。'
@@ -408,18 +541,26 @@ const InvoiceOCRPage: React.FC = () => {
             message.warning(
               '识别已提交，但结果尚未落库。请稍后点击“刷新结果”或查看 n8n 执行日志。'
             );
-            void runFullDiagnostics({ silent: true });
+            void runFullDiagnostics({
+              silent: true,
+              source: 'auto_polling_timeout',
+            });
           }
         } catch (pollError) {
           console.error('Invoice OCR result polling failed:', pollError);
+          const mappedError = normalizeInvoiceOcrError(
+            pollError,
+            'result_sync'
+          );
           consecutiveFailures += 1;
           const pollErrorMessage =
             pollError instanceof Error ? pollError.message : 'unknown_error';
           setPollingErrorHint(
-            `结果轮询失败（${consecutiveFailures}/${MAX_POLLING_FAILURES}），系统将自动重试。`
+            `结果轮询失败（${consecutiveFailures}/${failureThreshold}）：${mappedError.message}`
           );
 
-          if (consecutiveFailures >= MAX_POLLING_FAILURES) {
+          if (consecutiveFailures >= failureThreshold) {
+            pollingStopped = true;
             stopResultPolling();
             setPollingErrorHint(
               '连续轮询失败，无法同步最新结果。请检查 Supabase 连通性或点击“检查Webhook”。'
@@ -430,25 +571,30 @@ const InvoiceOCRPage: React.FC = () => {
               attempts: consecutiveFailures,
               reason: pollErrorMessage,
             });
-            void runFullDiagnostics({ silent: true });
+            void runFullDiagnostics({
+              silent: true,
+              source: 'auto_polling_failure',
+            });
             message.error('结果同步失败，请检查数据连接并稍后重试。');
           }
         } finally {
           pollingBusy = false;
+          if (!pollingStopped) {
+            scheduleNextPoll();
+          }
         }
       };
 
       void tryLoadResults();
-      pollingTimerRef.current = window.setInterval(
-        () => void tryLoadResults(),
-        invoiceOcrConfig.resultPollingIntervalMs
-      );
     },
     [
+      invoiceOcrConfig.resultPollingFailureThreshold,
+      invoiceOcrConfig.resultPollingHiddenIntervalMs,
       invoiceOcrConfig.resultPollingIntervalMs,
       invoiceOcrConfig.resultPollingTimeoutMs,
       invoiceOcrConfig.workflowId,
       message,
+      normalizeInvoiceOcrError,
       runFullDiagnostics,
       stopResultPolling,
     ]
@@ -465,7 +611,12 @@ const InvoiceOCRPage: React.FC = () => {
         return;
       }
 
+      currentTraceIdRef.current = buildInvoiceOcrTraceId(
+        invoiceOcrConfig.workflowId
+      );
+
       stopResultPolling();
+      clearPostSuccessDiagnosticsTimer();
       processStartIsoRef.current = new Date().toISOString();
       baselineResultCountRef.current = ocrResults.length;
       setCompletedData(null);
@@ -479,6 +630,7 @@ const InvoiceOCRPage: React.FC = () => {
       trackInvoiceOcrEvent('invoice_ocr_upload_started', {
         workflowId: invoiceOcrConfig.workflowId,
         fileCount: files.length,
+        traceId: currentTraceIdRef.current,
       });
     },
     [
@@ -486,6 +638,7 @@ const InvoiceOCRPage: React.FC = () => {
       message,
       invoiceOcrConfig.workflowId,
       ocrResults.length,
+      clearPostSuccessDiagnosticsTimer,
       stopResultPolling,
     ]
   );
@@ -500,6 +653,7 @@ const InvoiceOCRPage: React.FC = () => {
       googleSheetsUrl?: string;
       processedFiles?: number;
       totalFiles?: number;
+      traceId?: string;
       hasBusinessData?: boolean;
       schemaWarnings?: string[];
       idempotencyKey?: string;
@@ -516,6 +670,9 @@ const InvoiceOCRPage: React.FC = () => {
       enhancedData?: EnhancedWebhookResponse;
     }) => {
       console.log('OCR处理完成，接收到数据:', data);
+      if (data.traceId) {
+        currentTraceIdRef.current = data.traceId;
+      }
       setCompletedData({
         ...data,
         clientHealth: buildClientHealthSnapshot(),
@@ -539,14 +696,29 @@ const InvoiceOCRPage: React.FC = () => {
 
       setResultsRefreshToken(prev => prev + 1);
       pollForLatestResults(data.executionId);
+      clearPostSuccessDiagnosticsTimer();
+      postSuccessDiagnosticsTimerRef.current = window.setTimeout(() => {
+        void runFullDiagnostics({
+          silent: true,
+          source: 'auto_post_success',
+        });
+      }, invoiceOcrConfig.postSuccessRediagnoseDelayMs);
     },
-    [buildClientHealthSnapshot, message, pollForLatestResults]
+    [
+      buildClientHealthSnapshot,
+      clearPostSuccessDiagnosticsTimer,
+      invoiceOcrConfig.postSuccessRediagnoseDelayMs,
+      message,
+      pollForLatestResults,
+      runFullDiagnostics,
+    ]
   );
 
   const handleOCRFailed = useCallback(
     (err: Error) => {
       const errorMessage = err.message || t('invoiceOCR.upload.processFailed');
       stopResultPolling();
+      clearPostSuccessDiagnosticsTimer();
       setError(errorMessage);
       setPollingErrorHint(null);
       setProcessingStatus('error');
@@ -563,7 +735,14 @@ const InvoiceOCRPage: React.FC = () => {
         reason: errorMessage,
       });
     },
-    [invoiceOcrConfig.workflowId, message, showError, stopResultPolling, t]
+    [
+      clearPostSuccessDiagnosticsTimer,
+      invoiceOcrConfig.workflowId,
+      message,
+      showError,
+      stopResultPolling,
+      t,
+    ]
   );
 
   const handleTestWebhookConnection = useCallback(async () => {
@@ -589,21 +768,31 @@ const InvoiceOCRPage: React.FC = () => {
           `Webhook 连通性检查通过（${statusLabel}，${health.latencyMs}ms）`
         );
       } else if (typeof health.status === 'number') {
-        message.warning(
-          `Webhook 异常（HTTP ${health.status} ${health.statusText || ''}）`
+        const mapped = normalizeInvoiceOcrError(
+          new Error(`HTTP ${health.status} ${health.statusText || ''}`),
+          'webhook'
         );
+        message.warning(`Webhook 异常：${mapped.message}`);
       } else {
-        message.error(
-          `Webhook 不可达：${health.errorMessage || '请检查 URL、网络或 n8n 服务'}`
+        const mapped = normalizeInvoiceOcrError(
+          new Error(health.errorMessage || 'webhook_unreachable'),
+          'webhook'
         );
+        message.error(`Webhook 不可达：${mapped.message}`);
       }
     } catch (testError) {
       console.error('Webhook health check failed:', testError);
-      message.error('Webhook 连通性检查失败');
+      const mapped = normalizeInvoiceOcrError(testError, 'webhook');
+      message.error(`${mapped.title}：${mapped.message}`);
     } finally {
       setTestingWebhook(false);
     }
-  }, [invoiceOcrConfig.webhookUrl, invoiceOcrConfig.workflowId, message]);
+  }, [
+    invoiceOcrConfig.webhookUrl,
+    invoiceOcrConfig.workflowId,
+    message,
+    normalizeInvoiceOcrError,
+  ]);
 
   const handleTestResultSyncConnection = useCallback(async () => {
     setTestingResultSync(true);
@@ -628,21 +817,20 @@ const InvoiceOCRPage: React.FC = () => {
           `结果同步接口正常（${health.latencyMs}ms，当前返回 ${health.resultCount || 0} 条）`
         );
       } else {
-        const statusText =
-          typeof health.httpStatus === 'number'
-            ? `HTTP ${health.httpStatus}`
-            : '未返回状态码';
-        message.error(
-          `结果同步接口异常（${statusText}）：${health.errorMessage || '请检查 API / Supabase'}`
+        const mapped = normalizeInvoiceOcrError(
+          new Error(health.errorMessage || 'result_sync_unreachable'),
+          'result_sync'
         );
+        message.error(`结果同步接口异常：${mapped.message}`);
       }
     } catch (checkError) {
       console.error('Result sync health check failed:', checkError);
-      message.error('结果同步接口检查失败');
+      const mapped = normalizeInvoiceOcrError(checkError, 'result_sync');
+      message.error(`${mapped.title}：${mapped.message}`);
     } finally {
       setTestingResultSync(false);
     }
-  }, [invoiceOcrConfig.workflowId, message]);
+  }, [invoiceOcrConfig.workflowId, message, normalizeInvoiceOcrError]);
 
   const handleTestSupabaseConnection = useCallback(async () => {
     setTestingSupabase(true);
@@ -672,21 +860,20 @@ const InvoiceOCRPage: React.FC = () => {
           `Supabase 连通性正常（${statusText}，${health.latencyMs}ms）`
         );
       } else {
-        const statusText =
-          typeof health.httpStatus === 'number'
-            ? `HTTP ${health.httpStatus}`
-            : '不可达';
-        message.error(
-          `Supabase 异常（${statusText}）：${health.errorMessage || '请检查网络或密钥'}`
+        const mapped = normalizeInvoiceOcrError(
+          new Error(health.errorMessage || 'supabase_unreachable'),
+          'supabase'
         );
+        message.error(`Supabase 异常：${mapped.message}`);
       }
     } catch (checkError) {
       console.error('Supabase health check failed:', checkError);
-      message.error('Supabase 连通性检查失败');
+      const mapped = normalizeInvoiceOcrError(checkError, 'supabase');
+      message.error(`${mapped.title}：${mapped.message}`);
     } finally {
       setTestingSupabase(false);
     }
-  }, [invoiceOcrConfig.workflowId, message]);
+  }, [invoiceOcrConfig.workflowId, message, normalizeInvoiceOcrError]);
 
   /**
    * Load data when component initializes
@@ -703,11 +890,16 @@ const InvoiceOCRPage: React.FC = () => {
     void runFullDiagnostics({ silent: true });
   }, [runFullDiagnostics]);
 
+  useEffect(() => {
+    setDiagnosticHistory(getInvoiceOcrDiagnosticHistory());
+  }, []);
+
   useEffect(
     () => () => {
       stopResultPolling();
+      clearPostSuccessDiagnosticsTimer();
     },
-    [stopResultPolling]
+    [clearPostSuccessDiagnosticsTimer, stopResultPolling]
   );
 
   /**
@@ -717,7 +909,7 @@ const InvoiceOCRPage: React.FC = () => {
     try {
       setLoading(true);
       const [resultsData, statsData] = await Promise.all([
-        invoiceOCRService.getResultsList(invoiceOcrConfig.workflowId),
+        invoiceOCRService.getResultsListWithRetry(invoiceOcrConfig.workflowId),
         invoiceOCRService.getStats(invoiceOcrConfig.workflowId),
       ]);
 
@@ -749,6 +941,7 @@ const InvoiceOCRPage: React.FC = () => {
    */
   const handleRestart = () => {
     stopResultPolling();
+    clearPostSuccessDiagnosticsTimer();
     setUploadedFiles([]);
     setOcrResults([]);
     setProcessingStatus('idle');
@@ -918,13 +1111,50 @@ const InvoiceOCRPage: React.FC = () => {
       ? new Date(value).toLocaleString('zh-CN', { hour12: false })
       : '未检查';
 
+  const formatDiagnosticSource = (
+    source: InvoiceOcrDiagnosticHistoryEntry['source']
+  ): string => {
+    switch (source) {
+      case 'manual_diagnostics':
+        return '手动诊断';
+      case 'auto_polling_timeout':
+        return '轮询超时自动诊断';
+      case 'auto_polling_failure':
+        return '轮询失败自动诊断';
+      case 'auto_post_success':
+        return '识别完成后复检';
+      default:
+        return source;
+    }
+  };
+
+  const handleCopyExecutionBundle = useCallback(async () => {
+    if (!completedData?.executionId && !completedData?.idempotencyKey) {
+      message.warning('当前没有可复制的执行信息');
+      return;
+    }
+    const bundle = {
+      executionId: completedData?.executionId || '',
+      requestKey: completedData?.idempotencyKey || '',
+      traceId: completedData?.traceId || currentTraceIdRef.current || '',
+      exportedAt: new Date().toISOString(),
+    };
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(bundle, null, 2));
+      message.success('执行信息组合已复制');
+    } catch (copyError) {
+      console.error('Failed to copy execution bundle:', copyError);
+      message.error('复制失败，请稍后重试');
+    }
+  }, [completedData, message]);
+
   /**
    * Render page header
    */
   const renderHeader = () => (
     <div style={{ marginBottom: 24 }}>
-      <Row justify='space-between' align='middle'>
-        <Col>
+      <Row gutter={[12, 12]} justify='space-between' align='top'>
+        <Col xs={24} md={8}>
           <Space align='center'>
             <FileTextOutlined style={{ fontSize: 24, color: '#1890ff' }} />
             <Title level={3} style={{ margin: 0, fontSize: '18px' }}>
@@ -932,8 +1162,12 @@ const InvoiceOCRPage: React.FC = () => {
             </Title>
           </Space>
         </Col>
-        <Col>
-          <Space>
+        <Col xs={24} md={16}>
+          <Space
+            wrap
+            size={[8, 8]}
+            style={{ width: '100%', justifyContent: 'flex-end' }}
+          >
             <Button
               icon={<SettingOutlined />}
               onClick={() => setSettingsVisible(true)}
@@ -969,6 +1203,14 @@ const InvoiceOCRPage: React.FC = () => {
               诊断中心
             </Button>
             <Button onClick={handleExportPageDiagnostics}>导出诊断</Button>
+            <Button
+              icon={<CopyOutlined />}
+              onClick={() => {
+                void handleCopyPageDiagnostics();
+              }}
+            >
+              复制诊断JSON
+            </Button>
             {renderWebhookHealthBadge()}
             {renderResultSyncHealthBadge()}
             {renderSupabaseHealthBadge()}
@@ -1138,6 +1380,22 @@ const InvoiceOCRPage: React.FC = () => {
           width={920}
           footer={
             <Space>
+              <Button
+                icon={<CopyOutlined />}
+                onClick={() => {
+                  void handleCopyPageDiagnostics();
+                }}
+              >
+                复制诊断JSON
+              </Button>
+              <Button
+                icon={<CopyOutlined />}
+                onClick={() => {
+                  void handleCopyExecutionBundle();
+                }}
+              >
+                复制执行信息
+              </Button>
               <Button onClick={handleExportPageDiagnostics}>导出诊断</Button>
               <Button
                 type='primary'
@@ -1164,6 +1422,51 @@ const InvoiceOCRPage: React.FC = () => {
                 : '可优先检查最近一次异常状态和延迟峰值。'
             }
           />
+
+          <Space size={[8, 8]} wrap style={{ marginBottom: 16 }}>
+            {completedData?.executionId && (
+              <Tag color='blue'>Execution ID: {completedData.executionId}</Tag>
+            )}
+            {completedData?.idempotencyKey && (
+              <Tag color='purple'>
+                Request Key: {completedData.idempotencyKey}
+              </Tag>
+            )}
+            {(completedData?.traceId || currentTraceIdRef.current) && (
+              <Tag color='geekblue'>
+                Trace ID: {completedData?.traceId || currentTraceIdRef.current}
+              </Tag>
+            )}
+          </Space>
+
+          <Card
+            size='small'
+            title='最近诊断历史（最多 50 条）'
+            style={{ marginBottom: 16 }}
+          >
+            {diagnosticHistory.length === 0 ? (
+              <Text type='secondary'>暂无历史记录</Text>
+            ) : (
+              <List
+                size='small'
+                dataSource={diagnosticHistory.slice(0, 10)}
+                renderItem={item => (
+                  <List.Item>
+                    <Space size='middle' wrap>
+                      <Tag color={item.healthy ? 'success' : 'error'}>
+                        {item.healthy ? '健康' : '异常'}
+                      </Tag>
+                      <Text>{formatDiagnosticSource(item.source)}</Text>
+                      <Text type='secondary'>
+                        {formatCheckTime(item.capturedAt)}
+                      </Text>
+                      <Text type='secondary'>ID: {item.id}</Text>
+                    </Space>
+                  </List.Item>
+                )}
+              />
+            )}
+          </Card>
 
           <Descriptions bordered size='small' column={1}>
             <Descriptions.Item label='Webhook'>

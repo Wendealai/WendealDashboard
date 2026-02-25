@@ -2,7 +2,10 @@ type InvoiceOcrRuntimeConfig = {
   webhookUrl?: string;
   workflowId?: string;
   resultPollingIntervalMs?: number;
+  resultPollingHiddenIntervalMs?: number;
   resultPollingTimeoutMs?: number;
+  resultPollingFailureThreshold?: number;
+  postSuccessRediagnoseDelayMs?: number;
   telemetryEndpoint?: string;
   debug?: boolean;
 };
@@ -20,7 +23,10 @@ export interface InvoiceOcrConfig {
   webhookUrl: string;
   workflowId: string;
   resultPollingIntervalMs: number;
+  resultPollingHiddenIntervalMs: number;
   resultPollingTimeoutMs: number;
+  resultPollingFailureThreshold: number;
+  postSuccessRediagnoseDelayMs: number;
   telemetryEndpoint?: string;
   debug: boolean;
 }
@@ -29,7 +35,10 @@ const DEFAULT_INVOICE_OCR_WEBHOOK_URL =
   'https://n8n.wendealai.com/webhook/invoiceOCR';
 const DEFAULT_INVOICE_OCR_WORKFLOW_ID = 'default-workflow';
 const DEFAULT_RESULT_POLLING_INTERVAL_MS = 4000;
+const DEFAULT_RESULT_POLLING_HIDDEN_INTERVAL_MS = 12000;
 const DEFAULT_RESULT_POLLING_TIMEOUT_MS = 120000;
+const DEFAULT_RESULT_POLLING_FAILURE_THRESHOLD = 3;
+const DEFAULT_POST_SUCCESS_REDIAGNOSE_DELAY_MS = 30000;
 
 const toNonEmptyString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') {
@@ -99,10 +108,29 @@ export const getInvoiceOcrConfig = (): InvoiceOcrConfig => {
     toPositiveInteger(import.meta.env.VITE_INVOICE_OCR_POLL_INTERVAL_MS) ||
     DEFAULT_RESULT_POLLING_INTERVAL_MS;
 
+  const resultPollingHiddenIntervalMs =
+    toPositiveInteger(runtime.resultPollingHiddenIntervalMs) ||
+    toPositiveInteger(
+      import.meta.env.VITE_INVOICE_OCR_POLL_HIDDEN_INTERVAL_MS
+    ) ||
+    DEFAULT_RESULT_POLLING_HIDDEN_INTERVAL_MS;
+
   const resultPollingTimeoutMs =
     toPositiveInteger(runtime.resultPollingTimeoutMs) ||
     toPositiveInteger(import.meta.env.VITE_INVOICE_OCR_POLL_TIMEOUT_MS) ||
     DEFAULT_RESULT_POLLING_TIMEOUT_MS;
+
+  const resultPollingFailureThreshold =
+    toPositiveInteger(runtime.resultPollingFailureThreshold) ||
+    toPositiveInteger(
+      import.meta.env.VITE_INVOICE_OCR_POLL_FAILURE_THRESHOLD
+    ) ||
+    DEFAULT_RESULT_POLLING_FAILURE_THRESHOLD;
+
+  const postSuccessRediagnoseDelayMs =
+    toPositiveInteger(runtime.postSuccessRediagnoseDelayMs) ||
+    toPositiveInteger(import.meta.env.VITE_INVOICE_OCR_REDIAGNOSE_DELAY_MS) ||
+    DEFAULT_POST_SUCCESS_REDIAGNOSE_DELAY_MS;
 
   const telemetryEndpoint =
     toNonEmptyString(runtime.telemetryEndpoint) ||
@@ -117,7 +145,10 @@ export const getInvoiceOcrConfig = (): InvoiceOcrConfig => {
     webhookUrl,
     workflowId,
     resultPollingIntervalMs,
+    resultPollingHiddenIntervalMs,
     resultPollingTimeoutMs,
+    resultPollingFailureThreshold,
+    postSuccessRediagnoseDelayMs,
     ...(telemetryEndpoint ? { telemetryEndpoint } : {}),
     debug,
   };
