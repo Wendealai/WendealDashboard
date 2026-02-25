@@ -29,6 +29,7 @@ const baseSettings: InvoiceAssistantSettings = {
   drive_archive_endpoint: null,
   ocr_extract_endpoint: null,
   xero_sync_endpoint: null,
+  xero_duplicate_check_endpoint: null,
   default_currency: 'AUD',
   default_transaction_type: 'SPEND_MONEY',
   dry_run_mode: true,
@@ -198,6 +199,46 @@ describe('invoiceIngestionAssistantService', () => {
     );
   });
 
+  it('blocks sync when local duplicate signature already exists', async () => {
+    const syncedDoc = makeDocument({
+      document_id: 'doc_synced',
+      status: 'synced',
+      synced_at: '2026-02-20T09:00:00.000Z',
+      xero_id: 'xero_existing',
+      sync_idempotency_key: 'existing-sync-key',
+      updated_at: '2026-02-20T09:00:00.000Z',
+    });
+    const readyDoc = makeDocument({
+      document_id: 'doc_ready',
+      status: 'ready_to_sync',
+      synced_at: null,
+      xero_id: null,
+      sync_idempotency_key: null,
+      updated_at: '2026-02-25T00:00:00.000Z',
+    });
+    writeAssistantState({
+      version: 1,
+      documents: [readyDoc, syncedDoc],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_ready',
+    ]);
+    const nextState = readAssistantState();
+    const nextDoc = nextState.documents.find(
+      item => item.document_id === 'doc_ready'
+    );
+
+    expect(summary.succeeded).toBe(0);
+    expect(summary.failed).toBe(1);
+    expect(nextDoc?.status).toBe('sync_failed');
+    expect(nextDoc?.sync_error).toContain('Duplicate precheck blocked');
+    expect(nextDoc?.sync_error).toContain('doc_synced');
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('reports conflicts when document changed during recognize batch', async () => {
     const doc = makeDocument({
       status: 'uploaded',
@@ -273,6 +314,84 @@ describe('invoiceIngestionAssistantService', () => {
     expect(summary.succeeded).toBe(1);
     expect((global.fetch as jest.Mock).mock.calls.length).toBe(2);
     expect(nextState.documents[0].xero_id).toBe('xero_123');
+  });
+
+  it('blocks sync when xero duplicate precheck reports duplicate', async () => {
+    const settings: InvoiceAssistantSettings = {
+      ...baseSettings,
+      dry_run_mode: false,
+      xero_sync_endpoint: 'https://xero.example/sync',
+      xero_duplicate_check_endpoint: 'https://xero.example/duplicate-check',
+    };
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument()],
+      suppliers: [],
+      settings,
+    });
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        is_duplicate: true,
+        xero_id: 'xero_existing',
+        reason: 'invoice already exists',
+      }),
+    } as Response);
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.succeeded).toBe(0);
+    expect(summary.failed).toBe(1);
+    expect(nextState.documents[0].status).toBe('sync_failed');
+    expect(nextState.documents[0].sync_error).toContain(
+      'Duplicate precheck blocked by Xero'
+    );
+    expect((global.fetch as jest.Mock).mock.calls.length).toBe(1);
+  });
+
+  it('continues sync when xero duplicate precheck passes', async () => {
+    const settings: InvoiceAssistantSettings = {
+      ...baseSettings,
+      dry_run_mode: false,
+      xero_sync_endpoint: 'https://xero.example/sync',
+      xero_duplicate_check_endpoint: 'https://xero.example/duplicate-check',
+    };
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument()],
+      suppliers: [],
+      settings,
+    });
+
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          is_duplicate: false,
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ xero_id: 'xero_after_precheck' }),
+      } as Response);
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.succeeded).toBe(1);
+    expect(summary.failed).toBe(0);
+    expect(nextState.documents[0].status).toBe('synced');
+    expect(nextState.documents[0].xero_id).toBe('xero_after_precheck');
+    expect((global.fetch as jest.Mock).mock.calls.length).toBe(2);
   });
 
   it('cleans up old synced blobs after sync with retention policy', async () => {

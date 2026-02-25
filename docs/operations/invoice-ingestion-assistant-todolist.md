@@ -83,3 +83,18 @@ Updated: 2026-02-25
 - [x] Add data quality scorecard (completeness/accuracy/consistency).
 - [x] Add scheduled diagnostics snapshot archive.
 - [x] Add CI performance baseline for bulk upload and polling stress.
+
+## Phase 6 (2026-02-25)
+
+- [x] Add sync pre-duplicate check (local signature + optional Xero precheck endpoint).
+- [ ] Add Supabase/server-side primary storage for queue state and snapshots.
+- [ ] Add backend async orchestration for OCR/archive/sync jobs.
+- [ ] Add real Xero attachment upload (binary) after transaction creation.
+- [ ] Add compliance rule engine by transaction type/invoice class.
+- [ ] Add ABN validation integration (ABR) with cache and rate-limit guard.
+- [ ] Add GST decision engine with tax-type binding policy.
+- [ ] Add human-correction learning loop for supplier/rule templates.
+- [ ] Add batch approval gate workflow before sync execution.
+- [ ] Add error-type remediation flow with targeted retry playbooks.
+- [ ] Add post-sync bank reconciliation suggestion workflow.
+- [ ] Add security hardening pack (encryption, retention, audit export).

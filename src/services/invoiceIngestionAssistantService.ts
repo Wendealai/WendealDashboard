@@ -66,6 +66,7 @@ const DEFAULT_SETTINGS: InvoiceAssistantSettings = {
   drive_archive_endpoint: null,
   ocr_extract_endpoint: null,
   xero_sync_endpoint: null,
+  xero_duplicate_check_endpoint: null,
   default_currency: 'AUD',
   default_transaction_type: 'SPEND_MONEY',
   dry_run_mode: true,
@@ -519,6 +520,127 @@ const makeSyncPayload = (
     drive_file_url: review.drive_url,
     document_id: document.document_id,
   };
+};
+
+const parseBoolean = (value: unknown): boolean | null => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    if (value === 1) {
+      return true;
+    }
+    if (value === 0) {
+      return false;
+    }
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(normalized)) {
+      return true;
+    }
+    if (['false', '0', 'no', 'n'].includes(normalized)) {
+      return false;
+    }
+  }
+  return null;
+};
+
+const buildDuplicateSignature = (
+  review: InvoiceReviewDraft | null
+): string | null => {
+  if (!review) {
+    return null;
+  }
+  const supplier = normalizeAliasToken(review.supplier_name || '');
+  const invoiceDate = normalizeName(review.invoice_date);
+  const currency = normalizeCurrency(review.currency);
+  const total =
+    typeof review.total === 'number' &&
+    Number.isFinite(review.total) &&
+    review.total > 0
+      ? (Math.round(review.total * 100) / 100).toFixed(2)
+      : null;
+  if (!supplier || !invoiceDate || !currency || !total) {
+    return null;
+  }
+  const invoiceNumber = normalizeAliasToken(review.invoice_number || '');
+  if (invoiceNumber) {
+    return `inv:${supplier}|${invoiceNumber}|${invoiceDate}|${currency}|${total}`;
+  }
+  return `fallback:${supplier}|${invoiceDate}|${currency}|${total}`;
+};
+
+const toSortableTimestamp = (value: string): number => {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+};
+
+const compareDuplicatePriority = (
+  left: InvoiceAssistantDocument,
+  right: InvoiceAssistantDocument
+): number => {
+  const leftScore = left.status === 'synced' ? 0 : 1;
+  const rightScore = right.status === 'synced' ? 0 : 1;
+  if (leftScore !== rightScore) {
+    return leftScore - rightScore;
+  }
+  const createdDiff =
+    toSortableTimestamp(left.created_at) -
+    toSortableTimestamp(right.created_at);
+  if (createdDiff !== 0) {
+    return createdDiff;
+  }
+  return left.document_id.localeCompare(right.document_id);
+};
+
+const findBlockingLocalDuplicate = (
+  doc: InvoiceAssistantDocument,
+  documents: InvoiceAssistantDocument[]
+): InvoiceAssistantDocument | null => {
+  const signature = buildDuplicateSignature(doc.review);
+  if (!signature) {
+    return null;
+  }
+  const duplicateGroup = documents.filter(item => {
+    return buildDuplicateSignature(item.review) === signature;
+  });
+  if (duplicateGroup.length <= 1) {
+    return null;
+  }
+  const keeper = [...duplicateGroup].sort(compareDuplicatePriority)[0];
+  if (!keeper) {
+    return null;
+  }
+  if (keeper.document_id === doc.document_id) {
+    return null;
+  }
+  return keeper;
+};
+
+const buildLocalDuplicateSyncError = (
+  duplicateDoc: InvoiceAssistantDocument
+): string => {
+  const suffix = duplicateDoc.xero_id
+    ? `, xero_id=${duplicateDoc.xero_id}`
+    : '';
+  return `Duplicate precheck blocked: matches document ${duplicateDoc.document_id} (status=${duplicateDoc.status}${suffix}).`;
+};
+
+const buildRemoteDuplicateSyncError = (payload: {
+  xero_id: string | null;
+  reason: string | null;
+}): string => {
+  const details = [
+    payload.reason,
+    payload.xero_id ? `xero_id=${payload.xero_id}` : null,
+  ]
+    .filter((item): item is string => Boolean(item))
+    .join('; ');
+  if (!details) {
+    return 'Duplicate precheck blocked by Xero.';
+  }
+  return `Duplicate precheck blocked by Xero: ${details}.`;
 };
 
 const normalizeGstStatus = (value: unknown): InvoiceGstStatus => {
@@ -1271,7 +1393,49 @@ class InvoiceIngestionAssistantService {
           };
         }
 
+        const localDuplicate = findBlockingLocalDuplicate(doc, state.documents);
+        if (localDuplicate) {
+          return {
+            outcome: 'failed' as const,
+            patch: {
+              documentId: doc.document_id,
+              baseUpdatedAt: doc.updated_at,
+              next: {
+                ...doc,
+                status: 'sync_failed' as const,
+                sync_error: buildLocalDuplicateSyncError(localDuplicate),
+                sync_idempotency_key: idempotencyKey,
+                updated_at: nowIso(),
+              },
+            },
+            documentId: doc.document_id,
+          };
+        }
+
         try {
+          const duplicateCheck = await this.precheckDuplicateWithXero(
+            payload,
+            idempotencyKey,
+            state.settings
+          );
+          if (duplicateCheck.isDuplicate) {
+            return {
+              outcome: 'failed' as const,
+              patch: {
+                documentId: doc.document_id,
+                baseUpdatedAt: doc.updated_at,
+                next: {
+                  ...doc,
+                  status: 'sync_failed' as const,
+                  sync_error: buildRemoteDuplicateSyncError(duplicateCheck),
+                  sync_idempotency_key: idempotencyKey,
+                  updated_at: nowIso(),
+                },
+              },
+              documentId: doc.document_id,
+            };
+          }
+
           const syncResult = await this.syncSingleDocument(
             payload,
             idempotencyKey,
@@ -1350,6 +1514,57 @@ class InvoiceIngestionAssistantService {
     return {
       ...summarizeBatch(documentIds.length, succeeded, failed, conflicted),
       synced_document_ids: [...syncedDocumentIds],
+    };
+  }
+
+  private async precheckDuplicateWithXero(
+    payload: XeroSyncDraftPayload,
+    idempotencyKey: string,
+    settings: InvoiceAssistantSettings
+  ): Promise<{
+    isDuplicate: boolean;
+    reason: string | null;
+    xero_id: string | null;
+  }> {
+    if (!settings.xero_duplicate_check_endpoint || settings.dry_run_mode) {
+      return {
+        isDuplicate: false,
+        reason: null,
+        xero_id: null,
+      };
+    }
+
+    const response = await fetchWithRetry(
+      settings.xero_duplicate_check_endpoint,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(payload),
+      },
+      { label: 'Xero duplicate precheck' }
+    );
+    const data = (await response.json()) as Record<string, unknown>;
+    const parsedFlags = [
+      parseBoolean(data.is_duplicate),
+      parseBoolean(data.duplicate),
+      parseBoolean(data.exists),
+      parseBoolean(data.conflict),
+    ].filter((item): item is boolean => item !== null);
+    const xeroId =
+      normalizeName(data.xero_id as string | null | undefined) ||
+      normalizeName(data.id as string | null | undefined) ||
+      normalizeName(data.existing_xero_id as string | null | undefined);
+    const reason =
+      normalizeName(data.reason as string | null | undefined) ||
+      normalizeName(data.message as string | null | undefined);
+    const isDuplicate = parsedFlags.includes(true) || Boolean(xeroId);
+    return {
+      isDuplicate,
+      reason,
+      xero_id: xeroId,
     };
   }
 
