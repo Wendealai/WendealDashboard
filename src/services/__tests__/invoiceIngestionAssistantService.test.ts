@@ -659,6 +659,55 @@ describe('invoiceIngestionAssistantService', () => {
     expect(syncSummary.succeeded).toBe(1);
   });
 
+  it('adds manual guidance for non-retryable sync failures in playbook', async () => {
+    writeAssistantState({
+      version: 1,
+      documents: [
+        makeDocument({
+          status: 'sync_failed',
+          sync_error: 'Missing required fields: invoice_date',
+        }),
+      ],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const summary = await invoiceIngestionAssistantService.runFailurePlaybook([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.succeeded).toBe(0);
+    expect(summary.failed).toBe(1);
+    expect(nextState.documents[0].status).toBe('sync_failed');
+    expect(nextState.documents[0].sync_error).toContain(
+      'manual correction required before retry'
+    );
+  });
+
+  it('retries retryable sync failures via playbook', async () => {
+    writeAssistantState({
+      version: 1,
+      documents: [
+        makeDocument({
+          status: 'sync_failed',
+          sync_error: 'Xero sync failed with HTTP 503',
+        }),
+      ],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const summary = await invoiceIngestionAssistantService.runFailurePlaybook([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.succeeded).toBe(1);
+    expect(summary.failed).toBe(0);
+    expect(nextState.documents[0].status).toBe('synced');
+  });
+
   it('auto-binds tax_type from gst_status on review update', () => {
     writeAssistantState({
       version: 1,

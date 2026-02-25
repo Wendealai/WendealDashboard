@@ -365,6 +365,22 @@ const InvoiceIngestionAssistant: React.FC = () => {
     });
   }, [ensureSelection, message, refreshState, selectedDocumentIds, withAction]);
 
+  const handleRetryFailedSelected = useCallback(async () => {
+    if (!ensureSelection()) {
+      return;
+    }
+    await withAction('playbook', async () => {
+      const summary =
+        await invoiceIngestionAssistantService.runFailurePlaybook(
+          selectedDocumentIds
+        );
+      refreshState();
+      message.success(
+        `Playbook retried ${summary.succeeded}/${summary.total}. Manual intervention: ${summary.failed}. Conflicted: ${summary.conflicted}.`
+      );
+    });
+  }, [ensureSelection, message, refreshState, selectedDocumentIds, withAction]);
+
   const handleSyncSelected = useCallback(async () => {
     if (!ensureSelection()) {
       return;
@@ -899,6 +915,15 @@ const InvoiceIngestionAssistant: React.FC = () => {
             }}
           >
             Sync To Xero
+          </Button>
+          <Button
+            loading={actionLoading === 'playbook'}
+            disabled={hasAnyRunningAction && actionLoading !== 'playbook'}
+            onClick={() => {
+              void handleRetryFailedSelected();
+            }}
+          >
+            Retry Failed (Playbook)
           </Button>
         </Space>
 

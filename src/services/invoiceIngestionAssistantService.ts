@@ -31,6 +31,17 @@ const ORCHESTRATION_POLL_INTERVAL_MS = 1200;
 const ORCHESTRATION_MAX_POLL_ATTEMPTS = 40;
 const ABN_CACHE_TTL_MS = 60 * 60 * 1000;
 const ABN_MIN_REQUEST_INTERVAL_MS = 250;
+const NON_RETRYABLE_SYNC_HINTS = [
+  'missing required fields',
+  'compliance rules blocked sync',
+  'batch approval required',
+  'duplicate precheck blocked',
+  'abn validation failed',
+];
+const NON_RETRYABLE_RECOGNIZE_HINTS = [
+  'missing from local vault',
+  'original image is missing',
+];
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const ABN_WEIGHT_FACTORS = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
 const abnValidationCache = new Map<
@@ -1252,6 +1263,22 @@ const deriveSyncSummaryFromState = (
   };
 };
 
+const isRetryableSyncFailure = (errorMessage: string | null): boolean => {
+  if (!errorMessage) {
+    return true;
+  }
+  const normalized = errorMessage.toLowerCase();
+  return !NON_RETRYABLE_SYNC_HINTS.some(hint => normalized.includes(hint));
+};
+
+const isRetryableRecognizeFailure = (errorMessage: string | null): boolean => {
+  if (!errorMessage) {
+    return true;
+  }
+  const normalized = errorMessage.toLowerCase();
+  return !NON_RETRYABLE_RECOGNIZE_HINTS.some(hint => normalized.includes(hint));
+};
+
 class InvoiceIngestionAssistantService {
   async hydrateStateFromStorage(): Promise<InvoiceAssistantState> {
     const localState = readState();
@@ -1939,6 +1966,84 @@ class InvoiceIngestionAssistantService {
       } else {
         failed += 1;
       }
+    }
+
+    return summarizeBatch(documentIds.length, succeeded, failed, conflicted);
+  }
+
+  async runFailurePlaybook(documentIds: string[]): Promise<BatchActionSummary> {
+    const state = readState();
+    const idSet = new Set(documentIds);
+    const recognizeRetryIds: string[] = [];
+    const syncRetryIds: string[] = [];
+    const guidancePatches: DocumentPatch[] = [];
+    let succeeded = 0;
+    let failed = 0;
+    let conflicted = 0;
+
+    for (const doc of state.documents) {
+      if (!idSet.has(doc.document_id)) {
+        continue;
+      }
+
+      if (doc.status === 'recognize_failed') {
+        if (isRetryableRecognizeFailure(doc.recognize_error)) {
+          recognizeRetryIds.push(doc.document_id);
+        } else {
+          guidancePatches.push({
+            documentId: doc.document_id,
+            baseUpdatedAt: doc.updated_at,
+            next: {
+              ...doc,
+              recognize_error: `${
+                doc.recognize_error || 'Recognition failed'
+              } | Playbook: recover local source file before retry.`,
+              updated_at: nowIso(),
+            },
+          });
+        }
+        continue;
+      }
+
+      if (doc.status === 'sync_failed') {
+        if (isRetryableSyncFailure(doc.sync_error)) {
+          syncRetryIds.push(doc.document_id);
+        } else {
+          guidancePatches.push({
+            documentId: doc.document_id,
+            baseUpdatedAt: doc.updated_at,
+            next: {
+              ...doc,
+              sync_error: `${
+                doc.sync_error || 'Sync failed'
+              } | Playbook: manual correction required before retry.`,
+              updated_at: nowIso(),
+            },
+          });
+        }
+      }
+    }
+
+    const guidanceResult = applyDocumentPatches(guidancePatches);
+    conflicted += guidanceResult.conflicts;
+    for (const patch of guidancePatches) {
+      if (guidanceResult.appliedDocumentIds.has(patch.documentId)) {
+        failed += 1;
+      }
+    }
+
+    if (recognizeRetryIds.length > 0) {
+      const recognizeSummary = await this.batchRecognize(recognizeRetryIds);
+      succeeded += recognizeSummary.succeeded;
+      failed += recognizeSummary.failed;
+      conflicted += recognizeSummary.conflicted;
+    }
+
+    if (syncRetryIds.length > 0) {
+      const syncSummary = await this.batchSyncToXero(syncRetryIds);
+      succeeded += syncSummary.succeeded;
+      failed += syncSummary.failed;
+      conflicted += syncSummary.conflicted;
     }
 
     return summarizeBatch(documentIds.length, succeeded, failed, conflicted);
