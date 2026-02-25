@@ -79,7 +79,7 @@ Updated: 2026-02-25
 - [ ] Add alert severity tiers with quiet-window suppression.
 - [x] Add supplier template alias matching and priority fallback.
 - [x] Add customizable table columns with persistence.
-- [ ] Add batch operation orchestration (batch tag/confirm/export).
-- [ ] Add data quality scorecard (completeness/accuracy/consistency).
+- [x] Add batch operation orchestration (batch tag/confirm/export).
+- [x] Add data quality scorecard (completeness/accuracy/consistency).
 - [ ] Add scheduled diagnostics snapshot archive.
 - [ ] Add CI performance baseline for bulk upload and polling stress.

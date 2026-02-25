@@ -351,6 +351,46 @@ const getResultVendorName = (result: InvoiceOCRResult): string => {
   return '';
 };
 
+const getResultInvoiceNumber = (result: InvoiceOCRResult): string => {
+  const extracted = isRecord(result.extractedData) ? result.extractedData : {};
+  const basic = getRecordField(extracted, 'basic');
+  return (
+    getStringField(extracted, 'invoiceNumber') ||
+    getStringField(extracted, 'invoiceNo') ||
+    getStringField(basic, 'invoiceNumber')
+  );
+};
+
+const getResultInvoiceDate = (result: InvoiceOCRResult): string => {
+  const extracted = isRecord(result.extractedData) ? result.extractedData : {};
+  const basic = getRecordField(extracted, 'basic');
+  return (
+    getStringField(extracted, 'invoiceDate') ||
+    getStringField(extracted, 'date') ||
+    getStringField(basic, 'invoiceDate')
+  );
+};
+
+const hasValidTotalAmount = (result: InvoiceOCRResult): boolean => {
+  const extracted: Record<string, unknown> = isRecord(result.extractedData)
+    ? result.extractedData
+    : {};
+  const basic = getRecordField(extracted, 'basic');
+  const amountCandidate =
+    extracted['totalAmount'] ||
+    basic['totalAmount'] ||
+    extracted['amount'] ||
+    extracted['invoiceAmount'];
+  if (typeof amountCandidate === 'number') {
+    return Number.isFinite(amountCandidate);
+  }
+  if (typeof amountCandidate === 'string') {
+    const numeric = Number(amountCandidate.replace(/[^\d.-]/g, ''));
+    return Number.isFinite(numeric);
+  }
+  return false;
+};
+
 const applyPatchToResult = (
   result: InvoiceOCRResult,
   patch: Record<string, unknown>
@@ -507,6 +547,8 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<ResultColumnKey[]>(
     () => readPersistedResultColumns(workflowId)
   );
+  const [batchTagModalVisible, setBatchTagModalVisible] = useState(false);
+  const [batchTagDraft, setBatchTagDraft] = useState('');
 
   /**
    * 加载 OCR 结果数据
@@ -1031,6 +1073,176 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     setVisibleColumnKeys(DEFAULT_RESULT_COLUMN_KEYS);
     message.success('已恢复默认列配置');
   }, [message]);
+
+  const applyLocalBatchPatch = useCallback(
+    (
+      patchBuilder: (result: InvoiceOCRResult) => Record<string, unknown>,
+      actor: string
+    ) => {
+      if (selectedResults.length === 0) {
+        message.warning('请先选择至少一条结果');
+        return;
+      }
+      const selectedIdSet = new Set(selectedResults.map(item => item.id));
+      const nextSelected = selectedResults.map(result => {
+        const patch = patchBuilder(result);
+        invoiceOCRService.saveManualCorrection(workflowId, result.id, patch, {
+          actor,
+          diffKeys: Object.keys(patch),
+        });
+        return applyPatchToResult(result, patch);
+      });
+      const nextSelectedMap = new Map(
+        nextSelected.map(item => [item.id, item])
+      );
+      setResults(prev =>
+        prev.map(item => {
+          if (!selectedIdSet.has(item.id)) {
+            return item;
+          }
+          return nextSelectedMap.get(item.id) || item;
+        })
+      );
+      setSelectedResults(nextSelected);
+      setSelectedResult(prev =>
+        prev && selectedIdSet.has(prev.id)
+          ? nextSelectedMap.get(prev.id) || prev
+          : prev
+      );
+    },
+    [message, selectedResults, workflowId]
+  );
+
+  const handleBatchConfirmSelected = useCallback(() => {
+    const reviewedAt = new Date().toISOString();
+    applyLocalBatchPatch(
+      () => ({
+        reviewStatus: 'confirmed',
+        reviewedAt,
+        validationState: 'approved',
+      }),
+      'batch_confirm_operator'
+    );
+    if (selectedResults.length > 0) {
+      message.success(`已批量确认 ${selectedResults.length} 条记录`);
+    }
+  }, [applyLocalBatchPatch, message, selectedResults.length]);
+
+  const handleOpenBatchTagModal = useCallback(() => {
+    if (selectedResults.length === 0) {
+      message.warning('请先选择至少一条结果');
+      return;
+    }
+    setBatchTagDraft('');
+    setBatchTagModalVisible(true);
+  }, [message, selectedResults.length]);
+
+  const handleBatchApplyTag = useCallback(() => {
+    const tag = batchTagDraft.trim();
+    if (!tag) {
+      message.warning('请输入批量标签');
+      return;
+    }
+    applyLocalBatchPatch(result => {
+      const extracted: Record<string, unknown> = isRecord(result.extractedData)
+        ? result.extractedData
+        : {};
+      const existingTagField = extracted['tags'];
+      const existingTags = Array.isArray(existingTagField)
+        ? existingTagField.filter(
+            (item): item is string => typeof item === 'string'
+          )
+        : [];
+      const nextTags = Array.from(new Set([...existingTags, tag]));
+      return {
+        tags: nextTags,
+        batchTag: tag,
+      };
+    }, 'batch_tag_operator');
+    setBatchTagModalVisible(false);
+    if (selectedResults.length > 0) {
+      message.success(
+        `已为 ${selectedResults.length} 条记录打上标签「${tag}」`
+      );
+    }
+  }, [applyLocalBatchPatch, batchTagDraft, message, selectedResults.length]);
+
+  const handleBatchExportSelectedJson = useCallback(() => {
+    if (selectedResults.length === 0) {
+      message.warning('请先选择至少一条结果');
+      return;
+    }
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      workflowId,
+      resultCount: selectedResults.length,
+      resultIds: selectedResults.map(item => item.id),
+      results: selectedResults.map(item => redactSensitiveData(item)),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `invoice-ocr-selected-${Date.now()}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    message.success(`已导出 ${selectedResults.length} 条选中记录`);
+  }, [message, selectedResults, workflowId]);
+
+  const qualityScorecard = useMemo(() => {
+    if (results.length === 0) {
+      return {
+        completeness: 0,
+        confidenceAccuracy: 0,
+        consistency: 0,
+        overall: 0,
+      };
+    }
+    const completenessSum = results.reduce((total, result) => {
+      let score = 0;
+      if (getResultInvoiceNumber(result)) {
+        score += 1;
+      }
+      if (getResultVendorName(result)) {
+        score += 1;
+      }
+      if (getResultInvoiceDate(result)) {
+        score += 1;
+      }
+      if (hasValidTotalAmount(result)) {
+        score += 1;
+      }
+      return total + score / 4;
+    }, 0);
+    const completeness = Math.round((completenessSum / results.length) * 100);
+
+    const accuracySum = results.reduce((total, result) => {
+      const confidence =
+        typeof result.confidence === 'number' &&
+        Number.isFinite(result.confidence)
+          ? result.confidence
+          : 0;
+      return total + Math.max(0, Math.min(1, confidence));
+    }, 0);
+    const confidenceAccuracy = Math.round((accuracySum / results.length) * 100);
+
+    const duplicateCount = duplicateResultIds.size;
+    const consistency = Math.max(
+      0,
+      Math.round(((results.length - duplicateCount) / results.length) * 100)
+    );
+    const overall = Math.round(
+      completeness * 0.4 + confidenceAccuracy * 0.35 + consistency * 0.25
+    );
+    return {
+      completeness,
+      confidenceAccuracy,
+      consistency,
+      overall,
+    };
+  }, [duplicateResultIds.size, results]);
 
   /**
    * 结果表格列定义
@@ -1624,6 +1836,57 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             </List.Item>
           )}
         />
+      </Card>
+    );
+  };
+
+  const renderDataQualityScorecard = () => {
+    if (results.length === 0) {
+      return null;
+    }
+    return (
+      <Card title='数据质量评分卡' size='small' style={{ marginBottom: 16 }}>
+        <Row gutter={[12, 12]}>
+          <Col xs={24} sm={12} lg={6}>
+            <Statistic
+              title='完整性'
+              value={qualityScorecard.completeness}
+              suffix='%'
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Statistic
+              title='准确度(置信度)'
+              value={qualityScorecard.confidenceAccuracy}
+              suffix='%'
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Statistic
+              title='一致性'
+              value={qualityScorecard.consistency}
+              suffix='%'
+              valueStyle={{ color: '#fa8c16' }}
+            />
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Statistic
+              title='综合评分'
+              value={qualityScorecard.overall}
+              suffix='%'
+              valueStyle={{
+                color:
+                  qualityScorecard.overall >= 80
+                    ? '#52c41a'
+                    : qualityScorecard.overall >= 60
+                      ? '#fa8c16'
+                      : '#ff4d4f',
+              }}
+            />
+          </Col>
+        </Row>
       </Card>
     );
   };
@@ -2411,6 +2674,9 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       {/* 批处理任务 */}
       {renderBatchTasks()}
 
+      {/* 数据质量评分卡 */}
+      {renderDataQualityScorecard()}
+
       {/* 操作栏 */}
       <Card size='small' style={{ marginBottom: 16 }}>
         <Row justify='space-between' align='middle' gutter={[12, 12]}>
@@ -2440,6 +2706,25 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                 disabled={selectedResults.length === 0}
               >
                 批量下载
+              </Button>
+              <Button
+                onClick={handleBatchConfirmSelected}
+                disabled={selectedResults.length === 0}
+              >
+                批量确认
+              </Button>
+              <Button
+                onClick={handleOpenBatchTagModal}
+                disabled={selectedResults.length === 0}
+              >
+                批量标记
+              </Button>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={handleBatchExportSelectedJson}
+                disabled={selectedResults.length === 0}
+              >
+                导出选中JSON
               </Button>
               <Dropdown
                 trigger={['click']}
@@ -2596,6 +2881,29 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             />
           </div>
         )}
+      </Modal>
+
+      <Modal
+        title='批量添加标签'
+        open={batchTagModalVisible}
+        onCancel={() => setBatchTagModalVisible(false)}
+        onOk={handleBatchApplyTag}
+        okText='应用标签'
+        cancelText='取消'
+      >
+        <Alert
+          showIcon
+          type='info'
+          style={{ marginBottom: 12 }}
+          message='将对当前选中结果批量写入标签'
+          description={`当前已选择 ${selectedResults.length} 条记录。`}
+        />
+        <Input
+          value={batchTagDraft}
+          onChange={event => setBatchTagDraft(event.target.value)}
+          placeholder='例如：2026Q1复核 / 高优先级 / 税务待确认'
+          maxLength={40}
+        />
       </Modal>
 
       {/* 错误模态框 */}
