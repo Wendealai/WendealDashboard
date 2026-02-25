@@ -70,6 +70,11 @@ const APPROVAL_COLOR_MAP: Record<string, string> = {
   approved: 'green',
 };
 
+const RECONCILIATION_COLOR_MAP: Record<string, string> = {
+  pending: 'default',
+  reconciled: 'cyan',
+};
+
 const statusText = (status: InvoiceAssistantDocument['status']): string => {
   switch (status) {
     case 'uploaded':
@@ -93,6 +98,12 @@ const approvalText = (
   status: InvoiceAssistantDocument['approval_status']
 ): string => {
   return status === 'approved' ? 'Approved' : 'Pending';
+};
+
+const reconciliationText = (
+  status: InvoiceAssistantDocument['reconciliation_status']
+): string => {
+  return status === 'reconciled' ? 'Reconciled' : 'Pending';
 };
 
 const toDateString = (value: Dayjs | null): string | null =>
@@ -443,6 +454,40 @@ const InvoiceIngestionAssistant: React.FC = () => {
     );
   }, [filteredDocuments, message, selectedDocumentIds]);
 
+  const handleMarkReconciledSelected = useCallback(async () => {
+    if (!ensureSelection()) {
+      return;
+    }
+    await withAction('reconcile', async () => {
+      const summary = invoiceIngestionAssistantService.batchSetReconciliation(
+        selectedDocumentIds,
+        'reconciled',
+        'manual'
+      );
+      refreshState();
+      message.success(
+        `Reconciled ${summary.succeeded}/${summary.total}. Failed: ${summary.failed}. Conflicted: ${summary.conflicted}.`
+      );
+    });
+  }, [ensureSelection, message, refreshState, selectedDocumentIds, withAction]);
+
+  const handleResetReconciliationSelected = useCallback(async () => {
+    if (!ensureSelection()) {
+      return;
+    }
+    await withAction('reconcile-reset', async () => {
+      const summary = invoiceIngestionAssistantService.batchSetReconciliation(
+        selectedDocumentIds,
+        'pending',
+        'manual'
+      );
+      refreshState();
+      message.success(
+        `Reconciliation reset for ${summary.succeeded}/${summary.total}. Failed: ${summary.failed}. Conflicted: ${summary.conflicted}.`
+      );
+    });
+  }, [ensureSelection, message, refreshState, selectedDocumentIds, withAction]);
+
   const handleExportSecurityAudit = useCallback(() => {
     const targetDocumentIds =
       selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined;
@@ -760,6 +805,16 @@ const InvoiceIngestionAssistant: React.FC = () => {
         ),
       },
       {
+        title: 'Reconciliation',
+        dataIndex: 'reconciliation_status',
+        width: 140,
+        render: value => (
+          <Tag color={RECONCILIATION_COLOR_MAP[value] || 'default'}>
+            {reconciliationText(value)}
+          </Tag>
+        ),
+      },
+      {
         title: 'Drive',
         width: 130,
         render: (_value, record) =>
@@ -1030,6 +1085,26 @@ const InvoiceIngestionAssistant: React.FC = () => {
             onClick={handleSuggestReconciliation}
           >
             Suggest Reconciliation
+          </Button>
+          <Button
+            loading={actionLoading === 'reconcile'}
+            disabled={hasAnyRunningAction && actionLoading !== 'reconcile'}
+            onClick={() => {
+              void handleMarkReconciledSelected();
+            }}
+          >
+            Mark Reconciled
+          </Button>
+          <Button
+            loading={actionLoading === 'reconcile-reset'}
+            disabled={
+              hasAnyRunningAction && actionLoading !== 'reconcile-reset'
+            }
+            onClick={() => {
+              void handleResetReconciliationSelected();
+            }}
+          >
+            Reset Reconciliation
           </Button>
           <Button
             loading={actionLoading === 'security-sweep'}

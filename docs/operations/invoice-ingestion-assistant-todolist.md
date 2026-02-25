@@ -98,3 +98,7 @@ Updated: 2026-02-25
 - [x] Add error-type remediation flow with targeted retry playbooks.
 - [x] Add post-sync bank reconciliation suggestion workflow.
 - [x] Add security hardening pack (encryption, retention, audit export).
+
+## Phase 7 (2026-02-25)
+
+- [x] Add reconciliation status writeback workflow (mark/reset reconciled).

@@ -16,6 +16,7 @@ import type {
   InvoiceAssistantState,
   InvoiceExtractionResult,
   InvoiceGstStatus,
+  InvoiceReconciliationStatus,
   InvoiceReviewDraft,
   ReconciliationSuggestion,
   SecurityAuditEncryptedExport,
@@ -356,6 +357,11 @@ const safeNumber = (value: unknown): number | null => {
 const normalizeApprovalStatus = (value: unknown): InvoiceApprovalStatus =>
   value === 'approved' ? 'approved' : 'pending';
 
+const normalizeReconciliationStatus = (
+  value: unknown
+): InvoiceReconciliationStatus =>
+  value === 'reconciled' ? 'reconciled' : 'pending';
+
 const normalizePersistedDocument = (
   doc: InvoiceAssistantDocument
 ): InvoiceAssistantDocument => {
@@ -363,6 +369,21 @@ const normalizePersistedDocument = (
     ...doc,
     approval_status: normalizeApprovalStatus(
       (doc as { approval_status?: unknown }).approval_status
+    ),
+    reconciliation_status: normalizeReconciliationStatus(
+      (doc as { reconciliation_status?: unknown }).reconciliation_status
+    ),
+    reconciled_at: normalizeName(
+      (doc as { reconciled_at?: string }).reconciled_at
+    ),
+    reconciled_by: normalizeName(
+      (doc as { reconciled_by?: string }).reconciled_by
+    ),
+    reconciliation_note: normalizeName(
+      (doc as { reconciliation_note?: string }).reconciliation_note
+    ),
+    bank_transaction_ref: normalizeName(
+      (doc as { bank_transaction_ref?: string }).bank_transaction_ref
     ),
     approved_at: normalizeName((doc as { approved_at?: string }).approved_at),
     approved_by: normalizeName((doc as { approved_by?: string }).approved_by),
@@ -1705,7 +1726,11 @@ class InvoiceIngestionAssistantService {
 
     return state.documents
       .filter(doc => {
-        if (doc.status !== 'synced' || !doc.review) {
+        if (
+          doc.status !== 'synced' ||
+          !doc.review ||
+          doc.reconciliation_status === 'reconciled'
+        ) {
           return false;
         }
         if (idSet && !idSet.has(doc.document_id)) {
@@ -1783,6 +1808,9 @@ class InvoiceIngestionAssistantService {
           document_id: doc.document_id,
           status: doc.status,
           approval_status: doc.approval_status,
+          reconciliation_status: doc.reconciliation_status,
+          reconciled_at: doc.reconciled_at,
+          reconciled_by: doc.reconciled_by,
           synced_at: doc.synced_at,
           xero_id: doc.xero_id,
           supplier_name:
@@ -1944,6 +1972,11 @@ class InvoiceIngestionAssistantService {
         xero_id: null,
         xero_type: null,
         sync_idempotency_key: null,
+        reconciliation_status: 'pending',
+        reconciled_at: null,
+        reconciled_by: null,
+        reconciliation_note: null,
+        bank_transaction_ref: null,
         approval_status: 'pending',
         approved_at: null,
         approved_by: null,
@@ -2224,6 +2257,14 @@ class InvoiceIngestionAssistantService {
           : reviewGate.needsReview
             ? 'recognized'
             : 'ready_to_sync',
+      reconciliation_status:
+        doc.status === 'synced' ? 'pending' : doc.reconciliation_status,
+      reconciled_at: doc.status === 'synced' ? null : doc.reconciled_at,
+      reconciled_by: doc.status === 'synced' ? null : doc.reconciled_by,
+      reconciliation_note:
+        doc.status === 'synced' ? null : doc.reconciliation_note,
+      bank_transaction_ref:
+        doc.status === 'synced' ? null : doc.bank_transaction_ref,
       updated_at: nowIso(),
     };
     const nextSuppliers = learnSuppliersFromReview(
@@ -2263,6 +2304,63 @@ class InvoiceIngestionAssistantService {
         approval_status: approvalStatus,
         approved_at: approvalStatus === 'approved' ? nowIso() : null,
         approved_by: approvalStatus === 'approved' ? approvedBy : null,
+        updated_at: nowIso(),
+      };
+      patches.push({
+        documentId: doc.document_id,
+        baseUpdatedAt: doc.updated_at,
+        next: nextDoc,
+      });
+    }
+
+    const patchResult = applyDocumentPatches(patches);
+    conflicted += patchResult.conflicts;
+    for (const patch of patches) {
+      if (patchResult.appliedDocumentIds.has(patch.documentId)) {
+        succeeded += 1;
+      } else {
+        failed += 1;
+      }
+    }
+
+    return summarizeBatch(documentIds.length, succeeded, failed, conflicted);
+  }
+
+  batchSetReconciliation(
+    documentIds: string[],
+    reconciliationStatus: InvoiceReconciliationStatus,
+    reconciledBy = 'manual',
+    note?: string | null,
+    bankTransactionRef?: string | null
+  ): BatchActionSummary {
+    const state = readState();
+    const idSet = new Set(documentIds);
+    const normalizedNote = normalizeName(note || null);
+    const normalizedRef = normalizeName(bankTransactionRef || null);
+    let succeeded = 0;
+    let failed = 0;
+    let conflicted = 0;
+    const patches: DocumentPatch[] = [];
+
+    for (const doc of state.documents) {
+      if (!idSet.has(doc.document_id)) {
+        continue;
+      }
+      if (doc.status !== 'synced') {
+        failed += 1;
+        continue;
+      }
+
+      const nextDoc: InvoiceAssistantDocument = {
+        ...doc,
+        reconciliation_status: reconciliationStatus,
+        reconciled_at: reconciliationStatus === 'reconciled' ? nowIso() : null,
+        reconciled_by:
+          reconciliationStatus === 'reconciled' ? reconciledBy : null,
+        reconciliation_note:
+          reconciliationStatus === 'reconciled' ? normalizedNote : null,
+        bank_transaction_ref:
+          reconciliationStatus === 'reconciled' ? normalizedRef : null,
         updated_at: nowIso(),
       };
       patches.push({
@@ -2649,6 +2747,11 @@ class InvoiceIngestionAssistantService {
                 xero_id: syncResult.xero_id,
                 xero_type: payload.type,
                 sync_idempotency_key: idempotencyKey,
+                reconciliation_status: 'pending' as const,
+                reconciled_at: null,
+                reconciled_by: null,
+                reconciliation_note: null,
+                bank_transaction_ref: null,
                 sync_error: null,
                 updated_at: nowIso(),
               },

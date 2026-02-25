@@ -7,6 +7,7 @@ export type InvoiceAssistantStatus =
   | 'sync_failed';
 
 export type InvoiceApprovalStatus = 'pending' | 'approved';
+export type InvoiceReconciliationStatus = 'pending' | 'reconciled';
 
 export type XeroTransactionType = 'SPEND_MONEY' | 'BILL';
 
@@ -104,6 +105,11 @@ export interface InvoiceAssistantDocument {
   xero_id: string | null;
   xero_type: XeroTransactionType | null;
   sync_idempotency_key: string | null;
+  reconciliation_status: InvoiceReconciliationStatus;
+  reconciled_at: string | null;
+  reconciled_by: string | null;
+  reconciliation_note: string | null;
+  bank_transaction_ref: string | null;
   approval_status: InvoiceApprovalStatus;
   approved_at: string | null;
   approved_by: string | null;
@@ -166,6 +172,9 @@ export interface SecurityAuditSnapshotItem {
   document_id: string;
   status: InvoiceAssistantStatus;
   approval_status: InvoiceApprovalStatus;
+  reconciliation_status: InvoiceReconciliationStatus;
+  reconciled_at: string | null;
+  reconciled_by: string | null;
   synced_at: string | null;
   xero_id: string | null;
   supplier_name: string | null;

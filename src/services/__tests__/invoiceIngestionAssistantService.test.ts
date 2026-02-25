@@ -90,6 +90,11 @@ const makeDocument = (
   xero_id: null,
   xero_type: null,
   sync_idempotency_key: null,
+  reconciliation_status: 'pending',
+  reconciled_at: null,
+  reconciled_by: null,
+  reconciliation_note: null,
+  bank_transaction_ref: null,
   approval_status: 'pending',
   approved_at: null,
   approved_by: null,
@@ -659,6 +664,51 @@ describe('invoiceIngestionAssistantService', () => {
     expect(syncSummary.succeeded).toBe(1);
   });
 
+  it('marks synced documents as reconciled', () => {
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument({ status: 'synced' })],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const summary = invoiceIngestionAssistantService.batchSetReconciliation(
+      ['doc_1'],
+      'reconciled',
+      'qa',
+      'Matched to statement line'
+    );
+    const nextState = readAssistantState();
+
+    expect(summary.succeeded).toBe(1);
+    expect(nextState.documents[0].reconciliation_status).toBe('reconciled');
+    expect(nextState.documents[0].reconciled_by).toBe('qa');
+    expect(nextState.documents[0].reconciliation_note).toBe(
+      'Matched to statement line'
+    );
+    expect(nextState.documents[0].reconciled_at).toBeTruthy();
+  });
+
+  it('does not reconcile non-synced documents', () => {
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument({ status: 'ready_to_sync' })],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const summary = invoiceIngestionAssistantService.batchSetReconciliation(
+      ['doc_1'],
+      'reconciled',
+      'qa'
+    );
+    const nextState = readAssistantState();
+
+    expect(summary.succeeded).toBe(0);
+    expect(summary.failed).toBe(1);
+    expect(nextState.documents[0].reconciliation_status).toBe('pending');
+  });
+
   it('adds manual guidance for non-retryable sync failures in playbook', async () => {
     writeAssistantState({
       version: 1,
@@ -1084,6 +1134,17 @@ describe('invoiceIngestionAssistantService', () => {
         makeDocument({
           document_id: 'doc_pending',
           status: 'ready_to_sync',
+        }),
+        makeDocument({
+          document_id: 'doc_reconciled',
+          status: 'synced',
+          reconciliation_status: 'reconciled',
+          reconciled_at: '2026-02-25T12:00:00.000Z',
+          reconciled_by: 'qa',
+          review: makeReview({
+            supplier_name: 'Bunnings',
+            total: 45.2,
+          }),
         }),
       ],
       suppliers: [],
