@@ -29,7 +29,7 @@
  * @see {@link n8nWebhookService} - Webhook integration service
  */
 
-import React, { useState, useCallback, useMemo, memo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, memo } from 'react';
 import {
   Upload,
   Button,
@@ -68,7 +68,10 @@ import {
   getInvoiceOcrConfig,
   validateInvoiceOcrWebhookUrl,
 } from '@/config/invoiceOcrConfig';
-import { invoiceOCRService } from '../../../../services/invoiceOCRService';
+import {
+  invoiceOCRService,
+  type InvoiceOcrQuarantineEntry,
+} from '../../../../services/invoiceOCRService';
 import { n8nWebhookService } from '../../../../services/n8nWebhookService';
 import { trackInvoiceOcrEvent } from '@/services/invoiceOcrTelemetry';
 import {
@@ -149,6 +152,9 @@ interface InvoiceFileUploadProps {
       attemptCount?: number;
       elapsedMs?: number;
       transportWarnings?: string[];
+      traceparent?: string;
+      backendTraceparent?: string;
+      signatureVerified?: boolean;
     };
     rawResponse?: unknown;
   }) => void;
@@ -245,6 +251,9 @@ interface InvoiceOcrChunkUploadSummary {
   transportWarnings?: string[];
   httpStatus?: number;
   contentType?: string;
+  traceparent?: string;
+  backendTraceparent?: string;
+  signatureVerified?: boolean;
 }
 
 interface InvoiceOcrUploadResumeState {
@@ -421,6 +430,17 @@ const toChunkUploadSummary = (
   ...(Array.isArray(response?.diagnostics?.transportWarnings)
     ? { transportWarnings: response.diagnostics.transportWarnings }
     : {}),
+  ...(typeof response?.diagnostics?.traceparent === 'string' &&
+  response.diagnostics.traceparent
+    ? { traceparent: response.diagnostics.traceparent }
+    : {}),
+  ...(typeof response?.diagnostics?.backendTraceparent === 'string' &&
+  response.diagnostics.backendTraceparent
+    ? { backendTraceparent: response.diagnostics.backendTraceparent }
+    : {}),
+  ...(typeof response?.diagnostics?.signatureVerified === 'boolean'
+    ? { signatureVerified: response.diagnostics.signatureVerified }
+    : {}),
 });
 
 /**
@@ -455,6 +475,9 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
     >(null);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [previewFile, setPreviewFile] = useState<UploadFile | null>(null);
+    const [quarantineEntries, setQuarantineEntries] = useState<
+      InvoiceOcrQuarantineEntry[]
+    >([]);
     const message = useMessage();
     const { isVisible, errorInfo, showError, hideError } = useErrorModal();
 
@@ -484,6 +507,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
       }),
       [fileList, uploading]
     );
+
+    useEffect(() => {
+      setQuarantineEntries(invoiceOCRService.getQuarantineEntries(workflowId));
+    }, [workflowId]);
 
     /**
      * Validate file type
@@ -670,6 +697,19 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
       });
     }, [onFileListChange]);
 
+    const handleClearQuarantine = useCallback(() => {
+      confirm({
+        title: '清空隔离队列',
+        icon: <ExclamationCircleOutlined />,
+        content: '确定清空当前工作流的失败文件隔离队列吗？',
+        onOk() {
+          invoiceOCRService.clearQuarantineEntries(workflowId);
+          setQuarantineEntries([]);
+          message.success('隔离队列已清空');
+        },
+      });
+    }, [message, workflowId]);
+
     /**
      * Handle OCR recognition with real n8n webhook
      */
@@ -708,6 +748,9 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
       let progressInterval: NodeJS.Timeout | null = null;
       let activeTraceId = '';
       let activeUploadSessionKey = '';
+      let activeLeaseId = '';
+      let activeChunkItems: Array<{ file: File; fingerprint: string }> = [];
+      const successfulFingerprints = new Set<string>();
 
       try {
         const rawFiles = fileList.map(file => file.originFileObj as File);
@@ -812,7 +855,27 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         }
 
         const uploadChunkSize = Math.max(1, invoiceOcrConfig.uploadChunkSize);
-        const uploadChunks = chunkFiles(filesToUpload, uploadChunkSize);
+        const workflowQuarantineEntries =
+          invoiceOCRService.getQuarantineEntries(workflowId);
+        const quarantineFingerprintSet = new Set(
+          workflowQuarantineEntries.map(entry => entry.fingerprint)
+        );
+        setQuarantineEntries(workflowQuarantineEntries);
+        const isolatedRetryItems = filesToUpload.filter(item =>
+          quarantineFingerprintSet.has(item.fingerprint)
+        );
+        const normalRetryItems = filesToUpload.filter(
+          item => !quarantineFingerprintSet.has(item.fingerprint)
+        );
+        const uploadChunks = [
+          ...isolatedRetryItems.map(item => [item]),
+          ...chunkFiles(normalRetryItems, uploadChunkSize),
+        ];
+        if (isolatedRetryItems.length > 0) {
+          message.info(
+            `检测到 ${isolatedRetryItems.length} 个隔离文件，将采用单文件隔离重试流程`
+          );
+        }
         const uploadFingerprintSequence = filesToUpload.map(
           item => item.fingerprint
         );
@@ -859,6 +922,50 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           clearUploadResumeState(workflowId, uploadSessionKey);
         }
 
+        const idempotencyRegistration =
+          invoiceOCRService.registerIdempotencyKey(
+            workflowId,
+            idempotencyKey,
+            uploadFingerprintSequence.join('|'),
+            {
+              traceId,
+              ttlHours: 24,
+            }
+          );
+        if (!idempotencyRegistration.accepted) {
+          throw new Error(
+            '检测到相同 idempotency key 的冲突请求，已阻止覆盖写入'
+          );
+        }
+
+        const leaseResult = invoiceOCRService.acquireQueueLease(
+          workflowId,
+          traceId || idempotencyKey,
+          {
+            maxConcurrency: invoiceOcrConfig.globalQueueConcurrency,
+            leaseTimeoutMs: invoiceOcrConfig.queueLeaseTimeoutMs,
+          }
+        );
+        if (!leaseResult.acquired) {
+          if (
+            invoiceOCRService.shouldEmitAlert(
+              'invoice_ocr_queue_concurrency_cap',
+              invoiceOcrConfig.alertQuietWindowMinutes
+            )
+          ) {
+            message.warning(
+              `当前识别队列繁忙（${leaseResult.activeCount}/${leaseResult.maxConcurrency}），请稍后重试`
+            );
+          }
+          trackInvoiceOcrEvent('invoice_ocr_upload_failed', {
+            workflowId,
+            reason: 'queue_concurrency_cap_reached',
+            traceId,
+          });
+          return;
+        }
+        activeLeaseId = leaseResult.leaseId || '';
+
         writeUploadResumeState(workflowId, uploadSessionKey, {
           version: 1,
           workflowId,
@@ -881,6 +988,8 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           traceId,
           resumedChunkCount,
           resumed: resumedChunkCount > 0,
+          isolatedRetryCount: isolatedRetryItems.length,
+          queueLeaseId: activeLeaseId,
         });
 
         try {
@@ -926,7 +1035,14 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           if (!currentChunk) {
             continue;
           }
+          activeChunkItems = currentChunk;
+          if (activeLeaseId) {
+            invoiceOCRService.refreshQueueLease(activeLeaseId);
+          }
           if (chunkSummaryMap.has(chunkIndex)) {
+            currentChunk.forEach(item =>
+              successfulFingerprints.add(item.fingerprint)
+            );
             setUploadProgress(prev => {
               const chunkProgress = Math.round(
                 30 + ((chunkIndex + 1) / uploadChunks.length) * 65
@@ -965,6 +1081,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             chunkIndex,
             toChunkUploadSummary(chunkIndex, webhookResponse)
           );
+          currentChunk.forEach(item =>
+            successfulFingerprints.add(item.fingerprint)
+          );
+          activeChunkItems = [];
           writeUploadResumeState(workflowId, uploadSessionKey, {
             version: 1,
             workflowId,
@@ -1149,6 +1269,15 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             });
           }
           clearUploadResumeState(workflowId, uploadSessionKey);
+          if (successfulFingerprints.size > 0) {
+            invoiceOCRService.clearQuarantineEntries(
+              workflowId,
+              Array.from(successfulFingerprints)
+            );
+            setQuarantineEntries(
+              invoiceOCRService.getQuarantineEntries(workflowId)
+            );
+          }
 
           if (!hasBusinessData) {
             message.warning(
@@ -1207,6 +1336,37 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         console.error('发送文件到n8n失败:', error);
         if (activeUploadSessionKey) {
           message.info('已保存分片上传断点，可重试后自动续传');
+        }
+        if (activeChunkItems.length > 0) {
+          const reason =
+            error instanceof Error && error.message
+              ? error.message
+              : 'unknown_upload_error';
+          const quarantined = invoiceOCRService.upsertQuarantineEntries(
+            workflowId,
+            activeChunkItems.map(item => ({
+              fingerprint: item.fingerprint,
+              workflowId,
+              fileName: item.file.name,
+              fileSize: item.file.size,
+              fileType: item.file.type,
+              reason,
+              failedAt: new Date().toISOString(),
+              retryCount: 1,
+              ...(activeTraceId ? { traceId: activeTraceId } : {}),
+            }))
+          );
+          setQuarantineEntries(quarantined);
+          if (
+            invoiceOCRService.shouldEmitAlert(
+              'invoice_ocr_quarantine_lane_updated',
+              invoiceOcrConfig.alertQuietWindowMinutes
+            )
+          ) {
+            message.warning(
+              `已将 ${activeChunkItems.length} 个失败文件移入隔离队列，后续将单文件重试`
+            );
+          }
         }
 
         // 获取更详细的错误信息
@@ -1336,6 +1496,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             : new Error(errorMessage || 'OCR workflow processing failed')
         );
       } finally {
+        if (activeLeaseId) {
+          invoiceOCRService.releaseQueueLease(activeLeaseId);
+          activeLeaseId = '';
+        }
         // 重置上传状态
         setUploading(false);
         setUploadProgress(0);
@@ -1347,6 +1511,9 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
       onFileListChange,
       workflowId,
       invoiceOcrConfig.uploadChunkSize,
+      invoiceOcrConfig.globalQueueConcurrency,
+      invoiceOcrConfig.queueLeaseTimeoutMs,
+      invoiceOcrConfig.alertQuietWindowMinutes,
       resolvedWebhookUrl,
       batchName,
       memoizedProcessingOptions,
@@ -1563,6 +1730,21 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
               {maxFileSize}MB，最多 {maxFiles} 个文件
             </p>
           </Dragger>
+
+          {quarantineEntries.length > 0 && (
+            <Alert
+              style={{ marginTop: 12 }}
+              type='warning'
+              showIcon
+              message={`隔离队列中有 ${quarantineEntries.length} 个失败文件`}
+              description='系统会优先按单文件模式重试这些文件，避免影响正常批次。'
+              action={
+                <Button size='small' onClick={handleClearQuarantine}>
+                  清空隔离队列
+                </Button>
+              }
+            />
+          )}
 
           {/* Upload progress */}
           {uploading && (

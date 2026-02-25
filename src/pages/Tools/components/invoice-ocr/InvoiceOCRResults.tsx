@@ -64,6 +64,7 @@ import { useMessage } from '@/hooks';
 import { useErrorModal } from '@/hooks/useErrorModal';
 import { useTranslation } from 'react-i18next';
 import ErrorModal from '@/components/common/ErrorModal';
+import { getInvoiceOcrConfig } from '@/config/invoiceOcrConfig';
 
 const { Panel } = Collapse;
 const { TabPane } = Tabs;
@@ -140,6 +141,9 @@ interface InvoiceOCRResultsProps {
       attemptCount?: number;
       elapsedMs?: number;
       transportWarnings?: string[];
+      traceparent?: string;
+      backendTraceparent?: string;
+      signatureVerified?: boolean;
     };
     rawResponse?: unknown;
     clientHealth?: InvoiceOcrClientHealthSnapshot;
@@ -232,6 +236,22 @@ interface ResultVersionDiffEntry {
   originalValue: string;
   correctedValue: string;
 }
+
+type InvoiceOcrAlertSeverity = 'info' | 'warning' | 'critical';
+
+const getAlertSeverity = (alertCode: string): InvoiceOcrAlertSeverity => {
+  if (
+    alertCode.includes('rbac') ||
+    alertCode.includes('signature') ||
+    alertCode.includes('data_sync')
+  ) {
+    return 'critical';
+  }
+  if (alertCode.includes('duplicate') || alertCode.includes('quarantine')) {
+    return 'warning';
+  }
+  return 'info';
+};
 
 const RESULT_COLUMN_STORAGE_PREFIX = 'invoiceOCR_results_columns_v1';
 const RESULT_COLUMN_OPTIONS: Array<{ key: ResultColumnKey; label: string }> = [
@@ -524,6 +544,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   const { t } = useTranslation();
   const message = useMessage();
   const { isVisible, errorInfo, showError, hideError } = useErrorModal();
+  const invoiceOcrConfig = useMemo(() => getInvoiceOcrConfig(), []);
   const [results, setResults] = useState<InvoiceOCRResult[]>([]);
   const [batchTasks, setBatchTasks] = useState<InvoiceOCRBatchTask[]>([]);
   const [loading, setLoading] = useState(false);
@@ -549,6 +570,36 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   );
   const [batchTagModalVisible, setBatchTagModalVisible] = useState(false);
   const [batchTagDraft, setBatchTagDraft] = useState('');
+  const manualCorrectionAccess = useMemo(
+    () =>
+      invoiceOCRService.canPerformManualCorrection(
+        invoiceOcrConfig.manualCorrectionAllowedRoles
+      ),
+    [invoiceOcrConfig.manualCorrectionAllowedRoles]
+  );
+
+  const emitTieredAlert = useCallback(
+    (alertCode: string, text: string) => {
+      const severity = getAlertSeverity(alertCode);
+      const allow = invoiceOCRService.shouldEmitAlert(
+        `invoice_ocr:${alertCode}:${severity}`,
+        invoiceOcrConfig.alertQuietWindowMinutes
+      );
+      if (!allow) {
+        return;
+      }
+      if (severity === 'critical') {
+        message.error(text);
+        return;
+      }
+      if (severity === 'warning') {
+        message.warning(text);
+        return;
+      }
+      message.info(text);
+    },
+    [invoiceOcrConfig.alertQuietWindowMinutes, message]
+  );
 
   /**
    * 加载 OCR 结果数据
@@ -613,6 +664,22 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
             >,
           };
         }
+
+        const normalizedFinancial = invoiceOCRService.normalizeCurrencyAndTax(
+          isRecord(baseResult.extractedData) ? baseResult.extractedData : {},
+          {
+            timestamp:
+              baseResult.completedAt ||
+              baseResult.startedAt ||
+              new Date().toISOString(),
+          }
+        );
+        baseResult = {
+          ...baseResult,
+          extractedData: normalizedFinancial as unknown as NonNullable<
+            InvoiceOCRResult['extractedData']
+          >,
+        };
 
         baseSnapshots[item.id] = baseResult;
 
@@ -896,6 +963,13 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   }, [completedData]);
 
   const handleOpenManualCorrection = useCallback(() => {
+    if (!manualCorrectionAccess.allowed) {
+      emitTieredAlert(
+        'rbac_manual_correction_denied',
+        `当前角色(${manualCorrectionAccess.role})无手动修正权限`
+      );
+      return;
+    }
     if (!selectedResult) {
       return;
     }
@@ -918,9 +992,22 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       )
     );
     setManualCorrectionVisible(true);
-  }, [selectedResult, workflowId]);
+  }, [
+    emitTieredAlert,
+    manualCorrectionAccess.allowed,
+    manualCorrectionAccess.role,
+    selectedResult,
+    workflowId,
+  ]);
 
   const handleSaveManualCorrection = useCallback(() => {
+    if (!manualCorrectionAccess.allowed) {
+      emitTieredAlert(
+        'rbac_manual_correction_denied',
+        `当前角色(${manualCorrectionAccess.role})无手动修正权限`
+      );
+      return;
+    }
     if (!selectedResult) {
       return;
     }
@@ -955,7 +1042,15 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       const reason = error instanceof Error ? error.message : 'unknown_error';
       message.error(`手动修正保存失败：${reason}`);
     }
-  }, [manualCorrectionDraft, message, selectedResult, workflowId]);
+  }, [
+    emitTieredAlert,
+    manualCorrectionAccess.allowed,
+    manualCorrectionAccess.role,
+    manualCorrectionDraft,
+    message,
+    selectedResult,
+    workflowId,
+  ]);
 
   const handleSaveSupplierTemplateRule = useCallback(() => {
     if (!selectedResult) {
@@ -1041,6 +1136,15 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     [results]
   );
 
+  useEffect(() => {
+    if (duplicateResultIds.size > 0) {
+      emitTieredAlert(
+        'duplicate_risk_detected',
+        `检测到 ${duplicateResultIds.size} 条疑似重复发票，请优先核查`
+      );
+    }
+  }, [duplicateResultIds.size, emitTieredAlert]);
+
   const currentResultDiffEntries = useMemo(() => {
     if (!selectedResult) {
       return [] as ResultVersionDiffEntry[];
@@ -1079,6 +1183,13 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       patchBuilder: (result: InvoiceOCRResult) => Record<string, unknown>,
       actor: string
     ) => {
+      if (!manualCorrectionAccess.allowed) {
+        emitTieredAlert(
+          'rbac_manual_correction_denied',
+          `当前角色(${manualCorrectionAccess.role})无批量修正权限`
+        );
+        return;
+      }
       if (selectedResults.length === 0) {
         message.warning('请先选择至少一条结果');
         return;
@@ -1110,7 +1221,14 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
           : prev
       );
     },
-    [message, selectedResults, workflowId]
+    [
+      emitTieredAlert,
+      manualCorrectionAccess.allowed,
+      manualCorrectionAccess.role,
+      message,
+      selectedResults,
+      workflowId,
+    ]
   );
 
   const handleBatchConfirmSelected = useCallback(() => {
@@ -1243,6 +1361,57 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       overall,
     };
   }, [duplicateResultIds.size, results]);
+
+  const slaMetrics = useMemo(() => {
+    const completedResults = results.filter(
+      result =>
+        result.status === 'completed' && result.startedAt && result.completedAt
+    );
+    const latencyMs = completedResults
+      .map(result => {
+        const startedAt = new Date(result.startedAt || '').getTime();
+        const completedAt = new Date(result.completedAt || '').getTime();
+        return completedAt - startedAt;
+      })
+      .filter(value => Number.isFinite(value) && value >= 0)
+      .sort((left, right) => left - right);
+    const quantile = (values: number[], percentile: number): number => {
+      if (values.length === 0) {
+        return 0;
+      }
+      const index = Math.min(
+        values.length - 1,
+        Math.max(0, Math.floor(percentile * (values.length - 1)))
+      );
+      return Math.round(values[index] || 0);
+    };
+    const failedCount = results.filter(
+      result => result.status === 'failed'
+    ).length;
+    const failureRate = results.length
+      ? Number(((failedCount / results.length) * 100).toFixed(2))
+      : 0;
+    const retryAttempts = completedData?.diagnostics?.attemptCount || 1;
+    const retryRate = completedData?.totalFiles
+      ? Number(
+          (
+            ((Math.max(0, retryAttempts - 1) as number) /
+              Math.max(1, completedData.totalFiles)) *
+            100
+          ).toFixed(2)
+        )
+      : 0;
+    return {
+      p50LatencyMs: quantile(latencyMs, 0.5),
+      p95LatencyMs: quantile(latencyMs, 0.95),
+      failureRate,
+      retryRate,
+    };
+  }, [
+    completedData?.diagnostics?.attemptCount,
+    completedData?.totalFiles,
+    results,
+  ]);
 
   /**
    * 结果表格列定义
@@ -1891,6 +2060,54 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     );
   };
 
+  const renderSlaDashboard = () => {
+    if (results.length === 0) {
+      return null;
+    }
+    return (
+      <Card title='SLA 仪表盘' size='small' style={{ marginBottom: 16 }}>
+        <Row gutter={[12, 12]}>
+          <Col xs={24} sm={12} lg={6}>
+            <Statistic
+              title='P50 延迟'
+              value={slaMetrics.p50LatencyMs}
+              suffix='ms'
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Statistic
+              title='P95 延迟'
+              value={slaMetrics.p95LatencyMs}
+              suffix='ms'
+              valueStyle={{ color: '#722ed1' }}
+            />
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Statistic
+              title='失败率'
+              value={slaMetrics.failureRate}
+              suffix='%'
+              valueStyle={{
+                color: slaMetrics.failureRate < 5 ? '#52c41a' : '#ff4d4f',
+              }}
+            />
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Statistic
+              title='重试率'
+              value={slaMetrics.retryRate}
+              suffix='%'
+              valueStyle={{
+                color: slaMetrics.retryRate < 20 ? '#52c41a' : '#fa8c16',
+              }}
+            />
+          </Col>
+        </Row>
+      </Card>
+    );
+  };
+
   /**
    * 渲染结果详情模态框
    */
@@ -1903,7 +2120,11 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
         open={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={[
-          <Button key='manual-correction' onClick={handleOpenManualCorrection}>
+          <Button
+            key='manual-correction'
+            onClick={handleOpenManualCorrection}
+            disabled={!manualCorrectionAccess.allowed}
+          >
             手动修正
           </Button>,
           <Button
@@ -2159,6 +2380,33 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                       'number' && (
                       <Tag color='cyan' style={{ padding: '4px 8px' }}>
                         耗时: {completedData.diagnostics.elapsedMs}ms
+                      </Tag>
+                    )}
+                    {completedData.diagnostics?.traceparent && (
+                      <Tag color='geekblue' style={{ padding: '4px 8px' }}>
+                        Traceparent: {completedData.diagnostics.traceparent}
+                      </Tag>
+                    )}
+                    {completedData.diagnostics?.backendTraceparent && (
+                      <Tag color='purple' style={{ padding: '4px 8px' }}>
+                        Backend Trace:{' '}
+                        {completedData.diagnostics.backendTraceparent}
+                      </Tag>
+                    )}
+                    {typeof completedData.diagnostics?.signatureVerified ===
+                      'boolean' && (
+                      <Tag
+                        color={
+                          completedData.diagnostics.signatureVerified
+                            ? 'success'
+                            : 'error'
+                        }
+                        style={{ padding: '4px 8px' }}
+                      >
+                        响应签名:
+                        {completedData.diagnostics.signatureVerified
+                          ? '已校验'
+                          : '未通过'}
                       </Tag>
                     )}
                     <Button
@@ -2508,6 +2756,33 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                       耗时: {completedData.diagnostics.elapsedMs}ms
                     </Tag>
                   )}
+                  {completedData.diagnostics?.traceparent && (
+                    <Tag color='geekblue' style={{ padding: '4px 8px' }}>
+                      Traceparent: {completedData.diagnostics.traceparent}
+                    </Tag>
+                  )}
+                  {completedData.diagnostics?.backendTraceparent && (
+                    <Tag color='purple' style={{ padding: '4px 8px' }}>
+                      Backend Trace:{' '}
+                      {completedData.diagnostics.backendTraceparent}
+                    </Tag>
+                  )}
+                  {typeof completedData.diagnostics?.signatureVerified ===
+                    'boolean' && (
+                    <Tag
+                      color={
+                        completedData.diagnostics.signatureVerified
+                          ? 'success'
+                          : 'error'
+                      }
+                      style={{ padding: '4px 8px' }}
+                    >
+                      响应签名:
+                      {completedData.diagnostics.signatureVerified
+                        ? '已校验'
+                        : '未通过'}
+                    </Tag>
+                  )}
                   <Button
                     size='small'
                     icon={<DownloadOutlined />}
@@ -2677,6 +2952,9 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       {/* 数据质量评分卡 */}
       {renderDataQualityScorecard()}
 
+      {/* SLA 仪表盘 */}
+      {renderSlaDashboard()}
+
       {/* 操作栏 */}
       <Card size='small' style={{ marginBottom: 16 }}>
         <Row justify='space-between' align='middle' gutter={[12, 12]}>
@@ -2685,6 +2963,11 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
               <Text strong>OCR 处理结果</Text>
               <Badge count={filteredResults.length} showZero />
               <Text type='secondary'>总计 {results.length} 条</Text>
+              <Tag
+                color={manualCorrectionAccess.allowed ? 'success' : 'warning'}
+              >
+                角色: {manualCorrectionAccess.role}
+              </Tag>
               {selectedResults.length > 0 && (
                 <Text type='secondary'>已选择 {selectedResults.length} 项</Text>
               )}
@@ -2709,13 +2992,19 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
               </Button>
               <Button
                 onClick={handleBatchConfirmSelected}
-                disabled={selectedResults.length === 0}
+                disabled={
+                  selectedResults.length === 0 ||
+                  !manualCorrectionAccess.allowed
+                }
               >
                 批量确认
               </Button>
               <Button
                 onClick={handleOpenBatchTagModal}
-                disabled={selectedResults.length === 0}
+                disabled={
+                  selectedResults.length === 0 ||
+                  !manualCorrectionAccess.allowed
+                }
               >
                 批量标记
               </Button>
@@ -2841,6 +3130,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
         open={manualCorrectionVisible}
         onCancel={() => setManualCorrectionVisible(false)}
         onOk={handleSaveManualCorrection}
+        okButtonProps={{ disabled: !manualCorrectionAccess.allowed }}
         okText='保存修正'
         cancelText='取消'
         width={760}
@@ -2888,6 +3178,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
         open={batchTagModalVisible}
         onCancel={() => setBatchTagModalVisible(false)}
         onOk={handleBatchApplyTag}
+        okButtonProps={{ disabled: !manualCorrectionAccess.allowed }}
         okText='应用标签'
         cancelText='取消'
       >

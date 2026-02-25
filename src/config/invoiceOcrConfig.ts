@@ -7,6 +7,13 @@ type InvoiceOcrRuntimeConfig = {
   resultPollingFailureThreshold?: number;
   postSuccessRediagnoseDelayMs?: number;
   uploadChunkSize?: number;
+  webhookSignatureSecret?: string;
+  webhookSignatureStrict?: boolean;
+  globalQueueConcurrency?: number;
+  queueLeaseTimeoutMs?: number;
+  alertQuietWindowMinutes?: number;
+  diagnosticsArchiveIntervalMs?: number;
+  manualCorrectionAllowedRoles?: string;
   telemetryEndpoint?: string;
   debug?: boolean;
 };
@@ -29,6 +36,13 @@ export interface InvoiceOcrConfig {
   resultPollingFailureThreshold: number;
   postSuccessRediagnoseDelayMs: number;
   uploadChunkSize: number;
+  webhookSignatureSecret?: string;
+  webhookSignatureStrict: boolean;
+  globalQueueConcurrency: number;
+  queueLeaseTimeoutMs: number;
+  alertQuietWindowMinutes: number;
+  diagnosticsArchiveIntervalMs: number;
+  manualCorrectionAllowedRoles: string[];
   telemetryEndpoint?: string;
   debug: boolean;
 }
@@ -42,6 +56,11 @@ const DEFAULT_RESULT_POLLING_TIMEOUT_MS = 120000;
 const DEFAULT_RESULT_POLLING_FAILURE_THRESHOLD = 3;
 const DEFAULT_POST_SUCCESS_REDIAGNOSE_DELAY_MS = 30000;
 const DEFAULT_UPLOAD_CHUNK_SIZE = 10;
+const DEFAULT_GLOBAL_QUEUE_CONCURRENCY = 2;
+const DEFAULT_QUEUE_LEASE_TIMEOUT_MS = 120000;
+const DEFAULT_ALERT_QUIET_WINDOW_MINUTES = 10;
+const DEFAULT_DIAGNOSTICS_ARCHIVE_INTERVAL_MS = 300000;
+const DEFAULT_MANUAL_CORRECTION_ALLOWED_ROLES = ['admin', 'manager'];
 
 const toNonEmptyString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') {
@@ -82,6 +101,25 @@ const toBoolean = (value: unknown): boolean | undefined => {
   }
 
   return undefined;
+};
+
+const toStringArray = (value: unknown): string[] | undefined => {
+  if (Array.isArray(value)) {
+    const items = value
+      .map(item => (typeof item === 'string' ? item.trim().toLowerCase() : ''))
+      .filter(item => item.length > 0);
+    return items.length > 0 ? Array.from(new Set(items)) : undefined;
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const items = value
+    .split(',')
+    .map(item => item.trim().toLowerCase())
+    .filter(item => item.length > 0);
+  return items.length > 0 ? Array.from(new Set(items)) : undefined;
 };
 
 const getRuntimeInvoiceOcrConfig = (): InvoiceOcrRuntimeConfig => {
@@ -140,6 +178,46 @@ export const getInvoiceOcrConfig = (): InvoiceOcrConfig => {
     toPositiveInteger(import.meta.env.VITE_INVOICE_OCR_UPLOAD_CHUNK_SIZE) ||
     DEFAULT_UPLOAD_CHUNK_SIZE;
 
+  const webhookSignatureSecret =
+    toNonEmptyString(runtime.webhookSignatureSecret) ||
+    toNonEmptyString(import.meta.env.VITE_INVOICE_OCR_WEBHOOK_SIGNATURE_SECRET);
+
+  const webhookSignatureStrict =
+    toBoolean(runtime.webhookSignatureStrict) ??
+    toBoolean(import.meta.env.VITE_INVOICE_OCR_WEBHOOK_SIGNATURE_STRICT) ??
+    false;
+
+  const globalQueueConcurrency =
+    toPositiveInteger(runtime.globalQueueConcurrency) ||
+    toPositiveInteger(import.meta.env.VITE_INVOICE_OCR_QUEUE_CONCURRENCY) ||
+    DEFAULT_GLOBAL_QUEUE_CONCURRENCY;
+
+  const queueLeaseTimeoutMs =
+    toPositiveInteger(runtime.queueLeaseTimeoutMs) ||
+    toPositiveInteger(
+      import.meta.env.VITE_INVOICE_OCR_QUEUE_LEASE_TIMEOUT_MS
+    ) ||
+    DEFAULT_QUEUE_LEASE_TIMEOUT_MS;
+
+  const alertQuietWindowMinutes =
+    toPositiveInteger(runtime.alertQuietWindowMinutes) ||
+    toPositiveInteger(
+      import.meta.env.VITE_INVOICE_OCR_ALERT_QUIET_WINDOW_MINUTES
+    ) ||
+    DEFAULT_ALERT_QUIET_WINDOW_MINUTES;
+
+  const diagnosticsArchiveIntervalMs =
+    toPositiveInteger(runtime.diagnosticsArchiveIntervalMs) ||
+    toPositiveInteger(
+      import.meta.env.VITE_INVOICE_OCR_DIAGNOSTICS_ARCHIVE_INTERVAL_MS
+    ) ||
+    DEFAULT_DIAGNOSTICS_ARCHIVE_INTERVAL_MS;
+
+  const manualCorrectionAllowedRoles =
+    toStringArray(runtime.manualCorrectionAllowedRoles) ||
+    toStringArray(import.meta.env.VITE_INVOICE_OCR_MANUAL_CORRECTION_ROLES) ||
+    DEFAULT_MANUAL_CORRECTION_ALLOWED_ROLES;
+
   const telemetryEndpoint =
     toNonEmptyString(runtime.telemetryEndpoint) ||
     toNonEmptyString(import.meta.env.VITE_INVOICE_OCR_TELEMETRY_ENDPOINT);
@@ -158,6 +236,13 @@ export const getInvoiceOcrConfig = (): InvoiceOcrConfig => {
     resultPollingFailureThreshold,
     postSuccessRediagnoseDelayMs,
     uploadChunkSize,
+    ...(webhookSignatureSecret ? { webhookSignatureSecret } : {}),
+    webhookSignatureStrict,
+    globalQueueConcurrency,
+    queueLeaseTimeoutMs,
+    alertQuietWindowMinutes,
+    diagnosticsArchiveIntervalMs,
+    manualCorrectionAllowedRoles,
     ...(telemetryEndpoint ? { telemetryEndpoint } : {}),
     debug,
   };

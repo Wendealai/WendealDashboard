@@ -65,21 +65,21 @@ Updated: 2026-02-25
 
 - [x] Add file-content fingerprint dedupe and historical cache reuse.
 - [x] Add resumable chunk upload with interruption recovery.
-- [ ] Add idempotency-key unique constraint at persistence layer.
-- [ ] Add webhook request signature verification (HMAC).
-- [ ] Add global queue concurrency cap with lease timeout reclaim.
-- [ ] Add failed-file quarantine lane and isolated retry workflow.
+- [x] Add idempotency-key unique constraint at persistence layer.
+- [x] Add webhook request signature verification (HMAC).
+- [x] Add global queue concurrency cap with lease timeout reclaim.
+- [x] Add failed-file quarantine lane and isolated retry workflow.
 - [x] Add field-level manual correction audit history.
-- [ ] Add RBAC guard for manual correction actions.
+- [x] Add RBAC guard for manual correction actions.
 - [x] Add result version diff view (original vs corrected).
 - [x] Add fuzzy duplicate invoice detection (number/vendor/date/amount).
-- [ ] Add multi-currency and tax-rate normalization with rate timestamp.
-- [ ] Add SLA dashboard (P50/P95 latency, failure rate, retry rate).
-- [ ] Add OpenTelemetry linkage for frontend and backend traces.
-- [ ] Add alert severity tiers with quiet-window suppression.
+- [x] Add multi-currency and tax-rate normalization with rate timestamp.
+- [x] Add SLA dashboard (P50/P95 latency, failure rate, retry rate).
+- [x] Add OpenTelemetry linkage for frontend and backend traces.
+- [x] Add alert severity tiers with quiet-window suppression.
 - [x] Add supplier template alias matching and priority fallback.
 - [x] Add customizable table columns with persistence.
 - [x] Add batch operation orchestration (batch tag/confirm/export).
 - [x] Add data quality scorecard (completeness/accuracy/consistency).
-- [ ] Add scheduled diagnostics snapshot archive.
-- [ ] Add CI performance baseline for bulk upload and polling stress.
+- [x] Add scheduled diagnostics snapshot archive.
+- [x] Add CI performance baseline for bulk upload and polling stress.

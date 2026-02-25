@@ -4,6 +4,7 @@
  */
 
 import type { InvoiceOCRResult } from '../pages/InformationDashboard/types/invoiceOCR';
+import { getInvoiceOcrConfig } from '@/config/invoiceOcrConfig';
 
 /**
  * N8N Webhook响应接口
@@ -22,6 +23,9 @@ export interface N8NWebhookResponse {
     schemaWarnings: string[];
     idempotencyKey: string;
     traceId?: string;
+    traceparent?: string;
+    backendTraceparent?: string;
+    signatureVerified?: boolean;
     attemptCount: number;
     elapsedMs: number;
     transportWarnings: string[];
@@ -112,26 +116,121 @@ export class N8NWebhookService {
   private async parseWebhookResponseBody(response: Response): Promise<{
     data: unknown;
     contentType: string;
+    rawBody: string;
   }> {
     const contentType = response.headers.get('content-type') || 'unknown';
+    const rawBody = await response.text();
+
     if (contentType.includes('application/json')) {
-      const data = await response.json();
-      return { data, contentType };
+      try {
+        const data = JSON.parse(rawBody);
+        return { data, contentType, rawBody };
+      } catch {
+        return {
+          data: { message: rawBody },
+          contentType,
+          rawBody,
+        };
+      }
     }
 
-    const textResponse = await response.text();
-    console.log('收到非JSON响应:', textResponse);
+    console.log('收到非JSON响应:', rawBody);
     try {
       return {
-        data: JSON.parse(textResponse),
+        data: JSON.parse(rawBody),
         contentType,
+        rawBody,
       };
     } catch {
       return {
-        data: { message: textResponse },
+        data: { message: rawBody },
         contentType,
+        rawBody,
       };
     }
+  }
+
+  private normalizeHex(value: string, targetLength: number): string {
+    const source = value.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
+    if (!source) {
+      return ''.padStart(targetLength, '0');
+    }
+    if (source.length >= targetLength) {
+      return source.slice(0, targetLength);
+    }
+    return source.padEnd(targetLength, '0');
+  }
+
+  private buildTraceparent(traceId?: string): string | undefined {
+    if (!traceId) {
+      return undefined;
+    }
+    const traceHex = this.normalizeHex(this.hashString(traceId), 32);
+    const spanHex = this.normalizeHex(
+      this.hashString(`${traceId}:${Date.now()}`),
+      16
+    );
+    return `00-${traceHex}-${spanHex}-01`;
+  }
+
+  private async computeHmacHex(
+    payload: string,
+    secret: string
+  ): Promise<string | null> {
+    const normalizedSecret = secret.trim();
+    if (!normalizedSecret) {
+      return null;
+    }
+
+    try {
+      if (
+        typeof globalThis.crypto !== 'undefined' &&
+        globalThis.crypto?.subtle &&
+        typeof TextEncoder !== 'undefined'
+      ) {
+        const encoder = new TextEncoder();
+        const key = await globalThis.crypto.subtle.importKey(
+          'raw',
+          encoder.encode(normalizedSecret),
+          { name: 'HMAC', hash: 'SHA-256' },
+          false,
+          ['sign']
+        );
+        const signature = await globalThis.crypto.subtle.sign(
+          'HMAC',
+          key,
+          encoder.encode(payload)
+        );
+        return Array.from(new Uint8Array(signature))
+          .map(byte => byte.toString(16).padStart(2, '0'))
+          .join('');
+      }
+    } catch (error) {
+      console.warn('Failed to compute HMAC signature:', error);
+    }
+
+    return this.hashString(`${normalizedSecret}:${payload}`);
+  }
+
+  private buildSignaturePayload(
+    request: N8NFileUploadRequest,
+    idempotencyKey: string,
+    traceId?: string
+  ): string {
+    const fileFingerprint = request.files
+      .map(
+        file => `${file.name}:${file.size}:${file.type}:${file.lastModified}`
+      )
+      .sort()
+      .join('|');
+    return JSON.stringify({
+      workflowId: request.workflowId,
+      batchName: request.batchName || '',
+      idempotencyKey,
+      traceId: traceId || '',
+      fileFingerprint,
+      metadata: request.metadata || {},
+    });
   }
 
   private generateIdempotencyKey(request: N8NFileUploadRequest): string {
@@ -302,6 +401,18 @@ export class N8NWebhookService {
         request.metadata.traceId.trim()
           ? request.metadata.traceId.trim()
           : undefined;
+      const invoiceOcrConfig = getInvoiceOcrConfig();
+      const traceparent = this.buildTraceparent(traceId);
+      const signaturePayload = this.buildSignaturePayload(
+        request,
+        idempotencyKey,
+        traceId
+      );
+      const requestSignature = await this.computeHmacHex(
+        signaturePayload,
+        invoiceOcrConfig.webhookSignatureSecret || ''
+      );
+      const signatureTimestamp = new Date().toISOString();
 
       // 创建FormData
       const formData = new FormData();
@@ -349,6 +460,8 @@ export class N8NWebhookService {
       let transportWarnings: string[] = [];
       let attemptCount = 0;
       let lastError: unknown = null;
+      let signatureVerified = false;
+      let backendTraceparent: string | undefined;
 
       for (
         attemptCount = 1;
@@ -364,6 +477,16 @@ export class N8NWebhookService {
               'X-Requested-With': 'XMLHttpRequest',
               'X-Idempotency-Key': idempotencyKey,
               ...(traceId ? { 'X-Trace-Id': traceId } : {}),
+              ...(traceparent ? { traceparent } : {}),
+              ...(requestSignature
+                ? { 'X-Wendeal-Signature': requestSignature }
+                : {}),
+              ...(requestSignature
+                ? { 'X-Wendeal-Signature-Alg': 'HMAC-SHA256' }
+                : {}),
+              ...(requestSignature
+                ? { 'X-Wendeal-Signature-Timestamp': signatureTimestamp }
+                : {}),
             },
             signal: AbortSignal.timeout(this.defaultTimeout),
           });
@@ -378,9 +501,47 @@ export class N8NWebhookService {
           const parsed = await this.parseWebhookResponseBody(response);
           responseData = parsed.data;
           contentType = parsed.contentType;
+          backendTraceparent = response.headers.get('traceparent') || undefined;
 
           console.log('解析后的n8n响应数据:', responseData);
           normalized = this.normalizeBusinessPayload(responseData);
+
+          const responseSignature = response.headers.get('x-wendeal-signature');
+          if (
+            invoiceOcrConfig.webhookSignatureSecret &&
+            typeof responseSignature === 'string' &&
+            responseSignature.trim()
+          ) {
+            const expectedSignature = await this.computeHmacHex(
+              parsed.rawBody,
+              invoiceOcrConfig.webhookSignatureSecret
+            );
+            signatureVerified = Boolean(
+              expectedSignature &&
+                expectedSignature.toLowerCase() ===
+                  responseSignature.trim().toLowerCase()
+            );
+            if (!signatureVerified) {
+              transportWarnings = [
+                ...transportWarnings,
+                `attempt_${attemptCount}_response_signature_mismatch`,
+              ];
+              if (invoiceOcrConfig.webhookSignatureStrict) {
+                throw new Error(
+                  'Webhook response signature verification failed'
+                );
+              }
+            }
+          } else if (
+            invoiceOcrConfig.webhookSignatureStrict &&
+            invoiceOcrConfig.webhookSignatureSecret
+          ) {
+            transportWarnings = [
+              ...transportWarnings,
+              `attempt_${attemptCount}_response_signature_missing`,
+            ];
+            throw new Error('Missing webhook response signature header');
+          }
 
           if (!response.ok && !normalized.hasBusinessData) {
             const retryableStatus = this.isRetryableResponseStatus(
@@ -478,6 +639,11 @@ export class N8NWebhookService {
           schemaWarnings: normalized.warnings,
           idempotencyKey,
           ...(traceId ? { traceId } : {}),
+          ...(traceparent ? { traceparent } : {}),
+          ...(backendTraceparent ? { backendTraceparent } : {}),
+          ...(invoiceOcrConfig.webhookSignatureSecret
+            ? { signatureVerified }
+            : {}),
           attemptCount,
           elapsedMs,
           transportWarnings,
@@ -554,6 +720,9 @@ export class N8NWebhookService {
         source: 'wendeal-dashboard',
         version: '1.0',
       };
+      const traceparent = this.buildTraceparent(
+        `${fileIds.join(',')}:${payload.timestamp}`
+      );
 
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -561,6 +730,7 @@ export class N8NWebhookService {
           'Content-Type': 'application/json',
           'User-Agent': 'WendealDashboard/1.0',
           'X-Requested-With': 'XMLHttpRequest',
+          ...(traceparent ? { traceparent } : {}),
         },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(this.defaultTimeout),
@@ -593,6 +763,10 @@ export class N8NWebhookService {
           contentType: response.headers.get('content-type') || 'unknown',
           schemaWarnings: [],
           idempotencyKey: 'ocr-result-forwarding',
+          ...(traceparent ? { traceparent } : {}),
+          ...(response.headers.get('traceparent')
+            ? { backendTraceparent: response.headers.get('traceparent') || '' }
+            : {}),
           attemptCount: 1,
           elapsedMs: 0,
           transportWarnings: [],

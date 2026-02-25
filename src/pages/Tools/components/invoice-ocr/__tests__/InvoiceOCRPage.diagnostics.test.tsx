@@ -80,6 +80,7 @@ jest.mock('@/services/invoiceOCRService', () => ({
     getStats: jest.fn(),
     testResultSyncConnection: jest.fn(),
     testSupabaseConnection: jest.fn(),
+    shouldEmitAlert: jest.fn(() => true),
   },
 }));
 
@@ -115,6 +116,12 @@ describe('InvoiceOCRPage diagnostics', () => {
       resultPollingFailureThreshold: 3,
       postSuccessRediagnoseDelayMs: 120000,
       uploadChunkSize: 10,
+      webhookSignatureStrict: false,
+      globalQueueConcurrency: 2,
+      queueLeaseTimeoutMs: 120000,
+      alertQuietWindowMinutes: 10,
+      diagnosticsArchiveIntervalMs: 300000,
+      manualCorrectionAllowedRoles: ['admin', 'manager'],
       debug: false,
     });
     mockInvoiceService.getResultsListWithRetry.mockResolvedValue([]);
@@ -187,6 +194,12 @@ describe('InvoiceOCRPage diagnostics', () => {
       resultPollingFailureThreshold: 3,
       postSuccessRediagnoseDelayMs: 120000,
       uploadChunkSize: 10,
+      webhookSignatureStrict: false,
+      globalQueueConcurrency: 2,
+      queueLeaseTimeoutMs: 120000,
+      alertQuietWindowMinutes: 10,
+      diagnosticsArchiveIntervalMs: 300000,
+      manualCorrectionAllowedRoles: ['admin', 'manager'],
       debug: false,
     });
 

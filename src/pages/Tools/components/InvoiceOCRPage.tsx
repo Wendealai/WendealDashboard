@@ -119,6 +119,7 @@ const InvoiceOCRPage: React.FC = () => {
   const invoiceOcrConfig = useMemo(() => getInvoiceOcrConfig(), []);
   const pollingTimerRef = useRef<number | null>(null);
   const postSuccessDiagnosticsTimerRef = useRef<number | null>(null);
+  const diagnosticsArchiveTimerRef = useRef<number | null>(null);
   const autoDiagnosticsDoneRef = useRef(false);
   const currentTraceIdRef = useRef('');
   const processStartIsoRef = useRef<string>('');
@@ -175,6 +176,9 @@ const InvoiceOCRPage: React.FC = () => {
       attemptCount?: number;
       elapsedMs?: number;
       transportWarnings?: string[];
+      traceparent?: string;
+      backendTraceparent?: string;
+      signatureVerified?: boolean;
     };
     rawResponse?: unknown;
     clientHealth?: InvoiceOcrClientHealthSnapshot;
@@ -194,6 +198,13 @@ const InvoiceOCRPage: React.FC = () => {
     if (postSuccessDiagnosticsTimerRef.current) {
       window.clearTimeout(postSuccessDiagnosticsTimerRef.current);
       postSuccessDiagnosticsTimerRef.current = null;
+    }
+  }, []);
+
+  const clearDiagnosticsArchiveTimer = useCallback(() => {
+    if (diagnosticsArchiveTimerRef.current) {
+      window.clearInterval(diagnosticsArchiveTimerRef.current);
+      diagnosticsArchiveTimerRef.current = null;
     }
   }, []);
 
@@ -538,9 +549,16 @@ const InvoiceOCRPage: React.FC = () => {
               executionId: executionId || '',
               elapsedMs: elapsed,
             });
-            message.warning(
-              '识别已提交，但结果尚未落库。请稍后点击“刷新结果”或查看 n8n 执行日志。'
-            );
+            if (
+              invoiceOCRService.shouldEmitAlert(
+                'invoice_ocr_polling_timeout',
+                invoiceOcrConfig.alertQuietWindowMinutes
+              )
+            ) {
+              message.warning(
+                '识别已提交，但结果尚未落库。请稍后点击“刷新结果”或查看 n8n 执行日志。'
+              );
+            }
             void runFullDiagnostics({
               silent: true,
               source: 'auto_polling_timeout',
@@ -575,7 +593,14 @@ const InvoiceOCRPage: React.FC = () => {
               silent: true,
               source: 'auto_polling_failure',
             });
-            message.error('结果同步失败，请检查数据连接并稍后重试。');
+            if (
+              invoiceOCRService.shouldEmitAlert(
+                'invoice_ocr_polling_failure',
+                invoiceOcrConfig.alertQuietWindowMinutes
+              )
+            ) {
+              message.error('结果同步失败，请检查数据连接并稍后重试。');
+            }
           }
         } finally {
           pollingBusy = false;
@@ -592,6 +617,7 @@ const InvoiceOCRPage: React.FC = () => {
       invoiceOcrConfig.resultPollingHiddenIntervalMs,
       invoiceOcrConfig.resultPollingIntervalMs,
       invoiceOcrConfig.resultPollingTimeoutMs,
+      invoiceOcrConfig.alertQuietWindowMinutes,
       invoiceOcrConfig.workflowId,
       message,
       normalizeInvoiceOcrError,
@@ -663,6 +689,9 @@ const InvoiceOCRPage: React.FC = () => {
         attemptCount?: number;
         elapsedMs?: number;
         transportWarnings?: string[];
+        traceparent?: string;
+        backendTraceparent?: string;
+        signatureVerified?: boolean;
       };
       rawResponse?: unknown;
       clientHealth?: InvoiceOcrClientHealthSnapshot;
@@ -898,9 +927,35 @@ const InvoiceOCRPage: React.FC = () => {
     () => () => {
       stopResultPolling();
       clearPostSuccessDiagnosticsTimer();
+      clearDiagnosticsArchiveTimer();
     },
-    [clearPostSuccessDiagnosticsTimer, stopResultPolling]
+    [
+      clearDiagnosticsArchiveTimer,
+      clearPostSuccessDiagnosticsTimer,
+      stopResultPolling,
+    ]
   );
+
+  useEffect(() => {
+    clearDiagnosticsArchiveTimer();
+    const intervalMs = Math.max(
+      60000,
+      invoiceOcrConfig.diagnosticsArchiveIntervalMs
+    );
+    diagnosticsArchiveTimerRef.current = window.setInterval(() => {
+      void runFullDiagnostics({
+        silent: true,
+        source: 'scheduled_archive',
+      });
+    }, intervalMs);
+    return () => {
+      clearDiagnosticsArchiveTimer();
+    };
+  }, [
+    clearDiagnosticsArchiveTimer,
+    invoiceOcrConfig.diagnosticsArchiveIntervalMs,
+    runFullDiagnostics,
+  ]);
 
   /**
    * Load initial data
@@ -1123,6 +1178,8 @@ const InvoiceOCRPage: React.FC = () => {
         return '轮询失败自动诊断';
       case 'auto_post_success':
         return '识别完成后复检';
+      case 'scheduled_archive':
+        return '定时归档快照';
       default:
         return source;
     }

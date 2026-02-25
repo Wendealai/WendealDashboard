@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import InvoiceOCRResults from '../InvoiceOCRResults';
 import { invoiceOCRService } from '@/services/invoiceOCRService';
+import { getInvoiceOcrConfig } from '@/config/invoiceOcrConfig';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -29,6 +30,10 @@ jest.mock('@/hooks/useErrorModal', () => ({
 
 jest.mock('@/components/common/ErrorModal', () => () => null);
 
+jest.mock('@/config/invoiceOcrConfig', () => ({
+  getInvoiceOcrConfig: jest.fn(),
+}));
+
 jest.mock('@/services/invoiceOCRService', () => ({
   invoiceOCRService: {
     getResults: jest.fn(),
@@ -38,8 +43,14 @@ jest.mock('@/services/invoiceOCRService', () => ({
     applySupplierTemplateRule: jest.fn(
       (_: string, data: Record<string, unknown>) => data
     ),
+    normalizeCurrencyAndTax: jest.fn((data: Record<string, unknown>) => data),
     inferInvoiceIndustryTags: jest.fn(() => []),
     findPotentialDuplicateResultIds: jest.fn(() => []),
+    canPerformManualCorrection: jest.fn(() => ({
+      allowed: true,
+      role: 'admin',
+    })),
+    shouldEmitAlert: jest.fn(() => true),
   },
 }));
 
@@ -47,9 +58,29 @@ describe('InvoiceOCRResults client health alerts', () => {
   const mockInvoiceService = invoiceOCRService as jest.Mocked<
     typeof invoiceOCRService
   >;
+  const mockConfig = getInvoiceOcrConfig as jest.MockedFunction<
+    typeof getInvoiceOcrConfig
+  >;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockConfig.mockReturnValue({
+      workflowId: 'wf-test',
+      webhookUrl: 'https://example.com/webhook',
+      resultPollingIntervalMs: 4000,
+      resultPollingHiddenIntervalMs: 12000,
+      resultPollingTimeoutMs: 120000,
+      resultPollingFailureThreshold: 3,
+      postSuccessRediagnoseDelayMs: 30000,
+      uploadChunkSize: 10,
+      webhookSignatureStrict: false,
+      globalQueueConcurrency: 2,
+      queueLeaseTimeoutMs: 120000,
+      alertQuietWindowMinutes: 10,
+      diagnosticsArchiveIntervalMs: 300000,
+      manualCorrectionAllowedRoles: ['admin', 'manager'],
+      debug: false,
+    });
     mockInvoiceService.getResults.mockResolvedValue({
       items: [],
       pagination: { page: 1, pageSize: 100, total: 0, totalPages: 0 },

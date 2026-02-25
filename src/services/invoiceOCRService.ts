@@ -95,6 +95,41 @@ export interface InvoiceOcrManualCorrectionHistoryEntry {
   patch: Record<string, unknown>;
 }
 
+export interface InvoiceOcrIdempotencyRegistryEntry {
+  key: string;
+  workflowId: string;
+  fingerprint: string;
+  createdAt: string;
+  updatedAt: string;
+  traceId?: string;
+}
+
+export interface InvoiceOcrQueueLeaseEntry {
+  leaseId: string;
+  workflowId: string;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvoiceOcrQuarantineEntry {
+  fingerprint: string;
+  workflowId: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  reason: string;
+  failedAt: string;
+  retryCount: number;
+  traceId?: string;
+}
+
+export interface InvoiceOcrCurrencyNormalization {
+  currencyCode: string;
+  taxRatePercent?: number;
+  fxRateTimestamp: string;
+}
+
 /**
  * Invoice OCR Service Class
  *
@@ -148,6 +183,12 @@ export class InvoiceOCRService {
     'invoiceOCR_file_fingerprint_cache_v1';
   private readonly fingerprintCacheMaxEntries = 1000;
   private readonly manualCorrectionHistoryMaxEntries = 30;
+  private readonly idempotencyRegistryStorageKey =
+    'invoiceOCR_idempotency_registry_v1';
+  private readonly idempotencyRegistryMaxEntries = 2000;
+  private readonly quarantineStoragePrefix = 'invoiceOCR_quarantine_v1';
+  private readonly queueLeaseStorageKey = 'invoiceOCR_queue_lease_v1';
+  private readonly alertQuietWindowStorageKey = 'invoiceOCR_alert_quiet_v1';
 
   // ==================== Workflow Management ====================
 
@@ -1556,6 +1597,439 @@ export class InvoiceOCRService {
         item !== null &&
         typeof (item as { updatedAt?: unknown }).updatedAt === 'string'
     ) as InvoiceOcrManualCorrectionHistoryEntry[];
+  }
+
+  registerIdempotencyKey(
+    workflowId: string,
+    key: string,
+    fingerprint: string,
+    options?: {
+      traceId?: string;
+      ttlHours?: number;
+    }
+  ): {
+    accepted: boolean;
+    entry?: InvoiceOcrIdempotencyRegistryEntry;
+    conflictEntry?: InvoiceOcrIdempotencyRegistryEntry;
+  } {
+    const normalizedKey = key.trim();
+    const normalizedFingerprint = fingerprint.trim();
+    if (!workflowId || !normalizedKey || !normalizedFingerprint) {
+      return { accepted: false };
+    }
+
+    const ttlMs = Math.max(1, options?.ttlHours ?? 24) * 60 * 60 * 1000;
+    const store = this.readIdempotencyRegistryStore();
+    const compositeKey = `${workflowId}:${normalizedKey}`;
+    const now = new Date().toISOString();
+
+    for (const [entryKey, entryValue] of Object.entries(store)) {
+      const updatedAt = new Date(entryValue.updatedAt).getTime();
+      if (!Number.isFinite(updatedAt) || Date.now() - updatedAt > ttlMs) {
+        delete store[entryKey];
+      }
+    }
+
+    const existing = store[compositeKey];
+    if (existing && existing.fingerprint !== normalizedFingerprint) {
+      this.writeIdempotencyRegistryStore(store);
+      return {
+        accepted: false,
+        conflictEntry: existing,
+      };
+    }
+
+    const nextEntry: InvoiceOcrIdempotencyRegistryEntry = {
+      key: normalizedKey,
+      workflowId,
+      fingerprint: normalizedFingerprint,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      ...(options?.traceId?.trim() ? { traceId: options.traceId.trim() } : {}),
+    };
+    store[compositeKey] = nextEntry;
+    this.writeIdempotencyRegistryStore(store);
+    return {
+      accepted: true,
+      entry: nextEntry,
+    };
+  }
+
+  getCurrentUserRole(): string {
+    try {
+      const raw = localStorage.getItem('auth_user');
+      if (!raw) {
+        return 'guest';
+      }
+      const parsed = JSON.parse(raw) as { role?: unknown };
+      if (typeof parsed.role !== 'string') {
+        return 'guest';
+      }
+      const normalized = parsed.role.trim().toLowerCase();
+      return normalized || 'guest';
+    } catch {
+      return 'guest';
+    }
+  }
+
+  canPerformManualCorrection(allowedRoles: string[]): {
+    allowed: boolean;
+    role: string;
+  } {
+    const role = this.getCurrentUserRole();
+    const normalizedAllowed = Array.isArray(allowedRoles)
+      ? allowedRoles.map(item => item.trim().toLowerCase()).filter(Boolean)
+      : [];
+    if (normalizedAllowed.length === 0) {
+      return { allowed: true, role };
+    }
+    return {
+      allowed: normalizedAllowed.includes(role),
+      role,
+    };
+  }
+
+  acquireQueueLease(
+    workflowId: string,
+    ownerId: string,
+    options?: {
+      maxConcurrency?: number;
+      leaseTimeoutMs?: number;
+    }
+  ): {
+    acquired: boolean;
+    leaseId?: string;
+    activeCount: number;
+    maxConcurrency: number;
+  } {
+    const maxConcurrency = Math.max(1, options?.maxConcurrency ?? 2);
+    const leaseTimeoutMs = Math.max(1000, options?.leaseTimeoutMs ?? 120000);
+    const store = this.readQueueLeaseStore();
+    const now = Date.now();
+    const nowIso = new Date(now).toISOString();
+
+    for (const [leaseKey, leaseEntry] of Object.entries(store)) {
+      const updatedAt = new Date(leaseEntry.updatedAt).getTime();
+      if (!Number.isFinite(updatedAt) || now - updatedAt > leaseTimeoutMs) {
+        delete store[leaseKey];
+      }
+    }
+
+    const activeEntries = Object.values(store).filter(entry => {
+      const updatedAt = new Date(entry.updatedAt).getTime();
+      return (
+        entry.workflowId === workflowId &&
+        Number.isFinite(updatedAt) &&
+        now - updatedAt <= leaseTimeoutMs
+      );
+    });
+    const existing = activeEntries.find(entry => entry.ownerId === ownerId);
+    if (existing) {
+      store[existing.leaseId] = {
+        ...existing,
+        updatedAt: nowIso,
+      };
+      this.writeQueueLeaseStore(store);
+      return {
+        acquired: true,
+        leaseId: existing.leaseId,
+        activeCount: activeEntries.length,
+        maxConcurrency,
+      };
+    }
+
+    if (activeEntries.length >= maxConcurrency) {
+      this.writeQueueLeaseStore(store);
+      return {
+        acquired: false,
+        activeCount: activeEntries.length,
+        maxConcurrency,
+      };
+    }
+
+    const leaseId = `lease-${this.hashString(`${workflowId}:${ownerId}:${now}`)}`;
+    store[leaseId] = {
+      leaseId,
+      workflowId,
+      ownerId,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    this.writeQueueLeaseStore(store);
+    return {
+      acquired: true,
+      leaseId,
+      activeCount: activeEntries.length + 1,
+      maxConcurrency,
+    };
+  }
+
+  refreshQueueLease(leaseId: string): void {
+    const normalizedLeaseId = leaseId.trim();
+    if (!normalizedLeaseId) {
+      return;
+    }
+    const store = this.readQueueLeaseStore();
+    const entry = store[normalizedLeaseId];
+    if (!entry) {
+      return;
+    }
+    store[normalizedLeaseId] = {
+      ...entry,
+      updatedAt: new Date().toISOString(),
+    };
+    this.writeQueueLeaseStore(store);
+  }
+
+  releaseQueueLease(leaseId: string): void {
+    const normalizedLeaseId = leaseId.trim();
+    if (!normalizedLeaseId) {
+      return;
+    }
+    const store = this.readQueueLeaseStore();
+    delete store[normalizedLeaseId];
+    this.writeQueueLeaseStore(store);
+  }
+
+  getQuarantineEntries(workflowId: string): InvoiceOcrQuarantineEntry[] {
+    const key = `${this.quarantineStoragePrefix}:${workflowId}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw) as InvoiceOcrQuarantineEntry[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  upsertQuarantineEntries(
+    workflowId: string,
+    entries: InvoiceOcrQuarantineEntry[]
+  ): InvoiceOcrQuarantineEntry[] {
+    const key = `${this.quarantineStoragePrefix}:${workflowId}`;
+    const current = this.getQuarantineEntries(workflowId);
+    const store = new Map(current.map(item => [item.fingerprint, item]));
+    for (const entry of entries) {
+      const existing = store.get(entry.fingerprint);
+      const retryCount = existing ? existing.retryCount + 1 : entry.retryCount;
+      store.set(entry.fingerprint, {
+        ...entry,
+        retryCount,
+      });
+    }
+    const next = Array.from(store.values()).sort((left, right) => {
+      const leftAt = new Date(left.failedAt).getTime();
+      const rightAt = new Date(right.failedAt).getTime();
+      return rightAt - leftAt;
+    });
+    localStorage.setItem(key, JSON.stringify(next.slice(0, 300)));
+    return next;
+  }
+
+  clearQuarantineEntries(workflowId: string, fingerprints?: string[]): void {
+    const key = `${this.quarantineStoragePrefix}:${workflowId}`;
+    if (!Array.isArray(fingerprints) || fingerprints.length === 0) {
+      localStorage.removeItem(key);
+      return;
+    }
+    const removalSet = new Set(fingerprints);
+    const next = this.getQuarantineEntries(workflowId).filter(
+      entry => !removalSet.has(entry.fingerprint)
+    );
+    localStorage.setItem(key, JSON.stringify(next));
+  }
+
+  shouldEmitAlert(alertKey: string, quietWindowMinutes: number): boolean {
+    const normalizedKey = alertKey.trim();
+    if (!normalizedKey) {
+      return true;
+    }
+    const quietWindowMs = Math.max(1, quietWindowMinutes) * 60 * 1000;
+    const store = this.readAlertQuietWindowStore();
+    const lastNotifiedAt = store[normalizedKey]
+      ? new Date(store[normalizedKey]).getTime()
+      : 0;
+    if (
+      Number.isFinite(lastNotifiedAt) &&
+      Date.now() - lastNotifiedAt < quietWindowMs
+    ) {
+      return false;
+    }
+    store[normalizedKey] = new Date().toISOString();
+    this.writeAlertQuietWindowStore(store);
+    return true;
+  }
+
+  normalizeCurrencyCode(value: unknown, fallback = 'AUD'): string {
+    if (typeof value !== 'string' || !value.trim()) {
+      return fallback;
+    }
+    const normalized = value.trim().toUpperCase();
+    const aliasMap: Record<string, string> = {
+      $: 'USD',
+      US$: 'USD',
+      USDOLLAR: 'USD',
+      A$: 'AUD',
+      AU$: 'AUD',
+      CNY: 'CNY',
+      RMB: 'CNY',
+      '¥': 'CNY',
+      EUR: 'EUR',
+      EURO: 'EUR',
+      GBP: 'GBP',
+      '£': 'GBP',
+      JPY: 'JPY',
+      '¥JPY': 'JPY',
+    };
+    if (aliasMap[normalized]) {
+      return aliasMap[normalized];
+    }
+    if (/^[A-Z]{3}$/.test(normalized)) {
+      return normalized;
+    }
+    return fallback;
+  }
+
+  normalizeCurrencyAndTax(
+    extractedData: Record<string, unknown>,
+    options?: {
+      fallbackCurrency?: string;
+      timestamp?: string;
+    }
+  ): Record<string, unknown> {
+    const next = { ...extractedData };
+    const fallbackCurrency = options?.fallbackCurrency || 'AUD';
+    const currencyCandidate =
+      next.currency ||
+      next.currencyCode ||
+      (typeof next['invoiceCurrency'] === 'string'
+        ? next['invoiceCurrency']
+        : undefined);
+    const normalizedCurrency = this.normalizeCurrencyCode(
+      currencyCandidate,
+      fallbackCurrency
+    );
+
+    const parseTaxPercent = (value: unknown): number | undefined => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value > 1
+          ? Number(value.toFixed(4))
+          : Number((value * 100).toFixed(4));
+      }
+      if (typeof value === 'string' && value.trim()) {
+        const cleaned = value.replace(/[^\d.-]/g, '');
+        const numeric = Number(cleaned);
+        if (Number.isFinite(numeric)) {
+          return value.includes('%')
+            ? Number(numeric.toFixed(4))
+            : numeric > 1
+              ? Number(numeric.toFixed(4))
+              : Number((numeric * 100).toFixed(4));
+        }
+      }
+      return undefined;
+    };
+
+    const taxRate =
+      parseTaxPercent(next.taxRate) ||
+      parseTaxPercent(next.vatRate) ||
+      parseTaxPercent(next.gstRate) ||
+      parseTaxPercent(next.tax);
+
+    const fxRateTimestamp = options?.timestamp || new Date().toISOString();
+    const normalization: InvoiceOcrCurrencyNormalization = {
+      currencyCode: normalizedCurrency,
+      ...(typeof taxRate === 'number' ? { taxRatePercent: taxRate } : {}),
+      fxRateTimestamp,
+    };
+
+    next.currency = normalizedCurrency;
+    next.currencyCode = normalizedCurrency;
+    next.currencyNormalization = normalization;
+    if (typeof taxRate === 'number') {
+      next.taxRateNormalized = taxRate;
+    }
+    next.fxRateTimestamp = fxRateTimestamp;
+    return next;
+  }
+
+  private readIdempotencyRegistryStore(): Record<
+    string,
+    InvoiceOcrIdempotencyRegistryEntry
+  > {
+    try {
+      const raw = localStorage.getItem(this.idempotencyRegistryStorageKey);
+      if (!raw) {
+        return {};
+      }
+      const parsed = JSON.parse(raw) as Record<
+        string,
+        InvoiceOcrIdempotencyRegistryEntry
+      >;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private writeIdempotencyRegistryStore(
+    store: Record<string, InvoiceOcrIdempotencyRegistryEntry>
+  ): void {
+    const entries = Object.entries(store).sort((left, right) => {
+      const leftAt = new Date(left[1].updatedAt).getTime();
+      const rightAt = new Date(right[1].updatedAt).getTime();
+      return rightAt - leftAt;
+    });
+    const trimmed = entries.slice(0, this.idempotencyRegistryMaxEntries);
+    localStorage.setItem(
+      this.idempotencyRegistryStorageKey,
+      JSON.stringify(Object.fromEntries(trimmed))
+    );
+  }
+
+  private readQueueLeaseStore(): Record<string, InvoiceOcrQueueLeaseEntry> {
+    try {
+      const raw = localStorage.getItem(this.queueLeaseStorageKey);
+      if (!raw) {
+        return {};
+      }
+      const parsed = JSON.parse(raw) as Record<
+        string,
+        InvoiceOcrQueueLeaseEntry
+      >;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private writeQueueLeaseStore(
+    store: Record<string, InvoiceOcrQueueLeaseEntry>
+  ): void {
+    localStorage.setItem(this.queueLeaseStorageKey, JSON.stringify(store));
+  }
+
+  private readAlertQuietWindowStore(): Record<string, string> {
+    try {
+      const raw = localStorage.getItem(this.alertQuietWindowStorageKey);
+      if (!raw) {
+        return {};
+      }
+      const parsed = JSON.parse(raw) as Record<string, string>;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private writeAlertQuietWindowStore(store: Record<string, string>): void {
+    localStorage.setItem(
+      this.alertQuietWindowStorageKey,
+      JSON.stringify(store)
+    );
   }
 
   private hashString(value: string): string {

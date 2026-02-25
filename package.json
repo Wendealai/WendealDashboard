@@ -10,6 +10,7 @@
     "typecheck:all": "tsc -b",
     "preflight": "node scripts/predeploy-check.mjs",
     "preflight:invoice-ocr": "node scripts/preflight-invoice-ocr.mjs",
+    "perf:invoice-ocr-baseline": "node scripts/perf-invoice-ocr-baseline.mjs",
     "predeploy": "npm run preflight",
     "build:analyze": "cross-env ANALYZE=true npm run build",
     "analyze:size": "node scripts/analyze-bundle.js size",

@@ -6,7 +6,8 @@ export interface InvoiceOcrDiagnosticHistoryEntry {
     | 'manual_diagnostics'
     | 'auto_polling_timeout'
     | 'auto_polling_failure'
-    | 'auto_post_success';
+    | 'auto_post_success'
+    | 'scheduled_archive';
   healthy: boolean;
   snapshot: Record<string, unknown>;
 }
