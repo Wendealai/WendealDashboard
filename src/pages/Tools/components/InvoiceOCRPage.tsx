@@ -46,6 +46,8 @@ import {
   Spin,
   Steps,
   Modal,
+  Descriptions,
+  Tag,
 } from 'antd';
 import { useMessage } from '@/hooks';
 import { useErrorModal } from '@/hooks/useErrorModal';
@@ -61,6 +63,7 @@ import {
 import { getInvoiceOcrConfig } from '@/config/invoiceOcrConfig';
 import {
   invoiceOCRService,
+  type InvoiceOcrClientHealthSnapshot,
   type InvoiceOcrResultSyncCheckResult,
   type InvoiceOcrSupabaseCheckResult,
 } from '../../../services/invoiceOCRService';
@@ -83,6 +86,9 @@ const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Step } = Steps;
 const MAX_POLLING_FAILURES = 3;
+type InvoiceOcrTelemetryRuntime = typeof globalThis & {
+  __WENDEAL_INVOICE_OCR_TELEMETRY_BUFFER__?: unknown[];
+};
 
 /**
  * Invoice OCR processing status
@@ -103,6 +109,7 @@ const InvoiceOCRPage: React.FC = () => {
   const { isVisible, errorInfo, showError, hideError } = useErrorModal();
   const invoiceOcrConfig = useMemo(() => getInvoiceOcrConfig(), []);
   const pollingTimerRef = useRef<number | null>(null);
+  const autoDiagnosticsDoneRef = useRef(false);
   const processStartIsoRef = useRef<string>('');
   const baselineResultCountRef = useRef<number>(0);
 
@@ -117,6 +124,8 @@ const InvoiceOCRPage: React.FC = () => {
   const [testingWebhook, setTestingWebhook] = useState(false);
   const [testingResultSync, setTestingResultSync] = useState(false);
   const [testingSupabase, setTestingSupabase] = useState(false);
+  const [runningDiagnostics, setRunningDiagnostics] = useState(false);
+  const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
   const [pollingErrorHint, setPollingErrorHint] = useState<string | null>(null);
   const [webhookHealth, setWebhookHealth] =
     useState<WebhookConnectionCheckResult | null>(null);
@@ -153,6 +162,7 @@ const InvoiceOCRPage: React.FC = () => {
       transportWarnings?: string[];
     };
     rawResponse?: unknown;
+    clientHealth?: InvoiceOcrClientHealthSnapshot;
     /** 增强版webhook响应数据 */
     enhancedData?: EnhancedWebhookResponse;
   } | null>(null);
@@ -164,6 +174,166 @@ const InvoiceOCRPage: React.FC = () => {
     }
     setIsPollingResults(false);
   }, []);
+
+  const buildClientHealthSnapshot = useCallback(
+    (): InvoiceOcrClientHealthSnapshot => ({
+      capturedAt: new Date().toISOString(),
+      webhook: webhookHealth
+        ? {
+            reachable: webhookHealth.reachable,
+            checkedAt: webhookHealth.checkedAt,
+            latencyMs: webhookHealth.latencyMs,
+            ...(typeof webhookHealth.status === 'number'
+              ? { status: webhookHealth.status }
+              : {}),
+            ...(webhookHealth.statusText
+              ? { statusText: webhookHealth.statusText }
+              : {}),
+            ...(webhookHealth.errorMessage
+              ? { errorMessage: webhookHealth.errorMessage }
+              : {}),
+            ...(webhookHealth.requestUrl
+              ? { requestUrl: webhookHealth.requestUrl }
+              : {}),
+          }
+        : null,
+      resultSync: resultSyncHealth || null,
+      supabase: supabaseHealth || null,
+    }),
+    [resultSyncHealth, supabaseHealth, webhookHealth]
+  );
+
+  const runFullDiagnostics = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = Boolean(options?.silent);
+      setRunningDiagnostics(true);
+
+      try {
+        const [webhook, resultSync, supabase] = await Promise.all([
+          n8nWebhookService.testWebhookConnectionDetailed(
+            invoiceOcrConfig.webhookUrl
+          ),
+          invoiceOCRService.testResultSyncConnection(
+            invoiceOcrConfig.workflowId
+          ),
+          invoiceOCRService.testSupabaseConnection(),
+        ]);
+
+        setWebhookHealth(webhook);
+        setResultSyncHealth(resultSync);
+        setSupabaseHealth(supabase);
+
+        trackInvoiceOcrEvent('invoice_ocr_webhook_health_checked', {
+          workflowId: invoiceOcrConfig.workflowId,
+          reachable: webhook.reachable,
+          status: webhook.status || 0,
+          latencyMs: webhook.latencyMs,
+          errorMessage: webhook.errorMessage || '',
+        });
+        trackInvoiceOcrEvent('invoice_ocr_result_sync_health_checked', {
+          workflowId: invoiceOcrConfig.workflowId,
+          reachable: resultSync.reachable,
+          latencyMs: resultSync.latencyMs,
+          httpStatus: resultSync.httpStatus || 0,
+          resultCount: resultSync.resultCount || 0,
+          totalCount: resultSync.totalCount || 0,
+          errorMessage: resultSync.errorMessage || '',
+        });
+        trackInvoiceOcrEvent('invoice_ocr_supabase_health_checked', {
+          workflowId: invoiceOcrConfig.workflowId,
+          configured: supabase.configured,
+          reachable: supabase.reachable,
+          latencyMs: supabase.latencyMs,
+          httpStatus: supabase.httpStatus || 0,
+          errorMessage: supabase.errorMessage || '',
+        });
+
+        const allHealthy =
+          webhook.reachable &&
+          resultSync.reachable &&
+          supabase.configured &&
+          supabase.reachable;
+        if (!silent) {
+          if (allHealthy) {
+            message.success('诊断通过：Webhook、结果同步、Supabase 均正常');
+          } else {
+            message.warning('诊断完成：检测到异常，请查看状态徽标或诊断中心');
+          }
+        }
+      } catch (diagnosticError) {
+        console.error(
+          'Failed to run full invoice OCR diagnostics:',
+          diagnosticError
+        );
+        if (!silent) {
+          message.error('一键诊断执行失败');
+        }
+      } finally {
+        setRunningDiagnostics(false);
+      }
+    },
+    [
+      invoiceOcrConfig.webhookUrl,
+      invoiceOcrConfig.workflowId,
+      message,
+      setResultSyncHealth,
+      setSupabaseHealth,
+      setWebhookHealth,
+    ]
+  );
+
+  const handleExportPageDiagnostics = useCallback(() => {
+    const runtime = globalThis as InvoiceOcrTelemetryRuntime;
+    const telemetryBuffer = Array.isArray(
+      runtime.__WENDEAL_INVOICE_OCR_TELEMETRY_BUFFER__
+    )
+      ? runtime.__WENDEAL_INVOICE_OCR_TELEMETRY_BUFFER__.slice(-200)
+      : [];
+
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      workflowId: invoiceOcrConfig.workflowId,
+      processingStatus,
+      isPollingResults,
+      pollingErrorHint,
+      pageError: error,
+      currentHealth: buildClientHealthSnapshot(),
+      latestExecution: completedData
+        ? {
+            executionId: completedData.executionId || '',
+            requestKey: completedData.idempotencyKey || '',
+            hasBusinessData: Boolean(completedData.hasBusinessData),
+            schemaWarnings: completedData.schemaWarnings || [],
+            diagnostics: completedData.diagnostics || {},
+          }
+        : null,
+      stats,
+      resultCount: ocrResults.length,
+      telemetryBuffer,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `invoice-ocr-page-diagnostics-${Date.now()}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    message.success('页面诊断快照已导出');
+  }, [
+    buildClientHealthSnapshot,
+    completedData,
+    error,
+    invoiceOcrConfig.workflowId,
+    isPollingResults,
+    message,
+    ocrResults.length,
+    pollingErrorHint,
+    processingStatus,
+    stats,
+  ]);
 
   const pollForLatestResults = useCallback(
     (executionId?: string) => {
@@ -228,7 +398,7 @@ const InvoiceOCRPage: React.FC = () => {
           if (elapsed >= invoiceOcrConfig.resultPollingTimeoutMs) {
             stopResultPolling();
             setPollingErrorHint(
-              '轮询结果超时，请点击“刷新结果”或“检查Webhook”。'
+              '轮询结果超时，请点击“刷新结果”或执行“一键诊断”定位问题。'
             );
             trackInvoiceOcrEvent('invoice_ocr_polling_timeout', {
               workflowId: invoiceOcrConfig.workflowId,
@@ -238,6 +408,7 @@ const InvoiceOCRPage: React.FC = () => {
             message.warning(
               '识别已提交，但结果尚未落库。请稍后点击“刷新结果”或查看 n8n 执行日志。'
             );
+            void runFullDiagnostics({ silent: true });
           }
         } catch (pollError) {
           console.error('Invoice OCR result polling failed:', pollError);
@@ -259,26 +430,7 @@ const InvoiceOCRPage: React.FC = () => {
               attempts: consecutiveFailures,
               reason: pollErrorMessage,
             });
-            void invoiceOCRService
-              .testResultSyncConnection(invoiceOcrConfig.workflowId)
-              .then(health => {
-                setResultSyncHealth(health);
-                trackInvoiceOcrEvent('invoice_ocr_result_sync_health_checked', {
-                  workflowId: invoiceOcrConfig.workflowId,
-                  reachable: health.reachable,
-                  latencyMs: health.latencyMs,
-                  httpStatus: health.httpStatus || 0,
-                  resultCount: health.resultCount || 0,
-                  totalCount: health.totalCount || 0,
-                  errorMessage: health.errorMessage || '',
-                });
-              })
-              .catch(syncCheckError => {
-                console.error(
-                  'Result sync fallback health check failed:',
-                  syncCheckError
-                );
-              });
+            void runFullDiagnostics({ silent: true });
             message.error('结果同步失败，请检查数据连接并稍后重试。');
           }
         } finally {
@@ -297,6 +449,7 @@ const InvoiceOCRPage: React.FC = () => {
       invoiceOcrConfig.resultPollingTimeoutMs,
       invoiceOcrConfig.workflowId,
       message,
+      runFullDiagnostics,
       stopResultPolling,
     ]
   );
@@ -358,11 +511,15 @@ const InvoiceOCRPage: React.FC = () => {
         transportWarnings?: string[];
       };
       rawResponse?: unknown;
+      clientHealth?: InvoiceOcrClientHealthSnapshot;
       /** 增强版webhook响应数据 */
       enhancedData?: EnhancedWebhookResponse;
     }) => {
       console.log('OCR处理完成，接收到数据:', data);
-      setCompletedData(data);
+      setCompletedData({
+        ...data,
+        clientHealth: buildClientHealthSnapshot(),
+      });
       setProcessingStatus('completed');
       setCurrentStep(3);
       setLoading(false);
@@ -383,7 +540,7 @@ const InvoiceOCRPage: React.FC = () => {
       setResultsRefreshToken(prev => prev + 1);
       pollForLatestResults(data.executionId);
     },
-    [message, pollForLatestResults]
+    [buildClientHealthSnapshot, message, pollForLatestResults]
   );
 
   const handleOCRFailed = useCallback(
@@ -537,6 +694,14 @@ const InvoiceOCRPage: React.FC = () => {
   useEffect(() => {
     void loadInitialData();
   }, [invoiceOcrConfig.workflowId]);
+
+  useEffect(() => {
+    if (autoDiagnosticsDoneRef.current) {
+      return;
+    }
+    autoDiagnosticsDoneRef.current = true;
+    void runFullDiagnostics({ silent: true });
+  }, [runFullDiagnostics]);
 
   useEffect(
     () => () => {
@@ -741,6 +906,18 @@ const InvoiceOCRPage: React.FC = () => {
     );
   };
 
+  const allDiagnosticsHealthy = Boolean(
+    webhookHealth?.reachable &&
+      resultSyncHealth?.reachable &&
+      supabaseHealth?.configured &&
+      supabaseHealth?.reachable
+  );
+
+  const formatCheckTime = (value?: string): string =>
+    value
+      ? new Date(value).toLocaleString('zh-CN', { hour12: false })
+      : '未检查';
+
   /**
    * Render page header
    */
@@ -781,6 +958,17 @@ const InvoiceOCRPage: React.FC = () => {
             >
               检查Supabase
             </Button>
+            <Button
+              type='primary'
+              loading={runningDiagnostics}
+              onClick={() => void runFullDiagnostics()}
+            >
+              一键诊断
+            </Button>
+            <Button onClick={() => setDiagnosticsVisible(true)}>
+              诊断中心
+            </Button>
+            <Button onClick={handleExportPageDiagnostics}>导出诊断</Button>
             {renderWebhookHealthBadge()}
             {renderResultSyncHealthBadge()}
             {renderSupabaseHealthBadge()}
@@ -865,6 +1053,12 @@ const InvoiceOCRPage: React.FC = () => {
               >
                 检查Supabase
               </Button>
+              <Button size='small' onClick={() => void runFullDiagnostics()}>
+                一键诊断
+              </Button>
+              <Button size='small' onClick={() => setDiagnosticsVisible(true)}>
+                诊断中心
+              </Button>
             </Space>
           }
         />
@@ -936,6 +1130,141 @@ const InvoiceOCRPage: React.FC = () => {
           {renderSteps()}
           {renderMainContent()}
         </Spin>
+
+        <Modal
+          title='Invoice OCR 诊断中心'
+          open={diagnosticsVisible}
+          onCancel={() => setDiagnosticsVisible(false)}
+          width={920}
+          footer={
+            <Space>
+              <Button onClick={handleExportPageDiagnostics}>导出诊断</Button>
+              <Button
+                type='primary'
+                loading={runningDiagnostics}
+                onClick={() => void runFullDiagnostics()}
+              >
+                重新诊断
+              </Button>
+            </Space>
+          }
+        >
+          <Alert
+            type={allDiagnosticsHealthy ? 'success' : 'warning'}
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={
+              allDiagnosticsHealthy
+                ? '当前链路健康：Webhook、结果同步、Supabase 均可用'
+                : '检测到链路异常，请结合下方状态排查'
+            }
+            description={
+              pollingErrorHint
+                ? `当前轮询提示：${pollingErrorHint}`
+                : '可优先检查最近一次异常状态和延迟峰值。'
+            }
+          />
+
+          <Descriptions bordered size='small' column={1}>
+            <Descriptions.Item label='Webhook'>
+              <Space size='middle' wrap>
+                {webhookHealth ? (
+                  webhookHealth.reachable ? (
+                    <Tag color='success'>正常</Tag>
+                  ) : (
+                    <Tag color='error'>异常</Tag>
+                  )
+                ) : (
+                  <Tag>未检查</Tag>
+                )}
+                <Text type='secondary'>
+                  {webhookHealth
+                    ? `耗时 ${webhookHealth.latencyMs}ms，状态 ${typeof webhookHealth.status === 'number' ? `HTTP ${webhookHealth.status}` : 'N/A'}`
+                    : '暂无数据'}
+                </Text>
+                <Text type='secondary'>
+                  检查时间：{formatCheckTime(webhookHealth?.checkedAt)}
+                </Text>
+                {webhookHealth?.errorMessage && (
+                  <Text type='danger'>{webhookHealth.errorMessage}</Text>
+                )}
+              </Space>
+            </Descriptions.Item>
+
+            <Descriptions.Item label='结果同步 API'>
+              <Space size='middle' wrap>
+                {resultSyncHealth ? (
+                  resultSyncHealth.reachable ? (
+                    <Tag color='success'>正常</Tag>
+                  ) : (
+                    <Tag color='error'>异常</Tag>
+                  )
+                ) : (
+                  <Tag>未检查</Tag>
+                )}
+                <Text type='secondary'>
+                  {resultSyncHealth
+                    ? `耗时 ${resultSyncHealth.latencyMs}ms，状态 ${typeof resultSyncHealth.httpStatus === 'number' ? `HTTP ${resultSyncHealth.httpStatus}` : 'N/A'}`
+                    : '暂无数据'}
+                </Text>
+                <Text type='secondary'>
+                  检查时间：{formatCheckTime(resultSyncHealth?.checkedAt)}
+                </Text>
+                {resultSyncHealth && (
+                  <Text type='secondary'>
+                    返回条目：{resultSyncHealth.resultCount || 0}
+                    {typeof resultSyncHealth.totalCount === 'number'
+                      ? ` / 总量 ${resultSyncHealth.totalCount}`
+                      : ''}
+                  </Text>
+                )}
+                {resultSyncHealth?.errorMessage && (
+                  <Text type='danger'>{resultSyncHealth.errorMessage}</Text>
+                )}
+              </Space>
+            </Descriptions.Item>
+
+            <Descriptions.Item label='Supabase REST'>
+              <Space size='middle' wrap>
+                {supabaseHealth ? (
+                  !supabaseHealth.configured ? (
+                    <Tag color='error'>未配置</Tag>
+                  ) : supabaseHealth.reachable ? (
+                    <Tag color='success'>正常</Tag>
+                  ) : (
+                    <Tag color='error'>异常</Tag>
+                  )
+                ) : (
+                  <Tag>未检查</Tag>
+                )}
+                <Text type='secondary'>
+                  {supabaseHealth
+                    ? `耗时 ${supabaseHealth.latencyMs}ms，状态 ${typeof supabaseHealth.httpStatus === 'number' ? `HTTP ${supabaseHealth.httpStatus}` : 'N/A'}`
+                    : '暂无数据'}
+                </Text>
+                <Text type='secondary'>
+                  检查时间：{formatCheckTime(supabaseHealth?.checkedAt)}
+                </Text>
+                {supabaseHealth?.requestUrl && (
+                  <Text type='secondary'>
+                    请求地址：{supabaseHealth.requestUrl}
+                  </Text>
+                )}
+                {supabaseHealth?.errorMessage && (
+                  <Text type='danger'>{supabaseHealth.errorMessage}</Text>
+                )}
+              </Space>
+            </Descriptions.Item>
+          </Descriptions>
+
+          <Alert
+            style={{ marginTop: 16 }}
+            type='info'
+            showIcon
+            message='排查建议'
+            description='若 Webhook 正常但结果同步异常，优先检查 API 服务日志与数据库写入链路；若 Supabase 异常，优先核对运行时密钥与网络连通性。'
+          />
+        </Modal>
 
         {/* Settings modal */}
         <Modal

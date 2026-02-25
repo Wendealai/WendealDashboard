@@ -22,3 +22,11 @@ Updated: 2026-02-25
 - [x] Add direct result-sync API health check button in Invoice OCR page.
 - [x] Add direct Supabase connection check button in Invoice OCR page.
 - [x] Include OCR telemetry buffer in exported diagnostics payload.
+
+## Phase 3 (2026-02-25)
+
+- [x] Add one-click full diagnostics (Webhook + Result Sync + Supabase).
+- [x] Add Diagnostics Center modal with actionable chain status details.
+- [x] Auto-run silent full diagnostics when result polling times out/fails.
+- [x] Persist client-side health snapshot into completion payload and export.
+- [x] Add service tests for result sync / Supabase health check methods.

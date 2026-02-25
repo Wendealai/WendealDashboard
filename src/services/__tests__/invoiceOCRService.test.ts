@@ -212,9 +212,7 @@ describe('InvoiceOCRService', () => {
 
         const result = await service.getWorkflow(workflowId);
 
-        expect(mockApi.get).toHaveBeenCalledWith(
-          `/invoice-ocr/${workflowId}`
-        );
+        expect(mockApi.get).toHaveBeenCalledWith(`/invoice-ocr/${workflowId}`);
         expect(result).toEqual(mockWorkflow);
       });
     });
@@ -695,6 +693,115 @@ describe('InvoiceOCRService', () => {
         expect(result).toBe('mock-blob-url');
         expect(window.URL.createObjectURL).toHaveBeenCalledWith(mockBlob);
       });
+    });
+  });
+
+  describe('连接诊断', () => {
+    type SupabaseRuntime = typeof globalThis & {
+      __WENDEAL_SUPABASE_CONFIG__?: {
+        url?: string;
+        anonKey?: string;
+      };
+    };
+    const runtime = globalThis as SupabaseRuntime;
+    const originalFetch = globalThis.fetch;
+
+    afterEach(() => {
+      delete runtime.__WENDEAL_SUPABASE_CONFIG__;
+      if (originalFetch) {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('testResultSyncConnection 应返回可用状态', async () => {
+      mockApi.get.mockResolvedValue({
+        data: {
+          success: true,
+          data: {
+            items: [],
+            pagination: {
+              page: 1,
+              pageSize: 1,
+              total: 17,
+              totalPages: 17,
+            },
+          },
+        },
+      } as any);
+
+      const result = await service.testResultSyncConnection('workflow-1');
+
+      expect(result.reachable).toBe(true);
+      expect(result.resultCount).toBe(0);
+      expect(result.totalCount).toBe(17);
+      expect(mockApi.get).toHaveBeenCalledWith(
+        '/invoice-ocr/workflow-1/results',
+        {
+          params: { page: 1, pageSize: 1 },
+        }
+      );
+    });
+
+    it('testResultSyncConnection 应返回失败详情', async () => {
+      mockApi.get.mockRejectedValue(new Error('service_unavailable'));
+
+      const result = await service.testResultSyncConnection('workflow-1');
+
+      expect(result.reachable).toBe(false);
+      expect(result.httpStatus).toBeUndefined();
+      expect(result.errorMessage).toBe('service_unavailable');
+    });
+
+    it('testSupabaseConnection 在未配置时返回 configured=false', async () => {
+      const result = await service.testSupabaseConnection();
+
+      expect(result.reachable).toBe(false);
+      expect(result.configured).toBe(false);
+      expect(result.errorMessage).toBe('Supabase configuration is missing');
+    });
+
+    it('testSupabaseConnection 在配置有效时返回可用状态', async () => {
+      runtime.__WENDEAL_SUPABASE_CONFIG__ = {
+        url: 'https://example.supabase.co',
+        anonKey: 'anon-key',
+      };
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+      }) as any;
+
+      const result = await service.testSupabaseConnection();
+
+      expect(result.configured).toBe(true);
+      expect(result.reachable).toBe(true);
+      expect(result.httpStatus).toBe(200);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        'https://example.supabase.co/rest/v1/',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            apikey: 'anon-key',
+            Authorization: 'Bearer anon-key',
+          }),
+        })
+      );
+    });
+
+    it('testSupabaseConnection 在网络异常时返回错误信息', async () => {
+      runtime.__WENDEAL_SUPABASE_CONFIG__ = {
+        url: 'https://example.supabase.co',
+        anonKey: 'anon-key',
+      };
+      globalThis.fetch = jest
+        .fn()
+        .mockRejectedValue(new Error('network_error')) as any;
+
+      const result = await service.testSupabaseConnection();
+
+      expect(result.configured).toBe(true);
+      expect(result.reachable).toBe(false);
+      expect(result.errorMessage).toContain('network_error');
     });
   });
 

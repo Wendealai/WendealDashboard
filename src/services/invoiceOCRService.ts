@@ -51,6 +51,21 @@ export interface InvoiceOcrSupabaseCheckResult {
   errorMessage?: string;
 }
 
+export interface InvoiceOcrClientHealthSnapshot {
+  capturedAt: string;
+  webhook?: {
+    reachable: boolean;
+    checkedAt: string;
+    latencyMs: number;
+    status?: number;
+    statusText?: string;
+    errorMessage?: string;
+    requestUrl?: string;
+  } | null;
+  resultSync?: InvoiceOcrResultSyncCheckResult | null;
+  supabase?: InvoiceOcrSupabaseCheckResult | null;
+}
+
 /**
  * Invoice OCR Service Class
  *
@@ -885,12 +900,9 @@ export class InvoiceOCRService {
     const startedAt = Date.now();
     const runtime = globalThis as SupabaseRuntimeConfig;
 
-    const runtimeUrl = runtime.__WENDEAL_SUPABASE_CONFIG__?.url?.trim();
-    const runtimeAnonKey = runtime.__WENDEAL_SUPABASE_CONFIG__?.anonKey?.trim();
-    const supabaseUrl =
-      runtimeUrl || import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+    const supabaseUrl = runtime.__WENDEAL_SUPABASE_CONFIG__?.url?.trim() || '';
     const supabaseAnonKey =
-      runtimeAnonKey || import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
+      runtime.__WENDEAL_SUPABASE_CONFIG__?.anonKey?.trim() || '';
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return {
@@ -904,13 +916,18 @@ export class InvoiceOCRService {
 
     const requestUrl = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/`;
     try {
+      const requestSignal =
+        typeof AbortSignal !== 'undefined' &&
+        typeof AbortSignal.timeout === 'function'
+          ? AbortSignal.timeout(this.defaultHealthCheckTimeoutMs)
+          : undefined;
       const response = await fetch(requestUrl, {
         method: 'GET',
         headers: {
           apikey: supabaseAnonKey,
           Authorization: `Bearer ${supabaseAnonKey}`,
         },
-        signal: AbortSignal.timeout(this.defaultHealthCheckTimeoutMs),
+        ...(requestSignal ? { signal: requestSignal } : {}),
       });
 
       return {

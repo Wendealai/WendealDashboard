@@ -84,7 +84,10 @@ import {
   CopyOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { invoiceOCRService } from '../../../../services/invoiceOCRService';
+import {
+  invoiceOCRService,
+  type InvoiceOcrClientHealthSnapshot,
+} from '../../../../services/invoiceOCRService';
 import type {
   InvoiceOCRResult,
   InvoiceOCRBatchTask,
@@ -133,6 +136,7 @@ interface InvoiceOCRResultsProps {
       transportWarnings?: string[];
     };
     rawResponse?: unknown;
+    clientHealth?: InvoiceOcrClientHealthSnapshot;
     /** 增强版webhook响应数据 */
     enhancedData?: EnhancedWebhookResponse;
   };
@@ -418,6 +422,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       schemaWarnings: completedData.schemaWarnings || [],
       diagnostics: completedData.diagnostics || {},
       rawResponse: completedData.rawResponse || null,
+      clientHealth: completedData.clientHealth || null,
       telemetryBuffer,
     };
 
@@ -432,6 +437,75 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
     URL.revokeObjectURL(url);
     message.success('诊断信息已导出');
   }, [completedData, message]);
+
+  const renderClientHealthAlerts = useCallback(() => {
+    const clientHealth = completedData?.clientHealth;
+    if (!clientHealth) {
+      return null;
+    }
+
+    const alerts: React.ReactNode[] = [];
+    if (clientHealth.webhook && !clientHealth.webhook.reachable) {
+      alerts.push(
+        <Alert
+          key='client-health-webhook'
+          style={{ marginTop: 12, textAlign: 'left' }}
+          type='warning'
+          showIcon
+          message='客户端诊断：Webhook 异常'
+          description={
+            clientHealth.webhook.errorMessage ||
+            (typeof clientHealth.webhook.status === 'number'
+              ? `HTTP ${clientHealth.webhook.status} ${clientHealth.webhook.statusText || ''}`
+              : 'Webhook 不可达')
+          }
+        />
+      );
+    }
+
+    if (clientHealth.resultSync && !clientHealth.resultSync.reachable) {
+      alerts.push(
+        <Alert
+          key='client-health-sync'
+          style={{ marginTop: 12, textAlign: 'left' }}
+          type='warning'
+          showIcon
+          message='客户端诊断：结果同步接口异常'
+          description={
+            clientHealth.resultSync.errorMessage ||
+            (typeof clientHealth.resultSync.httpStatus === 'number'
+              ? `HTTP ${clientHealth.resultSync.httpStatus}`
+              : '结果同步接口不可达')
+          }
+        />
+      );
+    }
+
+    if (
+      clientHealth.supabase &&
+      (!clientHealth.supabase.configured || !clientHealth.supabase.reachable)
+    ) {
+      alerts.push(
+        <Alert
+          key='client-health-supabase'
+          style={{ marginTop: 12, textAlign: 'left' }}
+          type='warning'
+          showIcon
+          message='客户端诊断：Supabase 异常'
+          description={
+            !clientHealth.supabase.configured
+              ? 'Supabase 未配置'
+              : clientHealth.supabase.errorMessage ||
+                (typeof clientHealth.supabase.httpStatus === 'number'
+                  ? `HTTP ${clientHealth.supabase.httpStatus}`
+                  : 'Supabase 不可达')
+          }
+        />
+      );
+    }
+
+    return alerts.length > 0 ? <>{alerts}</> : null;
+  }, [completedData]);
 
   /**
    * 结果表格列定义
@@ -1150,6 +1224,8 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
               )}
             </Card>
 
+            {renderClientHealthAlerts()}
+
             {/* 处理建议 */}
             {enhancedData.results[0]?.recommendations &&
               enhancedData.results[0].recommendations.length > 0 && (
@@ -1576,6 +1652,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                   )}
                 />
               )}
+            {renderClientHealthAlerts()}
 
             <Divider style={{ margin: '32px 0 16px' }} />
             <Text type='secondary' style={{ fontSize: 12 }}>
