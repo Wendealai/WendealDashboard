@@ -33,6 +33,7 @@ const baseSettings: InvoiceAssistantSettings = {
   xero_sync_endpoint: null,
   xero_attachment_endpoint: null,
   xero_duplicate_check_endpoint: null,
+  abn_validation_endpoint: null,
   default_currency: 'AUD',
   default_transaction_type: 'SPEND_MONEY',
   dry_run_mode: true,
@@ -45,7 +46,7 @@ const makeReview = (
   invoice_date: '2026-02-20',
   due_date: null,
   supplier_name: 'Coles',
-  abn: '12345678901',
+  abn: '51824753556',
   invoice_number: 'INV-001',
   currency: 'AUD',
   total: 100,
@@ -109,6 +110,7 @@ describe('invoiceIngestionAssistantService', () => {
   beforeEach(() => {
     storage.clear();
     jest.clearAllMocks();
+    invoiceIngestionAssistantService.resetTransientRuntimeState();
 
     (localStorage.getItem as jest.Mock).mockImplementation((key: string) => {
       return storage.has(key) ? storage.get(key) : null;
@@ -176,6 +178,31 @@ describe('invoiceIngestionAssistantService', () => {
     expect(nextDoc.status).toBe('recognized');
     expect(nextDoc.reasons.join(' ')).toContain(
       'Compliance rules blocked sync'
+    );
+  });
+
+  it('blocks mark ready when GST explicit amount is incomplete', () => {
+    const doc = makeDocument({
+      status: 'recognized',
+      review: makeReview({
+        gst_status: 'explicit_amount',
+        gst_amount: null,
+      }),
+    });
+    writeAssistantState({
+      version: 1,
+      documents: [doc],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const summary = invoiceIngestionAssistantService.markReadyToSync(['doc_1']);
+    const nextState = readAssistantState();
+
+    expect(summary.failed).toBe(1);
+    expect(nextState.documents[0].status).toBe('recognized');
+    expect(nextState.documents[0].reasons.join(' ')).toContain(
+      'Explicit GST requires non-negative gst_amount'
     );
   });
 
@@ -401,7 +428,7 @@ describe('invoiceIngestionAssistantService', () => {
     };
     writeAssistantState({
       version: 1,
-      documents: [makeDocument()],
+      documents: [makeDocument({ review: makeReview({ abn: '53004085616' }) })],
       suppliers: [],
       settings,
     });
@@ -544,6 +571,160 @@ describe('invoiceIngestionAssistantService', () => {
     expect(nextState.documents[0].status).toBe('sync_failed');
     expect(nextState.documents[0].sync_error).toContain(
       'Compliance rules blocked sync'
+    );
+  });
+
+  it('blocks sync when no-gst status conflicts with tax binding', async () => {
+    writeAssistantState({
+      version: 1,
+      documents: [
+        makeDocument({
+          review: makeReview({
+            gst_status: 'no_gst_indicated',
+            gst_amount: 10,
+            tax_type: 'INPUT',
+            tax_invoice_flag: false,
+          }),
+        }),
+      ],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.failed).toBe(1);
+    expect(nextState.documents[0].status).toBe('sync_failed');
+    expect(nextState.documents[0].sync_error).toContain(
+      'No GST indicated requires tax_type NONE'
+    );
+  });
+
+  it('auto-binds tax_type from gst_status on review update', () => {
+    writeAssistantState({
+      version: 1,
+      documents: [
+        makeDocument({
+          status: 'recognized',
+          review: makeReview({
+            gst_status: 'explicit_amount',
+            tax_type: 'INPUT',
+          }),
+        }),
+      ],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const updated = invoiceIngestionAssistantService.updateReview('doc_1', {
+      gst_status: 'no_gst_indicated',
+      tax_type: null,
+      gst_amount: null,
+      tax_invoice_flag: false,
+    });
+
+    expect(updated?.review?.tax_type).toBe('NONE');
+  });
+
+  it('blocks sync when ABN checksum is invalid', async () => {
+    writeAssistantState({
+      version: 1,
+      documents: [
+        makeDocument({
+          review: makeReview({
+            abn: '12345678901',
+            tax_invoice_flag: false,
+          }),
+        }),
+      ],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.failed).toBe(1);
+    expect(nextState.documents[0].status).toBe('sync_failed');
+    expect(nextState.documents[0].sync_error).toContain(
+      'Compliance rules blocked sync'
+    );
+  });
+
+  it('reuses ABN validation cache for same ABN in one batch', async () => {
+    const settings: InvoiceAssistantSettings = {
+      ...baseSettings,
+      dry_run_mode: false,
+      abn_validation_endpoint: 'https://abr.example/validate',
+    };
+    const firstDoc = makeDocument({
+      document_id: 'doc_1',
+      review: makeReview({ invoice_number: 'INV-ABN-1' }),
+    });
+    const secondDoc = makeDocument({
+      document_id: 'doc_2',
+      review: makeReview({ invoice_number: 'INV-ABN-2' }),
+      updated_at: '2026-02-20T08:00:01.000Z',
+    });
+    writeAssistantState({
+      version: 1,
+      documents: [firstDoc, secondDoc],
+      suppliers: [],
+      settings,
+    });
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ valid: true }),
+    } as Response);
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+      'doc_2',
+    ]);
+
+    expect(summary.succeeded).toBe(2);
+    expect((global.fetch as jest.Mock).mock.calls.length).toBe(1);
+    expect((global.fetch as jest.Mock).mock.calls[0]?.[0]).toBe(
+      'https://abr.example/validate'
+    );
+  });
+
+  it('blocks sync when ABR endpoint marks ABN invalid', async () => {
+    const settings: InvoiceAssistantSettings = {
+      ...baseSettings,
+      dry_run_mode: false,
+      abn_validation_endpoint: 'https://abr.example/validate',
+    };
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument({ review: makeReview({ abn: '53004085616' }) })],
+      suppliers: [],
+      settings,
+    });
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        valid: false,
+        reason: 'ABN not found',
+      }),
+    } as Response);
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.failed).toBe(1);
+    expect(nextState.documents[0].status).toBe('sync_failed');
+    expect(nextState.documents[0].sync_error).toContain(
+      'ABN validation failed'
     );
   });
 

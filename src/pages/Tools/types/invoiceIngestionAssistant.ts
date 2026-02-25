@@ -114,6 +114,7 @@ export interface InvoiceAssistantSettings {
   xero_sync_endpoint: string | null;
   xero_attachment_endpoint: string | null;
   xero_duplicate_check_endpoint: string | null;
+  abn_validation_endpoint: string | null;
   default_currency: string;
   default_transaction_type: XeroTransactionType;
   dry_run_mode: boolean;

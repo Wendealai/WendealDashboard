@@ -96,6 +96,13 @@ const AssistantSettingsModal: React.FC<AssistantSettingsModalProps> = ({
         >
           <Input placeholder='Optional backend endpoint URL' />
         </Form.Item>
+        <Form.Item
+          name='abn_validation_endpoint'
+          label='ABN Validation Endpoint'
+          rules={[{ validator: validateOptionalUrl }]}
+        >
+          <Input placeholder='Optional backend endpoint URL' />
+        </Form.Item>
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item

@@ -28,7 +28,19 @@ const REQUEST_TIMEOUT_MS = 20000;
 const REQUEST_RETRY_TIMES = 2;
 const ORCHESTRATION_POLL_INTERVAL_MS = 1200;
 const ORCHESTRATION_MAX_POLL_ATTEMPTS = 40;
+const ABN_CACHE_TTL_MS = 60 * 60 * 1000;
+const ABN_MIN_REQUEST_INTERVAL_MS = 250;
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const ABN_WEIGHT_FACTORS = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
+const abnValidationCache = new Map<
+  string,
+  { valid: boolean; reason: string | null; expiresAt: number }
+>();
+const abnValidationInFlight = new Map<
+  string,
+  Promise<{ valid: boolean; reason: string | null }>
+>();
+let abnValidationLastRequestAt = 0;
 
 const DEFAULT_SUPPLIERS: SupplierDirectoryEntry[] = [
   {
@@ -72,6 +84,7 @@ const DEFAULT_SETTINGS: InvoiceAssistantSettings = {
   xero_sync_endpoint: null,
   xero_attachment_endpoint: null,
   xero_duplicate_check_endpoint: null,
+  abn_validation_endpoint: null,
   default_currency: 'AUD',
   default_transaction_type: 'SPEND_MONEY',
   dry_run_mode: true,
@@ -114,6 +127,35 @@ const normalizeAliasToken = (value: string): string =>
     .replace(/[#-]?\d+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+const normalizeAbnDigits = (
+  value: string | null | undefined
+): string | null => {
+  if (!value) {
+    return null;
+  }
+  const digits = value.replace(/\D+/g, '');
+  if (digits.length !== 11) {
+    return null;
+  }
+  return digits;
+};
+
+const isValidAbnChecksum = (abn: string): boolean => {
+  if (!/^\d{11}$/.test(abn)) {
+    return false;
+  }
+  const digits = abn.split('').map(item => Number(item));
+  const firstDigit = digits[0];
+  if (typeof firstDigit !== 'number') {
+    return false;
+  }
+  digits[0] = firstDigit - 1;
+  const weightedSum = digits.reduce((sum, digit, index) => {
+    return sum + digit * (ABN_WEIGHT_FACTORS[index] || 0);
+  }, 0);
+  return weightedSum % 89 === 0;
+};
 
 const safeNumber = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -449,6 +491,7 @@ const buildReviewDraft = (
   const currency =
     supplierMatch?.default_currency ||
     normalizeCurrency(extraction.currency || settings.default_currency);
+  const taxTypeSeed = supplierMatch?.default_tax_type || null;
 
   return {
     invoice_date: extraction.invoice_date,
@@ -463,7 +506,7 @@ const buildReviewDraft = (
     tax_invoice_flag: extraction.tax_invoice_flag,
     category: null,
     account_code: supplierMatch?.default_account_code || null,
-    tax_type: supplierMatch?.default_tax_type || null,
+    tax_type: bindTaxTypeByGstStatus(extraction.gst_status, taxTypeSeed),
     description: supplierName ? `${supplierName} expense` : 'Business expense',
     payment_method: null,
     transaction_type:
@@ -473,6 +516,29 @@ const buildReviewDraft = (
     drive_file_id: doc.drive_file_id,
     drive_url: doc.drive_url,
   };
+};
+
+const normalizeTaxTypeToken = (
+  value: string | null | undefined
+): string | null => {
+  const normalized = normalizeName(value || '');
+  return normalized ? normalized.toUpperCase() : null;
+};
+
+const bindTaxTypeByGstStatus = (
+  gstStatus: InvoiceGstStatus,
+  taxType: string | null
+): string | null => {
+  if (gstStatus === 'no_gst_indicated') {
+    return 'NONE';
+  }
+  if (
+    gstStatus === 'explicit_amount' ||
+    gstStatus === 'included_unknown_amount'
+  ) {
+    return taxType || 'INPUT';
+  }
+  return taxType;
 };
 
 const requiredMissingForSync = (review: InvoiceReviewDraft): string[] => {
@@ -497,6 +563,8 @@ const requiredMissingForSync = (review: InvoiceReviewDraft): string[] => {
 
 const complianceViolationsForSync = (review: InvoiceReviewDraft): string[] => {
   const violations: string[] = [];
+  const normalizedAbn = normalizeAbnDigits(review.abn);
+  const normalizedTaxType = normalizeTaxTypeToken(review.tax_type);
 
   if (review.transaction_type === 'BILL') {
     if (!review.due_date) {
@@ -514,6 +582,39 @@ const complianceViolationsForSync = (review: InvoiceReviewDraft): string[] => {
     if (review.gst_status === 'unknown') {
       violations.push('Tax invoice requires explicit GST status');
     }
+  }
+
+  if (review.abn && !normalizedAbn) {
+    violations.push('ABN must contain exactly 11 digits');
+  }
+  if (normalizedAbn && !isValidAbnChecksum(normalizedAbn)) {
+    violations.push('ABN checksum is invalid');
+  }
+
+  if (review.gst_status === 'explicit_amount') {
+    if (review.gst_amount === null || review.gst_amount < 0) {
+      violations.push('Explicit GST requires non-negative gst_amount');
+    }
+    if (!normalizedTaxType) {
+      violations.push('Explicit GST requires tax_type');
+    }
+  }
+
+  if (review.gst_status === 'included_unknown_amount' && !normalizedTaxType) {
+    violations.push('Included GST requires tax_type');
+  }
+
+  if (review.gst_status === 'no_gst_indicated') {
+    if (review.gst_amount !== null && review.gst_amount !== 0) {
+      violations.push('No GST indicated requires gst_amount to be 0 or null');
+    }
+    if (normalizedTaxType && normalizedTaxType !== 'NONE') {
+      violations.push('No GST indicated requires tax_type NONE');
+    }
+  }
+
+  if (review.gst_status === 'mixed' && review.line_items.length === 0) {
+    violations.push('Mixed GST requires line_items breakdown');
   }
 
   return violations;
@@ -631,7 +732,10 @@ const buildDuplicateSignature = (
   if (!supplier || !invoiceDate || !currency || !total) {
     return null;
   }
-  const invoiceNumber = normalizeAliasToken(review.invoice_number || '');
+  const invoiceNumber =
+    normalizeName(review.invoice_number || '')
+      ?.toUpperCase()
+      .replace(/\s+/g, '') || '';
   if (invoiceNumber) {
     return `inv:${supplier}|${invoiceNumber}|${invoiceDate}|${currency}|${total}`;
   }
@@ -1288,6 +1392,12 @@ class InvoiceIngestionAssistantService {
     return deriveSyncSummaryFromState(documentIds, nextState);
   }
 
+  resetTransientRuntimeState(): void {
+    abnValidationCache.clear();
+    abnValidationInFlight.clear();
+    abnValidationLastRequestAt = 0;
+  }
+
   getState(): InvoiceAssistantState {
     return readState();
   }
@@ -1652,6 +1762,10 @@ class InvoiceIngestionAssistantService {
       currency: normalizeCurrency(
         (patch.currency || doc.review.currency) as string
       ),
+      tax_type: bindTaxTypeByGstStatus(
+        (patch.gst_status || doc.review.gst_status) as InvoiceGstStatus,
+        (patch.tax_type || doc.review.tax_type) as string | null
+      ),
     };
     const reviewGate = inferHumanReview(
       doc.extraction ||
@@ -1865,6 +1979,28 @@ class InvoiceIngestionAssistantService {
           };
         }
 
+        const abnValidationError = await this.validateAbnBeforeSync(
+          doc.review,
+          state.settings
+        );
+        if (abnValidationError) {
+          return {
+            outcome: 'failed' as const,
+            patch: {
+              documentId: doc.document_id,
+              baseUpdatedAt: doc.updated_at,
+              next: {
+                ...doc,
+                status: 'sync_failed' as const,
+                sync_error: abnValidationError,
+                sync_idempotency_key: idempotencyKey,
+                updated_at: nowIso(),
+              },
+            },
+            documentId: doc.document_id,
+          };
+        }
+
         const localDuplicate = findBlockingLocalDuplicate(doc, state.documents);
         if (localDuplicate) {
           return {
@@ -1987,6 +2123,106 @@ class InvoiceIngestionAssistantService {
       ...summarizeBatch(documentIds.length, succeeded, failed, conflicted),
       synced_document_ids: [...syncedDocumentIds],
     };
+  }
+
+  private async validateAbnBeforeSync(
+    review: InvoiceReviewDraft,
+    settings: InvoiceAssistantSettings
+  ): Promise<string | null> {
+    const normalizedAbn = normalizeAbnDigits(review.abn);
+    if (!normalizedAbn) {
+      return null;
+    }
+    if (!isValidAbnChecksum(normalizedAbn)) {
+      return 'ABN validation failed: checksum is invalid';
+    }
+
+    const remoteValidation = await this.validateAbnWithRemoteCache(
+      normalizedAbn,
+      settings
+    );
+    if (!remoteValidation.valid) {
+      return `ABN validation failed: ${remoteValidation.reason || 'ABN not found in ABR'}`;
+    }
+    return null;
+  }
+
+  private async validateAbnWithRemoteCache(
+    abn: string,
+    settings: InvoiceAssistantSettings
+  ): Promise<{ valid: boolean; reason: string | null }> {
+    const endpoint = normalizeName(settings.abn_validation_endpoint);
+    if (!endpoint || settings.dry_run_mode) {
+      return { valid: true, reason: null };
+    }
+
+    const cached = abnValidationCache.get(abn);
+    if (cached && cached.expiresAt > Date.now()) {
+      return {
+        valid: cached.valid,
+        reason: cached.reason,
+      };
+    }
+    const inFlight = abnValidationInFlight.get(abn);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const requestPromise = (async () => {
+      const elapsedSinceLastCall = Date.now() - abnValidationLastRequestAt;
+      const waitMs = ABN_MIN_REQUEST_INTERVAL_MS - elapsedSinceLastCall;
+      if (waitMs > 0) {
+        await delay(waitMs);
+      }
+
+      const response = await fetchWithRetry(
+        endpoint,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ abn }),
+        },
+        { label: 'ABN validation' }
+      );
+      abnValidationLastRequestAt = Date.now();
+
+      const payload = asRecord((await response.json()) as unknown) || {};
+      const validFlags = [
+        parseBoolean(payload.valid),
+        parseBoolean(payload.is_valid),
+        parseBoolean(payload.found),
+        parseBoolean(payload.exists),
+      ].filter((value): value is boolean => value !== null);
+      const valid = validFlags.includes(true)
+        ? true
+        : validFlags.includes(false)
+          ? false
+          : true;
+      const reason =
+        normalizeName(payload.reason as string | null | undefined) ||
+        normalizeName(payload.message as string | null | undefined) ||
+        null;
+
+      abnValidationCache.set(abn, {
+        valid,
+        reason,
+        expiresAt: Date.now() + ABN_CACHE_TTL_MS,
+      });
+
+      return {
+        valid,
+        reason,
+      };
+    })();
+
+    abnValidationInFlight.set(abn, requestPromise);
+    try {
+      return await requestPromise;
+    } finally {
+      abnValidationInFlight.delete(abn);
+    }
   }
 
   private async precheckDuplicateWithXero(
