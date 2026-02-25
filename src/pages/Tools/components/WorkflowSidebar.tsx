@@ -154,6 +154,12 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
     const builtinWorkflows = useMemo<WorkflowInfo[]>(() => {
       const configs: BuiltinWorkflowConfig[] = [
         {
+          id: 'invoice-ingestion-assistant-workflow',
+          name: '发票采集助手 / Invoice Ingestion Assistant',
+          description: '拍照上传小票，OCR识别并一键同步到 Xero',
+          type: 'invoice-ocr',
+        },
+        {
           id: 'invoice-ocr-workflow',
           name: t('invoiceOCR.title'),
           description: t('invoiceOCR.subtitle'),
@@ -170,13 +176,6 @@ const WorkflowSidebar: React.FC<WorkflowSidebarProps> = memo(
           id: 'tax-invoice-receipt-workflow',
           name: 'Tax Invoice/Receipt',
           description: 'Generate and manage tax invoices and receipts',
-          type: 'invoice-ocr',
-        },
-        {
-          id: 'invoice-ingestion-assistant-workflow',
-          name: 'Invoice Ingestion Assistant',
-          description:
-            'Capture receipts, OCR extract, review, and one-click sync to Xero',
           type: 'invoice-ocr',
         },
         {

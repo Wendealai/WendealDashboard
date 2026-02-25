@@ -13,6 +13,7 @@ import {
   Divider,
   Popover,
   Breadcrumb,
+  Button,
 } from 'antd';
 import {
   ToolOutlined,
@@ -20,8 +21,10 @@ import {
   InfoCircleOutlined,
   HomeOutlined,
   SettingOutlined,
+  FileSearchOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import WorkflowSidebar from './components/WorkflowSidebar';
 import WorkflowPanel from './components/WorkflowPanel';
 import ResultPanel from './components/ResultPanel';
@@ -34,6 +37,9 @@ import InvoiceIngestionAssistant from './components/InvoiceIngestionAssistant';
 import type { Workflow } from './types';
 
 const { Title, Text } = Typography;
+const WORKFLOW_QUERY_KEY = 'workflow';
+const INVOICE_INGESTION_ASSISTANT_WORKFLOW_ID =
+  'invoice-ingestion-assistant-workflow';
 
 /**
  * Tools Dashboard main page component
@@ -41,27 +47,52 @@ const { Title, Text } = Typography;
  */
 const Tools: React.FC = () => {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Currently selected workflow state
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(
     null
   );
 
+  const updateWorkflowQuery = useCallback(
+    (workflowId?: string) => {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      if (workflowId) {
+        nextSearchParams.set(WORKFLOW_QUERY_KEY, workflowId);
+      } else {
+        nextSearchParams.delete(WORKFLOW_QUERY_KEY);
+      }
+      setSearchParams(nextSearchParams, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
+
   /**
    * Handle workflow selection
    */
-  const handleWorkflowSelect = useCallback((workflow: Workflow | null) => {
-    console.log('Tools: Selected workflow:', workflow);
-    setSelectedWorkflow(workflow);
-  }, []);
+  const handleWorkflowSelect = useCallback(
+    (workflow: Workflow | null) => {
+      console.log('Tools: Selected workflow:', workflow);
+      setSelectedWorkflow(workflow);
+      updateWorkflowQuery(workflow?.id);
+    },
+    [updateWorkflowQuery]
+  );
 
-  const selectedWorkflowId = selectedWorkflow?.id || '';
+  const handleOpenInvoiceIngestionAssistant = useCallback(() => {
+    setSelectedWorkflow(null);
+    updateWorkflowQuery(INVOICE_INGESTION_ASSISTANT_WORKFLOW_ID);
+  }, [updateWorkflowQuery]);
+
+  const workflowFromQuery = searchParams.get(WORKFLOW_QUERY_KEY) || '';
+  const selectedWorkflowId = selectedWorkflow?.id || workflowFromQuery;
   const workflowTitleMap: Record<string, string> = {
     'invoice-ocr-workflow': t('informationDashboard.invoiceOCRRecognition'),
     'universal-ocr-workflow': 'Universal OCR Processing',
     'smart-opportunities': 'Smart Opportunities',
     'tax-invoice-receipt-workflow': 'Tax Invoice/Receipt',
-    'invoice-ingestion-assistant-workflow': 'Invoice Ingestion Assistant',
+    'invoice-ingestion-assistant-workflow':
+      '发票采集助手 / Invoice Ingestion Assistant',
     'invoice-shelf-workflow': 'InvoiceShelf',
     'tools-workflow': t('tools.workflow.iframeTitle', 'Business Tools'),
   };
@@ -85,6 +116,9 @@ const Tools: React.FC = () => {
       />
     ),
   };
+  const resolvedWorkflowId = workflowContentMap[selectedWorkflowId]
+    ? selectedWorkflowId
+    : '';
 
   const defaultContent = (
     <>
@@ -114,7 +148,10 @@ const Tools: React.FC = () => {
             ),
           },
           {
-            title: selectedWorkflow?.name || 'Dashboard',
+            title:
+              selectedWorkflow?.name ||
+              workflowTitleMap[resolvedWorkflowId] ||
+              'Dashboard',
           },
         ]}
       />
@@ -125,6 +162,15 @@ const Tools: React.FC = () => {
           <span style={{ display: 'flex', alignItems: 'center' }}>
             <ToolOutlined style={{ marginRight: 12 }} />
             {t('navigation.tools')}
+            <Button
+              type='primary'
+              size='small'
+              icon={<FileSearchOutlined />}
+              onClick={handleOpenInvoiceIngestionAssistant}
+              style={{ marginLeft: '12px' }}
+            >
+              发票采集助手
+            </Button>
             <Popover
               content={
                 <div style={{ maxWidth: '550px' }}>
@@ -206,7 +252,7 @@ const Tools: React.FC = () => {
               <Space>
                 <FilterOutlined />
                 <span style={{ fontSize: '16px' }}>
-                  {workflowTitleMap[selectedWorkflowId] ||
+                  {workflowTitleMap[resolvedWorkflowId] ||
                     t('informationDashboard.title')}
                 </span>
               </Space>
@@ -214,7 +260,7 @@ const Tools: React.FC = () => {
             className='data-display-card'
             style={{ height: 'calc(100vh - 80px)', minHeight: '850px' }}
           >
-            {workflowContentMap[selectedWorkflowId] || defaultContent}
+            {workflowContentMap[resolvedWorkflowId] || defaultContent}
           </Card>
         </Col>
       </Row>
