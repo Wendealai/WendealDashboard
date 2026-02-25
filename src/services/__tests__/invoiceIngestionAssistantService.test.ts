@@ -1066,6 +1066,124 @@ describe('invoiceIngestionAssistantService', () => {
     );
   });
 
+  it('generates reconciliation suggestions for synced documents', () => {
+    writeAssistantState({
+      version: 1,
+      documents: [
+        makeDocument({
+          document_id: 'doc_synced',
+          status: 'synced',
+          synced_at: '2026-02-25T10:00:00.000Z',
+          review: makeReview({
+            supplier_name: 'Coles',
+            invoice_date: '2026-02-20',
+            total: 88.5,
+            currency: 'AUD',
+          }),
+        }),
+        makeDocument({
+          document_id: 'doc_pending',
+          status: 'ready_to_sync',
+        }),
+      ],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const suggestions =
+      invoiceIngestionAssistantService.getReconciliationSuggestions();
+
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]?.document_id).toBe('doc_synced');
+    expect(suggestions[0]?.amount).toBe(88.5);
+    expect(suggestions[0]?.suggestion).toContain('Match bank transaction');
+  });
+
+  it('exports security audit snapshot with masked fields', () => {
+    writeAssistantState({
+      version: 1,
+      documents: [
+        makeDocument({
+          document_id: 'doc_security',
+          status: 'synced',
+          synced_at: '2026-02-20T10:00:00.000Z',
+          sync_error:
+            'Failed at https://example.com/private?token=super-secret-token-value-123456',
+          review: makeReview({
+            abn: '51824753556',
+            drive_url: 'https://drive.example/private/doc_security',
+          }),
+          drive_url: 'https://drive.example/private/doc_security',
+        }),
+      ],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const snapshot =
+      invoiceIngestionAssistantService.getSecurityAuditSnapshot();
+
+    expect(snapshot.documents_total).toBe(1);
+    expect(snapshot.redacted_documents).toBe(1);
+    expect(snapshot.documents[0]?.abn_masked).toBe('51******556');
+    expect(snapshot.documents[0]?.drive_url_redacted).toBe(true);
+    expect(snapshot.documents[0]?.sync_error).toContain('[REDACTED_URL]');
+  });
+
+  it('runs security hardening sweep for stale synced documents', async () => {
+    const oldSyncedDoc = makeDocument({
+      document_id: 'doc_old_security',
+      status: 'synced',
+      synced_at: '2026-02-01T00:00:00.000Z',
+      updated_at: '2026-02-01T00:00:00.000Z',
+      review: makeReview({
+        abn: '51824753556',
+        drive_url: 'https://drive.example/private/old',
+      }),
+      drive_url: 'https://drive.example/private/old',
+    });
+    writeAssistantState({
+      version: 1,
+      documents: [oldSyncedDoc],
+      suppliers: [],
+      settings: {
+        ...baseSettings,
+        blob_retention_days: 1,
+      },
+    });
+
+    jest.useFakeTimers().setSystemTime(new Date('2026-02-25T10:00:00.000Z'));
+    const summary =
+      await invoiceIngestionAssistantService.runSecurityHardeningSweep();
+    jest.useRealTimers();
+
+    const nextState = readAssistantState();
+    const redactedDoc = nextState.documents.find(
+      item => item.document_id === 'doc_old_security'
+    );
+
+    expect(summary.stale_documents).toBe(1);
+    expect(summary.blobs_removed).toBe(1);
+    expect(summary.redacted_documents).toBe(1);
+    expect(removeInvoiceSourceBlob).toHaveBeenCalledWith('doc_old_security');
+    expect(redactedDoc?.drive_url).toBeNull();
+    expect(redactedDoc?.review?.abn).toBeNull();
+    expect(redactedDoc?.review?.drive_url).toBeNull();
+  });
+
+  it('requires a passphrase for encrypted security audit export', async () => {
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument()],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    await expect(
+      invoiceIngestionAssistantService.exportEncryptedSecurityAuditSnapshot('')
+    ).rejects.toThrow('Passphrase is required');
+  });
+
   it('cleans up old synced blobs after sync with retention policy', async () => {
     const oldSyncedDoc = makeDocument({
       document_id: 'doc_old',

@@ -96,5 +96,5 @@ Updated: 2026-02-25
 - [x] Add human-correction learning loop for supplier/rule templates.
 - [x] Add batch approval gate workflow before sync execution.
 - [x] Add error-type remediation flow with targeted retry playbooks.
-- [ ] Add post-sync bank reconciliation suggestion workflow.
-- [ ] Add security hardening pack (encryption, retention, audit export).
+- [x] Add post-sync bank reconciliation suggestion workflow.
+- [x] Add security hardening pack (encryption, retention, audit export).

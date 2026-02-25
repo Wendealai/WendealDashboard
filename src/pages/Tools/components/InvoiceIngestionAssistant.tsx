@@ -7,6 +7,7 @@ import {
   DatePicker,
   Divider,
   Form,
+  List,
   Popconfirm,
   Row,
   Select,
@@ -39,6 +40,9 @@ import { invoiceIngestionAssistantService } from '@/services/invoiceIngestionAss
 import type {
   InvoiceAssistantDocument,
   InvoiceAssistantSettings,
+  ReconciliationSuggestion,
+  SecurityAuditEncryptedExport,
+  SecurityAuditSnapshot,
   InvoiceReviewDraft,
   SupplierDirectoryEntry,
   XeroTransactionType,
@@ -104,6 +108,20 @@ const parseAliases = (raw: string): string[] => {
   return [...unique];
 };
 
+const downloadJsonFile = (fileName: string, payload: unknown): void => {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: 'application/json;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+};
+
 const isPdfFile = (file: File): boolean =>
   file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
@@ -126,6 +144,9 @@ const InvoiceIngestionAssistant: React.FC = () => {
   const [nightBatchDate, setNightBatchDate] = useState<Dayjs | null>(dayjs());
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<Dayjs | null>(null);
+  const [reconciliationSuggestions, setReconciliationSuggestions] = useState<
+    ReconciliationSuggestion[]
+  >([]);
   const [supplierForm] = Form.useForm();
   const [reviewForm] = Form.useForm();
   const [settingsForm] = Form.useForm();
@@ -396,6 +417,85 @@ const InvoiceIngestionAssistant: React.FC = () => {
       );
     });
   }, [ensureSelection, message, refreshState, selectedDocumentIds, withAction]);
+
+  const handleSuggestReconciliation = useCallback(() => {
+    const targetDocumentIds =
+      selectedDocumentIds.length > 0
+        ? selectedDocumentIds
+        : filteredDocuments
+            .filter(item => item.status === 'synced')
+            .map(item => item.document_id);
+
+    if (targetDocumentIds.length === 0) {
+      message.warning(
+        'Select synced items first, or keep synced rows visible.'
+      );
+      return;
+    }
+
+    const suggestions =
+      invoiceIngestionAssistantService.getReconciliationSuggestions(
+        targetDocumentIds
+      );
+    setReconciliationSuggestions(suggestions);
+    message.success(
+      `Generated ${suggestions.length} reconciliation suggestion(s).`
+    );
+  }, [filteredDocuments, message, selectedDocumentIds]);
+
+  const handleExportSecurityAudit = useCallback(() => {
+    const targetDocumentIds =
+      selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined;
+    const snapshot: SecurityAuditSnapshot =
+      invoiceIngestionAssistantService.getSecurityAuditSnapshot(
+        targetDocumentIds
+      );
+    downloadJsonFile(
+      `invoice-security-audit-${dayjs().format('YYYYMMDD-HHmmss')}.json`,
+      snapshot
+    );
+    message.success(
+      `Security audit exported (${snapshot.documents_total} document(s)).`
+    );
+  }, [message, selectedDocumentIds]);
+
+  const handleExportEncryptedSecurityAudit = useCallback(async () => {
+    const passphrase = window.prompt(
+      'Enter passphrase for encrypted audit export:'
+    );
+    if (passphrase === null) {
+      return;
+    }
+    if (!passphrase.trim()) {
+      message.warning('Passphrase is required.');
+      return;
+    }
+    await withAction('security-export', async () => {
+      const targetDocumentIds =
+        selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined;
+      const encrypted: SecurityAuditEncryptedExport =
+        await invoiceIngestionAssistantService.exportEncryptedSecurityAuditSnapshot(
+          passphrase,
+          targetDocumentIds
+        );
+      downloadJsonFile(
+        `invoice-security-audit-encrypted-${dayjs().format('YYYYMMDD-HHmmss')}.json`,
+        encrypted
+      );
+      message.success('Encrypted security audit exported.');
+    });
+  }, [message, selectedDocumentIds, withAction]);
+
+  const handleRunSecuritySweep = useCallback(async () => {
+    await withAction('security-sweep', async () => {
+      const summary =
+        await invoiceIngestionAssistantService.runSecurityHardeningSweep();
+      refreshState();
+      message.success(
+        `Security sweep done. Stale: ${summary.stale_documents}, blobs removed: ${summary.blobs_removed}, redacted: ${summary.redacted_documents}.`
+      );
+    });
+  }, [message, refreshState, withAction]);
 
   const handleNightBatchSelect = useCallback(() => {
     if (!nightBatchDate) {
@@ -925,6 +1025,38 @@ const InvoiceIngestionAssistant: React.FC = () => {
           >
             Retry Failed (Playbook)
           </Button>
+          <Button
+            disabled={hasAnyRunningAction}
+            onClick={handleSuggestReconciliation}
+          >
+            Suggest Reconciliation
+          </Button>
+          <Button
+            loading={actionLoading === 'security-sweep'}
+            disabled={hasAnyRunningAction && actionLoading !== 'security-sweep'}
+            onClick={() => {
+              void handleRunSecuritySweep();
+            }}
+          >
+            Run Security Sweep
+          </Button>
+          <Button
+            disabled={hasAnyRunningAction}
+            onClick={handleExportSecurityAudit}
+          >
+            Export Security Audit
+          </Button>
+          <Button
+            loading={actionLoading === 'security-export'}
+            disabled={
+              hasAnyRunningAction && actionLoading !== 'security-export'
+            }
+            onClick={() => {
+              void handleExportEncryptedSecurityAudit();
+            }}
+          >
+            Export Encrypted Audit
+          </Button>
         </Space>
 
         <Space wrap style={{ marginBottom: 12 }}>
@@ -953,6 +1085,40 @@ const InvoiceIngestionAssistant: React.FC = () => {
           pagination={{ pageSize: 10, showSizeChanger: true }}
         />
       </Card>
+
+      {reconciliationSuggestions.length > 0 && (
+        <Card
+          title='Reconciliation Suggestions'
+          extra={
+            <Button
+              size='small'
+              onClick={() => setReconciliationSuggestions([])}
+            >
+              Clear
+            </Button>
+          }
+        >
+          <List
+            size='small'
+            dataSource={reconciliationSuggestions}
+            renderItem={item => (
+              <List.Item>
+                <Space direction='vertical' size={2}>
+                  <Text strong>
+                    {item.document_id} · {item.currency}{' '}
+                    {item.amount.toFixed(2)}
+                  </Text>
+                  <Text>{item.suggestion}</Text>
+                  <Text type='secondary'>
+                    Supplier: {item.supplier_name} · Confidence:{' '}
+                    {(item.confidence * 100).toFixed(0)}%
+                  </Text>
+                </Space>
+              </List.Item>
+            )}
+          />
+        </Card>
+      )}
 
       <ReviewDrawer
         reviewingDoc={reviewingDoc}

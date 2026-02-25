@@ -17,6 +17,9 @@ import type {
   InvoiceExtractionResult,
   InvoiceGstStatus,
   InvoiceReviewDraft,
+  ReconciliationSuggestion,
+  SecurityAuditEncryptedExport,
+  SecurityAuditSnapshot,
   SupplierDirectoryEntry,
   SyncBatchSummary,
   UploadBatchSummary,
@@ -31,6 +34,7 @@ const ORCHESTRATION_POLL_INTERVAL_MS = 1200;
 const ORCHESTRATION_MAX_POLL_ATTEMPTS = 40;
 const ABN_CACHE_TTL_MS = 60 * 60 * 1000;
 const ABN_MIN_REQUEST_INTERVAL_MS = 250;
+const SECURITY_EXPORT_PBKDF2_ITERATIONS = 120000;
 const NON_RETRYABLE_SYNC_HINTS = [
   'missing required fields',
   'compliance rules blocked sync',
@@ -153,6 +157,171 @@ const normalizeAbnDigits = (
     return null;
   }
   return digits;
+};
+
+const resolveBlobRetentionDays = (
+  settings: Pick<InvoiceAssistantSettings, 'blob_retention_days'>
+): number => {
+  return typeof settings.blob_retention_days === 'number' &&
+    Number.isFinite(settings.blob_retention_days)
+    ? Math.max(1, Math.floor(settings.blob_retention_days))
+    : DEFAULT_SETTINGS.blob_retention_days;
+};
+
+const isPastRetentionCutoff = (
+  doc: InvoiceAssistantDocument,
+  cutoffMs: number
+): boolean => {
+  if (doc.status !== 'synced' || !doc.synced_at) {
+    return false;
+  }
+  const syncedAtMs = Date.parse(doc.synced_at);
+  return Number.isFinite(syncedAtMs) && syncedAtMs <= cutoffMs;
+};
+
+const maskAbnForAudit = (value: string | null | undefined): string | null => {
+  const digits = normalizeAbnDigits(value);
+  if (!digits) {
+    return null;
+  }
+  return `${digits.slice(0, 2)}******${digits.slice(-3)}`;
+};
+
+const redactTokenLikeSegments = (value: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+  return value
+    .replace(/https?:\/\/\S+/gi, '[REDACTED_URL]')
+    .replace(/[A-Za-z0-9_-]{24,}/g, '[REDACTED_TOKEN]');
+};
+
+const redactSensitiveDocumentForRetention = (
+  doc: InvoiceAssistantDocument
+): { changed: boolean; next: InvoiceAssistantDocument } => {
+  let changed = false;
+  let nextReview = doc.review;
+  if (nextReview) {
+    const reviewPatch: InvoiceReviewDraft = { ...nextReview };
+    let reviewChanged = false;
+    if (reviewPatch.abn) {
+      reviewPatch.abn = null;
+      reviewChanged = true;
+    }
+    if (reviewPatch.drive_url) {
+      reviewPatch.drive_url = null;
+      reviewChanged = true;
+    }
+    if (reviewChanged) {
+      nextReview = reviewPatch;
+      changed = true;
+    }
+  }
+
+  let nextExtraction = doc.extraction;
+  if (nextExtraction?.abn) {
+    nextExtraction = {
+      ...nextExtraction,
+      abn: null,
+    };
+    changed = true;
+  }
+
+  if (doc.drive_url) {
+    changed = true;
+  }
+
+  if (!changed) {
+    return {
+      changed: false,
+      next: doc,
+    };
+  }
+
+  return {
+    changed: true,
+    next: {
+      ...doc,
+      drive_url: null,
+      review: nextReview,
+      extraction: nextExtraction,
+      updated_at: nowIso(),
+    },
+  };
+};
+
+const toBase64 = (value: ArrayBuffer | Uint8Array): string => {
+  if (typeof btoa !== 'function') {
+    throw new Error('Base64 encoder is unavailable in current runtime');
+  }
+  const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+};
+
+const encryptSecurityAuditSnapshot = async (
+  snapshot: SecurityAuditSnapshot,
+  passphrase: string
+): Promise<SecurityAuditEncryptedExport> => {
+  const normalizedPassphrase = passphrase.trim();
+  if (!normalizedPassphrase) {
+    throw new Error('Passphrase is required for encrypted security export');
+  }
+  if (!globalThis.crypto?.subtle) {
+    throw new Error(
+      'Web Crypto API is unavailable in current runtime for encrypted export'
+    );
+  }
+
+  const cryptoApi = globalThis.crypto;
+  const encoder = new TextEncoder();
+  const salt = cryptoApi.getRandomValues(new Uint8Array(16));
+  const iv = cryptoApi.getRandomValues(new Uint8Array(12));
+  const baseKey = await cryptoApi.subtle.importKey(
+    'raw',
+    encoder.encode(normalizedPassphrase),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+  const derivedKey = await cryptoApi.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: SECURITY_EXPORT_PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    baseKey,
+    {
+      name: 'AES-GCM',
+      length: 256,
+    },
+    false,
+    ['encrypt']
+  );
+  const ciphertext = await cryptoApi.subtle.encrypt(
+    {
+      name: 'AES-GCM',
+      iv,
+    },
+    derivedKey,
+    encoder.encode(JSON.stringify(snapshot))
+  );
+
+  return {
+    exported_at: nowIso(),
+    algorithm: 'AES-GCM',
+    kdf: 'PBKDF2-SHA256',
+    iterations: SECURITY_EXPORT_PBKDF2_ITERATIONS,
+    salt: toBase64(salt),
+    iv: toBase64(iv),
+    cipher_text: toBase64(ciphertext),
+  };
 };
 
 const isValidAbnChecksum = (abn: string): boolean => {
@@ -1525,6 +1694,151 @@ class InvoiceIngestionAssistantService {
     return readState();
   }
 
+  getReconciliationSuggestions(
+    documentIds?: string[]
+  ): ReconciliationSuggestion[] {
+    const state = readState();
+    const idSet =
+      Array.isArray(documentIds) && documentIds.length > 0
+        ? new Set(documentIds)
+        : null;
+
+    return state.documents
+      .filter(doc => {
+        if (doc.status !== 'synced' || !doc.review) {
+          return false;
+        }
+        if (idSet && !idSet.has(doc.document_id)) {
+          return false;
+        }
+        return typeof doc.review.total === 'number' && doc.review.total > 0;
+      })
+      .map(doc => {
+        const review = doc.review as InvoiceReviewDraft;
+        const supplier =
+          normalizeName(review.supplier_name) || 'Unknown supplier';
+        const currency = normalizeCurrency(review.currency);
+        const amount = Math.round((review.total || 0) * 100) / 100;
+        const hasDate = Boolean(review.invoice_date);
+        const matchedBy = hasDate ? 'amount_date_supplier' : 'amount_supplier';
+        let confidence = 0.55;
+        if (hasDate) {
+          confidence += 0.15;
+        }
+        if (supplier !== 'Unknown supplier') {
+          confidence += 0.1;
+        }
+        if (review.payment_method) {
+          confidence += 0.05;
+        }
+        if (review.gst_status === 'explicit_amount') {
+          confidence += 0.05;
+        }
+        const normalizedConfidence = Math.max(0.4, Math.min(0.95, confidence));
+        const suggestion = hasDate
+          ? `Match bank transaction around ${review.invoice_date} for ${currency} ${amount.toFixed(
+              2
+            )} (${supplier}).`
+          : `Match bank transaction by amount ${currency} ${amount.toFixed(
+              2
+            )} and supplier ${supplier}.`;
+
+        return {
+          document_id: doc.document_id,
+          supplier_name: supplier,
+          invoice_date: review.invoice_date,
+          currency,
+          amount,
+          confidence: normalizedConfidence,
+          suggestion,
+          matched_by: matchedBy,
+        } as ReconciliationSuggestion;
+      })
+      .sort((left, right) => right.confidence - left.confidence);
+  }
+
+  getSecurityAuditSnapshot(documentIds?: string[]): SecurityAuditSnapshot {
+    const state = readState();
+    const idSet =
+      Array.isArray(documentIds) && documentIds.length > 0
+        ? new Set(documentIds)
+        : null;
+    const retentionDays = resolveBlobRetentionDays(state.settings);
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    let redactedDocuments = 0;
+
+    const documents = state.documents
+      .filter(doc => (idSet ? idSet.has(doc.document_id) : true))
+      .map(doc => {
+        const review = doc.review;
+        const hasDriveUrl = Boolean(doc.drive_url || review?.drive_url);
+        const abnMasked = maskAbnForAudit(review?.abn || doc.extraction?.abn);
+        const isRetentionExpired = isPastRetentionCutoff(doc, cutoff);
+        if (hasDriveUrl || Boolean(abnMasked)) {
+          redactedDocuments += 1;
+        }
+
+        const syncError = redactTokenLikeSegments(doc.sync_error);
+        return {
+          document_id: doc.document_id,
+          status: doc.status,
+          approval_status: doc.approval_status,
+          synced_at: doc.synced_at,
+          xero_id: doc.xero_id,
+          supplier_name:
+            normalizeName(review?.supplier_name) ||
+            normalizeName(doc.extraction?.supplier_name),
+          invoice_date:
+            review?.invoice_date || doc.extraction?.invoice_date || null,
+          total:
+            typeof review?.total === 'number'
+              ? review.total
+              : (doc.extraction?.total ?? null),
+          currency: normalizeName(
+            review?.currency || doc.extraction?.currency || null
+          ),
+          abn_masked: abnMasked,
+          drive_url_redacted: hasDriveUrl,
+          sync_error:
+            syncError && isRetentionExpired
+              ? `${syncError} | retention-window-expired`
+              : syncError,
+          recognize_error: redactTokenLikeSegments(doc.recognize_error),
+        };
+      });
+
+    return {
+      exported_at: nowIso(),
+      retention_days: retentionDays,
+      documents_total: documents.length,
+      synced_total: documents.filter(item => item.status === 'synced').length,
+      redacted_documents: redactedDocuments,
+      settings: {
+        dry_run_mode: state.settings.dry_run_mode,
+        require_batch_approval: state.settings.require_batch_approval,
+        auto_learn_supplier_rules: state.settings.auto_learn_supplier_rules,
+        blob_retention_days: state.settings.blob_retention_days,
+      },
+      documents,
+    };
+  }
+
+  async exportEncryptedSecurityAuditSnapshot(
+    passphrase: string,
+    documentIds?: string[]
+  ): Promise<SecurityAuditEncryptedExport> {
+    const snapshot = this.getSecurityAuditSnapshot(documentIds);
+    return encryptSecurityAuditSnapshot(snapshot, passphrase);
+  }
+
+  async runSecurityHardeningSweep(): Promise<{
+    stale_documents: number;
+    blobs_removed: number;
+    redacted_documents: number;
+  }> {
+    return this.cleanupSyncedSourceBlobs();
+  }
+
   deleteDocument(documentId: string): void {
     const state = readState();
     writeState({
@@ -2634,36 +2948,63 @@ class InvoiceIngestionAssistantService {
     }
   }
 
-  private async cleanupSyncedSourceBlobs(): Promise<void> {
+  private async cleanupSyncedSourceBlobs(): Promise<{
+    stale_documents: number;
+    blobs_removed: number;
+    redacted_documents: number;
+  }> {
     const state = readState();
-    const retentionDays =
-      typeof state.settings.blob_retention_days === 'number' &&
-      Number.isFinite(state.settings.blob_retention_days)
-        ? Math.max(1, Math.floor(state.settings.blob_retention_days))
-        : DEFAULT_SETTINGS.blob_retention_days;
+    const retentionDays = resolveBlobRetentionDays(state.settings);
     const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
-    const staleDocuments = state.documents.filter(doc => {
-      if (doc.status !== 'synced' || !doc.synced_at) {
-        return false;
-      }
-      const syncedAt = Date.parse(doc.synced_at);
-      return Number.isFinite(syncedAt) && syncedAt <= cutoff;
-    });
+    const staleDocuments = state.documents.filter(doc =>
+      isPastRetentionCutoff(doc, cutoff)
+    );
+    if (staleDocuments.length === 0) {
+      return {
+        stale_documents: 0,
+        blobs_removed: 0,
+        redacted_documents: 0,
+      };
+    }
 
-    await runWithConcurrency(
+    const cleanupResults = await runWithConcurrency(
       staleDocuments,
       async doc => {
         try {
           await removeInvoiceSourceBlob(doc.document_id);
+          return true;
         } catch (error) {
           console.error(
             `Failed to cleanup source blob for ${doc.document_id}:`,
             error
           );
+          return false;
         }
       },
       2
     );
+    const blobsRemoved = cleanupResults.filter(Boolean).length;
+
+    const redactionPatches = staleDocuments
+      .map(doc => {
+        const redacted = redactSensitiveDocumentForRetention(doc);
+        if (!redacted.changed) {
+          return null;
+        }
+        return {
+          documentId: doc.document_id,
+          baseUpdatedAt: doc.updated_at,
+          next: redacted.next,
+        } as DocumentPatch;
+      })
+      .filter((item): item is DocumentPatch => Boolean(item));
+    const redactionResult = applyDocumentPatches(redactionPatches);
+
+    return {
+      stale_documents: staleDocuments.length,
+      blobs_removed: blobsRemoved,
+      redacted_documents: redactionResult.applied,
+    };
   }
 }
 

@@ -151,6 +151,58 @@ export interface SyncBatchSummary extends BatchActionSummary {
   synced_document_ids: string[];
 }
 
+export interface ReconciliationSuggestion {
+  document_id: string;
+  supplier_name: string;
+  invoice_date: string | null;
+  currency: string;
+  amount: number;
+  confidence: number;
+  suggestion: string;
+  matched_by: 'amount_date_supplier' | 'amount_supplier';
+}
+
+export interface SecurityAuditSnapshotItem {
+  document_id: string;
+  status: InvoiceAssistantStatus;
+  approval_status: InvoiceApprovalStatus;
+  synced_at: string | null;
+  xero_id: string | null;
+  supplier_name: string | null;
+  invoice_date: string | null;
+  total: number | null;
+  currency: string | null;
+  abn_masked: string | null;
+  drive_url_redacted: boolean;
+  sync_error: string | null;
+  recognize_error: string | null;
+}
+
+export interface SecurityAuditSnapshot {
+  exported_at: string;
+  retention_days: number;
+  documents_total: number;
+  synced_total: number;
+  redacted_documents: number;
+  settings: {
+    dry_run_mode: boolean;
+    require_batch_approval: boolean;
+    auto_learn_supplier_rules: boolean;
+    blob_retention_days: number;
+  };
+  documents: SecurityAuditSnapshotItem[];
+}
+
+export interface SecurityAuditEncryptedExport {
+  exported_at: string;
+  algorithm: 'AES-GCM';
+  kdf: 'PBKDF2-SHA256';
+  iterations: number;
+  salt: string;
+  iv: string;
+  cipher_text: string;
+}
+
 export interface XeroSyncDraftPayload {
   type: XeroTransactionType;
   date: string;
