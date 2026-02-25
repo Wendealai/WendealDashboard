@@ -14,3 +14,11 @@ Updated: 2026-02-25
 - [x] Add dry-run warning banner in main assistant page.
 - [x] Add blob retention policy and automatic cleanup after sync.
 - [x] Add service tests for batch failures, idempotency, retry, retention cleanup.
+
+## Phase 2 (2026-02-25)
+
+- [x] Add webhook health check diagnostics with status/latency feedback.
+- [x] Add polling-failure visibility (threshold stop + user-facing warning).
+- [x] Add direct result-sync API health check button in Invoice OCR page.
+- [x] Add direct Supabase connection check button in Invoice OCR page.
+- [x] Include OCR telemetry buffer in exported diagnostics payload.

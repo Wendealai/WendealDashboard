@@ -56,11 +56,14 @@ import {
   SettingOutlined,
   EyeOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { getInvoiceOcrConfig } from '@/config/invoiceOcrConfig';
-import { invoiceOCRService } from '../../../services/invoiceOCRService';
+import {
+  invoiceOCRService,
+  type InvoiceOcrResultSyncCheckResult,
+  type InvoiceOcrSupabaseCheckResult,
+} from '../../../services/invoiceOCRService';
 import { trackInvoiceOcrEvent } from '@/services/invoiceOcrTelemetry';
 import {
   n8nWebhookService,
@@ -112,9 +115,15 @@ const InvoiceOCRPage: React.FC = () => {
   const [isPollingResults, setIsPollingResults] = useState(false);
   const [resultsRefreshToken, setResultsRefreshToken] = useState(0);
   const [testingWebhook, setTestingWebhook] = useState(false);
+  const [testingResultSync, setTestingResultSync] = useState(false);
+  const [testingSupabase, setTestingSupabase] = useState(false);
   const [pollingErrorHint, setPollingErrorHint] = useState<string | null>(null);
   const [webhookHealth, setWebhookHealth] =
     useState<WebhookConnectionCheckResult | null>(null);
+  const [resultSyncHealth, setResultSyncHealth] =
+    useState<InvoiceOcrResultSyncCheckResult | null>(null);
+  const [supabaseHealth, setSupabaseHealth] =
+    useState<InvoiceOcrSupabaseCheckResult | null>(null);
 
   // Data state
   const [uploadedFiles, setUploadedFiles] = useState<InvoiceOCRFile[]>([]);
@@ -250,6 +259,26 @@ const InvoiceOCRPage: React.FC = () => {
               attempts: consecutiveFailures,
               reason: pollErrorMessage,
             });
+            void invoiceOCRService
+              .testResultSyncConnection(invoiceOcrConfig.workflowId)
+              .then(health => {
+                setResultSyncHealth(health);
+                trackInvoiceOcrEvent('invoice_ocr_result_sync_health_checked', {
+                  workflowId: invoiceOcrConfig.workflowId,
+                  reachable: health.reachable,
+                  latencyMs: health.latencyMs,
+                  httpStatus: health.httpStatus || 0,
+                  resultCount: health.resultCount || 0,
+                  totalCount: health.totalCount || 0,
+                  errorMessage: health.errorMessage || '',
+                });
+              })
+              .catch(syncCheckError => {
+                console.error(
+                  'Result sync fallback health check failed:',
+                  syncCheckError
+                );
+              });
             message.error('结果同步失败，请检查数据连接并稍后重试。');
           }
         } finally {
@@ -419,6 +448,89 @@ const InvoiceOCRPage: React.FC = () => {
     }
   }, [invoiceOcrConfig.webhookUrl, invoiceOcrConfig.workflowId, message]);
 
+  const handleTestResultSyncConnection = useCallback(async () => {
+    setTestingResultSync(true);
+    try {
+      const health = await invoiceOCRService.testResultSyncConnection(
+        invoiceOcrConfig.workflowId
+      );
+      setResultSyncHealth(health);
+
+      trackInvoiceOcrEvent('invoice_ocr_result_sync_health_checked', {
+        workflowId: invoiceOcrConfig.workflowId,
+        reachable: health.reachable,
+        latencyMs: health.latencyMs,
+        httpStatus: health.httpStatus || 0,
+        resultCount: health.resultCount || 0,
+        totalCount: health.totalCount || 0,
+        errorMessage: health.errorMessage || '',
+      });
+
+      if (health.reachable) {
+        message.success(
+          `结果同步接口正常（${health.latencyMs}ms，当前返回 ${health.resultCount || 0} 条）`
+        );
+      } else {
+        const statusText =
+          typeof health.httpStatus === 'number'
+            ? `HTTP ${health.httpStatus}`
+            : '未返回状态码';
+        message.error(
+          `结果同步接口异常（${statusText}）：${health.errorMessage || '请检查 API / Supabase'}`
+        );
+      }
+    } catch (checkError) {
+      console.error('Result sync health check failed:', checkError);
+      message.error('结果同步接口检查失败');
+    } finally {
+      setTestingResultSync(false);
+    }
+  }, [invoiceOcrConfig.workflowId, message]);
+
+  const handleTestSupabaseConnection = useCallback(async () => {
+    setTestingSupabase(true);
+    try {
+      const health = await invoiceOCRService.testSupabaseConnection();
+      setSupabaseHealth(health);
+
+      trackInvoiceOcrEvent('invoice_ocr_supabase_health_checked', {
+        workflowId: invoiceOcrConfig.workflowId,
+        configured: health.configured,
+        reachable: health.reachable,
+        latencyMs: health.latencyMs,
+        httpStatus: health.httpStatus || 0,
+        errorMessage: health.errorMessage || '',
+      });
+
+      if (!health.configured) {
+        message.error(
+          'Supabase 未配置，请检查 VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY'
+        );
+      } else if (health.reachable) {
+        const statusText =
+          typeof health.httpStatus === 'number'
+            ? `HTTP ${health.httpStatus}`
+            : 'OK';
+        message.success(
+          `Supabase 连通性正常（${statusText}，${health.latencyMs}ms）`
+        );
+      } else {
+        const statusText =
+          typeof health.httpStatus === 'number'
+            ? `HTTP ${health.httpStatus}`
+            : '不可达';
+        message.error(
+          `Supabase 异常（${statusText}）：${health.errorMessage || '请检查网络或密钥'}`
+        );
+      }
+    } catch (checkError) {
+      console.error('Supabase health check failed:', checkError);
+      message.error('Supabase 连通性检查失败');
+    } finally {
+      setTestingSupabase(false);
+    }
+  }, [invoiceOcrConfig.workflowId, message]);
+
   /**
    * Load data when component initializes
    */
@@ -565,6 +677,70 @@ const InvoiceOCRPage: React.FC = () => {
     );
   };
 
+  const renderResultSyncHealthBadge = () => {
+    if (!resultSyncHealth) {
+      return <Badge status='default' text='结果同步未检查' />;
+    }
+
+    const checkedTime = new Date(resultSyncHealth.checkedAt).toLocaleTimeString(
+      'zh-CN',
+      { hour12: false }
+    );
+    if (resultSyncHealth.reachable) {
+      return (
+        <Badge
+          status='success'
+          text={`结果同步正常 (${resultSyncHealth.latencyMs}ms @ ${checkedTime})`}
+        />
+      );
+    }
+
+    const statusText =
+      typeof resultSyncHealth.httpStatus === 'number'
+        ? `HTTP ${resultSyncHealth.httpStatus}`
+        : '不可达';
+    return (
+      <Badge
+        status='error'
+        text={`结果同步异常 (${statusText} @ ${checkedTime})`}
+      />
+    );
+  };
+
+  const renderSupabaseHealthBadge = () => {
+    if (!supabaseHealth) {
+      return <Badge status='default' text='Supabase 未检查' />;
+    }
+
+    const checkedTime = new Date(supabaseHealth.checkedAt).toLocaleTimeString(
+      'zh-CN',
+      { hour12: false }
+    );
+    if (!supabaseHealth.configured) {
+      return <Badge status='error' text='Supabase 未配置' />;
+    }
+
+    if (supabaseHealth.reachable) {
+      return (
+        <Badge
+          status='success'
+          text={`Supabase 正常 (${supabaseHealth.latencyMs}ms @ ${checkedTime})`}
+        />
+      );
+    }
+
+    const statusText =
+      typeof supabaseHealth.httpStatus === 'number'
+        ? `HTTP ${supabaseHealth.httpStatus}`
+        : '不可达';
+    return (
+      <Badge
+        status='error'
+        text={`Supabase 异常 (${statusText} @ ${checkedTime})`}
+      />
+    );
+  };
+
   /**
    * Render page header
    */
@@ -593,7 +769,21 @@ const InvoiceOCRPage: React.FC = () => {
             >
               检查Webhook
             </Button>
+            <Button
+              loading={testingResultSync}
+              onClick={handleTestResultSyncConnection}
+            >
+              检查结果同步
+            </Button>
+            <Button
+              loading={testingSupabase}
+              onClick={handleTestSupabaseConnection}
+            >
+              检查Supabase
+            </Button>
             {renderWebhookHealthBadge()}
+            {renderResultSyncHealthBadge()}
+            {renderSupabaseHealthBadge()}
             {isPollingResults && (
               <Badge status='processing' text='结果同步中' />
             )}
@@ -656,12 +846,26 @@ const InvoiceOCRPage: React.FC = () => {
           showIcon
           style={{ marginTop: 16 }}
           action={
-            <Button
-              size='small'
-              onClick={() => void handleTestWebhookConnection()}
-            >
-              检查Webhook
-            </Button>
+            <Space>
+              <Button
+                size='small'
+                onClick={() => void handleTestResultSyncConnection()}
+              >
+                检查结果同步
+              </Button>
+              <Button
+                size='small'
+                onClick={() => void handleTestWebhookConnection()}
+              >
+                检查Webhook
+              </Button>
+              <Button
+                size='small'
+                onClick={() => void handleTestSupabaseConnection()}
+              >
+                检查Supabase
+              </Button>
+            </Space>
           }
         />
       )}

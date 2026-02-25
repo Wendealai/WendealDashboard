@@ -23,6 +23,34 @@ import type {
 } from '../types/workflow';
 import { DEFAULT_INVOICE_OCR_SETTINGS } from '../pages/InformationDashboard/types/invoiceOCR';
 
+type SupabaseRuntimeConfig = typeof globalThis & {
+  __WENDEAL_SUPABASE_CONFIG__?: {
+    url?: string;
+    anonKey?: string;
+  };
+};
+
+export interface InvoiceOcrResultSyncCheckResult {
+  reachable: boolean;
+  checkedAt: string;
+  latencyMs: number;
+  resultCount?: number;
+  totalCount?: number;
+  httpStatus?: number;
+  errorMessage?: string;
+}
+
+export interface InvoiceOcrSupabaseCheckResult {
+  reachable: boolean;
+  configured: boolean;
+  checkedAt: string;
+  latencyMs: number;
+  requestUrl?: string;
+  httpStatus?: number;
+  statusText?: string;
+  errorMessage?: string;
+}
+
 /**
  * Invoice OCR Service Class
  *
@@ -68,6 +96,7 @@ import { DEFAULT_INVOICE_OCR_SETTINGS } from '../pages/InformationDashboard/type
  */
 export class InvoiceOCRService {
   private readonly baseUrl = '/invoice-ocr';
+  private readonly defaultHealthCheckTimeoutMs = 8000;
 
   // ==================== Workflow Management ====================
 
@@ -797,6 +826,112 @@ export class InvoiceOCRService {
       throw new Error(
         error instanceof Error ? error.message : 'Failed to test webhook'
       );
+    }
+  }
+
+  /**
+   * Test result sync API connection (Invoice OCR result list endpoint)
+   * @param workflowId Workflow ID
+   * @returns Connectivity status
+   */
+  async testResultSyncConnection(
+    workflowId: string
+  ): Promise<InvoiceOcrResultSyncCheckResult> {
+    const checkedAt = new Date().toISOString();
+    const startedAt = Date.now();
+
+    try {
+      const response = await this.getResults(workflowId, {
+        page: 1,
+        pageSize: 1,
+      });
+      const totalCount =
+        typeof response.pagination?.total === 'number'
+          ? response.pagination.total
+          : undefined;
+      return {
+        reachable: true,
+        checkedAt,
+        latencyMs: Date.now() - startedAt,
+        resultCount: Array.isArray(response.items) ? response.items.length : 0,
+        ...(typeof totalCount === 'number' ? { totalCount } : {}),
+      };
+    } catch (error) {
+      const knownError = error as {
+        response?: { status?: number; data?: { message?: string } };
+        message?: string;
+      };
+      return {
+        reachable: false,
+        checkedAt,
+        latencyMs: Date.now() - startedAt,
+        ...(typeof knownError.response?.status === 'number'
+          ? { httpStatus: knownError.response.status }
+          : {}),
+        errorMessage:
+          knownError.response?.data?.message ||
+          knownError.message ||
+          'result_sync_check_failed',
+      };
+    }
+  }
+
+  /**
+   * Test direct Supabase REST connection
+   * @returns Connectivity status
+   */
+  async testSupabaseConnection(): Promise<InvoiceOcrSupabaseCheckResult> {
+    const checkedAt = new Date().toISOString();
+    const startedAt = Date.now();
+    const runtime = globalThis as SupabaseRuntimeConfig;
+
+    const runtimeUrl = runtime.__WENDEAL_SUPABASE_CONFIG__?.url?.trim();
+    const runtimeAnonKey = runtime.__WENDEAL_SUPABASE_CONFIG__?.anonKey?.trim();
+    const supabaseUrl =
+      runtimeUrl || import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+    const supabaseAnonKey =
+      runtimeAnonKey || import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return {
+        reachable: false,
+        configured: false,
+        checkedAt,
+        latencyMs: Date.now() - startedAt,
+        errorMessage: 'Supabase configuration is missing',
+      };
+    }
+
+    const requestUrl = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/`;
+    try {
+      const response = await fetch(requestUrl, {
+        method: 'GET',
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+        },
+        signal: AbortSignal.timeout(this.defaultHealthCheckTimeoutMs),
+      });
+
+      return {
+        reachable: response.ok || response.status < 500,
+        configured: true,
+        checkedAt,
+        latencyMs: Date.now() - startedAt,
+        requestUrl,
+        httpStatus: response.status,
+        statusText: response.statusText,
+      };
+    } catch (error) {
+      return {
+        reachable: false,
+        configured: true,
+        checkedAt,
+        latencyMs: Date.now() - startedAt,
+        requestUrl,
+        errorMessage:
+          error instanceof Error ? error.message : 'supabase_check_failed',
+      };
     }
   }
 
