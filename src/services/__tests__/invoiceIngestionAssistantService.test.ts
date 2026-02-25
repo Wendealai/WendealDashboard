@@ -27,6 +27,7 @@ const STORAGE_KEY = 'invoice_ingestion_assistant_state_v1';
 const baseSettings: InvoiceAssistantSettings = {
   drive_root_folder: 'Invoices',
   state_sync_endpoint: null,
+  orchestration_endpoint: null,
   drive_archive_endpoint: null,
   ocr_extract_endpoint: null,
   xero_sync_endpoint: null,
@@ -173,6 +174,75 @@ describe('invoiceIngestionAssistantService', () => {
     expect(nextState.documents[0].status).toBe('recognize_failed');
   });
 
+  it('uses orchestration endpoint for batch recognize when configured', async () => {
+    const orchestrationEndpoint = 'https://orchestrator.example/jobs';
+    const uploadedDoc = makeDocument({
+      status: 'uploaded',
+      review: null,
+    });
+    writeAssistantState({
+      version: 1,
+      documents: [uploadedDoc],
+      suppliers: [],
+      settings: {
+        ...baseSettings,
+        orchestration_endpoint: orchestrationEndpoint,
+      },
+    });
+
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          job_id: 'job-recognize-1',
+          status: 'queued',
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 'succeeded',
+          summary: {
+            succeeded: 1,
+            failed: 0,
+            conflicted: 0,
+          },
+          state: {
+            version: 2,
+            documents: [
+              makeDocument({
+                status: 'recognized',
+                review: makeReview(),
+              }),
+            ],
+            suppliers: [],
+            settings: {
+              ...baseSettings,
+              orchestration_endpoint: orchestrationEndpoint,
+            },
+          },
+        }),
+      } as Response);
+
+    const summary = await invoiceIngestionAssistantService.batchRecognize([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.succeeded).toBe(1);
+    expect(nextState.documents[0].status).toBe('recognized');
+    expect((global.fetch as jest.Mock).mock.calls.length).toBe(2);
+    expect((global.fetch as jest.Mock).mock.calls[0]?.[0]).toBe(
+      orchestrationEndpoint
+    );
+    expect((global.fetch as jest.Mock).mock.calls[1]?.[0]).toBe(
+      `${orchestrationEndpoint}/job-recognize-1`
+    );
+    expect(getInvoiceSourceBlob).not.toHaveBeenCalled();
+  });
+
   it('keeps idempotent sync result on repeated sync calls', async () => {
     writeAssistantState({
       version: 1,
@@ -263,6 +333,17 @@ describe('invoiceIngestionAssistantService', () => {
     );
 
     const running = invoiceIngestionAssistantService.batchRecognize(['doc_1']);
+
+    await new Promise<void>(resolve => {
+      const waitForBlobRequest = () => {
+        if (resolveBlob) {
+          resolve();
+          return;
+        }
+        setTimeout(waitForBlobRequest, 0);
+      };
+      waitForBlobRequest();
+    });
 
     const midState = readAssistantState();
     midState.documents[0].updated_at = '2026-02-20T09:00:00.000Z';
@@ -393,6 +474,74 @@ describe('invoiceIngestionAssistantService', () => {
     expect(nextState.documents[0].status).toBe('synced');
     expect(nextState.documents[0].xero_id).toBe('xero_after_precheck');
     expect((global.fetch as jest.Mock).mock.calls.length).toBe(2);
+  });
+
+  it('uses orchestration endpoint for batch sync when configured', async () => {
+    const orchestrationEndpoint = 'https://orchestrator.example/jobs';
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument()],
+      suppliers: [],
+      settings: {
+        ...baseSettings,
+        dry_run_mode: false,
+        orchestration_endpoint: orchestrationEndpoint,
+      },
+    });
+
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          job_id: 'job-sync-1',
+          status: 'queued',
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 'succeeded',
+          summary: {
+            succeeded: 1,
+            failed: 0,
+            conflicted: 0,
+            synced_document_ids: ['doc_1'],
+          },
+          state: {
+            version: 2,
+            documents: [
+              makeDocument({
+                status: 'synced',
+                synced_at: '2026-02-25T10:00:00.000Z',
+                xero_id: 'xero_orchestrated',
+                sync_idempotency_key: 'sync-key-orchestrated',
+              }),
+            ],
+            suppliers: [],
+            settings: {
+              ...baseSettings,
+              dry_run_mode: false,
+              orchestration_endpoint: orchestrationEndpoint,
+            },
+          },
+        }),
+      } as Response);
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.succeeded).toBe(1);
+    expect(summary.synced_document_ids).toEqual(['doc_1']);
+    expect(nextState.documents[0].status).toBe('synced');
+    expect(nextState.documents[0].xero_id).toBe('xero_orchestrated');
+    expect((global.fetch as jest.Mock).mock.calls.length).toBe(2);
+    expect((global.fetch as jest.Mock).mock.calls[0]?.[0]).toBe(
+      orchestrationEndpoint
+    );
   });
 
   it('cleans up old synced blobs after sync with retention policy', async () => {

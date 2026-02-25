@@ -26,6 +26,8 @@ const STATE_STORAGE_KEY = 'invoice_ingestion_assistant_state_v1';
 const MAX_BATCH_CONCURRENCY = 4;
 const REQUEST_TIMEOUT_MS = 20000;
 const REQUEST_RETRY_TIMES = 2;
+const ORCHESTRATION_POLL_INTERVAL_MS = 1200;
+const ORCHESTRATION_MAX_POLL_ATTEMPTS = 40;
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 const DEFAULT_SUPPLIERS: SupplierDirectoryEntry[] = [
@@ -64,6 +66,7 @@ const DEFAULT_SUPPLIERS: SupplierDirectoryEntry[] = [
 const DEFAULT_SETTINGS: InvoiceAssistantSettings = {
   drive_root_folder: 'Invoices',
   state_sync_endpoint: null,
+  orchestration_endpoint: null,
   drive_archive_endpoint: null,
   ocr_extract_endpoint: null,
   xero_sync_endpoint: null,
@@ -845,6 +848,179 @@ const shouldRestoreState = (
   candidate.version > baseline.version ||
   (baseline.documents.length === 0 && candidate.documents.length > 0);
 
+type OrchestrationAction = 'recognize' | 'sync';
+
+const asRecord = (value: unknown): Record<string, unknown> | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+};
+
+const asStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim())
+    .filter(item => item.length > 0);
+};
+
+const unwrapOrchestrationPayload = (
+  payload: unknown
+): Record<string, unknown> => {
+  const root = asRecord(payload) || {};
+  const data = asRecord(root.data);
+  return data || root;
+};
+
+const extractOrchestrationSummary = (
+  payload: Record<string, unknown>
+): Record<string, unknown> | null => {
+  const directSummary = asRecord(payload.summary);
+  if (directSummary) {
+    return directSummary;
+  }
+  const result = asRecord(payload.result);
+  if (!result) {
+    return null;
+  }
+  return asRecord(result.summary);
+};
+
+const extractOrchestrationState = (
+  payload: Record<string, unknown>
+): Partial<InvoiceAssistantState> | null => {
+  const directState = asRecord(payload.state);
+  if (directState) {
+    return directState as Partial<InvoiceAssistantState>;
+  }
+  const result = asRecord(payload.result);
+  if (!result) {
+    return null;
+  }
+  const nestedState = asRecord(result.state);
+  return nestedState ? (nestedState as Partial<InvoiceAssistantState>) : null;
+};
+
+const extractOrchestrationStatus = (
+  payload: Record<string, unknown>
+): string | null => {
+  const directStatus = normalizeName(
+    payload.status as string | null | undefined
+  );
+  if (directStatus) {
+    return directStatus.toLowerCase();
+  }
+  const job = asRecord(payload.job);
+  const jobStatus = normalizeName(job?.status as string | null | undefined);
+  if (jobStatus) {
+    return jobStatus.toLowerCase();
+  }
+  return null;
+};
+
+const extractOrchestrationJobId = (
+  payload: Record<string, unknown>
+): string | null => {
+  const directJobId =
+    normalizeName(payload.job_id as string | null | undefined) ||
+    normalizeName(payload.id as string | null | undefined);
+  if (directJobId) {
+    return directJobId;
+  }
+  const job = asRecord(payload.job);
+  return (
+    normalizeName(job?.job_id as string | null | undefined) ||
+    normalizeName(job?.id as string | null | undefined)
+  );
+};
+
+const isTerminalOrchestrationStatus = (status: string | null): boolean =>
+  Boolean(
+    status &&
+      [
+        'completed',
+        'complete',
+        'succeeded',
+        'success',
+        'failed',
+        'error',
+        'done',
+        'cancelled',
+      ].includes(status)
+  );
+
+const joinUrlPath = (base: string, segment: string): string =>
+  `${base.replace(/\/+$/, '')}/${segment.replace(/^\/+/, '')}`;
+
+const parseSummaryCounts = (
+  payload: Record<string, unknown>,
+  total: number
+): BatchActionSummary | null => {
+  const summary = extractOrchestrationSummary(payload);
+  if (!summary) {
+    return null;
+  }
+  const succeeded = Math.max(0, Math.floor(safeNumber(summary.succeeded) || 0));
+  const failed = Math.max(0, Math.floor(safeNumber(summary.failed) || 0));
+  const conflicted = Math.max(
+    0,
+    Math.floor(safeNumber(summary.conflicted) || 0)
+  );
+  return summarizeBatch(total, succeeded, failed, conflicted);
+};
+
+const deriveRecognizeSummaryFromState = (
+  documentIds: string[],
+  state: InvoiceAssistantState
+): BatchActionSummary => {
+  const idSet = new Set(documentIds);
+  let succeeded = 0;
+  let failed = 0;
+  for (const doc of state.documents) {
+    if (!idSet.has(doc.document_id)) {
+      continue;
+    }
+    if (doc.status === 'recognize_failed') {
+      failed += 1;
+      continue;
+    }
+    if (doc.status === 'recognized' || doc.status === 'ready_to_sync') {
+      succeeded += 1;
+    }
+  }
+  return summarizeBatch(documentIds.length, succeeded, failed, 0);
+};
+
+const deriveSyncSummaryFromState = (
+  documentIds: string[],
+  state: InvoiceAssistantState
+): SyncBatchSummary => {
+  const idSet = new Set(documentIds);
+  let succeeded = 0;
+  let failed = 0;
+  const syncedDocumentIds: string[] = [];
+  for (const doc of state.documents) {
+    if (!idSet.has(doc.document_id)) {
+      continue;
+    }
+    if (doc.status === 'sync_failed') {
+      failed += 1;
+      continue;
+    }
+    if (doc.status === 'synced') {
+      succeeded += 1;
+      syncedDocumentIds.push(doc.document_id);
+    }
+  }
+  return {
+    ...summarizeBatch(documentIds.length, succeeded, failed, 0),
+    synced_document_ids: syncedDocumentIds,
+  };
+};
+
 class InvoiceIngestionAssistantService {
   async hydrateStateFromStorage(): Promise<InvoiceAssistantState> {
     const localState = readState();
@@ -923,6 +1099,162 @@ class InvoiceIngestionAssistantService {
       return null;
     }
     return normalizePersistedState(source as Partial<InvoiceAssistantState>);
+  }
+
+  private async runOrchestrationBatch(
+    action: OrchestrationAction,
+    documentIds: string[]
+  ): Promise<{
+    payload: Record<string, unknown>;
+    restoredState: InvoiceAssistantState | null;
+  } | null> {
+    const settings = readState().settings;
+    const endpoint = normalizeName(settings.orchestration_endpoint);
+    if (!endpoint) {
+      return null;
+    }
+
+    try {
+      const startResponse = await fetchWithRetry(
+        endpoint,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action,
+            document_ids: documentIds,
+          }),
+        },
+        { label: `Orchestration ${action} start` }
+      );
+      const startPayload = unwrapOrchestrationPayload(
+        (await startResponse.json()) as unknown
+      );
+      const jobId = extractOrchestrationJobId(startPayload);
+      let finalPayload = startPayload;
+
+      if (
+        jobId &&
+        !isTerminalOrchestrationStatus(extractOrchestrationStatus(startPayload))
+      ) {
+        finalPayload = await this.pollOrchestrationBatch(
+          endpoint,
+          action,
+          jobId
+        );
+      }
+
+      const stateCandidate = extractOrchestrationState(finalPayload);
+      if (!stateCandidate) {
+        return {
+          payload: finalPayload,
+          restoredState: null,
+        };
+      }
+
+      const restoredState = normalizePersistedState(stateCandidate);
+      writeState(restoredState, {
+        preserveVersion: true,
+      });
+      return {
+        payload: finalPayload,
+        restoredState,
+      };
+    } catch (error) {
+      console.error(
+        `Orchestration ${action} failed, fallback to local flow:`,
+        error
+      );
+      return null;
+    }
+  }
+
+  private async pollOrchestrationBatch(
+    endpoint: string,
+    action: OrchestrationAction,
+    jobId: string
+  ): Promise<Record<string, unknown>> {
+    for (
+      let attempt = 0;
+      attempt < ORCHESTRATION_MAX_POLL_ATTEMPTS;
+      attempt += 1
+    ) {
+      const response = await fetchWithRetry(
+        joinUrlPath(endpoint, encodeURIComponent(jobId)),
+        {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+        { label: `Orchestration ${action} poll` }
+      );
+      const payload = unwrapOrchestrationPayload(
+        (await response.json()) as unknown
+      );
+      const status = extractOrchestrationStatus(payload);
+      const hasState = Boolean(extractOrchestrationState(payload));
+      const hasSummary = Boolean(extractOrchestrationSummary(payload));
+      if (
+        isTerminalOrchestrationStatus(status) ||
+        (!status && (hasState || hasSummary))
+      ) {
+        return payload;
+      }
+      await delay(ORCHESTRATION_POLL_INTERVAL_MS);
+    }
+    throw new Error(
+      `Orchestration ${action} timed out after ${ORCHESTRATION_MAX_POLL_ATTEMPTS} polling attempts`
+    );
+  }
+
+  private async tryOrchestratedRecognize(
+    documentIds: string[]
+  ): Promise<BatchActionSummary | null> {
+    const orchestrated = await this.runOrchestrationBatch(
+      'recognize',
+      documentIds
+    );
+    if (!orchestrated) {
+      return null;
+    }
+
+    const explicitSummary = parseSummaryCounts(
+      orchestrated.payload,
+      documentIds.length
+    );
+    if (explicitSummary) {
+      return explicitSummary;
+    }
+
+    const nextState = orchestrated.restoredState || readState();
+    return deriveRecognizeSummaryFromState(documentIds, nextState);
+  }
+
+  private async tryOrchestratedSync(
+    documentIds: string[]
+  ): Promise<SyncBatchSummary | null> {
+    const orchestrated = await this.runOrchestrationBatch('sync', documentIds);
+    if (!orchestrated) {
+      return null;
+    }
+
+    const explicitSummary = parseSummaryCounts(
+      orchestrated.payload,
+      documentIds.length
+    );
+    if (explicitSummary) {
+      const summary = extractOrchestrationSummary(orchestrated.payload) || {};
+      return {
+        ...explicitSummary,
+        synced_document_ids: asStringArray(summary.synced_document_ids),
+      };
+    }
+
+    const nextState = orchestrated.restoredState || readState();
+    return deriveSyncSummaryFromState(documentIds, nextState);
   }
 
   getState(): InvoiceAssistantState {
@@ -1137,6 +1469,12 @@ class InvoiceIngestionAssistantService {
   }
 
   async batchRecognize(documentIds: string[]): Promise<BatchActionSummary> {
+    const orchestratedSummary =
+      await this.tryOrchestratedRecognize(documentIds);
+    if (orchestratedSummary) {
+      return orchestratedSummary;
+    }
+
     const state = readState();
     const idSet = new Set(documentIds);
     const targetDocs = state.documents.filter(doc =>
@@ -1394,6 +1732,11 @@ class InvoiceIngestionAssistantService {
   }
 
   async batchSyncToXero(documentIds: string[]): Promise<SyncBatchSummary> {
+    const orchestratedSummary = await this.tryOrchestratedSync(documentIds);
+    if (orchestratedSummary) {
+      return orchestratedSummary;
+    }
+
     const state = readState();
     const idSet = new Set(documentIds);
     const targetDocs = state.documents.filter(doc =>

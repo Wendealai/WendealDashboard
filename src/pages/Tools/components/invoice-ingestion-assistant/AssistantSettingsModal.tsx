@@ -55,6 +55,13 @@ const AssistantSettingsModal: React.FC<AssistantSettingsModalProps> = ({
           <Input placeholder='Optional backend endpoint URL' />
         </Form.Item>
         <Form.Item
+          name='orchestration_endpoint'
+          label='Orchestration Endpoint'
+          rules={[{ validator: validateOptionalUrl }]}
+        >
+          <Input placeholder='Optional backend endpoint URL' />
+        </Form.Item>
+        <Form.Item
           name='drive_archive_endpoint'
           label='Drive Archive Endpoint'
           rules={[{ validator: validateOptionalUrl }]}

@@ -108,6 +108,7 @@ export interface InvoiceAssistantDocument {
 export interface InvoiceAssistantSettings {
   drive_root_folder: string;
   state_sync_endpoint: string | null;
+  orchestration_endpoint: string | null;
   drive_archive_endpoint: string | null;
   ocr_extract_endpoint: string | null;
   xero_sync_endpoint: string | null;

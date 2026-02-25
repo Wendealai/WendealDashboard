@@ -88,7 +88,7 @@ Updated: 2026-02-25
 
 - [x] Add sync pre-duplicate check (local signature + optional Xero precheck endpoint).
 - [x] Add Supabase/server-side primary storage for queue state and snapshots.
-- [ ] Add backend async orchestration for OCR/archive/sync jobs.
+- [x] Add backend async orchestration for OCR/archive/sync jobs.
 - [ ] Add real Xero attachment upload (binary) after transaction creation.
 - [ ] Add compliance rule engine by transaction type/invoice class.
 - [ ] Add ABN validation integration (ABR) with cache and rate-limit guard.
