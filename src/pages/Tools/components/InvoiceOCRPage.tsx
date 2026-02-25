@@ -23,7 +23,13 @@
  * @see {@link InvoiceOCRSettings} - Settings management component
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Layout,
@@ -53,7 +59,9 @@ import {
   ExclamationCircleOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
+import { getInvoiceOcrConfig } from '@/config/invoiceOcrConfig';
 import { invoiceOCRService } from '../../../services/invoiceOCRService';
+import { trackInvoiceOcrEvent } from '@/services/invoiceOcrTelemetry';
 import InvoiceFileUpload from './invoice-ocr/InvoiceFileUpload';
 import InvoiceOCRResults from './invoice-ocr/InvoiceOCRResults';
 import InvoiceOCRSettings from './invoice-ocr/InvoiceOCRSettings';
@@ -85,6 +93,10 @@ const InvoiceOCRPage: React.FC = () => {
   const { t } = useTranslation();
   const message = useMessage();
   const { isVisible, errorInfo, showError, hideError } = useErrorModal();
+  const invoiceOcrConfig = useMemo(() => getInvoiceOcrConfig(), []);
+  const pollingTimerRef = useRef<number | null>(null);
+  const processStartIsoRef = useRef<string>('');
+  const baselineResultCountRef = useRef<number>(0);
 
   // Page state
   const [loading, setLoading] = useState(false);
@@ -92,6 +104,8 @@ const InvoiceOCRPage: React.FC = () => {
     useState<ProcessingStatus>('idle');
   const [currentStep, setCurrentStep] = useState(0);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [isPollingResults, setIsPollingResults] = useState(false);
+  const [resultsRefreshToken, setResultsRefreshToken] = useState(0);
 
   // Data state
   const [uploadedFiles, setUploadedFiles] = useState<InvoiceOCRFile[]>([]);
@@ -110,42 +124,143 @@ const InvoiceOCRPage: React.FC = () => {
     googleSheetsUrl?: string;
     processedFiles?: number;
     totalFiles?: number;
+    hasBusinessData?: boolean;
+    schemaWarnings?: string[];
+    idempotencyKey?: string;
     /** 增强版webhook响应数据 */
     enhancedData?: EnhancedWebhookResponse;
   } | null>(null);
+
+  const stopResultPolling = useCallback(() => {
+    if (pollingTimerRef.current) {
+      window.clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+    setIsPollingResults(false);
+  }, []);
+
+  const pollForLatestResults = useCallback(
+    (executionId?: string) => {
+      stopResultPolling();
+      const pollStartedAt = Date.now();
+      let pollingBusy = false;
+
+      setIsPollingResults(true);
+      trackInvoiceOcrEvent('invoice_ocr_polling_started', {
+        workflowId: invoiceOcrConfig.workflowId,
+        executionId: executionId || '',
+      });
+
+      const tryLoadResults = async () => {
+        if (pollingBusy) {
+          return;
+        }
+        pollingBusy = true;
+        try {
+          const latestResults = await invoiceOCRService.getResultsList(
+            invoiceOcrConfig.workflowId,
+            { page: 1, pageSize: 100 }
+          );
+          setOcrResults(latestResults);
+
+          const hasExecutionMatch = executionId
+            ? latestResults.some(
+                result =>
+                  typeof result.executionId === 'string' &&
+                  result.executionId === executionId
+              )
+            : false;
+
+          const hasFreshResult = latestResults.some(result => {
+            const startedAt = result.startedAt || result.completedAt;
+            if (!startedAt || !processStartIsoRef.current) {
+              return false;
+            }
+            return startedAt >= processStartIsoRef.current;
+          });
+
+          const hasIncrementalResults =
+            latestResults.length > baselineResultCountRef.current;
+
+          if (hasExecutionMatch || hasFreshResult || hasIncrementalResults) {
+            stopResultPolling();
+            setResultsRefreshToken(prev => prev + 1);
+            trackInvoiceOcrEvent('invoice_ocr_polling_completed', {
+              workflowId: invoiceOcrConfig.workflowId,
+              executionId: executionId || '',
+              resultCount: latestResults.length,
+            });
+            message.success('识别结果已同步更新');
+            return;
+          }
+
+          const elapsed = Date.now() - pollStartedAt;
+          if (elapsed >= invoiceOcrConfig.resultPollingTimeoutMs) {
+            stopResultPolling();
+            trackInvoiceOcrEvent('invoice_ocr_polling_timeout', {
+              workflowId: invoiceOcrConfig.workflowId,
+              executionId: executionId || '',
+              elapsedMs: elapsed,
+            });
+            message.warning(
+              '识别已提交，但结果尚未落库。请稍后点击“刷新结果”或查看 n8n 执行日志。'
+            );
+          }
+        } catch (pollError) {
+          console.error('Invoice OCR result polling failed:', pollError);
+        } finally {
+          pollingBusy = false;
+        }
+      };
+
+      void tryLoadResults();
+      pollingTimerRef.current = window.setInterval(
+        () => void tryLoadResults(),
+        invoiceOcrConfig.resultPollingIntervalMs
+      );
+    },
+    [
+      invoiceOcrConfig.resultPollingIntervalMs,
+      invoiceOcrConfig.resultPollingTimeoutMs,
+      invoiceOcrConfig.workflowId,
+      message,
+      stopResultPolling,
+    ]
+  );
 
   /**
    * Handle OCR recognition with webhook
    * This function is called from InvoiceFileUpload component after files are uploaded
    */
   const handleProcessOCR = useCallback(
-    async (files: File[]) => {
+    (files: File[]) => {
+      if (!files.length) {
+        message.warning(t('invoiceOCR.upload.selectFilesFirst'));
+        return;
+      }
+
+      stopResultPolling();
+      processStartIsoRef.current = new Date().toISOString();
+      baselineResultCountRef.current = ocrResults.length;
+      setCompletedData(null);
       setProcessingStatus('processing');
       setLoading(true);
       setError(null);
       setCurrentStep(2);
+      message.info(t('invoiceOCR.upload.processing'));
 
-      try {
-        // Files are already uploaded by InvoiceFileUpload component
-        // Just update the UI to show processing status
-        message.success(t('invoiceOCR.upload.processSuccess'));
-        setProcessingStatus('completed');
-        setCurrentStep(3);
-      } catch (err: any) {
-        const errorMessage =
-          err.message || t('invoiceOCR.upload.processFailed');
-        setError(errorMessage);
-        setProcessingStatus('error');
-        showError({
-          title: t('invoiceOCR.upload.processFailed'),
-          message: err.message || t('common.unknownError'),
-          details: err.stack,
-        });
-      } finally {
-        setLoading(false);
-      }
+      trackInvoiceOcrEvent('invoice_ocr_upload_started', {
+        workflowId: invoiceOcrConfig.workflowId,
+        fileCount: files.length,
+      });
     },
-    [t, message, showError]
+    [
+      t,
+      message,
+      invoiceOcrConfig.workflowId,
+      ocrResults.length,
+      stopResultPolling,
+    ]
   );
 
   /**
@@ -158,6 +273,9 @@ const InvoiceOCRPage: React.FC = () => {
       googleSheetsUrl?: string;
       processedFiles?: number;
       totalFiles?: number;
+      hasBusinessData?: boolean;
+      schemaWarnings?: string[];
+      idempotencyKey?: string;
       /** 增强版webhook响应数据 */
       enhancedData?: EnhancedWebhookResponse;
     }) => {
@@ -166,16 +284,60 @@ const InvoiceOCRPage: React.FC = () => {
       setProcessingStatus('completed');
       setCurrentStep(3);
       setLoading(false);
+
+      const hasResultPayload = Boolean(
+        data?.hasBusinessData ||
+          data?.enhancedData ||
+          data?.executionId ||
+          data?.googleSheetsUrl
+      );
+      if (!hasResultPayload) {
+        message.warning(
+          '识别请求已提交，但未返回可展示结果。请稍后点击“刷新结果”，或检查 n8n 执行日志。'
+        );
+      }
+
+      setResultsRefreshToken(prev => prev + 1);
+      pollForLatestResults(data.executionId);
     },
-    []
+    [message, pollForLatestResults]
+  );
+
+  const handleOCRFailed = useCallback(
+    (err: Error) => {
+      const errorMessage = err.message || t('invoiceOCR.upload.processFailed');
+      stopResultPolling();
+      setError(errorMessage);
+      setProcessingStatus('error');
+      setLoading(false);
+      message.error(errorMessage);
+      showError({
+        title: t('invoiceOCR.upload.processFailed'),
+        message: errorMessage,
+        details: err.stack,
+      });
+
+      trackInvoiceOcrEvent('invoice_ocr_upload_failed', {
+        workflowId: invoiceOcrConfig.workflowId,
+        reason: errorMessage,
+      });
+    },
+    [invoiceOcrConfig.workflowId, message, showError, stopResultPolling, t]
   );
 
   /**
    * Load data when component initializes
    */
   useEffect(() => {
-    loadInitialData();
-  }, []);
+    void loadInitialData();
+  }, [invoiceOcrConfig.workflowId]);
+
+  useEffect(
+    () => () => {
+      stopResultPolling();
+    },
+    [stopResultPolling]
+  );
 
   /**
    * Load initial data
@@ -184,8 +346,8 @@ const InvoiceOCRPage: React.FC = () => {
     try {
       setLoading(true);
       const [resultsData, statsData] = await Promise.all([
-        invoiceOCRService.getResultsList(),
-        invoiceOCRService.getStats(),
+        invoiceOCRService.getResultsList(invoiceOcrConfig.workflowId),
+        invoiceOCRService.getStats(invoiceOcrConfig.workflowId),
       ]);
 
       setOcrResults(resultsData);
@@ -215,11 +377,13 @@ const InvoiceOCRPage: React.FC = () => {
    * Restart processing
    */
   const handleRestart = () => {
+    stopResultPolling();
     setUploadedFiles([]);
     setOcrResults([]);
     setProcessingStatus('idle');
     setCurrentStep(0);
     setError(null);
+    setCompletedData(null);
   };
 
   /**
@@ -298,6 +462,9 @@ const InvoiceOCRPage: React.FC = () => {
             >
               {t('common.settings')}
             </Button>
+            {isPollingResults && (
+              <Badge status='processing' text='结果同步中' />
+            )}
             {processingStatus !== 'idle' && (
               <Button onClick={handleRestart}>{t('common.reset')}</Button>
             )}
@@ -340,6 +507,15 @@ const InvoiceOCRPage: React.FC = () => {
           }
         />
       )}
+      {isPollingResults && (
+        <Alert
+          message='识别完成，正在同步结果'
+          description='系统正在自动轮询最新 OCR 结果，请稍候。'
+          type='info'
+          showIcon
+          style={{ marginTop: 16 }}
+        />
+      )}
     </Card>
   );
 
@@ -365,16 +541,15 @@ const InvoiceOCRPage: React.FC = () => {
           }
         >
           <InvoiceFileUpload
-            workflowId='default-workflow'
+            workflowId={invoiceOcrConfig.workflowId}
+            webhookUrl={invoiceOcrConfig.webhookUrl}
             onUploadSuccess={batchTask => {
               console.log('Upload success:', batchTask);
             }}
-            onUploadError={error => {
-              console.error('Upload error:', error);
-            }}
+            onUploadError={handleOCRFailed}
             onOCRProcess={handleProcessOCR}
             onOCRCompleted={handleOCRCompleted}
-            ocrProcessing={false}
+            ocrProcessing={loading || isPollingResults}
           />
         </Card>
       );
@@ -382,11 +557,12 @@ const InvoiceOCRPage: React.FC = () => {
 
     return (
       <InvoiceOCRResults
-        workflowId='default-workflow'
+        workflowId={invoiceOcrConfig.workflowId}
         showStats={true}
         showHistory={true}
         processingStatus={processingStatus}
         completedData={completedData || {}}
+        refreshToken={resultsRefreshToken}
         onResultSelect={result => {
           console.log('Selected result:', result);
         }}

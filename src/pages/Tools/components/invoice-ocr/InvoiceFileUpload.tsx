@@ -62,8 +62,13 @@ import {
   ScanOutlined,
 } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
+import {
+  getInvoiceOcrConfig,
+  validateInvoiceOcrWebhookUrl,
+} from '@/config/invoiceOcrConfig';
 import { invoiceOCRService } from '../../../../services/invoiceOCRService';
 import { n8nWebhookService } from '../../../../services/n8nWebhookService';
+import { trackInvoiceOcrEvent } from '@/services/invoiceOcrTelemetry';
 import type {
   InvoiceOCRWorkflow,
   InvoiceOCRBatchTask,
@@ -100,6 +105,8 @@ if (typeof document !== 'undefined') {
 interface InvoiceFileUploadProps {
   /** 工作流 ID */
   workflowId: string;
+  /** webhook URL */
+  webhookUrl?: string;
   /** 处理选项 */
   processingOptions?: any;
   /** 批处理名称 */
@@ -124,6 +131,10 @@ interface InvoiceFileUploadProps {
     googleSheetsUrl?: string;
     processedFiles?: number;
     totalFiles?: number;
+    enhancedData?: any;
+    hasBusinessData?: boolean;
+    schemaWarnings?: string[];
+    idempotencyKey?: string;
   }) => void;
 }
 
@@ -152,6 +163,36 @@ const getFileTypeInfo = (fileType: string) => {
   );
 };
 
+const buildLocalIdempotencyKey = (
+  workflowId: string,
+  files: File[]
+): string => {
+  const fingerprint = files
+    .map(file => `${file.name}:${file.size}:${file.type}:${file.lastModified}`)
+    .sort()
+    .join('|');
+
+  let hash = 5381;
+  for (let index = 0; index < fingerprint.length; index += 1) {
+    hash = (hash * 33) ^ fingerprint.charCodeAt(index);
+  }
+
+  return `invoice-ocr:${workflowId}:${Math.abs(hash >>> 0).toString(16)}`;
+};
+
+const extractEnhancedData = (payload: unknown): unknown => {
+  if (!payload) {
+    return null;
+  }
+  if (Array.isArray(payload)) {
+    return payload[0] || null;
+  }
+  if (typeof payload === 'object') {
+    return payload;
+  }
+  return null;
+};
+
 /**
  * Invoice OCR 文件上传组件
  * 支持多文件上传、进度显示、文件预览和删除功能
@@ -159,6 +200,7 @@ const getFileTypeInfo = (fileType: string) => {
 const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
   ({
     workflowId,
+    webhookUrl,
     processingOptions = {},
     batchName,
     maxFiles = 20,
@@ -170,6 +212,11 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
     ocrProcessing = false,
     onOCRCompleted,
   }) => {
+    const invoiceOcrConfig = useMemo(() => getInvoiceOcrConfig(), []);
+    const resolvedWebhookUrl = useMemo(
+      () => webhookUrl?.trim() || invoiceOcrConfig.webhookUrl,
+      [invoiceOcrConfig.webhookUrl, webhookUrl]
+    );
     const [fileList, setFileList] = useState<UploadFile[]>([]);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -354,6 +401,26 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
         return;
       }
 
+      if (
+        !resolvedWebhookUrl ||
+        !validateInvoiceOcrWebhookUrl(resolvedWebhookUrl)
+      ) {
+        const configError =
+          'Webhook URL is missing or invalid. Please check Invoice OCR settings.';
+        message.error(configError);
+        const configException = new Error(configError);
+        onUploadError?.(configException);
+        showError({
+          title: 'Invalid webhook configuration',
+          message: configError,
+        });
+        trackInvoiceOcrEvent('invoice_ocr_upload_failed', {
+          reason: 'invalid_webhook_config',
+          workflowId,
+        });
+        return;
+      }
+
       // 设置上传状态
       setUploading(true);
       setUploadProgress(0);
@@ -362,11 +429,26 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
 
       try {
         const files = fileList.map(file => file.originFileObj as File);
-        const webhookUrl = 'https://n8n.wendealai.com/webhook/invoiceOCR';
+        const idempotencyKey = buildLocalIdempotencyKey(workflowId, files);
+
+        trackInvoiceOcrEvent('invoice_ocr_upload_started', {
+          workflowId,
+          fileCount: files.length,
+          idempotencyKey,
+        });
+
+        try {
+          onOCRProcess?.(files);
+        } catch (callbackError) {
+          console.error(
+            'onOCRProcess回调执行失败(开始处理阶段):',
+            callbackError
+          );
+        }
 
         console.log('开始上传PDF文件到n8n webhook:', {
           fileCount: files.length,
-          webhookUrl,
+          webhookUrl: resolvedWebhookUrl,
           workflowId,
         });
 
@@ -382,13 +464,14 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
 
         // 直接发送文件到n8n webhook
         const webhookResponse = await n8nWebhookService.uploadFilesToWebhook(
-          webhookUrl,
+          resolvedWebhookUrl,
           {
             files,
             workflowId,
             batchName:
               batchName ||
               invoiceOCRService.generateBatchName('invoice-upload'),
+            idempotencyKey,
             metadata: {
               processingOptions: memoizedProcessingOptions,
               timestamp: new Date().toISOString(),
@@ -428,32 +511,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           );
           console.log('webhookResponse.data 内容:', webhookResponse.data);
 
-          const hasDetailedData =
-            webhookResponse.data && Array.isArray(webhookResponse.data);
-          const workflowData = hasDetailedData ? webhookResponse.data : [];
-
-          console.log('hasDetailedData:', hasDetailedData);
-          console.log('workflowData:', workflowData);
-
-          // 提取增强版数据（如果存在）
-          let enhancedData = null;
-          if (hasDetailedData && workflowData.length > 0) {
-            enhancedData = workflowData[0];
-            console.log('从数组第一个元素提取 enhancedData:', enhancedData);
-          } else if (
-            webhookResponse.data &&
-            typeof webhookResponse.data === 'object' &&
-            !Array.isArray(webhookResponse.data)
-          ) {
-            // 如果data不是数组，但是是对象，直接使用
-            enhancedData = webhookResponse.data;
-            console.log(
-              '直接使用 webhookResponse.data 作为 enhancedData:',
-              enhancedData
-            );
-          } else {
-            console.log('未找到有效的 enhancedData');
-          }
+          const enhancedData = extractEnhancedData(webhookResponse.data);
+          const hasBusinessData = Boolean(webhookResponse.hasBusinessData);
+          const schemaWarnings =
+            webhookResponse.diagnostics?.schemaWarnings || [];
 
           // 准备完成数据
           const completedData = {
@@ -464,7 +525,32 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             processedFiles: files.length,
             totalFiles: files.length,
             enhancedData: enhancedData,
+            hasBusinessData,
+            schemaWarnings,
+            idempotencyKey:
+              webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
           };
+
+          if (!hasBusinessData) {
+            message.warning(
+              '识别任务已提交，但未返回可展示结果。请稍后点击“刷新结果”，或检查 n8n 执行日志。'
+            );
+            trackInvoiceOcrEvent('invoice_ocr_empty_response', {
+              workflowId,
+              executionId: webhookResponse.executionId || '',
+              idempotencyKey:
+                webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
+              schemaWarnings: schemaWarnings.join(','),
+            });
+          } else {
+            trackInvoiceOcrEvent('invoice_ocr_upload_completed', {
+              workflowId,
+              executionId: webhookResponse.executionId || '',
+              idempotencyKey:
+                webhookResponse.diagnostics?.idempotencyKey || idempotencyKey,
+              fileCount: files.length,
+            });
+          }
 
           console.log('准备调用onOCRCompleted回调:', completedData);
 
@@ -474,15 +560,6 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             console.log('onOCRCompleted回调执行成功');
           } catch (callbackError) {
             console.error('onOCRCompleted回调执行失败:', callbackError);
-            // 即使回调失败，也不应该影响主流程
-          }
-
-          // 安全地调用父组件回调
-          try {
-            onOCRProcess?.(files);
-            console.log('onOCRProcess回调执行成功');
-          } catch (callbackError) {
-            console.error('onOCRProcess回调执行失败:', callbackError);
             // 即使回调失败，也不应该影响主流程
           }
 
@@ -619,6 +696,16 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           details: errorDetails,
           troubleshooting: troubleshootingSteps,
         });
+        trackInvoiceOcrEvent('invoice_ocr_upload_failed', {
+          workflowId,
+          reason: errorMessage,
+          fileCount: fileList.length,
+        });
+        onUploadError?.(
+          error instanceof Error
+            ? error
+            : new Error(errorMessage || 'OCR workflow processing failed')
+        );
       } finally {
         // 重置上传状态
         setUploading(false);
@@ -629,10 +716,12 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
       onOCRProcess,
       onFileListChange,
       workflowId,
+      resolvedWebhookUrl,
       batchName,
       memoizedProcessingOptions,
       message,
       showError,
+      onUploadError,
     ]);
 
     /**
@@ -917,8 +1006,10 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
                       type='primary'
                       icon={<ScanOutlined />}
                       onClick={handleOCRProcess}
-                      loading={ocrProcessing}
-                      disabled={!fileStats.hasFiles || ocrProcessing}
+                      loading={ocrProcessing || uploading}
+                      disabled={
+                        !fileStats.hasFiles || ocrProcessing || uploading
+                      }
                     >
                       Upload & Recognize
                     </Button>

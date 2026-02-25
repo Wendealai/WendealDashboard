@@ -11,10 +11,17 @@ import type { InvoiceOCRResult } from '../pages/InformationDashboard/types/invoi
 export interface N8NWebhookResponse {
   success: boolean;
   message?: string;
-  data?: any;
+  data?: unknown;
   executionId?: string;
   workflowId?: string;
   googleSheetsUrl?: string;
+  hasBusinessData: boolean;
+  diagnostics?: {
+    httpStatus: number;
+    contentType: string;
+    schemaWarnings: string[];
+    idempotencyKey: string;
+  };
 }
 
 /**
@@ -25,6 +32,7 @@ export interface N8NFileUploadRequest {
   workflowId: string;
   batchName?: string;
   metadata?: Record<string, any>;
+  idempotencyKey?: string;
 }
 
 /**
@@ -32,6 +40,159 @@ export interface N8NFileUploadRequest {
  */
 export class N8NWebhookService {
   private readonly defaultTimeout = 120000; // 2分钟超时，给OCR处理更多时间
+
+  private isObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
+  private getObject(value: unknown): Record<string, unknown> | null {
+    return this.isObject(value) ? value : null;
+  }
+
+  private hashString(value: string): string {
+    let hash = 5381;
+    for (let index = 0; index < value.length; index += 1) {
+      hash = (hash * 33) ^ value.charCodeAt(index);
+    }
+    return Math.abs(hash >>> 0).toString(16);
+  }
+
+  private generateIdempotencyKey(request: N8NFileUploadRequest): string {
+    if (request.idempotencyKey?.trim()) {
+      return request.idempotencyKey.trim();
+    }
+
+    const fingerprint = request.files
+      .map(
+        file => `${file.name}:${file.size}:${file.type}:${file.lastModified}`
+      )
+      .sort()
+      .join('|');
+    const digest = this.hashString(fingerprint);
+    return `invoice-ocr:${request.workflowId}:${digest}`;
+  }
+
+  private extractGoogleSheetsUrl(responseData: unknown): string | undefined {
+    if (Array.isArray(responseData) && responseData.length > 0) {
+      return this.extractGoogleSheetsUrl(responseData[0]);
+    }
+
+    const record = this.getObject(responseData);
+    if (!record) {
+      return undefined;
+    }
+
+    const directCandidates = [
+      record.googleSheetsUrl,
+      record.sheetsUrl,
+      record.url,
+    ];
+    for (const candidate of directCandidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+
+    const nestedData = this.getObject(record.data);
+    if (!nestedData) {
+      return undefined;
+    }
+
+    const nestedCandidates = [
+      nestedData.googleSheetsUrl,
+      nestedData.sheetsUrl,
+      nestedData.url,
+    ];
+    for (const candidate of nestedCandidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+
+    return undefined;
+  }
+
+  private normalizeBusinessPayload(responseData: unknown): {
+    hasBusinessData: boolean;
+    warnings: string[];
+    executionId?: string;
+  } {
+    const warnings: string[] = [];
+
+    const pushWarning = (warning: string): void => {
+      if (!warnings.includes(warning)) {
+        warnings.push(warning);
+      }
+    };
+
+    const scan = (
+      input: unknown
+    ): { hasBusinessData: boolean; executionId?: string } => {
+      if (Array.isArray(input)) {
+        if (input.length === 0) {
+          pushWarning('response_array_is_empty');
+          return { hasBusinessData: false };
+        }
+        return scan(input[0]);
+      }
+
+      const record = this.getObject(input);
+      if (!record) {
+        pushWarning('response_payload_is_not_object');
+        return { hasBusinessData: false };
+      }
+
+      const executionId =
+        typeof record.executionId === 'string' && record.executionId.trim()
+          ? record.executionId.trim()
+          : undefined;
+
+      const hasEnhancedResults =
+        Array.isArray(record.results) && record.results.length > 0;
+
+      const hasInlineSummary = Boolean(
+        record.summary || record.financialSummary || record.processingDetails
+      );
+
+      const nestedData = this.getObject(record.data);
+      const hasNestedData = Boolean(
+        nestedData &&
+          (nestedData.summary ||
+            nestedData.financialSummary ||
+            nestedData.processingDetails ||
+            (Array.isArray(nestedData.results) &&
+              nestedData.results.length > 0))
+      );
+
+      const hasExecution = Boolean(executionId);
+      const hasSheetsUrl = Boolean(this.extractGoogleSheetsUrl(record));
+
+      const hasBusinessData =
+        hasEnhancedResults ||
+        hasInlineSummary ||
+        hasNestedData ||
+        hasExecution ||
+        hasSheetsUrl;
+
+      if (!hasBusinessData) {
+        pushWarning('response_missing_business_fields');
+      }
+
+      return {
+        hasBusinessData,
+        ...(executionId ? { executionId } : {}),
+      };
+    };
+
+    const scanned = scan(responseData);
+    return {
+      hasBusinessData: scanned.hasBusinessData,
+      warnings,
+      ...(typeof scanned.executionId === 'string' && scanned.executionId
+        ? { executionId: scanned.executionId }
+        : {}),
+    };
+  }
 
   /**
    * 上传文件到n8n webhook
@@ -58,6 +219,7 @@ export class N8NWebhookService {
 
       // 验证文件
       this.validateFiles(request.files);
+      const idempotencyKey = this.generateIdempotencyKey(request);
 
       // 创建FormData
       const formData = new FormData();
@@ -95,6 +257,7 @@ export class N8NWebhookService {
         headers: {
           'User-Agent': 'WendealDashboard/1.0',
           'X-Requested-With': 'XMLHttpRequest',
+          'X-Idempotency-Key': idempotencyKey,
         },
         signal: AbortSignal.timeout(this.defaultTimeout),
       });
@@ -106,7 +269,7 @@ export class N8NWebhookService {
       });
 
       // 解析响应内容
-      let responseData: any;
+      let responseData: unknown;
       const contentType = response.headers.get('content-type');
 
       if (contentType && contentType.includes('application/json')) {
@@ -123,27 +286,20 @@ export class N8NWebhookService {
 
       console.log('解析后的n8n响应数据:', responseData);
 
+      const normalized = this.normalizeBusinessPayload(responseData);
+      const googleSheetsUrl = this.extractGoogleSheetsUrl(responseData);
+
       // 检查响应状态 - 如果包含有效数据，即使状态码不是200也继续处理
       if (!response.ok) {
         console.warn('n8n webhook响应状态非200:', {
           status: response.status,
           statusText: response.statusText,
           hasData: !!responseData,
-          dataKeys: responseData ? Object.keys(responseData) : [],
+          hasBusinessData: normalized.hasBusinessData,
+          schemaWarnings: normalized.warnings,
         });
 
-        // 检查是否包含有效的处理数据
-        const hasValidData =
-          responseData &&
-          (responseData.processingTimestamp ||
-            responseData.summary ||
-            responseData.financialSummary ||
-            responseData.processingDetails ||
-            responseData.executionId ||
-            responseData.googleSheetsUrl ||
-            responseData.data);
-
-        if (!hasValidData) {
+        if (!normalized.hasBusinessData) {
           console.error('n8n webhook响应错误且无有效数据:', {
             status: response.status,
             statusText: response.statusText,
@@ -156,33 +312,40 @@ export class N8NWebhookService {
           console.log('响应状态非200但包含有效数据，继续处理...');
         }
       }
-
-      // 尝试从不同可能的字段中提取Google Sheets URL
-      let googleSheetsUrl = null;
-      if (responseData.googleSheetsUrl) {
-        googleSheetsUrl = responseData.googleSheetsUrl;
-      } else if (responseData.data?.googleSheetsUrl) {
-        googleSheetsUrl = responseData.data.googleSheetsUrl;
-      } else if (responseData.sheetsUrl) {
-        googleSheetsUrl = responseData.sheetsUrl;
-      } else if (responseData.data?.sheetsUrl) {
-        googleSheetsUrl = responseData.data.sheetsUrl;
-      } else if (responseData.url) {
-        googleSheetsUrl = responseData.url;
-      } else if (responseData.data?.url) {
-        googleSheetsUrl = responseData.data.url;
-      }
-
       console.log('提取的Google Sheets URL:', googleSheetsUrl);
+
+      const responseRecord = this.getObject(responseData);
+      const executionId =
+        normalized.executionId ||
+        (typeof responseRecord?.executionId === 'string' &&
+        responseRecord.executionId.trim()
+          ? responseRecord.executionId.trim()
+          : undefined) ||
+        `execution-${Date.now()}`;
+      const responseMessage =
+        (typeof responseRecord?.message === 'string' &&
+          responseRecord.message.trim()) ||
+        'Files uploaded successfully';
+      const workflowId =
+        (typeof responseRecord?.workflowId === 'string' &&
+          responseRecord.workflowId.trim()) ||
+        request.workflowId;
 
       // 构造标准化响应
       const webhookResponse: N8NWebhookResponse = {
         success: true,
-        message: responseData.message || 'Files uploaded successfully',
+        message: responseMessage,
         data: responseData,
-        executionId: responseData.executionId || 'execution-' + Date.now(),
-        workflowId: responseData.workflowId || request.workflowId,
-        googleSheetsUrl,
+        executionId,
+        workflowId,
+        ...(googleSheetsUrl ? { googleSheetsUrl } : {}),
+        hasBusinessData: normalized.hasBusinessData,
+        diagnostics: {
+          httpStatus: response.status,
+          contentType: contentType || 'unknown',
+          schemaWarnings: normalized.warnings,
+          idempotencyKey,
+        },
       };
 
       console.log('文件上传到n8n成功:', webhookResponse);
@@ -288,6 +451,13 @@ export class N8NWebhookService {
         data: responseData,
         executionId: responseData.executionId,
         workflowId: responseData.workflowId,
+        hasBusinessData: true,
+        diagnostics: {
+          httpStatus: response.status,
+          contentType: response.headers.get('content-type') || 'unknown',
+          schemaWarnings: [],
+          idempotencyKey: 'ocr-result-forwarding',
+        },
       };
     } catch (error) {
       console.error('Failed to send OCR results to webhook:', error);

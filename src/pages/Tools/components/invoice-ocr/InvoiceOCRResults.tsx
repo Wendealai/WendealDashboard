@@ -43,6 +43,7 @@ import {
   Statistic,
   Row,
   Col,
+  Alert,
   Empty,
   Spin,
   Modal,
@@ -80,6 +81,7 @@ import {
   BulbOutlined,
   CloseCircleOutlined,
   BarChartOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { invoiceOCRService } from '../../../../services/invoiceOCRService';
@@ -117,9 +119,14 @@ interface InvoiceOCRResultsProps {
     googleSheetsUrl?: string;
     processedFiles?: number;
     totalFiles?: number;
+    hasBusinessData?: boolean;
+    schemaWarnings?: string[];
+    idempotencyKey?: string;
     /** 增强版webhook响应数据 */
     enhancedData?: EnhancedWebhookResponse;
   };
+  /** 外部刷新触发令牌 */
+  refreshToken?: number;
   /** 结果选择回调 */
   onResultSelect?: (result: InvoiceOCRResult) => void;
   /** 批处理任务选择回调 */
@@ -200,6 +207,7 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
   showHistory = true,
   processingStatus = 'idle',
   completedData,
+  refreshToken = 0,
   onResultSelect,
   onBatchTaskSelect,
   onGoogleSheetsRedirect,
@@ -254,8 +262,14 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
    * 组件挂载时加载数据
    */
   useEffect(() => {
-    loadResults();
+    void loadResults();
   }, [loadResults]);
+
+  useEffect(() => {
+    if (refreshToken > 0) {
+      void loadResults();
+    }
+  }, [loadResults, refreshToken]);
 
   /**
    * 查看结果详情
@@ -354,6 +368,23 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
       `正在跳转到 Google Sheets，将导出 ${targetResults.length} 条结果`
     );
   }, [selectedResults, results, onGoogleSheetsRedirect]);
+
+  const handleCopyExecutionId = useCallback(
+    async (value?: string) => {
+      if (!value) {
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(value);
+        message.success('Execution ID 已复制');
+      } catch (copyError) {
+        console.error('Failed to copy execution ID:', copyError);
+        message.error('复制失败，请手动复制');
+      }
+    },
+    [message]
+  );
 
   /**
    * 结果表格列定义
@@ -1007,6 +1038,33 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
               <Text type='secondary' style={{ fontSize: 16 }}>
                 Your invoices have been successfully processed and analyzed
               </Text>
+              {(completedData.executionId || completedData.idempotencyKey) && (
+                <div style={{ marginTop: 12 }}>
+                  <Space size='middle' wrap>
+                    {completedData.executionId && (
+                      <Tag color='blue' style={{ padding: '4px 8px' }}>
+                        Execution ID: {completedData.executionId}
+                      </Tag>
+                    )}
+                    {completedData.executionId && (
+                      <Button
+                        size='small'
+                        icon={<CopyOutlined />}
+                        onClick={() =>
+                          void handleCopyExecutionId(completedData.executionId)
+                        }
+                      >
+                        复制 ID
+                      </Button>
+                    )}
+                    {completedData.idempotencyKey && (
+                      <Tag color='purple' style={{ padding: '4px 8px' }}>
+                        Request Key: {completedData.idempotencyKey}
+                      </Tag>
+                    )}
+                  </Space>
+                </div>
+              )}
             </Card>
 
             {/* 处理建议 */}
@@ -1285,8 +1343,49 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
               </Text>
             </div>
 
-            {completedData.googleSheetsUrl && (
-              <Space size='large'>
+            {(completedData.executionId || completedData.idempotencyKey) && (
+              <div style={{ marginBottom: 20 }}>
+                <Space size='middle' wrap>
+                  {completedData.executionId && (
+                    <Tag color='blue' style={{ padding: '4px 8px' }}>
+                      Execution ID: {completedData.executionId}
+                    </Tag>
+                  )}
+                  {completedData.executionId && (
+                    <Button
+                      size='small'
+                      icon={<CopyOutlined />}
+                      onClick={() =>
+                        void handleCopyExecutionId(completedData.executionId)
+                      }
+                    >
+                      复制 ID
+                    </Button>
+                  )}
+                  {completedData.idempotencyKey && (
+                    <Tag color='purple' style={{ padding: '4px 8px' }}>
+                      Request Key: {completedData.idempotencyKey}
+                    </Tag>
+                  )}
+                </Space>
+              </div>
+            )}
+
+            <Space size='large' wrap>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => {
+                  void loadResults();
+                }}
+                style={{
+                  borderRadius: '8px',
+                  height: '48px',
+                  padding: '0 24px',
+                }}
+              >
+                刷新结果
+              </Button>
+              {completedData.googleSheetsUrl && (
                 <Button
                   type='primary'
                   size='large'
@@ -1309,26 +1408,44 @@ const InvoiceOCRResults: React.FC<InvoiceOCRResultsProps> = ({
                 >
                   {t('invoiceOCR.completion.viewGoogleSheets')}
                 </Button>
-                <Button
-                  size='large'
-                  onClick={() => {
-                    if (onProcessNewFiles) {
-                      onProcessNewFiles();
-                    } else {
-                      // 如果没有提供回调函数，则刷新页面作为后备方案
-                      window.location.reload();
-                    }
-                  }}
-                  style={{
-                    borderRadius: '8px',
-                    height: '48px',
-                    padding: '0 24px',
-                  }}
-                >
-                  {t('invoiceOCR.completion.processNewFiles')}
-                </Button>
-              </Space>
-            )}
+              )}
+              <Button
+                size='large'
+                onClick={() => {
+                  if (onProcessNewFiles) {
+                    onProcessNewFiles();
+                  } else {
+                    // 如果没有提供回调函数，则刷新页面作为后备方案
+                    window.location.reload();
+                  }
+                }}
+                style={{
+                  borderRadius: '8px',
+                  height: '48px',
+                  padding: '0 24px',
+                }}
+              >
+                {t('invoiceOCR.completion.processNewFiles')}
+              </Button>
+            </Space>
+
+            <Alert
+              style={{ marginTop: 20, textAlign: 'left' }}
+              type='warning'
+              showIcon
+              message='未收到结构化识别结果'
+              description='识别请求已提交，但工作流暂未返回可展示数据。请先点击“刷新结果”；若持续为空，请检查 n8n 流程执行日志。'
+            />
+            {completedData.schemaWarnings &&
+              completedData.schemaWarnings.length > 0 && (
+                <Alert
+                  style={{ marginTop: 12, textAlign: 'left' }}
+                  type='info'
+                  showIcon
+                  message='响应诊断'
+                  description={`Schema warnings: ${completedData.schemaWarnings.join(', ')}`}
+                />
+              )}
 
             <Divider style={{ margin: '32px 0 16px' }} />
             <Text type='secondary' style={{ fontSize: 12 }}>

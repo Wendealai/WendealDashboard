@@ -18,10 +18,20 @@ type GoogleCalendarRuntimeConfig = {
   calendarId?: string;
 };
 
+type InvoiceOcrRuntimeConfig = {
+  webhookUrl?: string;
+  workflowId?: string;
+  resultPollingIntervalMs?: number;
+  resultPollingTimeoutMs?: number;
+  telemetryEndpoint?: string;
+  debug?: boolean;
+};
+
 type AppRuntimeConfig = {
   supabase?: SupabaseRuntimeConfig;
   googleMaps?: GoogleMapsRuntimeConfig;
   googleCalendar?: GoogleCalendarRuntimeConfig;
+  invoiceOCR?: InvoiceOcrRuntimeConfig;
 };
 
 const runtime = globalThis as typeof globalThis & {
@@ -29,6 +39,7 @@ const runtime = globalThis as typeof globalThis & {
   __WENDEAL_SUPABASE_CONFIG__?: SupabaseRuntimeConfig;
   __WENDEAL_GOOGLE_MAPS_CONFIG__?: GoogleMapsRuntimeConfig;
   __WENDEAL_GOOGLE_CALENDAR_CONFIG__?: GoogleCalendarRuntimeConfig;
+  __WENDEAL_INVOICE_OCR_CONFIG__?: InvoiceOcrRuntimeConfig;
 };
 
 const runtimeConfig = runtime.__WENDEAL_RUNTIME_CONFIG__ ?? {};
@@ -52,6 +63,63 @@ runtime.__WENDEAL_GOOGLE_CALENDAR_CONFIG__ = {
   calendarId:
     runtimeConfig.googleCalendar?.calendarId ??
     import.meta.env.VITE_GOOGLE_CALENDAR_ID,
+};
+
+const invoiceOcrPollingIntervalEnv = import.meta.env
+  .VITE_INVOICE_OCR_POLL_INTERVAL_MS
+  ? Number(import.meta.env.VITE_INVOICE_OCR_POLL_INTERVAL_MS)
+  : undefined;
+const invoiceOcrPollingTimeoutEnv = import.meta.env
+  .VITE_INVOICE_OCR_POLL_TIMEOUT_MS
+  ? Number(import.meta.env.VITE_INVOICE_OCR_POLL_TIMEOUT_MS)
+  : undefined;
+
+const resolvedInvoiceOcrWebhookUrl =
+  runtimeConfig.invoiceOCR?.webhookUrl ??
+  import.meta.env.VITE_INVOICE_OCR_WEBHOOK_URL;
+const resolvedInvoiceOcrWorkflowId =
+  runtimeConfig.invoiceOCR?.workflowId ??
+  import.meta.env.VITE_INVOICE_OCR_WORKFLOW_ID;
+const resolvedInvoiceOcrTelemetryEndpoint =
+  runtimeConfig.invoiceOCR?.telemetryEndpoint ??
+  import.meta.env.VITE_INVOICE_OCR_TELEMETRY_ENDPOINT;
+const resolvedInvoiceOcrDebug =
+  runtimeConfig.invoiceOCR?.debug ??
+  (import.meta.env.VITE_INVOICE_OCR_DEBUG
+    ? import.meta.env.VITE_INVOICE_OCR_DEBUG === 'true'
+    : undefined);
+const resolvedInvoiceOcrPollingInterval =
+  runtimeConfig.invoiceOCR?.resultPollingIntervalMs ??
+  invoiceOcrPollingIntervalEnv;
+const resolvedInvoiceOcrPollingTimeout =
+  runtimeConfig.invoiceOCR?.resultPollingTimeoutMs ??
+  invoiceOcrPollingTimeoutEnv;
+
+runtime.__WENDEAL_INVOICE_OCR_CONFIG__ = {
+  ...(resolvedInvoiceOcrWebhookUrl
+    ? { webhookUrl: resolvedInvoiceOcrWebhookUrl }
+    : {}),
+  ...(resolvedInvoiceOcrWorkflowId
+    ? { workflowId: resolvedInvoiceOcrWorkflowId }
+    : {}),
+  ...(typeof resolvedInvoiceOcrPollingInterval === 'number' &&
+  Number.isFinite(resolvedInvoiceOcrPollingInterval)
+    ? {
+        resultPollingIntervalMs: resolvedInvoiceOcrPollingInterval,
+      }
+    : {}),
+  ...(typeof resolvedInvoiceOcrPollingTimeout === 'number' &&
+  Number.isFinite(resolvedInvoiceOcrPollingTimeout)
+    ? {
+        resultPollingTimeoutMs: resolvedInvoiceOcrPollingTimeout,
+      }
+    : {}),
+  ...(resolvedInvoiceOcrTelemetryEndpoint
+    ? { telemetryEndpoint: resolvedInvoiceOcrTelemetryEndpoint }
+    : {}),
+  ...(typeof resolvedInvoiceOcrDebug === 'boolean'
+    ? { debug: resolvedInvoiceOcrDebug }
+    : {}),
 };
 
 // 在开发环境中启动MSW (暂时禁用以解决CORS问题)

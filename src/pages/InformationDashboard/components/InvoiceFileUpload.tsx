@@ -427,9 +427,13 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
           );
           console.log('webhookResponse.data 内容:', webhookResponse.data);
 
-          const hasDetailedData =
-            webhookResponse.data && Array.isArray(webhookResponse.data);
-          const workflowData = hasDetailedData ? webhookResponse.data : [];
+          const responsePayload = webhookResponse.data as
+            | Record<string, unknown>
+            | Record<string, unknown>[]
+            | null
+            | undefined;
+          const hasDetailedData = Array.isArray(responsePayload);
+          const workflowData = hasDetailedData ? responsePayload : [];
 
           console.log('hasDetailedData:', hasDetailedData);
           console.log('workflowData:', workflowData);
@@ -440,12 +444,12 @@ const InvoiceFileUpload: React.FC<InvoiceFileUploadProps> = memo(
             enhancedData = workflowData[0];
             console.log('从数组第一个元素提取 enhancedData:', enhancedData);
           } else if (
-            webhookResponse.data &&
-            typeof webhookResponse.data === 'object' &&
-            !Array.isArray(webhookResponse.data)
+            responsePayload &&
+            typeof responsePayload === 'object' &&
+            !Array.isArray(responsePayload)
           ) {
             // 如果data不是数组，但是是对象，直接使用
-            enhancedData = webhookResponse.data;
+            enhancedData = responsePayload;
             console.log(
               '直接使用 webhookResponse.data 作为 enhancedData:',
               enhancedData

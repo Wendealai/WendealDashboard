@@ -3,7 +3,6 @@
  * 处理与n8n工作流的图像生成和编辑通信
  */
 
-import type { N8NWebhookResponse } from './n8nWebhookService';
 import type {
   ImageGenerationRequest,
   ImageGenerationResponse,
