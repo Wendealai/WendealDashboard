@@ -87,7 +87,7 @@ Updated: 2026-02-25
 ## Phase 6 (2026-02-25)
 
 - [x] Add sync pre-duplicate check (local signature + optional Xero precheck endpoint).
-- [ ] Add Supabase/server-side primary storage for queue state and snapshots.
+- [x] Add Supabase/server-side primary storage for queue state and snapshots.
 - [ ] Add backend async orchestration for OCR/archive/sync jobs.
 - [ ] Add real Xero attachment upload (binary) after transaction creation.
 - [ ] Add compliance rule engine by transaction type/invoice class.

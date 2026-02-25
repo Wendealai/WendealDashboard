@@ -26,6 +26,7 @@ const STORAGE_KEY = 'invoice_ingestion_assistant_state_v1';
 
 const baseSettings: InvoiceAssistantSettings = {
   drive_root_folder: 'Invoices',
+  state_sync_endpoint: null,
   drive_archive_endpoint: null,
   ocr_extract_endpoint: null,
   xero_sync_endpoint: null,
@@ -442,5 +443,64 @@ describe('invoiceIngestionAssistantService', () => {
     });
 
     expect(saveInvoiceAssistantStateSnapshot).toHaveBeenCalled();
+  });
+
+  it('hydrates from remote state endpoint when remote snapshot is newer', async () => {
+    const remoteEndpoint = 'https://state.example/snapshot';
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument({ document_id: 'doc_local' })],
+      suppliers: [],
+      settings: {
+        ...baseSettings,
+        state_sync_endpoint: remoteEndpoint,
+      },
+    });
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        state: {
+          version: 3,
+          documents: [makeDocument({ document_id: 'doc_remote' })],
+          suppliers: [],
+          settings: {
+            ...baseSettings,
+            state_sync_endpoint: remoteEndpoint,
+          },
+        },
+      }),
+    } as Response);
+
+    const hydrated =
+      await invoiceIngestionAssistantService.hydrateStateFromStorage();
+    const persisted = readAssistantState();
+
+    expect(hydrated.version).toBe(3);
+    expect(hydrated.documents[0]?.document_id).toBe('doc_remote');
+    expect(persisted.version).toBe(3);
+    expect((global.fetch as jest.Mock).mock.calls[0]?.[0]).toBe(remoteEndpoint);
+  });
+
+  it('mirrors state writes to remote endpoint when configured', () => {
+    const remoteEndpoint = 'https://state.example/snapshot';
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument()],
+      suppliers: [],
+      settings: {
+        ...baseSettings,
+        state_sync_endpoint: remoteEndpoint,
+      },
+    });
+
+    invoiceIngestionAssistantService.saveSettings({
+      drive_root_folder: 'Invoices-Remote',
+    });
+
+    expect((global.fetch as jest.Mock).mock.calls.length).toBeGreaterThan(0);
+    expect((global.fetch as jest.Mock).mock.calls[0]?.[0]).toBe(remoteEndpoint);
+    expect((global.fetch as jest.Mock).mock.calls[0]?.[1]?.method).toBe('POST');
   });
 });

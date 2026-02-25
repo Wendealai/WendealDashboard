@@ -63,6 +63,7 @@ const DEFAULT_SUPPLIERS: SupplierDirectoryEntry[] = [
 
 const DEFAULT_SETTINGS: InvoiceAssistantSettings = {
   drive_root_folder: 'Invoices',
+  state_sync_endpoint: null,
   drive_archive_endpoint: null,
   ocr_extract_endpoint: null,
   xero_sync_endpoint: null,
@@ -123,6 +124,28 @@ const safeNumber = (value: unknown): number | null => {
   return null;
 };
 
+const normalizePersistedState = (
+  parsed: Partial<InvoiceAssistantState> | null | undefined
+): InvoiceAssistantState => {
+  const source = parsed || {};
+  const parsedVersion =
+    typeof source.version === 'number' && Number.isFinite(source.version)
+      ? source.version
+      : 1;
+  return {
+    version: Math.max(1, Math.floor(parsedVersion)),
+    documents: Array.isArray(source.documents) ? source.documents : [],
+    suppliers:
+      Array.isArray(source.suppliers) && source.suppliers.length > 0
+        ? source.suppliers
+        : DEFAULT_SUPPLIERS,
+    settings: {
+      ...DEFAULT_SETTINGS,
+      ...(source.settings || {}),
+    },
+  };
+};
+
 const readState = (): InvoiceAssistantState => {
   try {
     const raw = localStorage.getItem(STATE_STORAGE_KEY);
@@ -131,22 +154,7 @@ const readState = (): InvoiceAssistantState => {
     }
 
     const parsed = JSON.parse(raw) as Partial<InvoiceAssistantState>;
-    const parsedVersion =
-      typeof parsed.version === 'number' && Number.isFinite(parsed.version)
-        ? parsed.version
-        : 1;
-    return {
-      version: Math.max(1, Math.floor(parsedVersion)),
-      documents: Array.isArray(parsed.documents) ? parsed.documents : [],
-      suppliers:
-        Array.isArray(parsed.suppliers) && parsed.suppliers.length > 0
-          ? parsed.suppliers
-          : DEFAULT_SUPPLIERS,
-      settings: {
-        ...DEFAULT_SETTINGS,
-        ...(parsed.settings || {}),
-      },
-    };
+    return normalizePersistedState(parsed);
   } catch (error) {
     console.error('Failed to read invoice assistant state:', error);
     return createDefaultState();
@@ -163,6 +171,9 @@ const syncStateToStores = (
   }
   void saveInvoiceAssistantStateSnapshot(state).catch(error => {
     console.error('Failed to mirror assistant state to IndexedDB:', error);
+  });
+  void syncStateToRemoteSnapshot(state).catch(error => {
+    console.error('Failed to mirror assistant state to remote store:', error);
   });
 };
 
@@ -247,6 +258,28 @@ const fetchWithRetry = async (
   throw lastError instanceof Error
     ? lastError
     : new Error(`${options.label} request failed`);
+};
+
+const syncStateToRemoteSnapshot = async (
+  state: InvoiceAssistantState
+): Promise<void> => {
+  const endpoint = state.settings.state_sync_endpoint;
+  if (!endpoint) {
+    return;
+  }
+  await fetchWithRetry(
+    endpoint,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        state,
+      }),
+    },
+    { label: 'State sync write' }
+  );
 };
 
 const runWithConcurrency = async <T, R>(
@@ -805,37 +838,52 @@ const summarizeBatch = (
   skipped: Math.max(total - succeeded - failed - conflicted, 0),
 });
 
+const shouldRestoreState = (
+  candidate: InvoiceAssistantState,
+  baseline: InvoiceAssistantState
+): boolean =>
+  candidate.version > baseline.version ||
+  (baseline.documents.length === 0 && candidate.documents.length > 0);
+
 class InvoiceIngestionAssistantService {
   async hydrateStateFromStorage(): Promise<InvoiceAssistantState> {
     const localState = readState();
+    let workingState = localState;
+
+    const remoteEndpoint = normalizeName(
+      localState.settings.state_sync_endpoint
+    );
+    if (remoteEndpoint) {
+      try {
+        const remoteState = await this.fetchRemoteStateSnapshot(remoteEndpoint);
+        if (remoteState && shouldRestoreState(remoteState, workingState)) {
+          writeState(remoteState, {
+            preserveVersion: true,
+            mirrorToIndexedDb: false,
+          });
+          workingState = remoteState;
+        }
+      } catch (error) {
+        console.error(
+          'Failed to hydrate assistant state from remote store:',
+          error
+        );
+      }
+    }
+
     try {
       const snapshot = await getInvoiceAssistantStateSnapshot();
       if (!snapshot) {
-        return localState;
+        void saveInvoiceAssistantStateSnapshot(workingState).catch(error => {
+          console.error('Failed to refresh state snapshot:', error);
+        });
+        return workingState;
       }
 
-      const restoredState: InvoiceAssistantState = {
-        version:
-          typeof snapshot.version === 'number' &&
-          Number.isFinite(snapshot.version)
-            ? Math.max(1, Math.floor(snapshot.version))
-            : 1,
-        documents: Array.isArray(snapshot.documents) ? snapshot.documents : [],
-        suppliers:
-          Array.isArray(snapshot.suppliers) && snapshot.suppliers.length > 0
-            ? snapshot.suppliers
-            : DEFAULT_SUPPLIERS,
-        settings: {
-          ...DEFAULT_SETTINGS,
-          ...(snapshot.settings || {}),
-        },
-      };
-
-      const shouldRestore =
-        restoredState.version > localState.version ||
-        (localState.documents.length === 0 &&
-          restoredState.documents.length > 0);
-      if (shouldRestore) {
+      const restoredState = normalizePersistedState(
+        snapshot as Partial<InvoiceAssistantState>
+      );
+      if (shouldRestoreState(restoredState, workingState)) {
         writeState(restoredState, {
           preserveVersion: true,
           mirrorToIndexedDb: false,
@@ -843,14 +891,38 @@ class InvoiceIngestionAssistantService {
         return restoredState;
       }
 
-      void saveInvoiceAssistantStateSnapshot(localState).catch(error => {
+      void saveInvoiceAssistantStateSnapshot(workingState).catch(error => {
         console.error('Failed to refresh state snapshot:', error);
       });
-      return localState;
+      return workingState;
     } catch (error) {
       console.error('Failed to hydrate assistant state from IndexedDB:', error);
-      return localState;
+      return workingState;
     }
+  }
+
+  private async fetchRemoteStateSnapshot(
+    endpoint: string
+  ): Promise<InvoiceAssistantState | null> {
+    const response = await fetchWithRetry(
+      endpoint,
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      },
+      { label: 'State sync read' }
+    );
+    const payload = (await response.json()) as unknown;
+    const source =
+      payload && typeof payload === 'object' && 'state' in payload
+        ? (payload as { state: unknown }).state
+        : payload;
+    if (!source || typeof source !== 'object') {
+      return null;
+    }
+    return normalizePersistedState(source as Partial<InvoiceAssistantState>);
   }
 
   getState(): InvoiceAssistantState {

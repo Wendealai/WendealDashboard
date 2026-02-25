@@ -358,6 +358,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
     const values = await settingsForm.validateFields();
     const nextSettings = invoiceIngestionAssistantService.saveSettings({
       drive_root_folder: values.drive_root_folder,
+      state_sync_endpoint: values.state_sync_endpoint || null,
       drive_archive_endpoint: values.drive_archive_endpoint || null,
       ocr_extract_endpoint: values.ocr_extract_endpoint || null,
       xero_sync_endpoint: values.xero_sync_endpoint || null,
