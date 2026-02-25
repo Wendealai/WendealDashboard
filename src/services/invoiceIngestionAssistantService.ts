@@ -10,6 +10,7 @@ import {
 import { createSparkeryIdempotencyKey } from './sparkeryIdempotency';
 import type {
   BatchActionSummary,
+  InvoiceApprovalStatus,
   InvoiceAssistantDocument,
   InvoiceAssistantSettings,
   InvoiceAssistantState,
@@ -86,6 +87,7 @@ const DEFAULT_SETTINGS: InvoiceAssistantSettings = {
   xero_duplicate_check_endpoint: null,
   abn_validation_endpoint: null,
   auto_learn_supplier_rules: true,
+  require_batch_approval: false,
   default_currency: 'AUD',
   default_transaction_type: 'SPEND_MONEY',
   dry_run_mode: true,
@@ -171,6 +173,22 @@ const safeNumber = (value: unknown): number | null => {
   return null;
 };
 
+const normalizeApprovalStatus = (value: unknown): InvoiceApprovalStatus =>
+  value === 'approved' ? 'approved' : 'pending';
+
+const normalizePersistedDocument = (
+  doc: InvoiceAssistantDocument
+): InvoiceAssistantDocument => {
+  return {
+    ...doc,
+    approval_status: normalizeApprovalStatus(
+      (doc as { approval_status?: unknown }).approval_status
+    ),
+    approved_at: normalizeName((doc as { approved_at?: string }).approved_at),
+    approved_by: normalizeName((doc as { approved_by?: string }).approved_by),
+  };
+};
+
 const normalizePersistedState = (
   parsed: Partial<InvoiceAssistantState> | null | undefined
 ): InvoiceAssistantState => {
@@ -181,7 +199,11 @@ const normalizePersistedState = (
       : 1;
   return {
     version: Math.max(1, Math.floor(parsedVersion)),
-    documents: Array.isArray(source.documents) ? source.documents : [],
+    documents: Array.isArray(source.documents)
+      ? source.documents.map(item =>
+          normalizePersistedDocument(item as InvoiceAssistantDocument)
+        )
+      : [],
     suppliers:
       Array.isArray(source.suppliers) && source.suppliers.length > 0
         ? source.suppliers
@@ -1581,6 +1603,9 @@ class InvoiceIngestionAssistantService {
         xero_id: null,
         xero_type: null,
         sync_idempotency_key: null,
+        approval_status: 'pending',
+        approved_at: null,
+        approved_by: null,
         updated_at: nowIso(),
       };
 
@@ -1876,6 +1901,49 @@ class InvoiceIngestionAssistantService {
     return nextDoc;
   }
 
+  batchSetApproval(
+    documentIds: string[],
+    approvalStatus: InvoiceApprovalStatus,
+    approvedBy = 'manual'
+  ): BatchActionSummary {
+    const state = readState();
+    const idSet = new Set(documentIds);
+    let succeeded = 0;
+    let failed = 0;
+    let conflicted = 0;
+    const patches: DocumentPatch[] = [];
+
+    for (const doc of state.documents) {
+      if (!idSet.has(doc.document_id)) {
+        continue;
+      }
+      const nextDoc: InvoiceAssistantDocument = {
+        ...doc,
+        approval_status: approvalStatus,
+        approved_at: approvalStatus === 'approved' ? nowIso() : null,
+        approved_by: approvalStatus === 'approved' ? approvedBy : null,
+        updated_at: nowIso(),
+      };
+      patches.push({
+        documentId: doc.document_id,
+        baseUpdatedAt: doc.updated_at,
+        next: nextDoc,
+      });
+    }
+
+    const patchResult = applyDocumentPatches(patches);
+    conflicted += patchResult.conflicts;
+    for (const patch of patches) {
+      if (patchResult.appliedDocumentIds.has(patch.documentId)) {
+        succeeded += 1;
+      } else {
+        failed += 1;
+      }
+    }
+
+    return summarizeBatch(documentIds.length, succeeded, failed, conflicted);
+  }
+
   markReadyToSync(documentIds: string[]): BatchActionSummary {
     const state = readState();
     const idSet = new Set(documentIds);
@@ -2055,6 +2123,27 @@ class InvoiceIngestionAssistantService {
           return {
             outcome: 'success' as const,
             patch: null as DocumentPatch | null,
+            documentId: doc.document_id,
+          };
+        }
+
+        if (
+          state.settings.require_batch_approval &&
+          doc.approval_status !== 'approved'
+        ) {
+          return {
+            outcome: 'failed' as const,
+            patch: {
+              documentId: doc.document_id,
+              baseUpdatedAt: doc.updated_at,
+              next: {
+                ...doc,
+                status: 'sync_failed' as const,
+                sync_error: 'Batch approval required before sync',
+                sync_idempotency_key: idempotencyKey,
+                updated_at: nowIso(),
+              },
+            },
             documentId: doc.document_id,
           };
         }

@@ -61,6 +61,11 @@ const STATUS_COLOR_MAP: Record<string, string> = {
   sync_failed: 'volcano',
 };
 
+const APPROVAL_COLOR_MAP: Record<string, string> = {
+  pending: 'default',
+  approved: 'green',
+};
+
 const statusText = (status: InvoiceAssistantDocument['status']): string => {
   switch (status) {
     case 'uploaded':
@@ -78,6 +83,12 @@ const statusText = (status: InvoiceAssistantDocument['status']): string => {
     default:
       return status;
   }
+};
+
+const approvalText = (
+  status: InvoiceAssistantDocument['approval_status']
+): string => {
+  return status === 'approved' ? 'Approved' : 'Pending';
 };
 
 const toDateString = (value: Dayjs | null): string | null =>
@@ -320,6 +331,40 @@ const InvoiceIngestionAssistant: React.FC = () => {
     });
   }, [ensureSelection, message, refreshState, selectedDocumentIds, withAction]);
 
+  const handleApproveSelected = useCallback(async () => {
+    if (!ensureSelection()) {
+      return;
+    }
+    await withAction('approve', async () => {
+      const summary = invoiceIngestionAssistantService.batchSetApproval(
+        selectedDocumentIds,
+        'approved',
+        'manual'
+      );
+      refreshState();
+      message.success(
+        `Approved ${summary.succeeded}/${summary.total}. Conflicted: ${summary.conflicted}.`
+      );
+    });
+  }, [ensureSelection, message, refreshState, selectedDocumentIds, withAction]);
+
+  const handleResetApprovalSelected = useCallback(async () => {
+    if (!ensureSelection()) {
+      return;
+    }
+    await withAction('approval-reset', async () => {
+      const summary = invoiceIngestionAssistantService.batchSetApproval(
+        selectedDocumentIds,
+        'pending',
+        'manual'
+      );
+      refreshState();
+      message.success(
+        `Reset approval for ${summary.succeeded}/${summary.total}. Conflicted: ${summary.conflicted}.`
+      );
+    });
+  }, [ensureSelection, message, refreshState, selectedDocumentIds, withAction]);
+
   const handleSyncSelected = useCallback(async () => {
     if (!ensureSelection()) {
       return;
@@ -368,6 +413,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
         values.xero_duplicate_check_endpoint || null,
       abn_validation_endpoint: values.abn_validation_endpoint || null,
       auto_learn_supplier_rules: Boolean(values.auto_learn_supplier_rules),
+      require_batch_approval: Boolean(values.require_batch_approval),
       default_currency: values.default_currency || 'AUD',
       default_transaction_type: values.default_transaction_type,
       dry_run_mode: Boolean(values.dry_run_mode),
@@ -584,6 +630,16 @@ const InvoiceIngestionAssistant: React.FC = () => {
         render: value => (
           <Tag color={STATUS_COLOR_MAP[value] || 'default'}>
             {statusText(value)}
+          </Tag>
+        ),
+      },
+      {
+        title: 'Approval',
+        dataIndex: 'approval_status',
+        width: 120,
+        render: value => (
+          <Tag color={APPROVAL_COLOR_MAP[value] || 'default'}>
+            {approvalText(value)}
           </Tag>
         ),
       },
@@ -813,6 +869,25 @@ const InvoiceIngestionAssistant: React.FC = () => {
             }}
           >
             Mark Ready
+          </Button>
+          <Button
+            icon={<SafetyCertificateOutlined />}
+            loading={actionLoading === 'approve'}
+            disabled={hasAnyRunningAction && actionLoading !== 'approve'}
+            onClick={() => {
+              void handleApproveSelected();
+            }}
+          >
+            Approve Selected
+          </Button>
+          <Button
+            loading={actionLoading === 'approval-reset'}
+            disabled={hasAnyRunningAction && actionLoading !== 'approval-reset'}
+            onClick={() => {
+              void handleResetApprovalSelected();
+            }}
+          >
+            Reset Approval
           </Button>
           <Button
             type='primary'

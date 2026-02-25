@@ -6,6 +6,8 @@ export type InvoiceAssistantStatus =
   | 'recognize_failed'
   | 'sync_failed';
 
+export type InvoiceApprovalStatus = 'pending' | 'approved';
+
 export type XeroTransactionType = 'SPEND_MONEY' | 'BILL';
 
 export type InvoiceGstStatus =
@@ -102,6 +104,9 @@ export interface InvoiceAssistantDocument {
   xero_id: string | null;
   xero_type: XeroTransactionType | null;
   sync_idempotency_key: string | null;
+  approval_status: InvoiceApprovalStatus;
+  approved_at: string | null;
+  approved_by: string | null;
   updated_at: string;
 }
 
@@ -116,6 +121,7 @@ export interface InvoiceAssistantSettings {
   xero_duplicate_check_endpoint: string | null;
   abn_validation_endpoint: string | null;
   auto_learn_supplier_rules: boolean;
+  require_batch_approval: boolean;
   default_currency: string;
   default_transaction_type: XeroTransactionType;
   dry_run_mode: boolean;

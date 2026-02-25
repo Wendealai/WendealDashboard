@@ -146,6 +146,18 @@ const AssistantSettingsModal: React.FC<AssistantSettingsModalProps> = ({
             ]}
           />
         </Form.Item>
+        <Form.Item
+          name='require_batch_approval'
+          label='Require Batch Approval'
+          rules={[{ required: true }]}
+        >
+          <Select
+            options={[
+              { label: 'Enabled', value: true },
+              { label: 'Disabled', value: false },
+            ]}
+          />
+        </Form.Item>
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item

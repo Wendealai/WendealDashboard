@@ -35,6 +35,7 @@ const baseSettings: InvoiceAssistantSettings = {
   xero_duplicate_check_endpoint: null,
   abn_validation_endpoint: null,
   auto_learn_supplier_rules: true,
+  require_batch_approval: false,
   default_currency: 'AUD',
   default_transaction_type: 'SPEND_MONEY',
   dry_run_mode: true,
@@ -89,6 +90,9 @@ const makeDocument = (
   xero_id: null,
   xero_type: null,
   sync_idempotency_key: null,
+  approval_status: 'pending',
+  approved_at: null,
+  approved_by: null,
   updated_at: '2026-02-20T08:00:00.000Z',
   ...override,
 });
@@ -602,6 +606,57 @@ describe('invoiceIngestionAssistantService', () => {
     expect(nextState.documents[0].sync_error).toContain(
       'No GST indicated requires tax_type NONE'
     );
+  });
+
+  it('blocks sync when batch approval gate is enabled and document is pending', async () => {
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument({ approval_status: 'pending' })],
+      suppliers: [],
+      settings: {
+        ...baseSettings,
+        require_batch_approval: true,
+      },
+    });
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.failed).toBe(1);
+    expect(nextState.documents[0].status).toBe('sync_failed');
+    expect(nextState.documents[0].sync_error).toContain(
+      'Batch approval required before sync'
+    );
+  });
+
+  it('approves selected documents and allows sync with approval gate', async () => {
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument({ approval_status: 'pending' })],
+      suppliers: [],
+      settings: {
+        ...baseSettings,
+        require_batch_approval: true,
+      },
+    });
+
+    const approvalSummary = invoiceIngestionAssistantService.batchSetApproval(
+      ['doc_1'],
+      'approved',
+      'qa'
+    );
+    const afterApprove = readAssistantState();
+    const syncSummary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+    ]);
+
+    expect(approvalSummary.succeeded).toBe(1);
+    expect(afterApprove.documents[0].approval_status).toBe('approved');
+    expect(afterApprove.documents[0].approved_by).toBe('qa');
+    expect(afterApprove.documents[0].approved_at).toBeTruthy();
+    expect(syncSummary.succeeded).toBe(1);
   });
 
   it('auto-binds tax_type from gst_status on review update', () => {
