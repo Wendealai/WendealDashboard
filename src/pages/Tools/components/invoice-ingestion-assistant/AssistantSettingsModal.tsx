@@ -83,6 +83,13 @@ const AssistantSettingsModal: React.FC<AssistantSettingsModalProps> = ({
           <Input placeholder='Optional backend endpoint URL' />
         </Form.Item>
         <Form.Item
+          name='xero_attachment_endpoint'
+          label='Xero Attachment Endpoint'
+          rules={[{ validator: validateOptionalUrl }]}
+        >
+          <Input placeholder='Optional backend endpoint URL' />
+        </Form.Item>
+        <Form.Item
           name='xero_duplicate_check_endpoint'
           label='Xero Duplicate Check Endpoint'
           rules={[{ validator: validateOptionalUrl }]}

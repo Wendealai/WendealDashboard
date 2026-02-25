@@ -363,6 +363,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
       drive_archive_endpoint: values.drive_archive_endpoint || null,
       ocr_extract_endpoint: values.ocr_extract_endpoint || null,
       xero_sync_endpoint: values.xero_sync_endpoint || null,
+      xero_attachment_endpoint: values.xero_attachment_endpoint || null,
       xero_duplicate_check_endpoint:
         values.xero_duplicate_check_endpoint || null,
       default_currency: values.default_currency || 'AUD',

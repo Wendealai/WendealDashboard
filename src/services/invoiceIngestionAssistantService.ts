@@ -70,6 +70,7 @@ const DEFAULT_SETTINGS: InvoiceAssistantSettings = {
   drive_archive_endpoint: null,
   ocr_extract_endpoint: null,
   xero_sync_endpoint: null,
+  xero_attachment_endpoint: null,
   xero_duplicate_check_endpoint: null,
   default_currency: 'AUD',
   default_transaction_type: 'SPEND_MONEY',
@@ -494,6 +495,30 @@ const requiredMissingForSync = (review: InvoiceReviewDraft): string[] => {
   return missing;
 };
 
+const complianceViolationsForSync = (review: InvoiceReviewDraft): string[] => {
+  const violations: string[] = [];
+
+  if (review.transaction_type === 'BILL') {
+    if (!review.due_date) {
+      violations.push('BILL requires due_date');
+    }
+    if (!review.invoice_number) {
+      violations.push('BILL requires invoice_number');
+    }
+  }
+
+  if (review.tax_invoice_flag) {
+    if (!review.abn) {
+      violations.push('Tax invoice requires supplier ABN');
+    }
+    if (review.gst_status === 'unknown') {
+      violations.push('Tax invoice requires explicit GST status');
+    }
+  }
+
+  return violations;
+};
+
 const inferHumanReview = (
   extraction: InvoiceExtractionResult,
   review: InvoiceReviewDraft
@@ -502,6 +527,12 @@ const inferHumanReview = (
   const missing = requiredMissingForSync(review);
   if (missing.length > 0) {
     reasons.push(`Missing required fields: ${missing.join(', ')}`);
+  }
+  const complianceViolations = complianceViolationsForSync(review);
+  if (complianceViolations.length > 0) {
+    reasons.push(
+      `Compliance rules blocked sync: ${complianceViolations.join('; ')}`
+    );
   }
   if (review.gst_status === 'unknown') {
     reasons.push(
@@ -1671,16 +1702,30 @@ class InvoiceIngestionAssistantService {
         continue;
       }
       const missing = requiredMissingForSync(doc.review);
-      if (missing.length > 0) {
+      const complianceViolations = complianceViolationsForSync(doc.review);
+      if (missing.length > 0 || complianceViolations.length > 0) {
+        const blockingReasons: string[] = [];
+        if (missing.length > 0) {
+          blockingReasons.push(
+            `Missing required fields: ${missing.join(', ')}`
+          );
+        }
+        if (complianceViolations.length > 0) {
+          blockingReasons.push(
+            `Compliance rules blocked sync: ${complianceViolations.join('; ')}`
+          );
+        }
         const nextDoc: InvoiceAssistantDocument = {
           ...doc,
           status: 'recognized',
           needs_human_review: true,
           reasons: [
             ...doc.reasons.filter(
-              reason => !reason.startsWith('Missing required fields:')
+              reason =>
+                !reason.startsWith('Missing required fields:') &&
+                !reason.startsWith('Compliance rules blocked sync:')
             ),
-            `Missing required fields: ${missing.join(', ')}`,
+            ...blockingReasons,
           ],
           updated_at: nowIso(),
         };
@@ -1700,7 +1745,9 @@ class InvoiceIngestionAssistantService {
         status: 'ready_to_sync',
         needs_human_review: false,
         reasons: doc.reasons.filter(
-          reason => !reason.startsWith('Missing required fields:')
+          reason =>
+            !reason.startsWith('Missing required fields:') &&
+            !reason.startsWith('Compliance rules blocked sync:')
         ),
         updated_at: nowIso(),
       };
@@ -1768,7 +1815,17 @@ class InvoiceIngestionAssistantService {
         }
 
         const missing = requiredMissingForSync(doc.review);
-        if (missing.length > 0) {
+        const complianceViolations = complianceViolationsForSync(doc.review);
+        if (missing.length > 0 || complianceViolations.length > 0) {
+          const errorParts: string[] = [];
+          if (missing.length > 0) {
+            errorParts.push(`Missing required fields: ${missing.join(', ')}`);
+          }
+          if (complianceViolations.length > 0) {
+            errorParts.push(
+              `Compliance rules blocked sync: ${complianceViolations.join('; ')}`
+            );
+          }
           return {
             outcome: 'failed' as const,
             patch: {
@@ -1777,7 +1834,7 @@ class InvoiceIngestionAssistantService {
               next: {
                 ...doc,
                 status: 'sync_failed' as const,
-                sync_error: `Missing required fields: ${missing.join(', ')}`,
+                sync_error: errorParts.join(' | '),
                 updated_at: nowIso(),
               },
             },
@@ -2011,7 +2068,60 @@ class InvoiceIngestionAssistantService {
     if (!xeroId) {
       throw new Error('Xero sync succeeded but xero_id is missing');
     }
+    await this.uploadXeroAttachment(xeroId, payload, idempotencyKey, settings);
     return { xero_id: xeroId };
+  }
+
+  private async uploadXeroAttachment(
+    xeroId: string,
+    payload: XeroSyncDraftPayload,
+    idempotencyKey: string,
+    settings: InvoiceAssistantSettings
+  ): Promise<void> {
+    if (!settings.xero_attachment_endpoint || settings.dry_run_mode) {
+      return;
+    }
+
+    const blobRecord = await getInvoiceSourceBlob(payload.document_id);
+    if (!blobRecord) {
+      throw new Error(
+        'Xero attachment upload failed: original file is missing from local vault'
+      );
+    }
+
+    const formData = new FormData();
+    formData.append('file', blobRecord.blob, blobRecord.file_name);
+    formData.append('xero_id', xeroId);
+    formData.append('document_id', payload.document_id);
+    formData.append('drive_file_id', payload.drive_file_id || '');
+    formData.append('drive_file_url', payload.drive_file_url || '');
+
+    const response = await fetchWithRetry(
+      settings.xero_attachment_endpoint,
+      {
+        method: 'POST',
+        headers: {
+          'X-Idempotency-Key': idempotencyKey,
+        },
+        body: formData,
+      },
+      { label: 'Xero attachment upload' }
+    );
+    let data: Record<string, unknown> | null = null;
+    try {
+      data = asRecord((await response.json()) as unknown);
+    } catch (_error) {
+      data = null;
+    }
+
+    const successFlag = parseBoolean(data?.success);
+    if (successFlag === false) {
+      const reason =
+        normalizeName(data?.message as string | null | undefined) ||
+        normalizeName(data?.error as string | null | undefined) ||
+        'unknown reason';
+      throw new Error(`Xero attachment upload failed: ${reason}`);
+    }
   }
 
   private async cleanupSyncedSourceBlobs(): Promise<void> {

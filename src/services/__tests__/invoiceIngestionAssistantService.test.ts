@@ -31,6 +31,7 @@ const baseSettings: InvoiceAssistantSettings = {
   drive_archive_endpoint: null,
   ocr_extract_endpoint: null,
   xero_sync_endpoint: null,
+  xero_attachment_endpoint: null,
   xero_duplicate_check_endpoint: null,
   default_currency: 'AUD',
   default_transaction_type: 'SPEND_MONEY',
@@ -148,6 +149,34 @@ describe('invoiceIngestionAssistantService', () => {
     expect(summary.succeeded).toBe(0);
     expect(nextDoc.status).toBe('recognized');
     expect(nextDoc.reasons.join(' ')).toContain('Missing required fields');
+  });
+
+  it('blocks mark ready when compliance rules are violated', () => {
+    const doc = makeDocument({
+      status: 'recognized',
+      review: makeReview({
+        transaction_type: 'BILL',
+        due_date: null,
+        invoice_number: null,
+      }),
+    });
+    writeAssistantState({
+      version: 1,
+      documents: [doc],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const summary = invoiceIngestionAssistantService.markReadyToSync(['doc_1']);
+    const nextState = readAssistantState();
+    const nextDoc = nextState.documents[0];
+
+    expect(summary.failed).toBe(1);
+    expect(summary.succeeded).toBe(0);
+    expect(nextDoc.status).toBe('recognized');
+    expect(nextDoc.reasons.join(' ')).toContain(
+      'Compliance rules blocked sync'
+    );
   });
 
   it('marks recognize_failed when original source blob is missing', async () => {
@@ -396,6 +425,126 @@ describe('invoiceIngestionAssistantService', () => {
     expect(summary.succeeded).toBe(1);
     expect((global.fetch as jest.Mock).mock.calls.length).toBe(2);
     expect(nextState.documents[0].xero_id).toBe('xero_123');
+  });
+
+  it('uploads source image to xero attachment endpoint after sync', async () => {
+    const settings: InvoiceAssistantSettings = {
+      ...baseSettings,
+      dry_run_mode: false,
+      xero_sync_endpoint: 'https://xero.example/sync',
+      xero_attachment_endpoint: 'https://xero.example/attachments',
+    };
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument()],
+      suppliers: [],
+      settings,
+    });
+    (getInvoiceSourceBlob as jest.Mock).mockResolvedValue({
+      document_id: 'doc_1',
+      file_name: 'receipt-2026-02-20-100.00.jpg',
+      mime_type: 'image/jpeg',
+      blob: new Blob(['binary'], { type: 'image/jpeg' }),
+      updated_at: '2026-02-25T10:00:00.000Z',
+    });
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ xero_id: 'xero_with_attachment' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      } as Response);
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.succeeded).toBe(1);
+    expect(nextState.documents[0].status).toBe('synced');
+    expect(nextState.documents[0].xero_id).toBe('xero_with_attachment');
+    expect(getInvoiceSourceBlob).toHaveBeenCalledWith('doc_1');
+    expect((global.fetch as jest.Mock).mock.calls[1]?.[0]).toBe(
+      'https://xero.example/attachments'
+    );
+  });
+
+  it('marks sync_failed when xero attachment upload is rejected', async () => {
+    const settings: InvoiceAssistantSettings = {
+      ...baseSettings,
+      dry_run_mode: false,
+      xero_sync_endpoint: 'https://xero.example/sync',
+      xero_attachment_endpoint: 'https://xero.example/attachments',
+    };
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument()],
+      suppliers: [],
+      settings,
+    });
+    (getInvoiceSourceBlob as jest.Mock).mockResolvedValue({
+      document_id: 'doc_1',
+      file_name: 'receipt-2026-02-20-100.00.jpg',
+      mime_type: 'image/jpeg',
+      blob: new Blob(['binary'], { type: 'image/jpeg' }),
+      updated_at: '2026-02-25T10:00:00.000Z',
+    });
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ xero_id: 'xero_attachment_rejected' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: false, error: 'attachment rejected' }),
+      } as Response);
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.succeeded).toBe(0);
+    expect(summary.failed).toBe(1);
+    expect(nextState.documents[0].status).toBe('sync_failed');
+    expect(nextState.documents[0].sync_error).toContain(
+      'Xero attachment upload failed'
+    );
+  });
+
+  it('blocks sync when compliance rules are violated', async () => {
+    writeAssistantState({
+      version: 1,
+      documents: [
+        makeDocument({
+          review: makeReview({
+            transaction_type: 'BILL',
+            due_date: null,
+            invoice_number: null,
+          }),
+        }),
+      ],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    const summary = await invoiceIngestionAssistantService.batchSyncToXero([
+      'doc_1',
+    ]);
+    const nextState = readAssistantState();
+
+    expect(summary.failed).toBe(1);
+    expect(summary.succeeded).toBe(0);
+    expect(nextState.documents[0].status).toBe('sync_failed');
+    expect(nextState.documents[0].sync_error).toContain(
+      'Compliance rules blocked sync'
+    );
   });
 
   it('blocks sync when xero duplicate precheck reports duplicate', async () => {
