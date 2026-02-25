@@ -3,7 +3,7 @@
  * Data display platform integrated with n8n workflow system
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, type ReactNode } from 'react';
 import {
   Card,
   Row,
@@ -13,7 +13,6 @@ import {
   Divider,
   Popover,
   Breadcrumb,
-  Tabs,
 } from 'antd';
 import {
   ToolOutlined,
@@ -55,6 +54,45 @@ const Tools: React.FC = () => {
     console.log('Tools: Selected workflow:', workflow);
     setSelectedWorkflow(workflow);
   }, []);
+
+  const selectedWorkflowId = selectedWorkflow?.id || '';
+  const workflowTitleMap: Record<string, string> = {
+    'invoice-ocr-workflow': t('informationDashboard.invoiceOCRRecognition'),
+    'universal-ocr-workflow': 'Universal OCR Processing',
+    'smart-opportunities': 'Smart Opportunities',
+    'tax-invoice-receipt-workflow': 'Tax Invoice/Receipt',
+    'invoice-ingestion-assistant-workflow': 'Invoice Ingestion Assistant',
+    'invoice-shelf-workflow': 'InvoiceShelf',
+    'tools-workflow': t('tools.workflow.iframeTitle', 'Business Tools'),
+  };
+
+  const workflowContentMap: Record<string, ReactNode> = {
+    'invoice-ocr-workflow': <InvoiceOCRPage />,
+    'universal-ocr-workflow': <UniversalOCRPage />,
+    'smart-opportunities': <SmartOpportunities />,
+    'tax-invoice-receipt-workflow': <TaxInvoiceReceipt />,
+    'invoice-ingestion-assistant-workflow': <InvoiceIngestionAssistant />,
+    'tools-workflow': (
+      <ToolsWorkflowContainer
+        src='https://vert.wendealai.com'
+        title={t('tools.workflow.iframeTitle', 'Business Tools')}
+      />
+    ),
+    'invoice-shelf-workflow': (
+      <ToolsWorkflowContainer
+        src='https://invoice.wendealai.com'
+        title='InvoiceShelf'
+      />
+    ),
+  };
+
+  const defaultContent = (
+    <>
+      <WorkflowPanel />
+      <Divider />
+      <ResultPanel />
+    </>
+  );
 
   return (
     <div className='information-dashboard'>
@@ -168,55 +206,15 @@ const Tools: React.FC = () => {
               <Space>
                 <FilterOutlined />
                 <span style={{ fontSize: '16px' }}>
-                  {selectedWorkflow?.id === 'invoice-ocr-workflow'
-                    ? t('informationDashboard.invoiceOCRRecognition')
-                    : selectedWorkflow?.id === 'universal-ocr-workflow'
-                      ? 'Universal OCR Processing'
-                      : selectedWorkflow?.id === 'smart-opportunities'
-                        ? 'Smart Opportunities'
-                        : selectedWorkflow?.id ===
-                            'tax-invoice-receipt-workflow'
-                          ? 'Tax Invoice/Receipt'
-                          : selectedWorkflow?.id ===
-                              'invoice-ingestion-assistant-workflow'
-                            ? 'Invoice Ingestion Assistant'
-                            : selectedWorkflow?.id === 'invoice-shelf-workflow'
-                              ? 'InvoiceShelf'
-                              : t('informationDashboard.title')}
+                  {workflowTitleMap[selectedWorkflowId] ||
+                    t('informationDashboard.title')}
                 </span>
               </Space>
             }
             className='data-display-card'
             style={{ height: 'calc(100vh - 80px)', minHeight: '850px' }}
           >
-            {selectedWorkflow?.id === 'invoice-ocr-workflow' ? (
-              <InvoiceOCRPage />
-            ) : selectedWorkflow?.id === 'universal-ocr-workflow' ? (
-              <UniversalOCRPage />
-            ) : selectedWorkflow?.id === 'smart-opportunities' ? (
-              <SmartOpportunities />
-            ) : selectedWorkflow?.id === 'tax-invoice-receipt-workflow' ? (
-              <TaxInvoiceReceipt />
-            ) : selectedWorkflow?.id ===
-              'invoice-ingestion-assistant-workflow' ? (
-              <InvoiceIngestionAssistant />
-            ) : selectedWorkflow?.id === 'tools-workflow' ? (
-              <ToolsWorkflowContainer
-                src='https://vert.wendealai.com'
-                title={t('tools.workflow.iframeTitle', 'Business Tools')}
-              />
-            ) : selectedWorkflow?.id === 'invoice-shelf-workflow' ? (
-              <ToolsWorkflowContainer
-                src='https://invoice.wendealai.com'
-                title='InvoiceShelf'
-              />
-            ) : (
-              <>
-                <WorkflowPanel />
-                <Divider />
-                <ResultPanel />
-              </>
-            )}
+            {workflowContentMap[selectedWorkflowId] || defaultContent}
           </Card>
         </Col>
       </Row>

@@ -6,11 +6,8 @@ import {
   Col,
   DatePicker,
   Divider,
-  Drawer,
   Form,
-  Input,
-  InputNumber,
-  Modal,
+  Popconfirm,
   Row,
   Select,
   Space,
@@ -46,6 +43,9 @@ import type {
   SupplierDirectoryEntry,
   XeroTransactionType,
 } from '@/pages/Tools/types/invoiceIngestionAssistant';
+import ReviewDrawer from './invoice-ingestion-assistant/ReviewDrawer';
+import AssistantSettingsModal from './invoice-ingestion-assistant/AssistantSettingsModal';
+import SupplierDirectoryModal from './invoice-ingestion-assistant/SupplierDirectoryModal';
 
 const { Text } = Typography;
 const { Dragger } = Upload;
@@ -123,7 +123,11 @@ const InvoiceIngestionAssistant: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    refreshState();
+    const bootstrap = async () => {
+      await invoiceIngestionAssistantService.hydrateStateFromStorage();
+      refreshState();
+    };
+    void bootstrap();
   }, [refreshState]);
 
   const reviewingDoc = useMemo(
@@ -340,6 +344,10 @@ const InvoiceIngestionAssistant: React.FC = () => {
       default_currency: values.default_currency || 'AUD',
       default_transaction_type: values.default_transaction_type,
       dry_run_mode: Boolean(values.dry_run_mode),
+      blob_retention_days:
+        typeof values.blob_retention_days === 'number'
+          ? values.blob_retention_days
+          : 30,
     });
     setSettings(nextSettings);
     setSettingsVisible(false);
@@ -575,15 +583,19 @@ const InvoiceIngestionAssistant: React.FC = () => {
             >
               Review
             </Button>
-            <Button
-              size='small'
-              danger
-              onClick={() => {
+            <Popconfirm
+              title='Delete queue item?'
+              description='This will remove local file cache and queue metadata.'
+              okText='Delete'
+              cancelText='Cancel'
+              onConfirm={() => {
                 void handleDeleteDocument(record.document_id);
               }}
             >
-              Delete
-            </Button>
+              <Button size='small' danger>
+                Delete
+              </Button>
+            </Popconfirm>
           </Space>
         ),
       },
@@ -601,6 +613,15 @@ const InvoiceIngestionAssistant: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {settings?.dry_run_mode && (
+        <Alert
+          type='warning'
+          showIcon
+          message='Dry-run mode is enabled'
+          description='Queue processing works normally, but Xero sync returns mock IDs and does not post to production.'
+        />
+      )}
+
       <Card>
         <Row gutter={[12, 12]}>
           <Col xs={24} sm={12} lg={6}>
@@ -758,419 +779,43 @@ const InvoiceIngestionAssistant: React.FC = () => {
         />
       </Card>
 
-      <Drawer
-        title='Review Before Sync'
-        open={Boolean(reviewingDoc)}
-        width={560}
+      <ReviewDrawer
+        reviewingDoc={reviewingDoc}
+        reviewImageUrl={reviewImageUrl}
+        reviewForm={reviewForm}
         onClose={() => setReviewingDocId(null)}
-        extra={
-          <Space>
-            <Button onClick={handleAutoClassifyReview}>
-              One-click classify
-            </Button>
-            <Button
-              type='primary'
-              onClick={() => {
-                void handleSaveReview();
-              }}
-            >
-              Save Draft
-            </Button>
-          </Space>
-        }
-      >
-        {reviewingDoc && (
-          <>
-            <Alert
-              type={reviewingDoc.needs_human_review ? 'warning' : 'success'}
-              message={
-                reviewingDoc.needs_human_review
-                  ? 'Manual review required before sync.'
-                  : 'Draft looks ready to sync.'
-              }
-              description={
-                reviewingDoc.reasons.length > 0
-                  ? reviewingDoc.reasons.join(' | ')
-                  : 'No validation blockers.'
-              }
-              showIcon
-              style={{ marginBottom: 12 }}
-            />
-            {reviewImageUrl && (
-              <Card
-                size='small'
-                title='Original Document'
-                style={{ marginBottom: 12 }}
-              >
-                <img
-                  src={reviewImageUrl}
-                  alt={reviewingDoc.file_name}
-                  style={{
-                    width: '100%',
-                    borderRadius: 8,
-                    objectFit: 'contain',
-                  }}
-                />
-              </Card>
-            )}
-            <Form form={reviewForm} layout='vertical'>
-              <Row gutter={12}>
-                <Col span={12}>
-                  <Form.Item
-                    name='transaction_type'
-                    label='Transaction Type'
-                    rules={[{ required: true }]}
-                  >
-                    <Select
-                      options={[
-                        { label: 'Spend Money', value: 'SPEND_MONEY' },
-                        { label: 'Bill', value: 'BILL' },
-                      ]}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    name='currency'
-                    label='Currency'
-                    rules={[{ required: true }]}
-                  >
-                    <Select
-                      options={[
-                        { label: 'AUD', value: 'AUD' },
-                        { label: 'USD', value: 'USD' },
-                        { label: 'CNY', value: 'CNY' },
-                      ]}
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
+        onSave={() => {
+          void handleSaveReview();
+        }}
+        onAutoClassify={handleAutoClassifyReview}
+        onApplyQuickGst={applyQuickGst}
+      />
 
-              <Row gutter={12}>
-                <Col span={12}>
-                  <Form.Item
-                    name='invoice_date'
-                    label='Invoice Date'
-                    rules={[{ required: true, message: 'Required' }]}
-                  >
-                    <DatePicker style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name='due_date' label='Due Date'>
-                    <DatePicker style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              <Form.Item
-                name='supplier_name'
-                label='Supplier Name'
-                rules={[{ required: true, message: 'Required' }]}
-              >
-                <Input />
-              </Form.Item>
-
-              <Row gutter={12}>
-                <Col span={12}>
-                  <Form.Item name='abn' label='ABN'>
-                    <Input />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name='invoice_number' label='Invoice Number'>
-                    <Input />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              <Row gutter={12}>
-                <Col span={12}>
-                  <Form.Item
-                    name='total'
-                    label='Total'
-                    rules={[{ required: true, message: 'Required' }]}
-                  >
-                    <InputNumber
-                      min={0}
-                      precision={2}
-                      style={{ width: '100%' }}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name='gst_amount' label='GST Amount'>
-                    <InputNumber
-                      min={0}
-                      precision={2}
-                      style={{ width: '100%' }}
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              <Form.Item name='gst_status' label='GST Status'>
-                <Select
-                  options={[
-                    { label: 'Explicit Amount', value: 'explicit_amount' },
-                    {
-                      label: 'Included, Amount Unknown',
-                      value: 'included_unknown_amount',
-                    },
-                    { label: 'No GST Indicated', value: 'no_gst_indicated' },
-                    { label: 'Unknown', value: 'unknown' },
-                    { label: 'Mixed', value: 'mixed' },
-                  ]}
-                />
-              </Form.Item>
-              <Space wrap style={{ marginBottom: 10 }}>
-                <Button
-                  size='small'
-                  onClick={() => applyQuickGst('included_unknown_amount')}
-                >
-                  GST Included
-                </Button>
-                <Button
-                  size='small'
-                  onClick={() => applyQuickGst('no_gst_indicated')}
-                >
-                  No GST
-                </Button>
-                <Button size='small' onClick={() => applyQuickGst('mixed')}>
-                  Mixed
-                </Button>
-              </Space>
-
-              <Row gutter={12}>
-                <Col span={12}>
-                  <Form.Item name='category' label='Category'>
-                    <Input />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name='account_code' label='Account Code'>
-                    <Input />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              <Row gutter={12}>
-                <Col span={12}>
-                  <Form.Item name='tax_type' label='Tax Type'>
-                    <Input />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name='payment_method' label='Payment Method'>
-                    <Input />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              <Form.Item name='description' label='Description'>
-                <Input.TextArea rows={2} />
-              </Form.Item>
-            </Form>
-          </>
-        )}
-      </Drawer>
-
-      <Modal
-        title='Assistant Settings'
+      <AssistantSettingsModal
         open={settingsVisible}
+        settingsForm={settingsForm}
         onCancel={() => setSettingsVisible(false)}
-        onOk={() => {
+        onSave={() => {
           void handleSaveSettings();
         }}
-      >
-        <Form form={settingsForm} layout='vertical'>
-          <Form.Item
-            name='drive_root_folder'
-            label='Google Drive Root Folder'
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name='drive_archive_endpoint'
-            label='Drive Archive Endpoint'
-          >
-            <Input placeholder='Optional backend endpoint URL' />
-          </Form.Item>
-          <Form.Item name='ocr_extract_endpoint' label='OCR Extract Endpoint'>
-            <Input placeholder='Optional backend endpoint URL' />
-          </Form.Item>
-          <Form.Item name='xero_sync_endpoint' label='Xero Sync Endpoint'>
-            <Input placeholder='Optional backend endpoint URL' />
-          </Form.Item>
-          <Row gutter={12}>
-            <Col span={12}>
-              <Form.Item
-                name='default_currency'
-                label='Default Currency'
-                rules={[{ required: true }]}
-              >
-                <Select
-                  options={[
-                    { label: 'AUD', value: 'AUD' },
-                    { label: 'USD', value: 'USD' },
-                    { label: 'CNY', value: 'CNY' },
-                  ]}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name='default_transaction_type'
-                label='Default Xero Type'
-                rules={[{ required: true }]}
-              >
-                <Select
-                  options={[
-                    { label: 'Spend Money', value: 'SPEND_MONEY' },
-                    { label: 'Bill', value: 'BILL' },
-                  ]}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name='dry_run_mode' label='Dry-run Mode'>
-            <Select
-              options={[
-                { label: 'Enabled', value: true },
-                { label: 'Disabled', value: false },
-              ]}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
+      />
 
-      <Modal
-        title='Supplier Directory'
+      <SupplierDirectoryModal
         open={supplierVisible}
+        suppliers={suppliers}
+        editingSupplierId={editingSupplierId}
+        supplierForm={supplierForm}
         onCancel={() => setSupplierVisible(false)}
-        footer={null}
-        width={860}
-      >
-        <Row gutter={16}>
-          <Col span={10}>
-            <Card size='small' title='Add / Edit Supplier'>
-              <Form form={supplierForm} layout='vertical'>
-                <Form.Item
-                  name='name'
-                  label='Supplier Name'
-                  rules={[{ required: true }]}
-                >
-                  <Input />
-                </Form.Item>
-                <Form.Item name='aliases' label='Aliases (comma separated)'>
-                  <Input />
-                </Form.Item>
-                <Form.Item name='abn' label='ABN'>
-                  <Input />
-                </Form.Item>
-                <Form.Item
-                  name='default_account_code'
-                  label='Default Account Code'
-                >
-                  <Input />
-                </Form.Item>
-                <Form.Item name='default_tax_type' label='Default Tax Type'>
-                  <Input />
-                </Form.Item>
-                <Form.Item name='default_currency' label='Default Currency'>
-                  <Input />
-                </Form.Item>
-                <Form.Item
-                  name='default_transaction_type'
-                  label='Default Transaction Type'
-                >
-                  <Select
-                    allowClear
-                    options={[
-                      { label: 'Spend Money', value: 'SPEND_MONEY' },
-                      { label: 'Bill', value: 'BILL' },
-                    ]}
-                  />
-                </Form.Item>
-                <Space>
-                  <Button
-                    type='primary'
-                    onClick={() => {
-                      void handleSaveSupplier();
-                    }}
-                  >
-                    {editingSupplierId ? 'Update' : 'Add'}
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setEditingSupplierId(null);
-                      supplierForm.resetFields();
-                    }}
-                  >
-                    Clear
-                  </Button>
-                </Space>
-              </Form>
-            </Card>
-          </Col>
-          <Col span={14}>
-            <Card size='small' title='Known Suppliers'>
-              <Table
-                rowKey='id'
-                size='small'
-                pagination={{ pageSize: 6 }}
-                columns={[
-                  {
-                    title: 'Name',
-                    dataIndex: 'name',
-                    render: (_value, record: SupplierDirectoryEntry) => (
-                      <Space direction='vertical' size={0}>
-                        <Text strong>{record.name}</Text>
-                        <Text type='secondary' style={{ fontSize: 12 }}>
-                          {record.aliases.join(', ') || '-'}
-                        </Text>
-                      </Space>
-                    ),
-                  },
-                  {
-                    title: 'Defaults',
-                    width: 170,
-                    render: (_value, record: SupplierDirectoryEntry) => (
-                      <Text style={{ fontSize: 12 }}>
-                        {record.default_account_code || '-'} /{' '}
-                        {record.default_tax_type || '-'}
-                      </Text>
-                    ),
-                  },
-                  {
-                    title: 'Actions',
-                    width: 140,
-                    render: (_value, record: SupplierDirectoryEntry) => (
-                      <Space>
-                        <Button
-                          size='small'
-                          onClick={() => handleEditSupplier(record)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size='small'
-                          danger
-                          onClick={() => handleDeleteSupplier(record.id)}
-                        >
-                          Delete
-                        </Button>
-                      </Space>
-                    ),
-                  },
-                ]}
-                dataSource={suppliers}
-              />
-            </Card>
-          </Col>
-        </Row>
-      </Modal>
+        onSave={() => {
+          void handleSaveSupplier();
+        }}
+        onClear={() => {
+          setEditingSupplierId(null);
+          supplierForm.resetFields();
+        }}
+        onEditSupplier={handleEditSupplier}
+        onDeleteSupplier={handleDeleteSupplier}
+      />
     </div>
   );
 };

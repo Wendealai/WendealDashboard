@@ -49,7 +49,9 @@ export type WorkflowType =
   | 'webhook'
   | 'manual'
   | 'event'
-  | 'invoice-ocr';
+  | 'invoice-ocr'
+  | 'tools-workflow'
+  | 'invoice-shelf';
 
 /**
  * Workflow basic information

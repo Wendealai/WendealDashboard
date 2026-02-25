@@ -36,6 +36,7 @@ Configured in assistant modal:
 - `default_currency` (default: `AUD`)
 - `default_transaction_type` (default: `SPEND_MONEY`)
 - `dry_run_mode` (default: `true`)
+- `blob_retention_days` (default: `30`)
 
 If optional endpoints are empty, assistant runs in local fallback mode:
 
@@ -111,6 +112,16 @@ If optional endpoints are empty, assistant runs in local fallback mode:
 
 - State and queue metadata:
   - `localStorage` key: `invoice_ingestion_assistant_state_v1`
+  - IndexedDB snapshot mirror:
+    - DB: `invoice_ingestion_state_store_v1`
+    - store: `assistant_state`
 - Original source file blobs:
   - IndexedDB DB: `invoice_ingestion_blob_store_v1`
   - store: `documents`
+
+## Reliability Guards
+
+- External requests (Drive archive / OCR / Xero sync) use timeout + retry.
+- Batch recognize and batch sync run with bounded concurrency.
+- Queue writes use versioned patch-merge to reduce stale snapshot overwrite.
+- Synced blobs older than retention policy are cleaned automatically.

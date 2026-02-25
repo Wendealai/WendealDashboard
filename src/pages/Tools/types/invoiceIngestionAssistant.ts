@@ -113,9 +113,11 @@ export interface InvoiceAssistantSettings {
   default_currency: string;
   default_transaction_type: XeroTransactionType;
   dry_run_mode: boolean;
+  blob_retention_days: number;
 }
 
 export interface InvoiceAssistantState {
+  version: number;
   documents: InvoiceAssistantDocument[];
   suppliers: SupplierDirectoryEntry[];
   settings: InvoiceAssistantSettings;

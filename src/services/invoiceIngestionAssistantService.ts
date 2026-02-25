@@ -1,7 +1,12 @@
 import {
   getInvoiceSourceBlob,
+  removeInvoiceSourceBlob,
   saveInvoiceSourceBlob,
 } from './invoiceIngestionBlobStore';
+import {
+  getInvoiceAssistantStateSnapshot,
+  saveInvoiceAssistantStateSnapshot,
+} from './invoiceIngestionStateStore';
 import { createSparkeryIdempotencyKey } from './sparkeryIdempotency';
 import type {
   BatchActionSummary,
@@ -18,6 +23,10 @@ import type {
 } from '@/pages/Tools/types/invoiceIngestionAssistant';
 
 const STATE_STORAGE_KEY = 'invoice_ingestion_assistant_state_v1';
+const MAX_BATCH_CONCURRENCY = 4;
+const REQUEST_TIMEOUT_MS = 20000;
+const REQUEST_RETRY_TIMES = 2;
+const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 const DEFAULT_SUPPLIERS: SupplierDirectoryEntry[] = [
   {
@@ -60,9 +69,17 @@ const DEFAULT_SETTINGS: InvoiceAssistantSettings = {
   default_currency: 'AUD',
   default_transaction_type: 'SPEND_MONEY',
   dry_run_mode: true,
+  blob_retention_days: 30,
 };
 
 const nowIso = (): string => new Date().toISOString();
+
+const createDefaultState = (): InvoiceAssistantState => ({
+  version: 1,
+  documents: [],
+  suppliers: DEFAULT_SUPPLIERS,
+  settings: DEFAULT_SETTINGS,
+});
 
 const toDateFolder = (date: Date): string => {
   const yyyy = String(date.getFullYear());
@@ -109,15 +126,16 @@ const readState = (): InvoiceAssistantState => {
   try {
     const raw = localStorage.getItem(STATE_STORAGE_KEY);
     if (!raw) {
-      return {
-        documents: [],
-        suppliers: DEFAULT_SUPPLIERS,
-        settings: DEFAULT_SETTINGS,
-      };
+      return createDefaultState();
     }
 
     const parsed = JSON.parse(raw) as Partial<InvoiceAssistantState>;
+    const parsedVersion =
+      typeof parsed.version === 'number' && Number.isFinite(parsed.version)
+        ? parsed.version
+        : 1;
     return {
+      version: Math.max(1, Math.floor(parsedVersion)),
       documents: Array.isArray(parsed.documents) ? parsed.documents : [],
       suppliers:
         Array.isArray(parsed.suppliers) && parsed.suppliers.length > 0
@@ -130,16 +148,175 @@ const readState = (): InvoiceAssistantState => {
     };
   } catch (error) {
     console.error('Failed to read invoice assistant state:', error);
-    return {
-      documents: [],
-      suppliers: DEFAULT_SUPPLIERS,
-      settings: DEFAULT_SETTINGS,
-    };
+    return createDefaultState();
   }
 };
 
-const writeState = (state: InvoiceAssistantState): void => {
+const syncStateToStores = (
+  state: InvoiceAssistantState,
+  mirrorToIndexedDb: boolean
+): void => {
   localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(state));
+  if (!mirrorToIndexedDb) {
+    return;
+  }
+  void saveInvoiceAssistantStateSnapshot(state).catch(error => {
+    console.error('Failed to mirror assistant state to IndexedDB:', error);
+  });
+};
+
+const writeState = (
+  state: InvoiceAssistantState,
+  options?: {
+    preserveVersion?: boolean;
+    mirrorToIndexedDb?: boolean;
+  }
+): InvoiceAssistantState => {
+  const preserveVersion = options?.preserveVersion === true;
+  const mirrorToIndexedDb = options?.mirrorToIndexedDb !== false;
+  const nextState: InvoiceAssistantState = {
+    ...state,
+    version: preserveVersion ? Math.max(1, state.version) : state.version + 1,
+  };
+  syncStateToStores(nextState, mirrorToIndexedDb);
+  return nextState;
+};
+
+const delay = async (ms: number): Promise<void> =>
+  new Promise(resolve => {
+    setTimeout(resolve, ms);
+  });
+
+const isAbortError = (error: unknown): boolean =>
+  error instanceof DOMException && error.name === 'AbortError';
+
+const fetchWithRetry = async (
+  input: RequestInfo | URL,
+  init: RequestInit,
+  options: {
+    label: string;
+    timeoutMs?: number;
+    retries?: number;
+  }
+): Promise<Response> => {
+  const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  const retries = options.retries ?? REQUEST_RETRY_TIMES;
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(input, {
+        ...init,
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const shouldRetry =
+          RETRYABLE_STATUS.has(response.status) && attempt < retries;
+        if (shouldRetry) {
+          await delay(250 * (attempt + 1));
+          continue;
+        }
+        throw new Error(`${options.label} failed with HTTP ${response.status}`);
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      const shouldRetry = attempt < retries;
+      if (shouldRetry) {
+        await delay(250 * (attempt + 1));
+        continue;
+      }
+      if (isAbortError(error)) {
+        throw new Error(`${options.label} timed out after ${timeoutMs}ms`);
+      }
+      throw error instanceof Error
+        ? error
+        : new Error(`${options.label} request failed`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  if (isAbortError(lastError)) {
+    throw new Error(`${options.label} timed out after ${REQUEST_TIMEOUT_MS}ms`);
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`${options.label} request failed`);
+};
+
+const runWithConcurrency = async <T, R>(
+  items: T[],
+  worker: (item: T, index: number) => Promise<R>,
+  concurrency = MAX_BATCH_CONCURRENCY
+): Promise<R[]> => {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const safeConcurrency = Math.max(1, Math.min(concurrency, items.length));
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+
+  const executeWorker = async (): Promise<void> => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await worker(items[index]!, index);
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: safeConcurrency }, () => executeWorker())
+  );
+  return results;
+};
+
+interface DocumentPatch {
+  documentId: string;
+  baseUpdatedAt: string;
+  next: InvoiceAssistantDocument;
+}
+
+const applyDocumentPatches = (
+  patches: DocumentPatch[]
+): { applied: number; conflicts: number } => {
+  if (patches.length === 0) {
+    return { applied: 0, conflicts: 0 };
+  }
+
+  const latestState = readState();
+  const patchById = new Map<string, DocumentPatch>();
+  for (const patch of patches) {
+    patchById.set(patch.documentId, patch);
+  }
+
+  let applied = 0;
+  let conflicts = 0;
+  const nextDocuments = latestState.documents.map(doc => {
+    const patch = patchById.get(doc.document_id);
+    if (!patch) {
+      return doc;
+    }
+    if (doc.updated_at !== patch.baseUpdatedAt) {
+      conflicts += 1;
+      return doc;
+    }
+    applied += 1;
+    return patch.next;
+  });
+
+  if (applied > 0) {
+    writeState({
+      ...latestState,
+      documents: nextDocuments,
+    });
+  }
+
+  return { applied, conflicts };
 };
 
 const buildArchiveFileName = (fileName: string): string => {
@@ -484,6 +661,53 @@ const summarizeBatch = (
 });
 
 class InvoiceIngestionAssistantService {
+  async hydrateStateFromStorage(): Promise<InvoiceAssistantState> {
+    const localState = readState();
+    try {
+      const snapshot = await getInvoiceAssistantStateSnapshot();
+      if (!snapshot) {
+        return localState;
+      }
+
+      const restoredState: InvoiceAssistantState = {
+        version:
+          typeof snapshot.version === 'number' &&
+          Number.isFinite(snapshot.version)
+            ? Math.max(1, Math.floor(snapshot.version))
+            : 1,
+        documents: Array.isArray(snapshot.documents) ? snapshot.documents : [],
+        suppliers:
+          Array.isArray(snapshot.suppliers) && snapshot.suppliers.length > 0
+            ? snapshot.suppliers
+            : DEFAULT_SUPPLIERS,
+        settings: {
+          ...DEFAULT_SETTINGS,
+          ...(snapshot.settings || {}),
+        },
+      };
+
+      const shouldRestore =
+        restoredState.version > localState.version ||
+        (localState.documents.length === 0 &&
+          restoredState.documents.length > 0);
+      if (shouldRestore) {
+        writeState(restoredState, {
+          preserveVersion: true,
+          mirrorToIndexedDb: false,
+        });
+        return restoredState;
+      }
+
+      void saveInvoiceAssistantStateSnapshot(localState).catch(error => {
+        console.error('Failed to refresh state snapshot:', error);
+      });
+      return localState;
+    } catch (error) {
+      console.error('Failed to hydrate assistant state from IndexedDB:', error);
+      return localState;
+    }
+  }
+
   getState(): InvoiceAssistantState {
     return readState();
   }
@@ -502,9 +726,18 @@ class InvoiceIngestionAssistantService {
     settingsPatch: Partial<InvoiceAssistantSettings>
   ): InvoiceAssistantSettings {
     const state = readState();
+    const retentionDays =
+      typeof settingsPatch.blob_retention_days === 'number' &&
+      Number.isFinite(settingsPatch.blob_retention_days)
+        ? Math.max(
+            1,
+            Math.min(365, Math.floor(settingsPatch.blob_retention_days))
+          )
+        : state.settings.blob_retention_days;
     const nextSettings: InvoiceAssistantSettings = {
       ...state.settings,
       ...settingsPatch,
+      blob_retention_days: retentionDays,
     };
     const nextState: InvoiceAssistantState = {
       ...state,
@@ -615,9 +848,10 @@ class InvoiceIngestionAssistantService {
       }
     }
 
+    const latestState = readState();
     writeState({
-      ...state,
-      documents: [...uploadedDocs, ...state.documents],
+      ...latestState,
+      documents: [...uploadedDocs, ...latestState.documents],
     });
 
     return {
@@ -654,17 +888,14 @@ class InvoiceIngestionAssistantService {
       formData.append('date_folder', dateFolder);
       formData.append('archive_file_name', document.archive_file_name);
 
-      const response = await fetch(settings.drive_archive_endpoint, {
-        method: 'POST',
-        body: formData,
-      });
-      if (!response.ok) {
-        return {
-          drive_file_id: null,
-          drive_url: null,
-          error: `Drive archive failed with HTTP ${response.status}`,
-        };
-      }
+      const response = await fetchWithRetry(
+        settings.drive_archive_endpoint,
+        {
+          method: 'POST',
+          body: formData,
+        },
+        { label: 'Drive archive' }
+      );
 
       const payload = (await response.json()) as Record<string, unknown>;
       const driveFileId =
@@ -691,17 +922,22 @@ class InvoiceIngestionAssistantService {
   async batchRecognize(documentIds: string[]): Promise<BatchActionSummary> {
     const state = readState();
     const idSet = new Set(documentIds);
+    const targetDocs = state.documents.filter(doc =>
+      idSet.has(doc.document_id)
+    );
     let succeeded = 0;
     let failed = 0;
 
-    const nextDocuments: InvoiceAssistantDocument[] = await Promise.all(
-      state.documents.map(async doc => {
-        if (!idSet.has(doc.document_id)) {
-          return doc;
-        }
+    const taskResults = await runWithConcurrency(
+      targetDocs,
+      async doc => {
         if (doc.status === 'synced') {
-          return doc;
+          return {
+            outcome: 'skipped' as const,
+            patch: null as DocumentPatch | null,
+          };
         }
+
         try {
           const blobRecord = await getInvoiceSourceBlob(doc.document_id);
           if (!blobRecord) {
@@ -721,8 +957,7 @@ class InvoiceIngestionAssistantService {
             state.suppliers
           );
           const reviewGate = inferHumanReview(extraction, review);
-          succeeded += 1;
-          return {
+          const nextDoc: InvoiceAssistantDocument = {
             ...doc,
             extraction,
             review,
@@ -732,23 +967,49 @@ class InvoiceIngestionAssistantService {
             recognize_error: null,
             updated_at: nowIso(),
           };
-        } catch (error) {
-          failed += 1;
           return {
+            outcome: 'success' as const,
+            patch: {
+              documentId: doc.document_id,
+              baseUpdatedAt: doc.updated_at,
+              next: nextDoc,
+            },
+          };
+        } catch (error) {
+          const nextDoc: InvoiceAssistantDocument = {
             ...doc,
             status: 'recognize_failed',
             recognize_error:
               error instanceof Error ? error.message : 'Recognition failed',
             updated_at: nowIso(),
           };
+          return {
+            outcome: 'failed' as const,
+            patch: {
+              documentId: doc.document_id,
+              baseUpdatedAt: doc.updated_at,
+              next: nextDoc,
+            },
+          };
         }
-      })
+      },
+      MAX_BATCH_CONCURRENCY
     );
 
-    writeState({
-      ...state,
-      documents: nextDocuments,
-    });
+    for (const result of taskResults) {
+      if (!result.patch) {
+        continue;
+      }
+      const patchResult = applyDocumentPatches([result.patch]);
+      if (patchResult.applied === 0) {
+        continue;
+      }
+      if (result.outcome === 'success') {
+        succeeded += 1;
+      } else if (result.outcome === 'failed') {
+        failed += 1;
+      }
+    }
 
     return summarizeBatch(documentIds.length, succeeded, failed);
   }
@@ -770,13 +1031,14 @@ class InvoiceIngestionAssistantService {
     formData.append('drive_url', document.drive_url || '');
     formData.append('currency', state.settings.default_currency);
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      body: formData,
-    });
-    if (!response.ok) {
-      throw new Error(`OCR endpoint failed with HTTP ${response.status}`);
-    }
+    const response = await fetchWithRetry(
+      endpoint,
+      {
+        method: 'POST',
+        body: formData,
+      },
+      { label: 'OCR extract' }
+    );
     const payload = await response.json();
     return parseExtractionFromApiResponse(payload, fileName);
   }
@@ -832,19 +1094,22 @@ class InvoiceIngestionAssistantService {
     const idSet = new Set(documentIds);
     let succeeded = 0;
     let failed = 0;
+    const patches: Array<{
+      outcome: 'success' | 'failed';
+      patch: DocumentPatch;
+    }> = [];
 
-    const documents: InvoiceAssistantDocument[] = state.documents.map(doc => {
+    for (const doc of state.documents) {
       if (!idSet.has(doc.document_id)) {
-        return doc;
+        continue;
       }
       if (!doc.review) {
         failed += 1;
-        return doc;
+        continue;
       }
       const missing = requiredMissingForSync(doc.review);
       if (missing.length > 0) {
-        failed += 1;
-        return {
+        const nextDoc: InvoiceAssistantDocument = {
           ...doc,
           status: 'recognized',
           needs_human_review: true,
@@ -856,10 +1121,18 @@ class InvoiceIngestionAssistantService {
           ],
           updated_at: nowIso(),
         };
+        patches.push({
+          outcome: 'failed',
+          patch: {
+            documentId: doc.document_id,
+            baseUpdatedAt: doc.updated_at,
+            next: nextDoc,
+          },
+        });
+        continue;
       }
 
-      succeeded += 1;
-      return {
+      const nextDoc: InvoiceAssistantDocument = {
         ...doc,
         status: 'ready_to_sync',
         needs_human_review: false,
@@ -868,45 +1141,76 @@ class InvoiceIngestionAssistantService {
         ),
         updated_at: nowIso(),
       };
-    });
+      patches.push({
+        outcome: 'success',
+        patch: {
+          documentId: doc.document_id,
+          baseUpdatedAt: doc.updated_at,
+          next: nextDoc,
+        },
+      });
+    }
 
-    writeState({
-      ...state,
-      documents,
-    });
+    for (const item of patches) {
+      const patchResult = applyDocumentPatches([item.patch]);
+      if (patchResult.applied === 0) {
+        continue;
+      }
+      if (item.outcome === 'success') {
+        succeeded += 1;
+      } else {
+        failed += 1;
+      }
+    }
+
     return summarizeBatch(documentIds.length, succeeded, failed);
   }
 
   async batchSyncToXero(documentIds: string[]): Promise<SyncBatchSummary> {
     const state = readState();
     const idSet = new Set(documentIds);
+    const targetDocs = state.documents.filter(doc =>
+      idSet.has(doc.document_id)
+    );
     let succeeded = 0;
     let failed = 0;
-    const syncedDocumentIds: string[] = [];
+    const syncedDocumentIds = new Set<string>();
 
-    const documents: InvoiceAssistantDocument[] = await Promise.all(
-      state.documents.map(async doc => {
-        if (!idSet.has(doc.document_id)) {
-          return doc;
-        }
+    const taskResults = await runWithConcurrency(
+      targetDocs,
+      async doc => {
         if (!doc.review) {
-          failed += 1;
           return {
-            ...doc,
-            status: 'sync_failed',
-            sync_error: 'Review draft is missing',
-            updated_at: nowIso(),
+            outcome: 'failed' as const,
+            patch: {
+              documentId: doc.document_id,
+              baseUpdatedAt: doc.updated_at,
+              next: {
+                ...doc,
+                status: 'sync_failed' as const,
+                sync_error: 'Review draft is missing',
+                updated_at: nowIso(),
+              },
+            },
+            documentId: doc.document_id,
           };
         }
 
         const missing = requiredMissingForSync(doc.review);
         if (missing.length > 0) {
-          failed += 1;
           return {
-            ...doc,
-            status: 'sync_failed',
-            sync_error: `Missing required fields: ${missing.join(', ')}`,
-            updated_at: nowIso(),
+            outcome: 'failed' as const,
+            patch: {
+              documentId: doc.document_id,
+              baseUpdatedAt: doc.updated_at,
+              next: {
+                ...doc,
+                status: 'sync_failed' as const,
+                sync_error: `Missing required fields: ${missing.join(', ')}`,
+                updated_at: nowIso(),
+              },
+            },
+            documentId: doc.document_id,
           };
         }
 
@@ -926,9 +1230,11 @@ class InvoiceIngestionAssistantService {
           doc.status === 'synced' &&
           doc.sync_idempotency_key === idempotencyKey
         ) {
-          succeeded += 1;
-          syncedDocumentIds.push(doc.document_id);
-          return doc;
+          return {
+            outcome: 'success' as const,
+            patch: null as DocumentPatch | null,
+            documentId: doc.document_id,
+          };
         }
 
         try {
@@ -937,40 +1243,71 @@ class InvoiceIngestionAssistantService {
             idempotencyKey,
             state.settings
           );
-          succeeded += 1;
-          syncedDocumentIds.push(doc.document_id);
           return {
-            ...doc,
-            status: 'synced',
-            synced_at: nowIso(),
-            xero_id: syncResult.xero_id,
-            xero_type: payload.type,
-            sync_idempotency_key: idempotencyKey,
-            sync_error: null,
-            updated_at: nowIso(),
+            outcome: 'success' as const,
+            patch: {
+              documentId: doc.document_id,
+              baseUpdatedAt: doc.updated_at,
+              next: {
+                ...doc,
+                status: 'synced' as const,
+                synced_at: nowIso(),
+                xero_id: syncResult.xero_id,
+                xero_type: payload.type,
+                sync_idempotency_key: idempotencyKey,
+                sync_error: null,
+                updated_at: nowIso(),
+              },
+            },
+            documentId: doc.document_id,
           };
         } catch (error) {
-          failed += 1;
           return {
-            ...doc,
-            status: 'sync_failed',
-            sync_error:
-              error instanceof Error ? error.message : 'Xero sync failed',
-            sync_idempotency_key: idempotencyKey,
-            updated_at: nowIso(),
+            outcome: 'failed' as const,
+            patch: {
+              documentId: doc.document_id,
+              baseUpdatedAt: doc.updated_at,
+              next: {
+                ...doc,
+                status: 'sync_failed' as const,
+                sync_error:
+                  error instanceof Error ? error.message : 'Xero sync failed',
+                sync_idempotency_key: idempotencyKey,
+                updated_at: nowIso(),
+              },
+            },
+            documentId: doc.document_id,
           };
         }
-      })
+      },
+      MAX_BATCH_CONCURRENCY
     );
 
-    writeState({
-      ...state,
-      documents,
-    });
+    for (const result of taskResults) {
+      if (!result.patch) {
+        if (result.outcome === 'success') {
+          succeeded += 1;
+          syncedDocumentIds.add(result.documentId);
+        }
+        continue;
+      }
+      const patchResult = applyDocumentPatches([result.patch]);
+      if (patchResult.applied === 0) {
+        continue;
+      }
+      if (result.outcome === 'success') {
+        succeeded += 1;
+        syncedDocumentIds.add(result.documentId);
+      } else {
+        failed += 1;
+      }
+    }
+
+    await this.cleanupSyncedSourceBlobs();
 
     return {
       ...summarizeBatch(documentIds.length, succeeded, failed),
-      synced_document_ids: syncedDocumentIds,
+      synced_document_ids: [...syncedDocumentIds],
     };
   }
 
@@ -983,17 +1320,18 @@ class InvoiceIngestionAssistantService {
       return { xero_id: `xero_mock_${payload.document_id}` };
     }
 
-    const response = await fetch(settings.xero_sync_endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Idempotency-Key': idempotencyKey,
+    const response = await fetchWithRetry(
+      settings.xero_sync_endpoint,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      throw new Error(`Xero sync failed with HTTP ${response.status}`);
-    }
+      { label: 'Xero sync' }
+    );
     const data = (await response.json()) as Record<string, unknown>;
     const xeroId =
       normalizeName(data.xero_id as string | null | undefined) ||
@@ -1002,6 +1340,38 @@ class InvoiceIngestionAssistantService {
       throw new Error('Xero sync succeeded but xero_id is missing');
     }
     return { xero_id: xeroId };
+  }
+
+  private async cleanupSyncedSourceBlobs(): Promise<void> {
+    const state = readState();
+    const retentionDays =
+      typeof state.settings.blob_retention_days === 'number' &&
+      Number.isFinite(state.settings.blob_retention_days)
+        ? Math.max(1, Math.floor(state.settings.blob_retention_days))
+        : DEFAULT_SETTINGS.blob_retention_days;
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    const staleDocuments = state.documents.filter(doc => {
+      if (doc.status !== 'synced' || !doc.synced_at) {
+        return false;
+      }
+      const syncedAt = Date.parse(doc.synced_at);
+      return Number.isFinite(syncedAt) && syncedAt <= cutoff;
+    });
+
+    await runWithConcurrency(
+      staleDocuments,
+      async doc => {
+        try {
+          await removeInvoiceSourceBlob(doc.document_id);
+        } catch (error) {
+          console.error(
+            `Failed to cleanup source blob for ${doc.document_id}:`,
+            error
+          );
+        }
+      },
+      2
+    );
   }
 }
 
