@@ -34,6 +34,7 @@ const baseSettings: InvoiceAssistantSettings = {
   xero_attachment_endpoint: null,
   xero_duplicate_check_endpoint: null,
   abn_validation_endpoint: null,
+  auto_learn_supplier_rules: true,
   default_currency: 'AUD',
   default_transaction_type: 'SPEND_MONEY',
   dry_run_mode: true,
@@ -627,6 +628,93 @@ describe('invoiceIngestionAssistantService', () => {
     });
 
     expect(updated?.review?.tax_type).toBe('NONE');
+  });
+
+  it('learns supplier defaults from review corrections', () => {
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument({ status: 'recognized' })],
+      suppliers: [
+        {
+          id: 'supplier-coles',
+          name: 'Coles',
+          aliases: ['COLES'],
+          abn: null,
+          default_account_code: '400',
+          default_tax_type: 'INPUT',
+          default_currency: 'AUD',
+          default_transaction_type: 'SPEND_MONEY',
+        },
+      ],
+      settings: baseSettings,
+    });
+
+    invoiceIngestionAssistantService.updateReview('doc_1', {
+      supplier_name: 'Coles',
+      account_code: '510',
+      tax_type: 'NONE',
+      transaction_type: 'BILL',
+      abn: '53004085616',
+    });
+    const nextState = readAssistantState();
+    const learned = nextState.suppliers.find(
+      item => item.id === 'supplier-coles'
+    );
+
+    expect(learned?.default_account_code).toBe('510');
+    expect(learned?.default_tax_type).toBe('NONE');
+    expect(learned?.default_transaction_type).toBe('BILL');
+    expect(learned?.abn).toBe('53004085616');
+  });
+
+  it('creates supplier template from review correction when no match exists', () => {
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument({ status: 'recognized' })],
+      suppliers: [],
+      settings: baseSettings,
+    });
+
+    invoiceIngestionAssistantService.updateReview('doc_1', {
+      supplier_name: 'Officeworks',
+      account_code: '501',
+      tax_type: 'INPUT',
+      transaction_type: 'SPEND_MONEY',
+      abn: '53004085616',
+    });
+    const nextState = readAssistantState();
+    const learned = nextState.suppliers.find(
+      item => item.name === 'Officeworks'
+    );
+
+    expect(nextState.suppliers.length).toBeGreaterThanOrEqual(4);
+    expect(learned?.aliases).toContain('OFFICEWORKS');
+    expect(learned?.default_account_code).toBe('501');
+  });
+
+  it('does not learn supplier template when auto-learn is disabled', () => {
+    writeAssistantState({
+      version: 1,
+      documents: [makeDocument({ status: 'recognized' })],
+      suppliers: [],
+      settings: {
+        ...baseSettings,
+        auto_learn_supplier_rules: false,
+      },
+    });
+
+    invoiceIngestionAssistantService.updateReview('doc_1', {
+      supplier_name: 'Officeworks',
+      account_code: '501',
+      tax_type: 'INPUT',
+    });
+    const nextState = readAssistantState();
+    const learned = nextState.suppliers.find(
+      item => item.name === 'Officeworks'
+    );
+
+    expect(nextState.suppliers).toHaveLength(3);
+    expect(learned).toBeUndefined();
   });
 
   it('blocks sync when ABN checksum is invalid', async () => {

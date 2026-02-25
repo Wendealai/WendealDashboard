@@ -85,6 +85,7 @@ const DEFAULT_SETTINGS: InvoiceAssistantSettings = {
   xero_attachment_endpoint: null,
   xero_duplicate_check_endpoint: null,
   abn_validation_endpoint: null,
+  auto_learn_supplier_rules: true,
   default_currency: 'AUD',
   default_transaction_type: 'SPEND_MONEY',
   dry_run_mode: true,
@@ -478,6 +479,79 @@ const findSupplierMatch = (
     }
   }
   return null;
+};
+
+const learnSuppliersFromReview = (
+  review: InvoiceReviewDraft,
+  suppliers: SupplierDirectoryEntry[],
+  settings: InvoiceAssistantSettings
+): SupplierDirectoryEntry[] => {
+  if (!settings.auto_learn_supplier_rules) {
+    return suppliers;
+  }
+  const supplierName = normalizeName(review.supplier_name);
+  if (!supplierName) {
+    return suppliers;
+  }
+  const supplierToken = normalizeAliasToken(supplierName);
+  if (!supplierToken) {
+    return suppliers;
+  }
+
+  const aliasCandidate = supplierName.toUpperCase();
+  const foundIndex = suppliers.findIndex(item => {
+    const tokens = [item.name, ...item.aliases]
+      .map(normalizeAliasToken)
+      .filter(Boolean);
+    return tokens.some(
+      token =>
+        token === supplierToken ||
+        token.includes(supplierToken) ||
+        supplierToken.includes(token)
+    );
+  });
+
+  if (foundIndex >= 0) {
+    const existing = suppliers[foundIndex];
+    if (!existing) {
+      return suppliers;
+    }
+    const aliasSet = new Set<string>([
+      ...existing.aliases.map(alias => alias.toUpperCase()),
+      aliasCandidate,
+    ]);
+    const updated: SupplierDirectoryEntry = {
+      ...existing,
+      name: existing.name || supplierName,
+      aliases: [...aliasSet],
+      abn: review.abn || existing.abn,
+      default_account_code:
+        review.account_code || existing.default_account_code,
+      default_tax_type: review.tax_type || existing.default_tax_type,
+      default_currency:
+        normalizeName(review.currency) ||
+        existing.default_currency ||
+        settings.default_currency,
+      default_transaction_type:
+        review.transaction_type || existing.default_transaction_type,
+    };
+    const nextSuppliers = [...suppliers];
+    nextSuppliers[foundIndex] = updated;
+    return nextSuppliers;
+  }
+
+  const created: SupplierDirectoryEntry = {
+    id: randomId('supplier'),
+    name: supplierName,
+    aliases: [aliasCandidate],
+    abn: review.abn || null,
+    default_account_code: review.account_code || null,
+    default_tax_type: review.tax_type || null,
+    default_currency:
+      normalizeName(review.currency) || settings.default_currency || null,
+    default_transaction_type: review.transaction_type || null,
+  };
+  return [...suppliers, created];
 };
 
 const buildReviewDraft = (
@@ -1786,9 +1860,15 @@ class InvoiceIngestionAssistantService {
             : 'ready_to_sync',
       updated_at: nowIso(),
     };
+    const nextSuppliers = learnSuppliersFromReview(
+      nextReview,
+      state.suppliers,
+      state.settings
+    );
 
     writeState({
       ...state,
+      suppliers: nextSuppliers,
       documents: state.documents.map(item =>
         item.document_id === documentId ? nextDoc : item
       ),

@@ -134,6 +134,18 @@ const AssistantSettingsModal: React.FC<AssistantSettingsModalProps> = ({
             </Form.Item>
           </Col>
         </Row>
+        <Form.Item
+          name='auto_learn_supplier_rules'
+          label='Auto-learn Supplier Rules'
+          rules={[{ required: true }]}
+        >
+          <Select
+            options={[
+              { label: 'Enabled', value: true },
+              { label: 'Disabled', value: false },
+            ]}
+          />
+        </Form.Item>
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item

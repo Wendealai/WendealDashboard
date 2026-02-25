@@ -367,6 +367,7 @@ const InvoiceIngestionAssistant: React.FC = () => {
       xero_duplicate_check_endpoint:
         values.xero_duplicate_check_endpoint || null,
       abn_validation_endpoint: values.abn_validation_endpoint || null,
+      auto_learn_supplier_rules: Boolean(values.auto_learn_supplier_rules),
       default_currency: values.default_currency || 'AUD',
       default_transaction_type: values.default_transaction_type,
       dry_run_mode: Boolean(values.dry_run_mode),

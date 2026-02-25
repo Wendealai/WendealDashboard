@@ -93,7 +93,7 @@ Updated: 2026-02-25
 - [x] Add compliance rule engine by transaction type/invoice class.
 - [x] Add ABN validation integration (ABR) with cache and rate-limit guard.
 - [x] Add GST decision engine with tax-type binding policy.
-- [ ] Add human-correction learning loop for supplier/rule templates.
+- [x] Add human-correction learning loop for supplier/rule templates.
 - [ ] Add batch approval gate workflow before sync execution.
 - [ ] Add error-type remediation flow with targeted retry playbooks.
 - [ ] Add post-sync bank reconciliation suggestion workflow.
