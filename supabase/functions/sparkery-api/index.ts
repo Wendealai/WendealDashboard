@@ -2,6 +2,24 @@
 
 type JsonObject = Record<string, unknown>;
 type DispatchServiceType = 'bond' | 'airbnb' | 'regular' | 'commercial';
+type OneOffCleaningType =
+  | 'bond_clean'
+  | 'routine_clean'
+  | 'deep_clean'
+  | 'office_clean'
+  | 'airbnb_turnover';
+type OneOffPropertyType =
+  | 'studio'
+  | 'apartment_1b1b'
+  | 'apartment_2b2b'
+  | 'apartment_3b2b'
+  | 'house_4b2b'
+  | 'office_small'
+  | 'office_large';
+type OneOffSectionBundleId =
+  | 'kitchen_deep_clean_pack'
+  | 'move_out_pack'
+  | 'office_hygiene_pack';
 
 type DispatchEmployeeRow = {
   id: string;
@@ -64,6 +82,19 @@ const SECTION_NAMES: Record<string, string> = {
   pantry: 'Pantry',
   restroom: 'Restroom',
   'print-area': 'Print Area',
+};
+const ONE_OFF_TEMPLATE_BUNDLES: Record<OneOffSectionBundleId, string[]> = {
+  kitchen_deep_clean_pack: ['kitchen', 'pantry', 'laundry'],
+  move_out_pack: [
+    'kitchen',
+    'living-room',
+    'bedroom-1',
+    'bathroom-1',
+    'laundry',
+    'toilet',
+    'balcony',
+  ],
+  office_hygiene_pack: ['meeting-room', 'office-area-1', 'pantry', 'restroom', 'print-area'],
 };
 
 const IDEMPOTENCY_TABLE = 'sparkery_api_idempotency';
@@ -231,6 +262,99 @@ const assertTime = (v: string, name: string): void => {
   if (!/^\d{2}:\d{2}$/.test(v)) {
     throw new Error(`${name} must be HH:mm`);
   }
+};
+
+const buildOneOffScenarioKey = (
+  cleaningType?: OneOffCleaningType,
+  propertyType?: OneOffPropertyType
+): string => `${cleaningType || 'unknown'}::${propertyType || 'unknown'}`;
+
+const buildOneOffSectionPreset = (
+  cleaningType?: OneOffCleaningType,
+  propertyType?: OneOffPropertyType
+): string[] => {
+  const residentialBaseline = [
+    'kitchen',
+    'living-room',
+    'bedroom-1',
+    'bathroom-1',
+    'balcony',
+  ];
+  const propertyTypeSections: Partial<Record<OneOffPropertyType, string[]>> = {
+    studio: ['kitchen', 'living-room', 'bedroom-1', 'bathroom-1'],
+    apartment_1b1b: ['kitchen', 'living-room', 'bedroom-1', 'bathroom-1'],
+    apartment_2b2b: [
+      'kitchen',
+      'living-room',
+      'bedroom-1',
+      'bedroom-2',
+      'bathroom-1',
+      'bathroom-2',
+      'balcony',
+      'laundry',
+    ],
+    apartment_3b2b: [
+      'kitchen',
+      'living-room',
+      'bedroom-1',
+      'bedroom-2',
+      'bedroom-3',
+      'bathroom-1',
+      'bathroom-2',
+      'balcony',
+      'laundry',
+    ],
+    house_4b2b: [
+      'kitchen',
+      'living-room',
+      'bedroom-1',
+      'bedroom-2',
+      'bedroom-3',
+      'bathroom-1',
+      'bathroom-2',
+      'toilet',
+      'laundry',
+      'garage',
+      'garden',
+    ],
+    office_small: ['meeting-room', 'office-area-1', 'pantry', 'restroom'],
+    office_large: [
+      'meeting-room',
+      'office-area-1',
+      'office-area-2',
+      'archive-room',
+      'pantry',
+      'restroom',
+      'print-area',
+    ],
+  };
+  const cleaningTypeSections: Partial<Record<OneOffCleaningType, string[]>> = {
+    bond_clean: ['laundry', 'toilet'],
+    routine_clean: [],
+    deep_clean: ['laundry', 'garage', 'garden', 'toilet'],
+    office_clean: [
+      'meeting-room',
+      'office-area-1',
+      'office-area-2',
+      'archive-room',
+      'pantry',
+      'restroom',
+      'print-area',
+    ],
+    airbnb_turnover: ['laundry', 'toilet', 'balcony'],
+  };
+
+  const isOfficePreset =
+    cleaningType === 'office_clean' ||
+    propertyType === 'office_small' ||
+    propertyType === 'office_large';
+  const base =
+    (propertyType && propertyTypeSections[propertyType]) ||
+    (isOfficePreset ? propertyTypeSections.office_small : residentialBaseline);
+  return dedupeStrings([
+    ...(base || residentialBaseline),
+    ...((cleaningType && cleaningTypeSections[cleaningType]) || []),
+  ]);
 };
 
 const normalizeName = (v: string): string =>
@@ -1472,6 +1596,76 @@ const handleResolveEmployees = async (
   });
 };
 
+const handleOneOffTemplateRecommendations = async (
+  req: Request
+): Promise<Response> => {
+  const endpoint = '/sparkery/v1/inspection/one-off-recommendations';
+  let body: JsonObject;
+  try {
+    body = await parseBody(req);
+  } catch (error) {
+    return fail(
+      400,
+      error instanceof Error ? error.message : 'Invalid request body'
+    );
+  }
+
+  const cleaningType = readString(body.cleaningType) as
+    | OneOffCleaningType
+    | undefined;
+  const propertyType = readString(body.propertyType) as
+    | OneOffPropertyType
+    | undefined;
+  const customerName = readString(body.customerName);
+  const recentDriftScore =
+    typeof body.recentDriftScore === 'number' && Number.isFinite(body.recentDriftScore)
+      ? body.recentDriftScore
+      : undefined;
+
+  const recommendedSectionIds = buildOneOffSectionPreset(
+    cleaningType,
+    propertyType
+  );
+
+  const recommendedBundleIds = Object.entries(ONE_OFF_TEMPLATE_BUNDLES)
+    .filter(([_bundleId, sectionIds]) =>
+      sectionIds.some(sectionId => recommendedSectionIds.includes(sectionId))
+    )
+    .map(([bundleId]) => bundleId as OneOffSectionBundleId);
+
+  const notes: string[] = [];
+  if (customerName) {
+    notes.push(`Scenario tuned for customer: ${customerName}`);
+  }
+  if (typeof recentDriftScore === 'number' && recentDriftScore > 6) {
+    notes.push(
+      'Historical drift score is high. Consider reviewing preset sections before link creation.'
+    );
+  }
+  if (recommendedBundleIds.length === 0) {
+    notes.push('No specific bundle matched. Using baseline scenario matrix.');
+  }
+
+  const responsePayload = {
+    ok: true,
+    endpoint,
+    source: 'cloud',
+    scenarioKey: buildOneOffScenarioKey(cleaningType, propertyType),
+    recommendedSectionIds,
+    recommendedBundleIds,
+    governance: {
+      maxSections: 18,
+      maxChecklistItemsPerSection: 40,
+      maxTotalChecklistItems: 320,
+      maxPayloadBytes: 180000,
+    },
+    notes,
+    generatedAt: new Date().toISOString(),
+  };
+
+  return json(responsePayload);
+};
+
 const handleGenerateWeeklyPlanLink = async (
   req: Request,
   supabase: ReturnType<typeof createClient>
@@ -2095,10 +2289,16 @@ Deno.serve(async req => {
         'POST /sparkery/v1/dispatch/jobs/batch',
         'POST /sparkery/v1/dispatch/jobs/delete',
         'POST /sparkery/v1/inspection-links',
+        'POST /sparkery/v1/inspection/one-off-recommendations',
         'POST /sparkery/v1/dispatch/weekly-plan-links',
         'POST /sparkery/v1/dispatch/recurring/import',
       ],
     });
+  } else if (
+    req.method === 'POST' &&
+    route === '/sparkery/v1/inspection/one-off-recommendations'
+  ) {
+    response = await handleOneOffTemplateRecommendations(req);
   } else if (!authorized(req)) {
     response = fail(
       401,

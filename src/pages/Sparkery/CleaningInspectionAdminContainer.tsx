@@ -22,6 +22,7 @@ import {
   Collapse,
   Divider,
   Tooltip,
+  Alert,
 } from 'antd';
 import type { RcFile } from 'antd/es/upload/interface';
 import {
@@ -43,6 +44,8 @@ import {
   FormOutlined,
   EditOutlined,
   InfoCircleOutlined,
+  CopyOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -78,6 +81,35 @@ import {
 } from '@/services/inspectionService';
 import { compressImage } from '@/pages/CleaningInspection/utils';
 import { buildInspectionShareUrl } from '@/pages/CleaningInspection/shareLink';
+import {
+  applySectionBundleToSectionIds,
+  buildOneOffChecklistDraftForSection,
+  buildOneOffChecklistDraftMap,
+  buildOneOffScenarioTypeKey,
+  buildOneOffSectionPreset,
+  buildOneOffTemplateSnapshot,
+  calculateOneOffTemplateDrift,
+  DEFAULT_ONE_OFF_GOVERNANCE_POLICY,
+  evaluateOneOffGovernance,
+  evaluateOneOffQuality,
+  getOneOffSectionFamilyId,
+  normalizeOneOffTemplateSnapshot,
+  ONE_OFF_SECTION_BUNDLES,
+  removeSectionBundleFromSectionIds,
+  type ChecklistTemplateDraftItem,
+  type OneOffCleaningType,
+  type OneOffPropertyType,
+  type OneOffSectionBundleId,
+} from '@/pages/Sparkery/inspectionOneOff';
+import {
+  getSparkeryTelemetryActorRole,
+  getSparkeryTelemetrySessionId,
+  trackSparkeryEvent,
+} from '@/services/sparkeryTelemetry';
+import {
+  fetchOneOffTemplateRecommendations,
+  type OneOffRecommendationResponse,
+} from '@/services/inspectionOneOffRecommendationService';
 import './sparkery.css';
 
 const { Title, Text, Paragraph } = Typography;
@@ -91,6 +123,29 @@ type InspectionArchive = {
 };
 
 type SupabaseStatus = 'local' | 'checking' | 'connected' | 'unreachable';
+type OneOffDraftSnapshot = {
+  id: string;
+  name: string;
+  customerName: string;
+  address: string;
+  notes: string;
+  notesZh: string;
+  checkOutDate: string;
+  cleaningType?: OneOffCleaningType;
+  propertyType?: OneOffPropertyType;
+  sectionIds: string[];
+  checklists: Record<string, ChecklistTemplateDraftItem[]>;
+  employeeIds: string[];
+  updatedAt: string;
+};
+
+type OneOffCustomerMemory = {
+  cleaningType?: OneOffCleaningType;
+  propertyType?: OneOffPropertyType;
+  sectionIds: string[];
+  employeeIds: string[];
+  updatedAt: string;
+};
 
 /** Generate unique ID */
 const generateId = () =>
@@ -107,6 +162,168 @@ const cloneTemplateSnapshot = (
     return JSON.parse(JSON.stringify(templates)) as PropertyTemplate[];
   } catch {
     return templates.map(item => ({ ...item }));
+  }
+};
+
+const NUMBERED_SECTION_TYPE_RE = /^(.*?)-([1-9]\d*)$/;
+const ONE_OFF_SECTION_LABEL_OVERRIDES: Record<string, string> = {
+  bedroom: '卧室 Bedroom',
+  bathroom: '卫生间 Bathroom',
+  'office-area': '办公区 Office Area',
+};
+
+const getSectionFamilyId = (sectionId: string): string => {
+  return getOneOffSectionFamilyId(sectionId);
+};
+
+const buildNextNumberedSectionId = (
+  sectionTypeId: string,
+  existingSectionIds: string[]
+): string | null => {
+  const normalizedTypeId = getSectionTypeId(sectionTypeId);
+  const typeMatch = normalizedTypeId.match(NUMBERED_SECTION_TYPE_RE);
+  if (!typeMatch) {
+    return null;
+  }
+
+  const prefix = typeMatch[1];
+  if (!prefix) {
+    return null;
+  }
+
+  let maxOrdinal = 0;
+  existingSectionIds.forEach(existingId => {
+    const normalizedExistingId = getSectionTypeId(existingId);
+    const existingMatch = normalizedExistingId.match(NUMBERED_SECTION_TYPE_RE);
+    if (!existingMatch || existingMatch[1] !== prefix) {
+      return;
+    }
+    const ordinal = Number.parseInt(existingMatch[2] || '0', 10);
+    if (ordinal > maxOrdinal) {
+      maxOrdinal = ordinal;
+    }
+  });
+
+  return `${prefix}-${Math.max(1, maxOrdinal + 1)}`;
+};
+
+const buildNextOneOffSectionId = (
+  sectionTypeId: string,
+  existingSectionIds: string[]
+): string => {
+  const nextNumberedId = buildNextNumberedSectionId(
+    sectionTypeId,
+    existingSectionIds
+  );
+  if (nextNumberedId) {
+    return nextNumberedId;
+  }
+  return buildNextSectionInstanceId(sectionTypeId, existingSectionIds);
+};
+
+const reorderList = <T,>(
+  items: T[],
+  fromIndex: number,
+  toIndex: number
+): T[] => {
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= items.length ||
+    toIndex >= items.length ||
+    fromIndex === toIndex
+  ) {
+    return items;
+  }
+
+  const next = [...items];
+  const [moved] = next.splice(fromIndex, 1);
+  if (typeof moved === 'undefined') {
+    return items;
+  }
+  next.splice(toIndex, 0, moved);
+  return next;
+};
+
+const buildOneOffSectionAddOptions = (): Array<{
+  value: string;
+  label: string;
+}> => {
+  const seenFamilyIds = new Set<string>();
+  const options: Array<{ value: string; label: string }> = [];
+  [...BASE_ROOM_SECTIONS, ...OPTIONAL_SECTIONS].forEach(section => {
+    const familyId = getSectionFamilyId(section.id);
+    if (seenFamilyIds.has(familyId)) {
+      return;
+    }
+    seenFamilyIds.add(familyId);
+    options.push({
+      value: section.id,
+      label: ONE_OFF_SECTION_LABEL_OVERRIDES[familyId] || section.name,
+    });
+  });
+  return options;
+};
+
+const buildInspectionSectionsFromTemplates = (
+  activeSectionIds: string[],
+  checklistTemplates?: Record<string, ChecklistTemplateDraftItem[]>,
+  referenceImages?: Record<string, any[]>
+) => {
+  return getAllSections(activeSectionIds).map(section => {
+    const sectionChecklist =
+      checklistTemplates?.[section.id] ||
+      checklistTemplates?.[getSectionTypeId(section.id)];
+    const checklist =
+      sectionChecklist && sectionChecklist.length > 0
+        ? sectionChecklist.map((item, idx) => {
+            const nextItem: any = {
+              id: `${section.id}-item-${idx}`,
+              label: item.label,
+              checked: false,
+              requiredPhoto: item.requiredPhoto || false,
+            };
+            if (item.labelEn) nextItem.labelEn = item.labelEn;
+            return nextItem;
+          })
+        : getDefaultChecklistForSection(section.id);
+
+    return {
+      ...section,
+      referenceImages:
+        referenceImages?.[section.id] ||
+        referenceImages?.[getSectionTypeId(section.id)] ||
+        [],
+      photos: [],
+      notes: '',
+      checklist,
+    };
+  });
+};
+
+const ONE_OFF_DRAFT_STORAGE_KEY = 'sparkery_inspection_one_off_draft_v1';
+const ONE_OFF_DRAFT_HISTORY_STORAGE_KEY =
+  'sparkery_inspection_one_off_history_v1';
+const ONE_OFF_CUSTOMER_MEMORY_STORAGE_KEY =
+  'sparkery_inspection_one_off_customer_memory_v1';
+const ONE_OFF_MAX_SESSION_DRAFTS = 8;
+const ONE_OFF_ADVANCED_ROLE_SET = new Set(['admin', 'owner', 'ops_manager']);
+
+const safeReadLocalJson = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+const safeWriteLocalJson = (key: string, value: unknown): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore quota or private-mode write errors.
   }
 };
 
@@ -138,6 +355,66 @@ const CleaningInspectionAdmin: React.FC = () => {
   const [checkOutDate, setCheckOutDate] = useState(
     dayjs().format('YYYY-MM-DD')
   );
+  const [isOneOffOpen, setIsOneOffOpen] = useState(false);
+  const [oneOffCustomerName, setOneOffCustomerName] = useState('');
+  const [oneOffName, setOneOffName] = useState('');
+  const [oneOffAddress, setOneOffAddress] = useState('');
+  const [oneOffNotes, setOneOffNotes] = useState('');
+  const [oneOffNotesZh, setOneOffNotesZh] = useState('');
+  const [oneOffCheckOutDate, setOneOffCheckOutDate] = useState(
+    dayjs().format('YYYY-MM-DD')
+  );
+  const [oneOffCleaningType, setOneOffCleaningType] =
+    useState<OneOffCleaningType>();
+  const [oneOffPropertyType, setOneOffPropertyType] =
+    useState<OneOffPropertyType>();
+  const [oneOffSectionIds, setOneOffSectionIds] = useState<string[]>(() => {
+    const preset = buildOneOffSectionPreset(undefined, undefined);
+    return preset;
+  });
+  const [oneOffChecklists, setOneOffChecklists] = useState<
+    Record<string, ChecklistTemplateDraftItem[]>
+  >(() =>
+    buildOneOffChecklistDraftMap(buildOneOffSectionPreset(undefined, undefined))
+  );
+  const [oneOffEmployeeIds, setOneOffEmployeeIds] = useState<string[]>([]);
+  const [oneOffSelectedBundleId, setOneOffSelectedBundleId] =
+    useState<OneOffSectionBundleId>();
+  const [oneOffDraftHistory, setOneOffDraftHistory] = useState<
+    OneOffDraftSnapshot[]
+  >(() =>
+    safeReadLocalJson<OneOffDraftSnapshot[]>(
+      ONE_OFF_DRAFT_HISTORY_STORAGE_KEY,
+      []
+    )
+  );
+  const [oneOffHistoryCloneId, setOneOffHistoryCloneId] = useState<string>();
+  const [oneOffCustomerMemoryMap, setOneOffCustomerMemoryMap] = useState<
+    Record<string, OneOffCustomerMemory>
+  >(() =>
+    safeReadLocalJson<Record<string, OneOffCustomerMemory>>(
+      ONE_OFF_CUSTOMER_MEMORY_STORAGE_KEY,
+      {}
+    )
+  );
+  const [oneOffRecommendation, setOneOffRecommendation] =
+    useState<OneOffRecommendationResponse | null>(null);
+  const [oneOffRecommendationLoading, setOneOffRecommendationLoading] =
+    useState(false);
+  const [oneOffPreviewOpen, setOneOffPreviewOpen] = useState(true);
+  const [oneOffOptionalSectionToAdd, setOneOffOptionalSectionToAdd] = useState<
+    string | undefined
+  >(undefined);
+  const [oneOffDragSectionIndex, setOneOffDragSectionIndex] = useState<
+    number | null
+  >(null);
+  const [oneOffDragOverSectionIndex, setOneOffDragOverSectionIndex] = useState<
+    number | null
+  >(null);
+  const oneOffDragSectionIndexRef = useRef<number | null>(null);
+  const oneOffAutoAppliedMemoryKeyRef = useRef('');
+  const oneOffPreviewTelemetrySentRef = useRef(false);
+  const oneOffModalOpenedAtRef = useRef<number>(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isEmployeesOpen, setIsEmployeesOpen] = useState(false);
 
@@ -510,6 +787,882 @@ const CleaningInspectionAdmin: React.FC = () => {
     });
   };
 
+  const actorRole = React.useMemo(
+    () => getSparkeryTelemetryActorRole() || '',
+    []
+  );
+  const sessionId = React.useMemo(
+    () => getSparkeryTelemetrySessionId() || '',
+    []
+  );
+  const hasAdvancedOneOffPermission = React.useMemo(() => {
+    const normalizedRole = actorRole.trim().toLowerCase();
+    if (!normalizedRole) {
+      return true;
+    }
+    return ONE_OFF_ADVANCED_ROLE_SET.has(normalizedRole);
+  }, [actorRole]);
+  const oneOffScenarioKey = React.useMemo(
+    () => buildOneOffScenarioTypeKey(oneOffCleaningType, oneOffPropertyType),
+    [oneOffCleaningType, oneOffPropertyType]
+  );
+  const oneOffQualityReport = React.useMemo(
+    () => evaluateOneOffQuality(oneOffSectionIds, oneOffChecklists),
+    [oneOffSectionIds, oneOffChecklists]
+  );
+  const oneOffGovernanceReport = React.useMemo(
+    () =>
+      evaluateOneOffGovernance(
+        oneOffSectionIds,
+        oneOffChecklists,
+        DEFAULT_ONE_OFF_GOVERNANCE_POLICY
+      ),
+    [oneOffSectionIds, oneOffChecklists]
+  );
+
+  const oneOffDriftInsight = React.useMemo(() => {
+    const submittedOneOff = archives.filter(archive => {
+      const anyArchive = archive as any;
+      return (
+        archive.status === 'submitted' &&
+        anyArchive?.oneOffMeta?.mode === 'one_off' &&
+        anyArchive?.oneOffMeta?.templateSnapshot
+      );
+    });
+    if (submittedOneOff.length === 0) {
+      return {
+        sampleCount: 0,
+        averageScore: 0,
+      };
+    }
+
+    let totalScore = 0;
+    submittedOneOff.forEach(archive => {
+      const anyArchive = archive as any;
+      const snapshot = normalizeOneOffTemplateSnapshot(
+        anyArchive.oneOffMeta.templateSnapshot
+      );
+      const drift = calculateOneOffTemplateDrift(
+        snapshot,
+        (anyArchive.sections || []) as any[]
+      );
+      totalScore += drift.driftScore;
+    });
+
+    return {
+      sampleCount: submittedOneOff.length,
+      averageScore:
+        submittedOneOff.length > 0 ? totalScore / submittedOneOff.length : 0,
+    };
+  }, [archives]);
+
+  const oneOffCustomerMemoryKey = React.useMemo(() => {
+    const normalized = oneOffCustomerName
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+    return normalized;
+  }, [oneOffCustomerName]);
+  const oneOffMatchedMemory = React.useMemo(() => {
+    if (!oneOffCustomerMemoryKey) return null;
+    return oneOffCustomerMemoryMap[oneOffCustomerMemoryKey] || null;
+  }, [oneOffCustomerMemoryKey, oneOffCustomerMemoryMap]);
+
+  const trackOneOffEvent = React.useCallback(
+    (
+      name:
+        | 'inspection.one_off.modal.opened'
+        | 'inspection.one_off.recommendation.loaded'
+        | 'inspection.one_off.template.regenerated'
+        | 'inspection.one_off.preview.rendered'
+        | 'inspection.one_off.draft.restored'
+        | 'inspection.one_off.create.started'
+        | 'inspection.one_off.create.succeeded'
+        | 'inspection.one_off.create.failed'
+        | 'inspection.one_off.link.open.failed',
+      data: Record<string, unknown> = {},
+      options?: {
+        success?: boolean;
+        durationMs?: number;
+      }
+    ) => {
+      trackSparkeryEvent(name, {
+        ...(typeof options?.success === 'boolean'
+          ? { success: options.success }
+          : {}),
+        ...(typeof options?.durationMs === 'number'
+          ? { durationMs: options.durationMs }
+          : {}),
+        data: {
+          ...data,
+          ...(actorRole ? { actorRole } : {}),
+          ...(sessionId ? { sessionId } : {}),
+        },
+      });
+    },
+    [actorRole, sessionId]
+  );
+
+  const persistInspectionAndOpenLink = async (
+    newInspection: any,
+    options?: {
+      oneOff?: boolean;
+      scenarioKey?: string;
+    }
+  ): Promise<{ source: 'supabase' | 'local'; linkOpened: boolean }> => {
+    setArchives(prev => [
+      newInspection,
+      ...prev.filter(item => item.id !== newInspection.id),
+    ]);
+
+    const syncResult = await submitInspection(newInspection);
+    const url = buildShareUrl(newInspection);
+    navigator.clipboard.writeText(url);
+    const linkWindow = window.open(url, '_blank');
+    const linkOpened = Boolean(linkWindow);
+    if (!linkOpened && options?.oneOff) {
+      trackOneOffEvent('inspection.one_off.link.open.failed', {
+        scenarioKey: options.scenarioKey || 'unknown::unknown',
+        inspectionId: newInspection.id,
+      });
+    }
+
+    if (syncResult.source === 'supabase') {
+      setLastCloudWriteAt(getInspectionLastCloudWriteAt());
+      messageApi.success(
+        t('sparkery.inspectionAdmin.messages.linkCopiedAndSynced', {
+          defaultValue: 'Inspection link copied and synced to cloud',
+        })
+      );
+    } else {
+      messageApi.warning(
+        t('sparkery.inspectionAdmin.messages.linkCopiedCloudSyncFailed', {
+          defaultValue:
+            'Link copied, but cloud sync failed. Data is currently local only.',
+        })
+      );
+    }
+
+    return {
+      source: syncResult.source,
+      linkOpened,
+    };
+  };
+
+  const createOneOffDraftSnapshot = React.useCallback(
+    (draftId?: string): OneOffDraftSnapshot => ({
+      id: draftId || `one-off-${generateId()}`,
+      name: oneOffName.trim(),
+      customerName: oneOffCustomerName.trim(),
+      address: oneOffAddress.trim(),
+      notes: oneOffNotes,
+      notesZh: oneOffNotesZh,
+      checkOutDate: oneOffCheckOutDate,
+      ...(oneOffCleaningType ? { cleaningType: oneOffCleaningType } : {}),
+      ...(oneOffPropertyType ? { propertyType: oneOffPropertyType } : {}),
+      sectionIds: [...oneOffSectionIds],
+      checklists: { ...oneOffChecklists },
+      employeeIds: [...oneOffEmployeeIds],
+      updatedAt: new Date().toISOString(),
+    }),
+    [
+      oneOffAddress,
+      oneOffCheckOutDate,
+      oneOffChecklists,
+      oneOffCleaningType,
+      oneOffCustomerName,
+      oneOffEmployeeIds,
+      oneOffName,
+      oneOffNotes,
+      oneOffNotesZh,
+      oneOffPropertyType,
+      oneOffSectionIds,
+    ]
+  );
+
+  const applyOneOffDraftSnapshot = React.useCallback(
+    (snapshot: OneOffDraftSnapshot, source: 'recovery' | 'history') => {
+      setOneOffName(snapshot.name || '');
+      setOneOffCustomerName(snapshot.customerName || '');
+      setOneOffAddress(snapshot.address || '');
+      setOneOffNotes(snapshot.notes || '');
+      setOneOffNotesZh(snapshot.notesZh || '');
+      setOneOffCheckOutDate(
+        snapshot.checkOutDate || dayjs().format('YYYY-MM-DD')
+      );
+      setOneOffCleaningType(snapshot.cleaningType);
+      setOneOffPropertyType(snapshot.propertyType);
+      setOneOffSectionIds(snapshot.sectionIds || []);
+      setOneOffChecklists(snapshot.checklists || {});
+      setOneOffEmployeeIds(snapshot.employeeIds || []);
+      setOneOffOptionalSectionToAdd(undefined);
+      oneOffDragSectionIndexRef.current = null;
+      setOneOffDragSectionIndex(null);
+      setOneOffDragOverSectionIndex(null);
+
+      if (source === 'recovery') {
+        trackOneOffEvent('inspection.one_off.draft.restored', {
+          scenarioKey: buildOneOffScenarioTypeKey(
+            snapshot.cleaningType,
+            snapshot.propertyType
+          ),
+          sectionCount: snapshot.sectionIds.length,
+          checklistCount: Object.values(snapshot.checklists || {}).reduce(
+            (sum, items) => sum + items.length,
+            0
+          ),
+        });
+      }
+    },
+    [trackOneOffEvent]
+  );
+
+  const saveOneOffDraftHistory = React.useCallback(
+    (snapshot: OneOffDraftSnapshot) => {
+      setOneOffDraftHistory(prev => {
+        const deduped = prev.filter(item => item.id !== snapshot.id);
+        const next = [snapshot, ...deduped].slice(
+          0,
+          ONE_OFF_MAX_SESSION_DRAFTS
+        );
+        safeWriteLocalJson(ONE_OFF_DRAFT_HISTORY_STORAGE_KEY, next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const rememberCustomerPreference = React.useCallback(() => {
+    if (!oneOffCustomerMemoryKey) return;
+    const record: OneOffCustomerMemory = {
+      ...(oneOffCleaningType ? { cleaningType: oneOffCleaningType } : {}),
+      ...(oneOffPropertyType ? { propertyType: oneOffPropertyType } : {}),
+      sectionIds: [...oneOffSectionIds],
+      employeeIds: [...oneOffEmployeeIds],
+      updatedAt: new Date().toISOString(),
+    };
+
+    setOneOffCustomerMemoryMap(prev => {
+      const next = { ...prev, [oneOffCustomerMemoryKey]: record };
+      safeWriteLocalJson(ONE_OFF_CUSTOMER_MEMORY_STORAGE_KEY, next);
+      return next;
+    });
+  }, [
+    oneOffCleaningType,
+    oneOffCustomerMemoryKey,
+    oneOffEmployeeIds,
+    oneOffPropertyType,
+    oneOffSectionIds,
+  ]);
+
+  const handleApplyCustomerMemory = React.useCallback(() => {
+    if (!oneOffMatchedMemory) return;
+    setOneOffCleaningType(oneOffMatchedMemory.cleaningType);
+    setOneOffPropertyType(oneOffMatchedMemory.propertyType);
+    setOneOffSectionIds(oneOffMatchedMemory.sectionIds);
+    setOneOffChecklists(
+      buildOneOffChecklistDraftMap(oneOffMatchedMemory.sectionIds || [])
+    );
+    setOneOffEmployeeIds(oneOffMatchedMemory.employeeIds || []);
+    messageApi.success(
+      t('sparkery.inspectionAdmin.messages.customerPreferenceApplied', {
+        defaultValue: 'Saved one-off preference applied for this customer.',
+      })
+    );
+  }, [messageApi, oneOffMatchedMemory, t]);
+
+  const handleCloneHistoryDraft = React.useCallback(() => {
+    const targetId = oneOffHistoryCloneId || oneOffDraftHistory[0]?.id;
+    if (!targetId) return;
+    const matched = oneOffDraftHistory.find(item => item.id === targetId);
+    if (!matched) return;
+    applyOneOffDraftSnapshot(
+      {
+        ...matched,
+        id: `one-off-${generateId()}`,
+        updatedAt: new Date().toISOString(),
+      },
+      'history'
+    );
+    messageApi.success(
+      t('sparkery.inspectionAdmin.messages.oneOffDraftDuplicated', {
+        defaultValue: 'One-off draft duplicated. Continue editing.',
+      })
+    );
+  }, [
+    applyOneOffDraftSnapshot,
+    messageApi,
+    oneOffDraftHistory,
+    oneOffHistoryCloneId,
+    t,
+  ]);
+
+  const regenerateOneOffTemplate = React.useCallback(
+    (cleaningType?: OneOffCleaningType, propertyType?: OneOffPropertyType) => {
+      const nextSectionIds = buildOneOffSectionPreset(
+        cleaningType,
+        propertyType
+      );
+      setOneOffSectionIds(nextSectionIds);
+      setOneOffChecklists(buildOneOffChecklistDraftMap(nextSectionIds));
+      trackOneOffEvent('inspection.one_off.template.regenerated', {
+        scenarioKey: buildOneOffScenarioTypeKey(cleaningType, propertyType),
+        sectionCount: nextSectionIds.length,
+      });
+    },
+    [trackOneOffEvent]
+  );
+
+  const resetOneOffDraft = React.useCallback(() => {
+    setOneOffName('');
+    setOneOffCustomerName('');
+    setOneOffAddress('');
+    setOneOffNotes('');
+    setOneOffNotesZh('');
+    setOneOffCheckOutDate(checkOutDate);
+    setOneOffCleaningType(undefined);
+    setOneOffPropertyType(undefined);
+    const preset = buildOneOffSectionPreset(undefined, undefined);
+    setOneOffSectionIds(preset);
+    setOneOffChecklists(buildOneOffChecklistDraftMap(preset));
+    setOneOffEmployeeIds(selectedEmployeeIds);
+    setOneOffOptionalSectionToAdd(undefined);
+    setOneOffSelectedBundleId(undefined);
+    oneOffDragSectionIndexRef.current = null;
+    oneOffAutoAppliedMemoryKeyRef.current = '';
+    setOneOffDragSectionIndex(null);
+    setOneOffDragOverSectionIndex(null);
+    setOneOffPreviewOpen(true);
+    oneOffPreviewTelemetrySentRef.current = false;
+  }, [checkOutDate, selectedEmployeeIds]);
+
+  const handleOpenOneOffGenerator = () => {
+    resetOneOffDraft();
+    setIsOneOffOpen(true);
+    oneOffModalOpenedAtRef.current = Date.now();
+    trackOneOffEvent('inspection.one_off.modal.opened', {
+      selectedEmployeeCount: selectedEmployeeIds.length,
+    });
+
+    const cachedDraft = safeReadLocalJson<OneOffDraftSnapshot | null>(
+      ONE_OFF_DRAFT_STORAGE_KEY,
+      null
+    );
+    if (
+      cachedDraft &&
+      cachedDraft.updatedAt &&
+      Date.now() - new Date(cachedDraft.updatedAt).getTime() <=
+        DEFAULT_ONE_OFF_GOVERNANCE_POLICY.draftTtlMs
+    ) {
+      Modal.confirm({
+        title: t('sparkery.inspectionAdmin.oneOffModal.recoverDraftTitle', {
+          defaultValue: 'Recover unsaved one-off draft?',
+        }),
+        content: t('sparkery.inspectionAdmin.oneOffModal.recoverDraftContent', {
+          defaultValue:
+            'A recent one-off draft was found. Do you want to restore it?',
+        }),
+        okText: t('sparkery.inspectionAdmin.actions.restoreDraft', {
+          defaultValue: 'Restore',
+        }),
+        cancelText: t('sparkery.inspectionAdmin.actions.discardDraft', {
+          defaultValue: 'Discard',
+        }),
+        onOk: () => applyOneOffDraftSnapshot(cachedDraft, 'recovery'),
+        onCancel: () =>
+          safeWriteLocalJson(ONE_OFF_DRAFT_STORAGE_KEY, {
+            ...cachedDraft,
+            updatedAt: new Date(0).toISOString(),
+          }),
+      });
+    }
+  };
+
+  const handleApplyOneOffBundle = (bundleId: OneOffSectionBundleId) => {
+    const nextSections = applySectionBundleToSectionIds(
+      oneOffSectionIds,
+      bundleId
+    );
+    const nextChecklists = { ...oneOffChecklists };
+    nextSections.forEach(sectionId => {
+      if (!nextChecklists[sectionId]) {
+        nextChecklists[sectionId] =
+          buildOneOffChecklistDraftForSection(sectionId);
+      }
+    });
+    setOneOffSectionIds(nextSections);
+    setOneOffChecklists(nextChecklists);
+    setOneOffSelectedBundleId(bundleId);
+  };
+
+  const handleRemoveOneOffBundle = (bundleId: OneOffSectionBundleId) => {
+    const nextSections = removeSectionBundleFromSectionIds(
+      oneOffSectionIds,
+      bundleId
+    );
+    setOneOffSectionIds(nextSections);
+    setOneOffChecklists(prev => {
+      const next: Record<string, ChecklistTemplateDraftItem[]> = {};
+      nextSections.forEach(sectionId => {
+        next[sectionId] =
+          prev[sectionId] || buildOneOffChecklistDraftForSection(sectionId);
+      });
+      return next;
+    });
+  };
+
+  const handleOneOffAddSection = (sectionTypeId: string) => {
+    if (!sectionTypeId) return;
+    setOneOffSectionIds(prev => {
+      const nextSectionId = buildNextOneOffSectionId(sectionTypeId, prev);
+      const nextSectionDefaults =
+        buildOneOffChecklistDraftForSection(nextSectionId);
+      const nextChecklist =
+        nextSectionDefaults.length > 0
+          ? nextSectionDefaults
+          : buildOneOffChecklistDraftForSection(sectionTypeId);
+      const next = [...prev, nextSectionId];
+      setOneOffChecklists(current => ({
+        ...current,
+        [nextSectionId]: nextChecklist,
+      }));
+      return next;
+    });
+    setOneOffOptionalSectionToAdd(undefined);
+  };
+
+  const handleOneOffRemoveSection = (sectionId: string) => {
+    const familyId = getSectionFamilyId(sectionId);
+    if (
+      !hasAdvancedOneOffPermission &&
+      (familyId === 'kitchen' ||
+        familyId === 'bathroom' ||
+        familyId === 'living-room')
+    ) {
+      messageApi.warning(
+        t(
+          'sparkery.inspectionAdmin.messages.permissionRequiredForCriticalSection',
+          {
+            defaultValue:
+              'Only advanced roles can remove critical sections (kitchen/living room/bathroom).',
+          }
+        )
+      );
+      return;
+    }
+
+    setOneOffSectionIds(prev => prev.filter(item => item !== sectionId));
+    setOneOffChecklists(prev => {
+      const next = { ...prev };
+      delete next[sectionId];
+      return next;
+    });
+  };
+
+  const handleOneOffSectionReorder = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) {
+      return;
+    }
+    setOneOffSectionIds(prev => reorderList(prev, fromIndex, toIndex));
+  };
+
+  const handleOneOffSectionMove = (index: number, direction: 'up' | 'down') => {
+    const nextIndex = direction === 'up' ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= oneOffSectionIds.length) {
+      return;
+    }
+    handleOneOffSectionReorder(index, nextIndex);
+  };
+
+  const handleOneOffChecklistUpdate = (
+    sectionId: string,
+    items: ChecklistTemplateDraftItem[]
+  ) => {
+    if (
+      items.length >
+      DEFAULT_ONE_OFF_GOVERNANCE_POLICY.maxChecklistItemsPerSection
+    ) {
+      messageApi.warning(
+        t('sparkery.inspectionAdmin.messages.oneOffChecklistCapExceeded', {
+          defaultValue:
+            'Checklist item cap reached for this section ({{count}} max).',
+          count: DEFAULT_ONE_OFF_GOVERNANCE_POLICY.maxChecklistItemsPerSection,
+        })
+      );
+      return;
+    }
+    setOneOffChecklists(prev => ({
+      ...prev,
+      [sectionId]: items,
+    }));
+  };
+
+  const handleOneOffChecklistBulkAction = (
+    sectionId: string,
+    action: 'mark_all_photo' | 'clear_all_photo' | 'delete_empty' | 'sort_label'
+  ) => {
+    const items = oneOffChecklists[sectionId] || [];
+    let next = [...items];
+
+    if (action === 'mark_all_photo') {
+      next = next.map(item => ({ ...item, requiredPhoto: true }));
+    } else if (action === 'clear_all_photo') {
+      next = next.map(item => ({ ...item, requiredPhoto: false }));
+    } else if (action === 'delete_empty') {
+      next = next.filter(
+        item => (item.label || '').trim() || (item.labelEn || '').trim()
+      );
+    } else if (action === 'sort_label') {
+      next = next.sort((a, b) =>
+        (a.label || a.labelEn || '').localeCompare(b.label || b.labelEn || '')
+      );
+    }
+
+    handleOneOffChecklistUpdate(sectionId, next);
+  };
+
+  const handleCreateOneOffInspection = async () => {
+    if (!oneOffCleaningType && !oneOffPropertyType) {
+      messageApi.warning(
+        t('sparkery.inspectionAdmin.messages.selectCleaningOrPropertyType', {
+          defaultValue: 'Please select cleaning type or property type first.',
+        })
+      );
+      return;
+    }
+    if (oneOffSectionIds.length === 0) {
+      messageApi.warning(
+        t('sparkery.inspectionAdmin.messages.oneOffSectionsRequired', {
+          defaultValue: 'Please keep at least one inspection section.',
+        })
+      );
+      return;
+    }
+    if (!oneOffQualityReport.valid) {
+      messageApi.warning(
+        oneOffQualityReport.issues[0]?.message ||
+          'One-off quality check failed.'
+      );
+      return;
+    }
+    if (!oneOffGovernanceReport.valid) {
+      messageApi.warning(
+        oneOffGovernanceReport.issues[0] || 'One-off governance check failed.'
+      );
+      return;
+    }
+
+    const createStartedAt = Date.now();
+    trackOneOffEvent('inspection.one_off.create.started', {
+      scenarioKey: oneOffScenarioKey,
+      sectionCount: oneOffSectionIds.length,
+      checklistCount: oneOffQualityReport.totalChecklistItems,
+      draftReadyLatencyMs: oneOffModalOpenedAtRef.current
+        ? createStartedAt - oneOffModalOpenedAtRef.current
+        : undefined,
+    });
+
+    const selectedEmployees = employees.filter(emp =>
+      oneOffEmployeeIds.includes(emp.id)
+    );
+    const inspectionId = `insp-${generateId()}`;
+    const displayName =
+      oneOffName.trim() ||
+      t('sparkery.inspectionAdmin.labels.oneOffTemplateDefaultName', {
+        defaultValue: 'One-off Inspection',
+      });
+    const sections = buildInspectionSectionsFromTemplates(
+      oneOffSectionIds,
+      oneOffChecklists
+    );
+    const templateSnapshot = buildOneOffTemplateSnapshot(
+      oneOffSectionIds,
+      oneOffChecklists
+    );
+
+    const newInspection: any = {
+      id: inspectionId,
+      templateName: `${displayName} (One-off)`,
+      propertyId: displayName,
+      propertyAddress: oneOffAddress.trim(),
+      propertyNotes: oneOffNotes || '',
+      ...(oneOffNotesZh.trim() ? { propertyNotesZh: oneOffNotesZh } : {}),
+      checkOutDate: oneOffCheckOutDate,
+      submittedAt: '',
+      status: 'pending',
+      sections,
+      checkIn: null,
+      checkOut: null,
+      damageReports: [],
+      oneOffMeta: {
+        mode: 'one_off',
+        scenarioKey: oneOffScenarioKey,
+        cleaningType: oneOffCleaningType || null,
+        propertyType: oneOffPropertyType || null,
+        customerName: oneOffCustomerName.trim() || null,
+        templateSnapshot,
+      },
+    };
+    if (selectedEmployees.length > 0) {
+      newInspection.assignedEmployees = selectedEmployees;
+      newInspection.assignedEmployee = selectedEmployees[0];
+    }
+    const propertyNoteImageCount = Array.isArray(
+      newInspection.propertyNoteImages
+    )
+      ? newInspection.propertyNoteImages.length
+      : 0;
+    if (
+      propertyNoteImageCount >
+      DEFAULT_ONE_OFF_GOVERNANCE_POLICY.maxPropertyNoteImages
+    ) {
+      messageApi.error(
+        t('sparkery.inspectionAdmin.messages.oneOffImageCapExceeded', {
+          defaultValue:
+            'One-off note image count exceeds cap ({{count}}/{{limit}}).',
+          count: propertyNoteImageCount,
+          limit: DEFAULT_ONE_OFF_GOVERNANCE_POLICY.maxPropertyNoteImages,
+        })
+      );
+      return;
+    }
+
+    const payloadBytes = new TextEncoder().encode(
+      JSON.stringify(newInspection)
+    ).length;
+    if (payloadBytes > DEFAULT_ONE_OFF_GOVERNANCE_POLICY.maxPayloadBytes) {
+      messageApi.error(
+        t('sparkery.inspectionAdmin.messages.oneOffPayloadTooLarge', {
+          defaultValue:
+            'Generated payload is too large ({{size}} bytes). Reduce sections/checklists and retry.',
+          size: payloadBytes,
+        })
+      );
+      return;
+    }
+
+    try {
+      const result = await persistInspectionAndOpenLink(newInspection, {
+        oneOff: true,
+        scenarioKey: oneOffScenarioKey,
+      });
+      const historySnapshot = createOneOffDraftSnapshot();
+      saveOneOffDraftHistory(historySnapshot);
+      rememberCustomerPreference();
+      safeWriteLocalJson(ONE_OFF_DRAFT_STORAGE_KEY, null);
+      setIsOneOffOpen(false);
+      trackOneOffEvent(
+        'inspection.one_off.create.succeeded',
+        {
+          scenarioKey: oneOffScenarioKey,
+          syncSource: result.source,
+          linkOpened: result.linkOpened,
+          averageHistoricalDriftScore: Number(
+            oneOffDriftInsight.averageScore.toFixed(2)
+          ),
+        },
+        {
+          success: true,
+          durationMs: Date.now() - createStartedAt,
+        }
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown error';
+      trackOneOffEvent(
+        'inspection.one_off.create.failed',
+        {
+          scenarioKey: oneOffScenarioKey,
+          errorReason: reason,
+        },
+        {
+          success: false,
+          durationMs: Date.now() - createStartedAt,
+        }
+      );
+      messageApi.error(
+        t('sparkery.inspectionAdmin.messages.oneOffCreateFailed', {
+          defaultValue: 'One-off link creation failed: {{reason}}',
+          reason,
+        })
+      );
+    }
+  };
+
+  React.useEffect(() => {
+    const now = Date.now();
+    const nextHistory = oneOffDraftHistory.filter(item => {
+      if (!item.updatedAt) return false;
+      return (
+        now - new Date(item.updatedAt).getTime() <=
+        DEFAULT_ONE_OFF_GOVERNANCE_POLICY.draftTtlMs
+      );
+    });
+    if (nextHistory.length !== oneOffDraftHistory.length) {
+      setOneOffDraftHistory(nextHistory);
+      safeWriteLocalJson(ONE_OFF_DRAFT_HISTORY_STORAGE_KEY, nextHistory);
+    }
+
+    const nextMemory: Record<string, OneOffCustomerMemory> = {};
+    Object.entries(oneOffCustomerMemoryMap).forEach(([key, value]) => {
+      if (
+        value?.updatedAt &&
+        now - new Date(value.updatedAt).getTime() <=
+          DEFAULT_ONE_OFF_GOVERNANCE_POLICY.memoryTtlMs
+      ) {
+        nextMemory[key] = value;
+      }
+    });
+    if (
+      Object.keys(nextMemory).length !==
+      Object.keys(oneOffCustomerMemoryMap).length
+    ) {
+      setOneOffCustomerMemoryMap(nextMemory);
+      safeWriteLocalJson(ONE_OFF_CUSTOMER_MEMORY_STORAGE_KEY, nextMemory);
+    }
+  }, [oneOffCustomerMemoryMap, oneOffDraftHistory]);
+
+  React.useEffect(() => {
+    if (!isOneOffOpen) {
+      return;
+    }
+    const draft = createOneOffDraftSnapshot();
+    safeWriteLocalJson(ONE_OFF_DRAFT_STORAGE_KEY, draft);
+  }, [
+    createOneOffDraftSnapshot,
+    isOneOffOpen,
+    oneOffAddress,
+    oneOffCheckOutDate,
+    oneOffChecklists,
+    oneOffCleaningType,
+    oneOffCustomerName,
+    oneOffEmployeeIds,
+    oneOffName,
+    oneOffNotes,
+    oneOffNotesZh,
+    oneOffPropertyType,
+    oneOffSectionIds,
+  ]);
+
+  React.useEffect(() => {
+    if (!isOneOffOpen || !oneOffMatchedMemory || !oneOffCustomerMemoryKey) {
+      return;
+    }
+    if (oneOffAutoAppliedMemoryKeyRef.current === oneOffCustomerMemoryKey) {
+      return;
+    }
+
+    const defaultSections = buildOneOffSectionPreset(undefined, undefined);
+    const isBaselineDraft =
+      !oneOffCleaningType &&
+      !oneOffPropertyType &&
+      oneOffSectionIds.join('|') === defaultSections.join('|');
+
+    if (!isBaselineDraft) {
+      return;
+    }
+
+    oneOffAutoAppliedMemoryKeyRef.current = oneOffCustomerMemoryKey;
+    setOneOffCleaningType(oneOffMatchedMemory.cleaningType);
+    setOneOffPropertyType(oneOffMatchedMemory.propertyType);
+    setOneOffSectionIds(oneOffMatchedMemory.sectionIds);
+    setOneOffChecklists(
+      buildOneOffChecklistDraftMap(oneOffMatchedMemory.sectionIds)
+    );
+    setOneOffEmployeeIds(oneOffMatchedMemory.employeeIds || []);
+    messageApi.info(
+      t('sparkery.inspectionAdmin.messages.customerPreferenceAutoApplied', {
+        defaultValue: 'Loaded saved one-off defaults for this customer.',
+      })
+    );
+  }, [
+    isOneOffOpen,
+    messageApi,
+    oneOffCleaningType,
+    oneOffCustomerMemoryKey,
+    oneOffMatchedMemory,
+    oneOffPropertyType,
+    oneOffSectionIds,
+    t,
+  ]);
+
+  React.useEffect(() => {
+    if (!isOneOffOpen) {
+      return;
+    }
+    let cancelled = false;
+    setOneOffRecommendationLoading(true);
+    const recommendationRequest = {
+      ...(oneOffCleaningType ? { cleaningType: oneOffCleaningType } : {}),
+      ...(oneOffPropertyType ? { propertyType: oneOffPropertyType } : {}),
+      ...(oneOffCustomerName ? { customerName: oneOffCustomerName } : {}),
+      currentSectionIds: oneOffSectionIds,
+      ...(oneOffDriftInsight.sampleCount > 0
+        ? { recentDriftScore: oneOffDriftInsight.averageScore }
+        : {}),
+    };
+    void fetchOneOffTemplateRecommendations({
+      ...recommendationRequest,
+    })
+      .then(result => {
+        if (cancelled) return;
+        setOneOffRecommendation(result);
+        if (result.recommendedBundleIds[0]) {
+          setOneOffSelectedBundleId(
+            result.recommendedBundleIds[0] as OneOffSectionBundleId
+          );
+        }
+        trackOneOffEvent('inspection.one_off.recommendation.loaded', {
+          scenarioKey: result.scenarioKey,
+          source: result.source,
+          recommendedSectionCount: result.recommendedSectionIds.length,
+          recommendedBundleCount: result.recommendedBundleIds.length,
+        });
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setOneOffRecommendationLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isOneOffOpen,
+    oneOffCleaningType,
+    oneOffCustomerName,
+    oneOffDriftInsight.averageScore,
+    oneOffDriftInsight.sampleCount,
+    oneOffPropertyType,
+    oneOffSectionIds,
+    trackOneOffEvent,
+  ]);
+
+  React.useEffect(() => {
+    if (
+      !isOneOffOpen ||
+      !oneOffPreviewOpen ||
+      oneOffPreviewTelemetrySentRef.current
+    ) {
+      return;
+    }
+    oneOffPreviewTelemetrySentRef.current = true;
+    trackOneOffEvent('inspection.one_off.preview.rendered', {
+      scenarioKey: oneOffScenarioKey,
+      sectionCount: oneOffSectionIds.length,
+      checklistCount: oneOffQualityReport.totalChecklistItems,
+      qualityPassed: oneOffQualityReport.valid,
+    });
+  }, [
+    isOneOffOpen,
+    oneOffPreviewOpen,
+    oneOffQualityReport.totalChecklistItems,
+    oneOffQualityReport.valid,
+    oneOffScenarioKey,
+    oneOffSectionIds.length,
+    trackOneOffEvent,
+  ]);
+
   const handleGenerateLink = async () => {
     if (!selectedPropertyId) {
       messageApi.warning(
@@ -536,37 +1689,11 @@ const CleaningInspectionAdmin: React.FC = () => {
 
     const activeSections =
       property.sections || BASE_ROOM_SECTIONS.map(s => s.id);
-    const sections = getAllSections(activeSections).map(s => {
-      // Build checklists: use property template checklists or defaults
-      let checklist: any[] = [];
-      const sectionChecklist =
-        property.checklists?.[s.id] ||
-        property.checklists?.[getSectionTypeId(s.id)];
-      if (sectionChecklist) {
-        checklist = sectionChecklist.map((t: any, idx: number) => {
-          const item: any = {
-            id: `${s.id}-item-${idx}`,
-            label: t.label,
-            checked: false,
-            requiredPhoto: t.requiredPhoto || false,
-          };
-          if (t.labelEn) item.labelEn = t.labelEn;
-          return item;
-        });
-      } else {
-        checklist = getDefaultChecklistForSection(s.id);
-      }
-      return {
-        ...s,
-        referenceImages:
-          property.referenceImages?.[s.id] ||
-          property.referenceImages?.[getSectionTypeId(s.id)] ||
-          [],
-        photos: [],
-        notes: '',
-        checklist,
-      };
-    });
+    const sections = buildInspectionSectionsFromTemplates(
+      activeSections,
+      property.checklists,
+      property.referenceImages
+    );
 
     const newInspection: any = {
       id: inspectionId,
@@ -592,32 +1719,7 @@ const CleaningInspectionAdmin: React.FC = () => {
       newInspection.assignedEmployee = selectedEmployees[0];
     }
 
-    setArchives(prev => [
-      newInspection,
-      ...prev.filter(item => item.id !== inspectionId),
-    ]);
-
-    const syncResult = await submitInspection(newInspection);
-
-    const url = buildShareUrl(newInspection);
-    navigator.clipboard.writeText(url);
-    window.open(url, '_blank');
-
-    if (syncResult.source === 'supabase') {
-      setLastCloudWriteAt(getInspectionLastCloudWriteAt());
-      messageApi.success(
-        t('sparkery.inspectionAdmin.messages.linkCopiedAndSynced', {
-          defaultValue: 'Inspection link copied and synced to cloud',
-        })
-      );
-    } else {
-      messageApi.warning(
-        t('sparkery.inspectionAdmin.messages.linkCopiedCloudSyncFailed', {
-          defaultValue:
-            'Link copied, but cloud sync failed. Data is currently local only.',
-        })
-      );
-    }
+    await persistInspectionAndOpenLink(newInspection);
   };
 
   const handleDelete = (id: string) => {
@@ -708,6 +1810,11 @@ const CleaningInspectionAdmin: React.FC = () => {
       ? dayjs(lastCloudWriteAt).format('YYYY-MM-DD HH:mm:ss')
       : lastCloudWriteAt
     : t('sparkery.inspectionAdmin.labels.never', { defaultValue: 'Never' });
+  const oneOffSections = getAllSections(oneOffSectionIds);
+  const oneOffSectionAddOptions = React.useMemo(
+    () => buildOneOffSectionAddOptions(),
+    []
+  );
 
   return (
     <div className='sparkery-tool-page sparkery-inspection-admin-page'>
@@ -890,6 +1997,23 @@ const CleaningInspectionAdmin: React.FC = () => {
             </Button>
           </Col>
         </Row>
+        <Divider className='sparkery-inspection-divider-soft' />
+        <Space wrap>
+          <Button
+            icon={<PlusCircleOutlined />}
+            onClick={handleOpenOneOffGenerator}
+          >
+            {t('sparkery.inspectionAdmin.actions.oneOffTemplateGenerator', {
+              defaultValue: 'One-off Template Generator',
+            })}
+          </Button>
+          <Text type='secondary'>
+            {t('sparkery.inspectionAdmin.hints.oneOffTemplateGenerator', {
+              defaultValue:
+                'For one-time jobs: choose cleaning/property type, auto-generate detailed sections and checklist, then edit and create link.',
+            })}
+          </Text>
+        </Space>
       </Card>
 
       <Card size='small' className='sparkery-inspection-search-card'>
@@ -993,6 +2117,973 @@ const CleaningInspectionAdmin: React.FC = () => {
         properties={properties}
         onSave={savePropertiesToStorage}
       />
+      <Modal
+        title={t('sparkery.inspectionAdmin.oneOffModal.title', {
+          defaultValue: 'One-off Inspection Template Generator',
+        })}
+        open={isOneOffOpen}
+        onCancel={() => setIsOneOffOpen(false)}
+        onOk={() => {
+          void handleCreateOneOffInspection();
+        }}
+        width={980}
+        okText={t('sparkery.inspectionAdmin.oneOffModal.createLink', {
+          defaultValue: 'Create Link',
+        })}
+        okButtonProps={{
+          disabled: !oneOffQualityReport.valid || !oneOffGovernanceReport.valid,
+        }}
+      >
+        <Space
+          direction='vertical'
+          className='sparkery-inspection-full-width'
+          size={12}
+        >
+          <Card size='small'>
+            <Space
+              direction='vertical'
+              className='sparkery-inspection-full-width'
+            >
+              <Space wrap>
+                <Tag color={hasAdvancedOneOffPermission ? 'green' : 'gold'}>
+                  {hasAdvancedOneOffPermission
+                    ? t('sparkery.inspectionAdmin.labels.advancedEditEnabled', {
+                        defaultValue: 'Advanced Edit: Enabled',
+                      })
+                    : t(
+                        'sparkery.inspectionAdmin.labels.advancedEditRestricted',
+                        {
+                          defaultValue: 'Advanced Edit: Restricted',
+                        }
+                      )}
+                </Tag>
+                <Tag>
+                  {t('sparkery.inspectionAdmin.labels.currentRole', {
+                    defaultValue: 'Role: {{role}}',
+                    role: actorRole || 'default',
+                  })}
+                </Tag>
+                <Tag
+                  color={
+                    oneOffRecommendation?.source === 'cloud'
+                      ? 'blue'
+                      : 'default'
+                  }
+                >
+                  {t('sparkery.inspectionAdmin.labels.recommendationSource', {
+                    defaultValue: 'Recommendation: {{source}}',
+                    source: oneOffRecommendation?.source || 'n/a',
+                  })}
+                </Tag>
+              </Space>
+              <Alert
+                type={oneOffQualityReport.valid ? 'success' : 'warning'}
+                showIcon
+                message={t(
+                  'sparkery.inspectionAdmin.oneOffModal.qualitySummary',
+                  {
+                    defaultValue:
+                      'Quality {{state}} | Sections: {{sections}} | Checklist: {{checklist}} | Required photo: {{photos}}',
+                    state: oneOffQualityReport.valid ? 'PASS' : 'BLOCKED',
+                    sections: oneOffQualityReport.totalSections,
+                    checklist: oneOffQualityReport.totalChecklistItems,
+                    photos: oneOffQualityReport.requiredPhotoItems,
+                  }
+                )}
+                description={
+                  !oneOffQualityReport.valid ? (
+                    <div>
+                      {oneOffQualityReport.issues.map(issue => (
+                        <Text
+                          key={issue.code}
+                          type='secondary'
+                          className='sparkery-inspection-text-12-block'
+                        >
+                          - {issue.message}
+                        </Text>
+                      ))}
+                    </div>
+                  ) : undefined
+                }
+              />
+              <Alert
+                type={oneOffGovernanceReport.valid ? 'success' : 'warning'}
+                showIcon
+                message={t(
+                  'sparkery.inspectionAdmin.oneOffModal.governanceSummary',
+                  {
+                    defaultValue:
+                      'Governance {{state}} | Payload: {{payload}} bytes / {{limit}} bytes',
+                    state: oneOffGovernanceReport.valid ? 'PASS' : 'BLOCKED',
+                    payload: oneOffGovernanceReport.payloadBytes,
+                    limit: DEFAULT_ONE_OFF_GOVERNANCE_POLICY.maxPayloadBytes,
+                  }
+                )}
+                description={
+                  !oneOffGovernanceReport.valid ? (
+                    <div>
+                      {oneOffGovernanceReport.issues.map(issue => (
+                        <Text
+                          key={issue}
+                          type='secondary'
+                          className='sparkery-inspection-text-12-block'
+                        >
+                          - {issue}
+                        </Text>
+                      ))}
+                    </div>
+                  ) : undefined
+                }
+              />
+              <Space wrap>
+                <Button
+                  icon={<CopyOutlined />}
+                  onClick={handleCloneHistoryDraft}
+                  disabled={oneOffDraftHistory.length === 0}
+                >
+                  {t('sparkery.inspectionAdmin.actions.duplicateLastDraft', {
+                    defaultValue: 'Duplicate Last Draft',
+                  })}
+                </Button>
+                <Select
+                  value={oneOffHistoryCloneId || null}
+                  onChange={(val: string) => setOneOffHistoryCloneId(val)}
+                  allowClear
+                  placeholder={t(
+                    'sparkery.inspectionAdmin.placeholders.selectDraftToClone',
+                    {
+                      defaultValue: 'Select draft to clone',
+                    }
+                  )}
+                  style={{ minWidth: 220 }}
+                  options={oneOffDraftHistory.map(item => ({
+                    value: item.id,
+                    label: `${item.name || item.customerName || 'One-off'} • ${dayjs(
+                      item.updatedAt
+                    ).format('MM-DD HH:mm')}`,
+                  }))}
+                />
+                <Button
+                  icon={<HistoryOutlined />}
+                  onClick={handleApplyCustomerMemory}
+                  disabled={!oneOffMatchedMemory}
+                >
+                  {t('sparkery.inspectionAdmin.actions.applyCustomerMemory', {
+                    defaultValue: 'Apply Customer Memory',
+                  })}
+                </Button>
+                <Button
+                  onClick={() => setOneOffPreviewOpen(prev => !prev)}
+                  icon={<EyeOutlined />}
+                >
+                  {oneOffPreviewOpen
+                    ? t('sparkery.inspectionAdmin.actions.hidePreview', {
+                        defaultValue: 'Hide Preview',
+                      })
+                    : t('sparkery.inspectionAdmin.actions.showPreview', {
+                        defaultValue: 'Show Preview',
+                      })}
+                </Button>
+              </Space>
+            </Space>
+          </Card>
+          <Row gutter={[12, 12]}>
+            <Col xs={24} md={12}>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.oneOffName', {
+                  defaultValue: 'One-off Name',
+                })}
+              </Text>
+              <Input
+                value={oneOffName}
+                onChange={e => setOneOffName(e.target.value)}
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.oneOffName',
+                  {
+                    defaultValue: 'e.g. 19 Queen St - One-off Deep Clean',
+                  }
+                )}
+                className='sparkery-inspection-top-4'
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.customerName', {
+                  defaultValue: 'Customer Name',
+                })}
+              </Text>
+              <Input
+                value={oneOffCustomerName}
+                onChange={e => setOneOffCustomerName(e.target.value)}
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.customerName',
+                  {
+                    defaultValue: 'e.g. Brisbane Property Group',
+                  }
+                )}
+                className='sparkery-inspection-top-4'
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.address', {
+                  defaultValue: 'Address',
+                })}
+              </Text>
+              <Input
+                value={oneOffAddress}
+                onChange={e => setOneOffAddress(e.target.value)}
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.propertyAddress',
+                  {
+                    defaultValue: 'e.g. 123 Main St, Brisbane',
+                  }
+                )}
+                className='sparkery-inspection-top-4'
+              />
+            </Col>
+            <Col xs={24} md={8}>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.cleaningType', {
+                  defaultValue: 'Cleaning Type',
+                })}
+              </Text>
+              <Select
+                allowClear
+                value={oneOffCleaningType}
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.selectCleaningType',
+                  { defaultValue: 'Select cleaning type' }
+                )}
+                className='sparkery-inspection-full-width sparkery-inspection-top-4'
+                onChange={(val: OneOffCleaningType | undefined) => {
+                  setOneOffCleaningType(val);
+                  regenerateOneOffTemplate(val, oneOffPropertyType);
+                }}
+                options={[
+                  {
+                    value: 'bond_clean',
+                    label: t(
+                      'sparkery.inspectionAdmin.oneOffModal.cleaningTypes.bond',
+                      { defaultValue: 'Bond Clean' }
+                    ),
+                  },
+                  {
+                    value: 'routine_clean',
+                    label: t(
+                      'sparkery.inspectionAdmin.oneOffModal.cleaningTypes.routine',
+                      { defaultValue: 'Routine Clean' }
+                    ),
+                  },
+                  {
+                    value: 'deep_clean',
+                    label: t(
+                      'sparkery.inspectionAdmin.oneOffModal.cleaningTypes.deep',
+                      { defaultValue: 'Deep Clean' }
+                    ),
+                  },
+                  {
+                    value: 'office_clean',
+                    label: t(
+                      'sparkery.inspectionAdmin.oneOffModal.cleaningTypes.office',
+                      { defaultValue: 'Office Clean' }
+                    ),
+                  },
+                  {
+                    value: 'airbnb_turnover',
+                    label: t(
+                      'sparkery.inspectionAdmin.oneOffModal.cleaningTypes.airbnb',
+                      { defaultValue: 'Airbnb Turnover' }
+                    ),
+                  },
+                ]}
+              />
+            </Col>
+            <Col xs={24} md={8}>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.propertyType', {
+                  defaultValue: 'Property Type',
+                })}
+              </Text>
+              <Select
+                allowClear
+                value={oneOffPropertyType}
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.selectPropertyType',
+                  { defaultValue: 'Select property type' }
+                )}
+                className='sparkery-inspection-full-width sparkery-inspection-top-4'
+                onChange={(val: OneOffPropertyType | undefined) => {
+                  setOneOffPropertyType(val);
+                  regenerateOneOffTemplate(oneOffCleaningType, val);
+                }}
+                options={[
+                  { value: 'studio', label: 'Studio' },
+                  { value: 'apartment_1b1b', label: 'Apartment 1B1B' },
+                  { value: 'apartment_2b2b', label: 'Apartment 2B2B' },
+                  { value: 'apartment_3b2b', label: 'Apartment 3B2B' },
+                  { value: 'house_4b2b', label: 'House 4B2B+' },
+                  { value: 'office_small', label: 'Office - Small' },
+                  { value: 'office_large', label: 'Office - Large' },
+                ]}
+              />
+            </Col>
+            <Col xs={24} md={8}>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.checkOutDate', {
+                  defaultValue: 'Check-out Date',
+                })}
+              </Text>
+              <Input
+                type='date'
+                value={oneOffCheckOutDate}
+                onChange={e => setOneOffCheckOutDate(e.target.value)}
+                className='sparkery-inspection-top-4'
+              />
+            </Col>
+            <Col xs={24}>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.assignedEmployees', {
+                  defaultValue: 'Assigned Employees',
+                })}
+              </Text>
+              <Select
+                mode='multiple'
+                allowClear
+                value={oneOffEmployeeIds}
+                onChange={(vals: string[]) => setOneOffEmployeeIds(vals)}
+                className='sparkery-inspection-full-width sparkery-inspection-top-4'
+                placeholder={t(
+                  'sparkery.inspectionAdmin.placeholders.optional',
+                  {
+                    defaultValue: 'Optional',
+                  }
+                )}
+              >
+                {employees.map(emp => (
+                  <Option key={emp.id} value={emp.id}>
+                    {emp.name}
+                    {emp.nameEn ? ` (${emp.nameEn})` : ''}
+                  </Option>
+                ))}
+              </Select>
+            </Col>
+            <Col xs={24}>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.propertyNotesChinese', {
+                  defaultValue: 'Property Notes (Chinese)',
+                })}
+              </Text>
+              <Input.TextArea
+                rows={3}
+                value={oneOffNotesZh}
+                onChange={e => setOneOffNotesZh(e.target.value)}
+                className='sparkery-inspection-top-4'
+              />
+            </Col>
+            <Col xs={24}>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.fields.propertyNotesEnglish', {
+                  defaultValue: 'Property Notes (English)',
+                })}
+              </Text>
+              <Input.TextArea
+                rows={3}
+                value={oneOffNotes}
+                onChange={e => setOneOffNotes(e.target.value)}
+                className='sparkery-inspection-top-4'
+              />
+            </Col>
+          </Row>
+
+          <Card
+            size='small'
+            title={t(
+              'sparkery.inspectionAdmin.oneOffModal.recommendationTitle',
+              {
+                defaultValue: 'Template Recommendations',
+              }
+            )}
+            extra={
+              <Button
+                size='small'
+                loading={oneOffRecommendationLoading}
+                onClick={() =>
+                  regenerateOneOffTemplate(
+                    oneOffCleaningType,
+                    oneOffPropertyType
+                  )
+                }
+              >
+                {t('sparkery.inspectionAdmin.actions.refreshRecommendation', {
+                  defaultValue: 'Refresh baseline',
+                })}
+              </Button>
+            }
+          >
+            <Space
+              direction='vertical'
+              className='sparkery-inspection-full-width'
+            >
+              {oneOffRecommendation?.notes?.length ? (
+                <div>
+                  {oneOffRecommendation.notes.map(note => (
+                    <Text
+                      key={note}
+                      type='secondary'
+                      className='sparkery-inspection-text-12-block'
+                    >
+                      - {note}
+                    </Text>
+                  ))}
+                </div>
+              ) : null}
+              {oneOffRecommendation?.recommendedBundleIds?.length ? (
+                <Space wrap>
+                  {oneOffRecommendation.recommendedBundleIds.map(bundleId => (
+                    <Tag key={bundleId} color='blue'>
+                      {bundleId}
+                    </Tag>
+                  ))}
+                </Space>
+              ) : null}
+              <Space wrap>
+                <Button
+                  onClick={() => {
+                    const nextSections =
+                      oneOffRecommendation?.recommendedSectionIds || [];
+                    if (nextSections.length === 0) {
+                      return;
+                    }
+                    setOneOffSectionIds(nextSections);
+                    setOneOffChecklists(
+                      buildOneOffChecklistDraftMap(nextSections)
+                    );
+                  }}
+                  disabled={
+                    oneOffRecommendationLoading ||
+                    !oneOffRecommendation?.recommendedSectionIds?.length
+                  }
+                >
+                  {t(
+                    'sparkery.inspectionAdmin.actions.applyRecommendedSections',
+                    {
+                      defaultValue: 'Apply recommended sections',
+                    }
+                  )}
+                </Button>
+                <Select
+                  value={oneOffSelectedBundleId || null}
+                  onChange={(val: OneOffSectionBundleId) =>
+                    setOneOffSelectedBundleId(val)
+                  }
+                  allowClear
+                  placeholder={t(
+                    'sparkery.inspectionAdmin.placeholders.selectSectionBundle',
+                    { defaultValue: 'Select bundle macro' }
+                  )}
+                  style={{ minWidth: 260 }}
+                  options={ONE_OFF_SECTION_BUNDLES.map(bundle => ({
+                    value: bundle.id,
+                    label: bundle.label,
+                  }))}
+                />
+                <Button
+                  onClick={() =>
+                    oneOffSelectedBundleId &&
+                    handleApplyOneOffBundle(oneOffSelectedBundleId)
+                  }
+                  disabled={!oneOffSelectedBundleId}
+                >
+                  {t('sparkery.inspectionAdmin.actions.applyBundle', {
+                    defaultValue: 'Apply bundle',
+                  })}
+                </Button>
+                <Button
+                  danger
+                  onClick={() =>
+                    oneOffSelectedBundleId &&
+                    handleRemoveOneOffBundle(oneOffSelectedBundleId)
+                  }
+                  disabled={!oneOffSelectedBundleId}
+                >
+                  {t('sparkery.inspectionAdmin.actions.removeBundle', {
+                    defaultValue: 'Remove bundle',
+                  })}
+                </Button>
+              </Space>
+              <Text
+                type='secondary'
+                className='sparkery-inspection-text-12-block'
+              >
+                {t(
+                  'sparkery.inspectionAdmin.oneOffModal.recommendationGovernance',
+                  {
+                    defaultValue:
+                      'Recommended governance cap: {{section}} sections / {{item}} items per section',
+                    section:
+                      oneOffRecommendation?.governance?.maxSections ||
+                      DEFAULT_ONE_OFF_GOVERNANCE_POLICY.maxSections,
+                    item:
+                      oneOffRecommendation?.governance
+                        ?.maxChecklistItemsPerSection ||
+                      DEFAULT_ONE_OFF_GOVERNANCE_POLICY.maxChecklistItemsPerSection,
+                  }
+                )}
+              </Text>
+              {oneOffDriftInsight.sampleCount > 0 ? (
+                <Text
+                  type='secondary'
+                  className='sparkery-inspection-text-12-block'
+                >
+                  {t('sparkery.inspectionAdmin.oneOffModal.driftHint', {
+                    defaultValue:
+                      'Drift insight: {{count}} submitted one-off reports, average drift score {{score}}.',
+                    count: oneOffDriftInsight.sampleCount,
+                    score: oneOffDriftInsight.averageScore.toFixed(2),
+                  })}
+                </Text>
+              ) : null}
+            </Space>
+          </Card>
+
+          <Card
+            size='small'
+            title={t('sparkery.inspectionAdmin.oneOffModal.generatedSections', {
+              defaultValue: 'Generated Inspection Sections',
+            })}
+            extra={
+              <Button
+                size='small'
+                onClick={() =>
+                  regenerateOneOffTemplate(
+                    oneOffCleaningType,
+                    oneOffPropertyType
+                  )
+                }
+              >
+                {t('sparkery.inspectionAdmin.actions.regenerateTemplate', {
+                  defaultValue: 'Regenerate from selection',
+                })}
+              </Button>
+            }
+          >
+            <Text type='secondary' className='sparkery-inspection-hint'>
+              {t('sparkery.inspectionAdmin.hints.reorderSections', {
+                defaultValue: 'Drag the handle to reorder section sequence.',
+              })}
+            </Text>
+            {!hasAdvancedOneOffPermission && (
+              <Text
+                type='secondary'
+                className='sparkery-inspection-text-12-block'
+              >
+                {t('sparkery.inspectionAdmin.hints.advancedEditRestricted', {
+                  defaultValue:
+                    'Critical sections and photo-required flags are protected for advanced roles only.',
+                })}
+              </Text>
+            )}
+            <div className='sparkery-inspection-chip-row'>
+              {oneOffSections.map((section, idx) => {
+                const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+                  e.preventDefault();
+                  const sourceData = e.dataTransfer.getData('text/plain');
+                  if (!sourceData) {
+                    return;
+                  }
+                  const sourceIdxFromData = Number.parseInt(sourceData, 10);
+                  const sourceIdx = Number.isNaN(sourceIdxFromData)
+                    ? oneOffDragSectionIndexRef.current
+                    : sourceIdxFromData;
+                  if (sourceIdx === null) {
+                    return;
+                  }
+                  if (sourceIdx !== idx) {
+                    handleOneOffSectionReorder(sourceIdx, idx);
+                  }
+                  oneOffDragSectionIndexRef.current = null;
+                  setOneOffDragSectionIndex(null);
+                  setOneOffDragOverSectionIndex(null);
+                };
+
+                return (
+                  <div
+                    key={section.id}
+                    draggable
+                    onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                      oneOffDragSectionIndexRef.current = idx;
+                      setOneOffDragSectionIndex(idx);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', String(idx));
+                    }}
+                    onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
+                      e.preventDefault();
+                      setOneOffDragOverSectionIndex(idx);
+                    }}
+                    onDragEnd={() => {
+                      setTimeout(() => {
+                        oneOffDragSectionIndexRef.current = null;
+                        setOneOffDragSectionIndex(null);
+                        setOneOffDragOverSectionIndex(null);
+                      }, 0);
+                    }}
+                    onDrop={handleDrop}
+                    className={`sparkery-inspection-draggable-chip${
+                      oneOffDragSectionIndex === idx
+                        ? ' sparkery-inspection-draggable-chip-dragging'
+                        : ''
+                    }${
+                      oneOffDragOverSectionIndex === idx &&
+                      oneOffDragSectionIndex !== idx
+                        ? ' sparkery-inspection-draggable-chip-over'
+                        : ''
+                    }`}
+                  >
+                    <Space size={4}>
+                      <Button
+                        type='text'
+                        size='small'
+                        icon={<UpOutlined />}
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleOneOffSectionMove(idx, 'up');
+                        }}
+                      />
+                      <Button
+                        type='text'
+                        size='small'
+                        icon={<DownOutlined />}
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleOneOffSectionMove(idx, 'down');
+                        }}
+                      />
+                      <Tag
+                        color='blue'
+                        closable={
+                          hasAdvancedOneOffPermission ||
+                          !(
+                            getSectionFamilyId(section.id) === 'kitchen' ||
+                            getSectionFamilyId(section.id) === 'bathroom' ||
+                            getSectionFamilyId(section.id) === 'living-room'
+                          )
+                        }
+                        onClose={e => {
+                          e.preventDefault();
+                          handleOneOffRemoveSection(section.id);
+                        }}
+                        className='sparkery-inspection-section-tag'
+                      >
+                        <MenuOutlined className='sparkery-inspection-drag-icon' />
+                        {section.name}
+                      </Tag>
+                    </Space>
+                  </div>
+                );
+              })}
+            </div>
+            <div className='sparkery-inspection-top-8'>
+              <Space wrap>
+                <Select
+                  value={oneOffOptionalSectionToAdd || null}
+                  onChange={(val: string) => setOneOffOptionalSectionToAdd(val)}
+                  placeholder={t(
+                    'sparkery.inspectionAdmin.placeholders.addSection',
+                    {
+                      defaultValue: 'Select a section to add',
+                    }
+                  )}
+                  style={{ minWidth: 240 }}
+                  options={oneOffSectionAddOptions}
+                />
+                <Button
+                  type='dashed'
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    if (!oneOffOptionalSectionToAdd) return;
+                    handleOneOffAddSection(oneOffOptionalSectionToAdd);
+                  }}
+                >
+                  {t('sparkery.inspectionAdmin.actions.addSection', {
+                    defaultValue: 'Add Section',
+                  })}
+                </Button>
+              </Space>
+            </div>
+          </Card>
+
+          {oneOffPreviewOpen && (
+            <Card
+              size='small'
+              title={t('sparkery.inspectionAdmin.oneOffModal.previewTitle', {
+                defaultValue: 'Inline Report Preview',
+              })}
+            >
+              <Space
+                direction='vertical'
+                className='sparkery-inspection-full-width'
+              >
+                <Text strong>
+                  {t('sparkery.inspectionAdmin.oneOffModal.previewSummary', {
+                    defaultValue:
+                      '{{name}} | {{sections}} sections | {{items}} checklist items',
+                    name: oneOffName || oneOffCustomerName || 'One-off',
+                    sections: oneOffSectionIds.length,
+                    items: oneOffQualityReport.totalChecklistItems,
+                  })}
+                </Text>
+                {oneOffSections.map(section => {
+                  const items = oneOffChecklists[section.id] || [];
+                  return (
+                    <div key={`preview-${section.id}`}>
+                      <Text strong>{section.name}</Text>
+                      <Text
+                        type='secondary'
+                        className='sparkery-inspection-text-12-block'
+                      >
+                        {t(
+                          'sparkery.inspectionAdmin.oneOffModal.previewChecklistCount',
+                          {
+                            defaultValue:
+                              '{{count}} checklist items ({{photoCount}} require photo)',
+                            count: items.length,
+                            photoCount: items.filter(item => item.requiredPhoto)
+                              .length,
+                          }
+                        )}
+                      </Text>
+                    </div>
+                  );
+                })}
+              </Space>
+            </Card>
+          )}
+
+          <Collapse
+            items={oneOffSections.map(section => {
+              const checklistItems = oneOffChecklists[section.id] || [];
+              const defaultItems =
+                DEFAULT_CHECKLISTS[getSectionTypeId(section.id)] || [];
+
+              return {
+                key: section.id,
+                label: (
+                  <Space>
+                    <UnorderedListOutlined />
+                    {section.name}
+                    <Tag>{checklistItems.length}</Tag>
+                  </Space>
+                ),
+                children: (
+                  <div>
+                    {checklistItems.length === 0 && defaultItems.length > 0 && (
+                      <Button
+                        size='small'
+                        type='dashed'
+                        onClick={() =>
+                          handleOneOffChecklistUpdate(
+                            section.id,
+                            buildOneOffChecklistDraftForSection(section.id)
+                          )
+                        }
+                        className='sparkery-inspection-gap-12'
+                      >
+                        {t(
+                          'sparkery.inspectionAdmin.actions.loadDefaultItems',
+                          {
+                            defaultValue: 'Load default items ({{count}})',
+                            count: defaultItems.length,
+                          }
+                        )}
+                      </Button>
+                    )}
+                    <Space wrap className='sparkery-inspection-gap-12'>
+                      <Button
+                        size='small'
+                        onClick={() =>
+                          handleOneOffChecklistBulkAction(
+                            section.id,
+                            'mark_all_photo'
+                          )
+                        }
+                        disabled={!hasAdvancedOneOffPermission}
+                      >
+                        {t(
+                          'sparkery.inspectionAdmin.actions.bulkMarkPhotoRequired',
+                          {
+                            defaultValue: 'Bulk: require photo',
+                          }
+                        )}
+                      </Button>
+                      <Button
+                        size='small'
+                        onClick={() =>
+                          handleOneOffChecklistBulkAction(
+                            section.id,
+                            'clear_all_photo'
+                          )
+                        }
+                        disabled={!hasAdvancedOneOffPermission}
+                      >
+                        {t(
+                          'sparkery.inspectionAdmin.actions.bulkClearPhotoRequired',
+                          {
+                            defaultValue: 'Bulk: clear photo flag',
+                          }
+                        )}
+                      </Button>
+                      <Button
+                        size='small'
+                        onClick={() =>
+                          handleOneOffChecklistBulkAction(
+                            section.id,
+                            'delete_empty'
+                          )
+                        }
+                      >
+                        {t('sparkery.inspectionAdmin.actions.bulkDeleteEmpty', {
+                          defaultValue: 'Bulk: delete empty',
+                        })}
+                      </Button>
+                      <Button
+                        size='small'
+                        onClick={() =>
+                          handleOneOffChecklistBulkAction(
+                            section.id,
+                            'sort_label'
+                          )
+                        }
+                      >
+                        {t(
+                          'sparkery.inspectionAdmin.actions.bulkSortChecklist',
+                          {
+                            defaultValue: 'Bulk: sort by label',
+                          }
+                        )}
+                      </Button>
+                    </Space>
+                    {checklistItems.map((item, idx) => (
+                      <div
+                        key={`${section.id}-${idx}`}
+                        className='sparkery-inspection-checklist-item'
+                      >
+                        <div className='sparkery-inspection-checklist-fields'>
+                          <Input
+                            size='small'
+                            value={item.label}
+                            onChange={e => {
+                              const updated = [...checklistItems];
+                              const current = updated[idx];
+                              if (!current) return;
+                              updated[idx] = {
+                                ...current,
+                                label: e.target.value,
+                              };
+                              handleOneOffChecklistUpdate(section.id, updated);
+                            }}
+                            placeholder={t(
+                              'sparkery.inspectionAdmin.placeholders.chineseLabel',
+                              {
+                                defaultValue: 'Chinese label',
+                              }
+                            )}
+                          />
+                          <Input
+                            size='small'
+                            value={item.labelEn || ''}
+                            onChange={e => {
+                              const updated = [...checklistItems];
+                              const current = updated[idx];
+                              if (!current) return;
+                              updated[idx] = {
+                                ...current,
+                                labelEn: e.target.value,
+                              };
+                              handleOneOffChecklistUpdate(section.id, updated);
+                            }}
+                            placeholder={t(
+                              'sparkery.inspectionAdmin.placeholders.englishLabel',
+                              {
+                                defaultValue: 'English',
+                              }
+                            )}
+                          />
+                        </div>
+                        <Tooltip
+                          title={
+                            hasAdvancedOneOffPermission
+                              ? t(
+                                  'sparkery.inspectionAdmin.labels.requiresPhoto',
+                                  {
+                                    defaultValue: 'Requires photo',
+                                  }
+                                )
+                              : t(
+                                  'sparkery.inspectionAdmin.labels.requiresPhotoPermission',
+                                  {
+                                    defaultValue:
+                                      'Advanced role required to edit photo-required flags',
+                                  }
+                                )
+                          }
+                        >
+                          <Checkbox
+                            checked={item.requiredPhoto}
+                            disabled={!hasAdvancedOneOffPermission}
+                            onChange={e => {
+                              const updated = [...checklistItems];
+                              const current = updated[idx];
+                              if (!current) return;
+                              updated[idx] = {
+                                ...current,
+                                requiredPhoto: e.target.checked,
+                              };
+                              handleOneOffChecklistUpdate(section.id, updated);
+                            }}
+                          >
+                            <CameraOutlined />
+                          </Checkbox>
+                        </Tooltip>
+                        <Button
+                          type='text'
+                          danger
+                          size='small'
+                          icon={<DeleteOutlined />}
+                          onClick={() => {
+                            const updated = checklistItems.filter(
+                              (_unused, index) => index !== idx
+                            );
+                            handleOneOffChecklistUpdate(section.id, updated);
+                          }}
+                        />
+                      </div>
+                    ))}
+                    <Button
+                      type='dashed'
+                      size='small'
+                      icon={<PlusOutlined />}
+                      className='sparkery-inspection-full-width sparkery-inspection-top-4'
+                      onClick={() => {
+                        handleOneOffChecklistUpdate(section.id, [
+                          ...checklistItems,
+                          { label: '', labelEn: '', requiredPhoto: false },
+                        ]);
+                      }}
+                    >
+                      {t('sparkery.inspectionAdmin.actions.addChecklistItem', {
+                        defaultValue: 'Add Checklist Item',
+                      })}
+                    </Button>
+                  </div>
+                ),
+              };
+            })}
+          />
+        </Space>
+      </Modal>
       <EmployeesModal
         open={isEmployeesOpen}
         onClose={() => setIsEmployeesOpen(false)}

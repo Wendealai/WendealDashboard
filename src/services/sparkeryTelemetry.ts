@@ -14,7 +14,16 @@ type SparkeryTelemetryEventName =
   | 'dispatch.week_plan.link.expired'
   | 'dispatch.week_plan.link.signature_invalid'
   | 'dispatch.week_plan.link.auto_repaired'
-  | 'dispatch.week_plan.jobs_missing';
+  | 'dispatch.week_plan.jobs_missing'
+  | 'inspection.one_off.modal.opened'
+  | 'inspection.one_off.recommendation.loaded'
+  | 'inspection.one_off.template.regenerated'
+  | 'inspection.one_off.preview.rendered'
+  | 'inspection.one_off.draft.restored'
+  | 'inspection.one_off.create.started'
+  | 'inspection.one_off.create.succeeded'
+  | 'inspection.one_off.create.failed'
+  | 'inspection.one_off.link.open.failed';
 
 interface SparkeryTelemetryEvent {
   id: string;

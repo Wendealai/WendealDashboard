@@ -12,6 +12,7 @@ Sparkery is the operations module for:
 - assigning employees
 - generating daily/weekly execution links
 - creating inspection links and reports tied to property templates
+- generating one-off inspection template recommendations for ad-hoc jobs
 - importing recurring jobs into real weekly tasks
 
 In short: Sparkery turns scheduling + assignment input into executable field-work records.

@@ -116,4 +116,16 @@ describe('sparkery telemetry contracts', () => {
     expect(typeof events[0]?.data?.deviceId).toBe('string');
     expect(events[0]?.data?.networkType).toBe('online');
   });
+
+  it('supports one-off inspection telemetry funnel event names', () => {
+    trackSparkeryEvent('inspection.one_off.create.started', {
+      data: {
+        scenarioKey: 'deep_clean::apartment_2b2b',
+      },
+    });
+
+    const events = getSparkeryTelemetryEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.name).toBe('inspection.one_off.create.started');
+  });
 });

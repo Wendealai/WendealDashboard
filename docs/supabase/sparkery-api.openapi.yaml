@@ -289,6 +289,35 @@ paths:
         '500':
           $ref: '#/components/responses/Error'
 
+  /sparkery/v1/inspection/one-off-recommendations:
+    post:
+      tags: [Inspection]
+      summary: Recommend one-off inspection template baseline
+      operationId: recommendOneOffTemplate
+      description: >
+        Public recommendation endpoint for one-off inspection templates.
+        Returns section/bundle suggestions plus governance caps.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OneOffRecommendationRequest'
+      responses:
+        '200':
+          description: Recommendation response
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OneOffRecommendationResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+
   /sparkery/v1/dispatch/weekly-plan-links:
     post:
       tags: [Dispatch]
@@ -1008,6 +1037,92 @@ components:
         fromJobId:
           type: string
           nullable: true
+
+    OneOffRecommendationRequest:
+      type: object
+      properties:
+        cleaningType:
+          type: string
+          enum:
+            - bond_clean
+            - routine_clean
+            - deep_clean
+            - office_clean
+            - airbnb_turnover
+        propertyType:
+          type: string
+          enum:
+            - studio
+            - apartment_1b1b
+            - apartment_2b2b
+            - apartment_3b2b
+            - house_4b2b
+            - office_small
+            - office_large
+        customerName:
+          type: string
+        currentSectionIds:
+          type: array
+          items:
+            type: string
+        recentDriftScore:
+          type: number
+      additionalProperties: true
+
+    OneOffRecommendationResponse:
+      type: object
+      required:
+        - ok
+        - endpoint
+        - source
+        - scenarioKey
+        - recommendedSectionIds
+        - recommendedBundleIds
+        - governance
+        - notes
+        - generatedAt
+      properties:
+        ok:
+          type: boolean
+        endpoint:
+          type: string
+          example: /sparkery/v1/inspection/one-off-recommendations
+        source:
+          type: string
+          enum: [cloud, local]
+        scenarioKey:
+          type: string
+        recommendedSectionIds:
+          type: array
+          items:
+            type: string
+        recommendedBundleIds:
+          type: array
+          items:
+            type: string
+        governance:
+          type: object
+          required:
+            - maxSections
+            - maxChecklistItemsPerSection
+            - maxTotalChecklistItems
+            - maxPayloadBytes
+          properties:
+            maxSections:
+              type: integer
+            maxChecklistItemsPerSection:
+              type: integer
+            maxTotalChecklistItems:
+              type: integer
+            maxPayloadBytes:
+              type: integer
+        notes:
+          type: array
+          items:
+            type: string
+        generatedAt:
+          type: string
+          format: date-time
 
     GenerateWeeklyPlanLinkRequest:
       type: object
