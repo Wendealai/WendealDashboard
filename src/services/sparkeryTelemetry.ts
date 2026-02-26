@@ -10,7 +10,11 @@ type SparkeryTelemetryEventName =
   | 'dispatch.job.create.succeeded'
   | 'dispatch.job.create.failed'
   | 'dispatch.job.update.succeeded'
-  | 'dispatch.job.update.failed';
+  | 'dispatch.job.update.failed'
+  | 'dispatch.week_plan.link.expired'
+  | 'dispatch.week_plan.link.signature_invalid'
+  | 'dispatch.week_plan.link.auto_repaired'
+  | 'dispatch.week_plan.jobs_missing';
 
 interface SparkeryTelemetryEvent {
   id: string;

@@ -1,4 +1,10 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Alert,
   Button,
@@ -40,8 +46,15 @@ import {
   loadPropertyTemplates,
   submitInspection,
 } from '@/services/inspectionService';
+import { trackSparkeryEvent } from '@/services/sparkeryTelemetry';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
+import {
+  buildDispatchJobLinkUrl,
+  parseDispatchJobIdsFromParams,
+  type DispatchJobIdsSource,
+  type ParsedDispatchJobIds,
+} from './dispatch/weeklyPlanLink';
 import './sparkery.css';
 
 const { Title, Text } = Typography;
@@ -75,6 +88,8 @@ interface QueryPayload {
   jobIds: string[];
   weekStart: string;
   weekEnd: string;
+  source: DispatchJobIdsSource;
+  compact: ParsedDispatchJobIds['compact'];
 }
 
 interface TemplateMatchResult {
@@ -110,6 +125,46 @@ type Translator = TFunction;
 type GeoPoint = {
   lat: number;
   lng: number;
+};
+
+type WeekPlanRuntimeWindow = Window & {
+  __WENDEAL_APP_VERSION__?: unknown;
+  __WENDEAL_RUNTIME_CONFIG__?: {
+    appVersion?: unknown;
+    appCommit?: unknown;
+  };
+};
+
+const toNonEmptyDisplayText = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const resolveWeekPlanBuildMeta = (
+  fallbackValue: string
+): { version: string; commit: string } | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const runtime = window as WeekPlanRuntimeWindow;
+  const runtimeConfig = runtime.__WENDEAL_RUNTIME_CONFIG__;
+  const version =
+    toNonEmptyDisplayText(runtimeConfig?.appVersion) ||
+    toNonEmptyDisplayText(runtime.__WENDEAL_APP_VERSION__) ||
+    fallbackValue;
+  const fullCommit =
+    toNonEmptyDisplayText(runtimeConfig?.appCommit) || fallbackValue;
+  const commit =
+    fullCommit === fallbackValue ? fallbackValue : fullCommit.slice(0, 10);
+
+  return {
+    version,
+    commit,
+  };
 };
 
 const normalizeAddressKey = (value: string): string =>
@@ -335,25 +390,19 @@ const parseQueryPayload = (): QueryPayload => {
   const weekEnd =
     (params.get('weekEnd') || '').trim() ||
     dayjs(weekStart).add(6, 'day').format('YYYY-MM-DD');
-  const rawIds = (params.get('jobIds') || '')
-    .split(',')
-    .map(id => id.trim())
-    .filter(Boolean);
-
-  const seen = new Set<string>();
-  const jobIds: string[] = [];
-  rawIds.forEach(id => {
-    if (!seen.has(id)) {
-      seen.add(id);
-      jobIds.push(id);
-    }
+  const parsedJobIds = parseDispatchJobIdsFromParams(params, {
+    employeeId,
+    weekStart,
+    weekEnd,
   });
 
   return {
     employeeId,
-    jobIds,
+    jobIds: parsedJobIds.jobIds,
     weekStart,
     weekEnd,
+    source: parsedJobIds.source,
+    compact: parsedJobIds.compact,
   };
 };
 
@@ -704,6 +753,20 @@ const DispatchWeekPlan: React.FC = () => {
     Record<string, number>
   >({});
   const naText = t('sparkery.dispatch.weekPlan.common.na');
+  const telemetryTrackedRef = useRef({
+    expired: false,
+    integrity: false,
+    missing: false,
+    autoRepaired: false,
+  });
+  const buildMeta = useMemo(() => resolveWeekPlanBuildMeta(naText), [naText]);
+  const hasExpiredCompactLink =
+    queryPayload.compact.present && queryPayload.compact.expired;
+  const hasInvalidCompactLink =
+    queryPayload.compact.present &&
+    (!queryPayload.compact.payloadValid ||
+      !queryPayload.compact.signatureValid ||
+      !queryPayload.compact.versionValid);
 
   const formatWeekday = useCallback(
     (dateText: string, short = false): string => {
@@ -823,23 +886,45 @@ const DispatchWeekPlan: React.FC = () => {
     weekDates[weekDates.length - 1] || queryPayload.weekEnd;
   const buildCurrentPlanUrl = useCallback(
     (sourceJobIds?: string[]): string => {
-      const params = new URLSearchParams();
       const employeeId = (employee?.id || queryPayload.employeeId || '').trim();
       if (employeeId) {
-        params.set('employeeId', employeeId);
+        return buildDispatchJobLinkUrl({
+          origin: window.location.origin,
+          path: '/dispatch-week-plan',
+          employeeId,
+          weekStart: displayWeekStart,
+          weekEnd: displayWeekEnd,
+          jobIds: sourceJobIds || sortedJobIds,
+        });
       }
-      params.set('weekStart', displayWeekStart);
-      params.set('weekEnd', displayWeekEnd);
-      const resolvedJobIds = Array.from(
-        new Set(
-          (sourceJobIds || sortedJobIds).map(id => id.trim()).filter(Boolean)
-        )
-      );
-      if (resolvedJobIds.length > 0) {
-        params.set('jobIds', resolvedJobIds.join(','));
-      }
-      return `${window.location.origin}/dispatch-week-plan?${params.toString()}`;
+      return buildDispatchJobLinkUrl({
+        origin: window.location.origin,
+        path: '/dispatch-week-plan',
+        employeeId: '',
+        weekStart: displayWeekStart,
+        weekEnd: displayWeekEnd,
+        jobIds: sourceJobIds || sortedJobIds,
+      });
     },
+    [
+      displayWeekEnd,
+      displayWeekStart,
+      employee?.id,
+      queryPayload.employeeId,
+      sortedJobIds,
+    ]
+  );
+
+  const buildEmployeeTasksUrl = useCallback(
+    (sourceJobIds?: string[]): string =>
+      buildDispatchJobLinkUrl({
+        origin: window.location.origin,
+        path: '/dispatch-employee-tasks',
+        employeeId: (employee?.id || queryPayload.employeeId || '').trim(),
+        weekStart: displayWeekStart,
+        weekEnd: displayWeekEnd,
+        jobIds: sourceJobIds || sortedJobIds,
+      }),
     [
       displayWeekEnd,
       displayWeekStart,
@@ -979,6 +1064,19 @@ const DispatchWeekPlan: React.FC = () => {
         );
         setJobs(mergedJobs);
         setMissingJobIds(notFoundIds);
+        if (notFoundIds.length > 0 && !telemetryTrackedRef.current.missing) {
+          telemetryTrackedRef.current.missing = true;
+          trackSparkeryEvent('dispatch.week_plan.jobs_missing', {
+            success: false,
+            data: {
+              employeeId: queryPayload.employeeId,
+              weekStart: queryPayload.weekStart,
+              weekEnd: queryPayload.weekEnd,
+              requestedCount: queryPayload.jobIds.length,
+              missingCount: notFoundIds.length,
+            },
+          });
+        }
         setCustomerProfiles(profiles);
         setPropertyTemplates(templates);
       } catch {
@@ -1200,6 +1298,62 @@ const DispatchWeekPlan: React.FC = () => {
   }, [daySections, employee, naText, sortedJobs, t]);
 
   useEffect(() => {
+    if (hasExpiredCompactLink && !telemetryTrackedRef.current.expired) {
+      telemetryTrackedRef.current.expired = true;
+      trackSparkeryEvent('dispatch.week_plan.link.expired', {
+        success: false,
+        data: {
+          employeeId: queryPayload.employeeId,
+          weekStart: queryPayload.weekStart,
+          weekEnd: queryPayload.weekEnd,
+          source: queryPayload.source,
+          compactVersion: queryPayload.compact.version || '',
+          expiresAtMs: queryPayload.compact.expiresAtMs,
+        },
+      });
+    }
+  }, [
+    hasExpiredCompactLink,
+    queryPayload.compact.expiresAtMs,
+    queryPayload.compact.version,
+    queryPayload.employeeId,
+    queryPayload.source,
+    queryPayload.weekEnd,
+    queryPayload.weekStart,
+  ]);
+
+  useEffect(() => {
+    if (hasInvalidCompactLink && !telemetryTrackedRef.current.integrity) {
+      telemetryTrackedRef.current.integrity = true;
+      trackSparkeryEvent('dispatch.week_plan.link.signature_invalid', {
+        success: false,
+        data: {
+          employeeId: queryPayload.employeeId,
+          weekStart: queryPayload.weekStart,
+          weekEnd: queryPayload.weekEnd,
+          source: queryPayload.source,
+          compactVersion: queryPayload.compact.version || '',
+          versionValid: queryPayload.compact.versionValid,
+          signatureValid: queryPayload.compact.signatureValid,
+          payloadValid: queryPayload.compact.payloadValid,
+          expired: queryPayload.compact.expired,
+        },
+      });
+    }
+  }, [
+    hasInvalidCompactLink,
+    queryPayload.compact.expired,
+    queryPayload.compact.payloadValid,
+    queryPayload.compact.signatureValid,
+    queryPayload.compact.version,
+    queryPayload.compact.versionValid,
+    queryPayload.employeeId,
+    queryPayload.source,
+    queryPayload.weekEnd,
+    queryPayload.weekStart,
+  ]);
+
+  useEffect(() => {
     if (loading || !queryPayload.employeeId) {
       return;
     }
@@ -1210,8 +1364,37 @@ const DispatchWeekPlan: React.FC = () => {
         '',
         `${window.location.pathname}${canonicalSearch}`
       );
+      if (!telemetryTrackedRef.current.autoRepaired) {
+        telemetryTrackedRef.current.autoRepaired = true;
+        trackSparkeryEvent('dispatch.week_plan.link.auto_repaired', {
+          success: true,
+          data: {
+            employeeId: queryPayload.employeeId,
+            weekStart: queryPayload.weekStart,
+            weekEnd: queryPayload.weekEnd,
+            missingCount: missingJobIds.length,
+            compactExpired: queryPayload.compact.expired,
+            compactValid:
+              queryPayload.compact.payloadValid &&
+              queryPayload.compact.signatureValid &&
+              queryPayload.compact.versionValid &&
+              !queryPayload.compact.expired,
+          },
+        });
+      }
     }
-  }, [buildCurrentPlanUrl, loading, queryPayload.employeeId]);
+  }, [
+    buildCurrentPlanUrl,
+    loading,
+    missingJobIds.length,
+    queryPayload.compact.expired,
+    queryPayload.compact.payloadValid,
+    queryPayload.compact.signatureValid,
+    queryPayload.compact.versionValid,
+    queryPayload.employeeId,
+    queryPayload.weekEnd,
+    queryPayload.weekStart,
+  ]);
 
   const handleCopyCurrentPlanLink = useCallback(async () => {
     const currentUrl = buildCurrentPlanUrl();
@@ -1234,6 +1417,41 @@ const DispatchWeekPlan: React.FC = () => {
       );
     }
   }, [buildCurrentPlanUrl, messageApi, t]);
+
+  const handleRebuildCurrentPlanLink = useCallback(async () => {
+    const rebuiltUrl = buildCurrentPlanUrl();
+    const rebuiltSearch = new URL(rebuiltUrl).search;
+    if (window.location.search !== rebuiltSearch) {
+      window.history.replaceState(
+        {},
+        '',
+        `${window.location.pathname}${rebuiltSearch}`
+      );
+    }
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(rebuiltUrl);
+      }
+      messageApi.success(
+        t('sparkery.dispatch.weekPlan.messages.planLinkRebuilt')
+      );
+    } catch {
+      messageApi.error(
+        t('sparkery.dispatch.weekPlan.messages.copyWeeklyPlanLinkFailed')
+      );
+    }
+  }, [buildCurrentPlanUrl, messageApi, t]);
+
+  const handleOpenEmployeeTasks = useCallback(() => {
+    try {
+      const url = buildEmployeeTasksUrl();
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      messageApi.error(
+        t('sparkery.dispatch.weekPlan.messages.openEmployeeTasksFailed')
+      );
+    }
+  }, [buildEmployeeTasksUrl, messageApi, t]);
 
   const handleGenerateInspectionLink = useCallback(
     async (jobId: string) => {
@@ -1390,10 +1608,27 @@ const DispatchWeekPlan: React.FC = () => {
                     count: inspectionAvailabilitySummary.disabledCount,
                   })}
                 </Tag>
+                {buildMeta && (
+                  <Tag className='dispatch-week-plan-pill'>
+                    {t('sparkery.dispatch.weekPlan.labels.buildMeta', {
+                      version: buildMeta.version,
+                      commit: buildMeta.commit,
+                    })}
+                  </Tag>
+                )}
               </Space>
               <Space wrap>
                 <Button onClick={handleCopyCurrentPlanLink}>
                   {t('sparkery.dispatch.weekPlan.actions.copyPlanLink')}
+                </Button>
+                <Button onClick={handleRebuildCurrentPlanLink}>
+                  {t('sparkery.dispatch.weekPlan.actions.refreshPlanLink')}
+                </Button>
+                <Button
+                  onClick={handleOpenEmployeeTasks}
+                  disabled={isInvalidQuery}
+                >
+                  {t('sparkery.dispatch.weekPlan.actions.openEmployeeTasks')}
                 </Button>
               </Space>
             </Space>
@@ -1407,6 +1642,32 @@ const DispatchWeekPlan: React.FC = () => {
               message={t('sparkery.dispatch.weekPlan.alerts.invalidLink')}
               description={t(
                 'sparkery.dispatch.weekPlan.alerts.regenerateFromMapPlanner'
+              )}
+            />
+          )}
+
+          {!isInvalidQuery && !loading && hasExpiredCompactLink && (
+            <Alert
+              type='warning'
+              showIcon
+              className='dispatch-week-plan-alert dispatch-week-plan-alert-warning'
+              message={t('sparkery.dispatch.weekPlan.alerts.linkExpired')}
+              description={t(
+                'sparkery.dispatch.weekPlan.alerts.linkExpiredDesc'
+              )}
+            />
+          )}
+
+          {!isInvalidQuery && !loading && hasInvalidCompactLink && (
+            <Alert
+              type='warning'
+              showIcon
+              className='dispatch-week-plan-alert dispatch-week-plan-alert-warning'
+              message={t(
+                'sparkery.dispatch.weekPlan.alerts.linkIntegrityInvalid'
+              )}
+              description={t(
+                'sparkery.dispatch.weekPlan.alerts.linkIntegrityInvalidDesc'
               )}
             />
           )}
@@ -1459,9 +1720,20 @@ const DispatchWeekPlan: React.FC = () => {
               message={t('sparkery.dispatch.weekPlan.alerts.missingJobs', {
                 count: missingJobIds.length,
               })}
-              description={t('sparkery.dispatch.weekPlan.alerts.missingIds', {
-                ids: missingJobIds.join(', '),
-              })}
+              description={
+                <Space direction='vertical' size={2}>
+                  <Text type='secondary'>
+                    {t('sparkery.dispatch.weekPlan.alerts.missingIds', {
+                      ids: missingJobIds.join(', '),
+                    })}
+                  </Text>
+                  <Text type='secondary'>
+                    {t('sparkery.dispatch.weekPlan.alerts.staleJobsRemoved', {
+                      count: missingJobIds.length,
+                    })}
+                  </Text>
+                </Space>
+              }
             />
           )}
 

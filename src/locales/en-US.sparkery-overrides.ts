@@ -1833,6 +1833,8 @@ export default {
         },
         actions: {
           copyPlanLink: 'Copy Plan Link',
+          refreshPlanLink: 'Refresh Plan Link',
+          openEmployeeTasks: 'Open Employee Tasks',
           openDayNavigation: 'Open Day Navigation',
           navigate: 'Navigate',
           generateInspectionLink: 'Generate Inspection Link',
@@ -1850,8 +1852,15 @@ export default {
           employee: 'Employee: {{name}}',
           currentLocation: 'Current location: {{lat}}, {{lng}}',
           locationNotReported: 'Current location not reported yet',
+          linkExpired: 'Weekly plan link has expired',
+          linkExpiredDesc:
+            'Job list in the link timed out. The page has fallen back to assigned weekly jobs.',
+          linkIntegrityInvalid: 'Weekly plan link integrity check failed',
+          linkIntegrityInvalidDesc:
+            'Link parameters look tampered or corrupted. The page has fallen back to a safe job list.',
           missingJobs: '{{count}} jobs are missing',
           missingIds: 'Missing IDs: {{ids}}',
+          staleJobsRemoved: 'Automatically removed {{count}} stale job IDs.',
           dailyRouteUnavailable: 'Some daily routes are unavailable',
         },
         sections: {
@@ -1893,6 +1902,7 @@ export default {
           duration: 'Duration {{value}} mins',
           days: 'Days {{count}}',
           routeTotalsUnavailable: 'Route totals are unavailable right now.',
+          buildMeta: 'Version {{version}} | Commit {{commit}}',
         },
         rules: {
           recurring: 'Task must be recurring.',
@@ -1925,7 +1935,9 @@ export default {
           loadDataFailed: 'Failed to load weekly plan data',
           copyNotSupported: 'Copy not supported. URL: {{url}}',
           weeklyPlanLinkCopied: 'Weekly plan link copied',
+          planLinkRebuilt: 'Plan link refreshed',
           copyWeeklyPlanLinkFailed: 'Failed to copy weekly plan link',
+          openEmployeeTasksFailed: 'Failed to open employee tasks page',
           inspectionLinkGenerated: 'Inspection link generated and opened',
           generateInspectionLinkFailed: 'Failed to generate inspection link',
         },

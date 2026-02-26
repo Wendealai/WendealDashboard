@@ -27,6 +27,7 @@ import {
   type GeoPoint,
 } from '@/services/googleMapsService';
 import { useTranslation } from 'react-i18next';
+import { buildDispatchJobLinkUrl } from '../../dispatch/weeklyPlanLink';
 
 const { Text } = Typography;
 
@@ -983,14 +984,14 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
       return;
     }
 
-    const params = new URLSearchParams({
+    const url = buildDispatchJobLinkUrl({
+      origin: window.location.origin,
+      path: '/dispatch-week-plan',
       employeeId: selectedEmployeeId,
-      jobIds: orderedJobIds.join(','),
       weekStart,
       weekEnd,
+      jobIds: orderedJobIds,
     });
-
-    const url = `${window.location.origin}/dispatch-week-plan?${params.toString()}`;
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
@@ -1020,16 +1021,14 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
       ])
     );
 
-    const params = new URLSearchParams({
+    const url = buildDispatchJobLinkUrl({
+      origin: window.location.origin,
+      path: '/dispatch-employee-tasks',
       employeeId: selectedEmployeeId,
       weekStart,
       weekEnd,
+      jobIds: orderedJobIds,
     });
-    if (orderedJobIds.length > 0) {
-      params.set('jobIds', orderedJobIds.join(','));
-    }
-
-    const url = `${window.location.origin}/dispatch-employee-tasks?${params.toString()}`;
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);

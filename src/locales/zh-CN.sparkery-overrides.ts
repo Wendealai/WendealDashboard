@@ -1,4 +1,4 @@
-﻿const zhCNSparkeryOverrides = {
+const zhCNSparkeryOverrides = {
   sparkery: {
     title: 'Sparkery 工具集',
     tabs: {
@@ -1757,6 +1757,8 @@
         },
         actions: {
           copyPlanLink: '复制计划链接',
+          refreshPlanLink: '刷新计划链接',
+          openEmployeeTasks: '打开员工任务',
           openDayNavigation: '打开当日导航',
           navigate: '导航',
           generateInspectionLink: '生成验收链接',
@@ -1772,8 +1774,15 @@
           employee: '员工: {{name}}',
           currentLocation: '当前位置: {{lat}}, {{lng}}',
           locationNotReported: '尚未上报当前位置',
+          linkExpired: '周计划链接已过期',
+          linkExpiredDesc:
+            '链接内任务列表已超时，系统已自动回退为当周已分配任务。',
+          linkIntegrityInvalid: '周计划链接校验失败',
+          linkIntegrityInvalidDesc:
+            '链接参数可能损坏或被修改，系统已自动回退到安全任务列表。',
           missingJobs: '缺失任务 {{count}} 个',
           missingIds: '缺失 ID: {{ids}}',
+          staleJobsRemoved: '已自动移除 {{count}} 个失效任务 ID。',
           dailyRouteUnavailable: '部分日期路线不可用',
         },
         sections: {
@@ -1815,6 +1824,7 @@
           duration: '时长 {{value}} 分钟',
           days: '天数 {{count}}',
           routeTotalsUnavailable: '当前无法统计路线总计。',
+          buildMeta: '版本 {{version}} · 提交 {{commit}}',
         },
         rules: {
           recurring: '任务必须为周期任务。',
@@ -1842,7 +1852,9 @@
           loadDataFailed: '加载周计划数据失败',
           copyNotSupported: '当前环境不支持复制。链接: {{url}}',
           weeklyPlanLinkCopied: '周计划链接已复制',
+          planLinkRebuilt: '计划链接已刷新',
           copyWeeklyPlanLinkFailed: '复制周计划链接失败',
+          openEmployeeTasksFailed: '打开员工任务页失败',
           inspectionLinkGenerated: '验收链接已生成并打开',
           generateInspectionLinkFailed: '生成验收链接失败',
         },

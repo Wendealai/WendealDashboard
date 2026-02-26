@@ -52,6 +52,21 @@ const runtime = globalThis as typeof globalThis & {
   __WENDEAL_APP_VERSION__?: string;
 };
 
+const pickNonEmpty = (
+  ...values: Array<string | undefined>
+): string | undefined => {
+  for (const value of values) {
+    if (typeof value !== 'string') {
+      continue;
+    }
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+  return undefined;
+};
+
 const runtimeConfig = runtime.__WENDEAL_RUNTIME_CONFIG__ ?? {};
 const buildMeta = __WENDEAL_BUILD_META__ as BuildMeta;
 const resolvedAppVersion =
@@ -78,25 +93,40 @@ runtime.__WENDEAL_RUNTIME_CONFIG__ = {
   appBuildTime: resolvedBuildTime,
 };
 
+const resolvedSupabaseUrl = pickNonEmpty(
+  runtimeConfig.supabase?.url,
+  import.meta.env.VITE_SUPABASE_URL
+);
+const resolvedSupabaseAnonKey = pickNonEmpty(
+  runtimeConfig.supabase?.anonKey,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 runtime.__WENDEAL_SUPABASE_CONFIG__ = {
-  url: runtimeConfig.supabase?.url ?? import.meta.env.VITE_SUPABASE_URL,
-  anonKey:
-    runtimeConfig.supabase?.anonKey ?? import.meta.env.VITE_SUPABASE_ANON_KEY,
+  ...(resolvedSupabaseUrl ? { url: resolvedSupabaseUrl } : {}),
+  ...(resolvedSupabaseAnonKey ? { anonKey: resolvedSupabaseAnonKey } : {}),
 };
 
+const resolvedGoogleMapsApiKey = pickNonEmpty(
+  runtimeConfig.googleMaps?.apiKey,
+  import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+);
 runtime.__WENDEAL_GOOGLE_MAPS_CONFIG__ = {
-  apiKey:
-    runtimeConfig.googleMaps?.apiKey ??
-    import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+  ...(resolvedGoogleMapsApiKey ? { apiKey: resolvedGoogleMapsApiKey } : {}),
 };
 
+const resolvedGoogleCalendarClientId = pickNonEmpty(
+  runtimeConfig.googleCalendar?.clientId,
+  import.meta.env.VITE_GOOGLE_CALENDAR_CLIENT_ID
+);
+const resolvedGoogleCalendarId = pickNonEmpty(
+  runtimeConfig.googleCalendar?.calendarId,
+  import.meta.env.VITE_GOOGLE_CALENDAR_ID
+);
 runtime.__WENDEAL_GOOGLE_CALENDAR_CONFIG__ = {
-  clientId:
-    runtimeConfig.googleCalendar?.clientId ??
-    import.meta.env.VITE_GOOGLE_CALENDAR_CLIENT_ID,
-  calendarId:
-    runtimeConfig.googleCalendar?.calendarId ??
-    import.meta.env.VITE_GOOGLE_CALENDAR_ID,
+  ...(resolvedGoogleCalendarClientId
+    ? { clientId: resolvedGoogleCalendarClientId }
+    : {}),
+  ...(resolvedGoogleCalendarId ? { calendarId: resolvedGoogleCalendarId } : {}),
 };
 
 const invoiceOcrPollingIntervalEnv = import.meta.env

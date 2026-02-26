@@ -40,6 +40,7 @@ import {
 } from './dispatch/offlineQueue';
 import { useDispatchTelemetryContext } from './dispatch/useDispatchTelemetryContext';
 import { useTranslation } from 'react-i18next';
+import { parseDispatchJobIdsFromParams } from './dispatch/weeklyPlanLink';
 import './sparkery.css';
 
 const { Title, Text } = Typography;
@@ -86,20 +87,22 @@ const getWeekEnd = (weekStart: string): string => {
 const parseQuery = (): EmployeeTasksQuery => {
   const params = new URLSearchParams(window.location.search);
   const today = dayjs().format('YYYY-MM-DD');
+  const employeeId = (params.get('employeeId') || '').trim();
   const rawWeekStart = (params.get('weekStart') || '').trim() || today;
   const weekStart = resolveMonday(rawWeekStart);
   const weekEnd = (params.get('weekEnd') || '').trim() || getWeekEnd(weekStart);
   const date = (params.get('date') || '').trim() || today;
-  const jobIds = (params.get('jobIds') || '')
-    .split(',')
-    .map(id => id.trim())
-    .filter(Boolean);
+  const parsedJobIds = parseDispatchJobIdsFromParams(params, {
+    employeeId,
+    weekStart,
+    weekEnd,
+  });
   return {
-    employeeId: (params.get('employeeId') || '').trim(),
+    employeeId,
     weekStart,
     weekEnd,
     date,
-    jobIds: Array.from(new Set(jobIds)),
+    jobIds: parsedJobIds.jobIds,
   };
 };
 
