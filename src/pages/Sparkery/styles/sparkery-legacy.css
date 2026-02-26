@@ -898,6 +898,10 @@
   color: #bfbfbf;
 }
 
+.sparkery-inspection-empty-actions {
+  margin-top: 14px;
+}
+
 .sparkery-inspection-cloud-meta {
   margin-top: 8px;
   display: flex;
@@ -972,14 +976,124 @@
   margin-bottom: 16px;
 }
 
+.sparkery-inspection-overview-card {
+  margin-bottom: 12px;
+}
+
+.sparkery-inspection-overview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.sparkery-inspection-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.sparkery-inspection-metric-card {
+  border: 1px solid #dbe8f8;
+  background: linear-gradient(135deg, #f8fbff 0%, #f1f7ff 100%);
+}
+
+.sparkery-inspection-metric-card .ant-card-body {
+  padding: 10px 12px;
+}
+
+.sparkery-inspection-metric-card .ant-statistic-title {
+  font-size: 12px;
+  color: #5f728d;
+}
+
+.sparkery-inspection-metric-card .ant-statistic-content {
+  font-size: 22px;
+  line-height: 1.2;
+  color: #1f3652;
+}
+
+.sparkery-inspection-filter-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sparkery-inspection-filter-row .ant-input-affix-wrapper {
+  flex: 1 1 340px;
+}
+
+.sparkery-inspection-filter-actions {
+  margin-left: auto;
+}
+
+.sparkery-inspection-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.sparkery-inspection-filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sparkery-inspection-filter-item-label {
+  font-size: 12px;
+}
+
+.sparkery-inspection-filter-item-toggle {
+  justify-content: flex-end;
+}
+
 .sparkery-inspection-archive-list {
   display: grid;
   gap: 12px;
 }
 
+.sparkery-inspection-archive-card {
+  border: 1px solid #d8e4f3;
+}
+
+.sparkery-inspection-archive-card .ant-card-body {
+  padding: 12px 14px;
+}
+
+.sparkery-inspection-archive-card-comfortable .ant-card-body {
+  padding: 14px 16px;
+}
+
+.sparkery-inspection-archive-card-compact .ant-card-body {
+  padding: 10px 12px;
+}
+
+.sparkery-inspection-archive-title-row {
+  margin-bottom: 4px;
+}
+
+.sparkery-inspection-archive-meta-text {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sparkery-inspection-archive-actions {
+  width: 100%;
+  justify-content: flex-end;
+}
+
 .sparkery-inspection-id-text {
   font-size: 11px;
   font-family: monospace;
+}
+
+.sparkery-inspection-shortcut-hint {
+  font-size: 12px;
 }
 
 .sparkery-inspection-note-text {
@@ -1900,5 +2014,41 @@
 
   .sparkery-reimbursement-notes {
     padding: 8px 10px;
+  }
+
+  .sparkery-inspection-overview-head {
+    align-items: flex-start;
+  }
+
+  .sparkery-inspection-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sparkery-inspection-filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sparkery-inspection-filter-row .ant-input-affix-wrapper {
+    width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .sparkery-inspection-filter-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .sparkery-inspection-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sparkery-inspection-archive-actions {
+    justify-content: flex-start;
+  }
+
+  .sparkery-inspection-empty-card {
+    padding: 28px 16px;
   }
 }
