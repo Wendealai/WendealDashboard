@@ -257,7 +257,18 @@ export class NotificationService {
     }
 
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
+      const runtime = window as Window & {
+        __WENDEAL_APP_VERSION__?: unknown;
+      };
+      const appVersion =
+        typeof runtime.__WENDEAL_APP_VERSION__ === 'string' &&
+        runtime.__WENDEAL_APP_VERSION__.trim().length > 0
+          ? runtime.__WENDEAL_APP_VERSION__.trim()
+          : 'unknown';
+      const registration = await navigator.serviceWorker.register(
+        `/sw.js?v=${encodeURIComponent(appVersion)}`,
+        { updateViaCache: 'none' }
+      );
 
       const subscriptionOptions: PushSubscriptionOptionsInit = {
         userVisibleOnly: true,

@@ -14,6 +14,13 @@ FROM nginx:1.27-alpine AS runtime
 
 WORKDIR /usr/share/nginx/html
 
+ARG APP_VERSION=unknown
+ARG APP_COMMIT_SHA=unknown
+ARG APP_BUILD_TIME=unknown
+ENV APP_VERSION=$APP_VERSION
+ENV APP_COMMIT_SHA=$APP_COMMIT_SHA
+ENV APP_BUILD_TIME=$APP_BUILD_TIME
+
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

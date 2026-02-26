@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b tsconfig.build.json && cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build",
+    "verify:artifact": "node scripts/verify-build-artifact.mjs",
+    "verify:deploy": "node scripts/verify-deploy.mjs",
     "typecheck": "tsc -b tsconfig.build.json",
     "typecheck:all": "tsc -b",
     "preflight": "node scripts/predeploy-check.mjs",

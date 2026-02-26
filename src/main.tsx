@@ -27,11 +27,20 @@ type InvoiceOcrRuntimeConfig = {
   debug?: boolean;
 };
 
+type BuildMeta = {
+  version: string;
+  commit: string;
+  buildTime: string;
+};
+
 type AppRuntimeConfig = {
   supabase?: SupabaseRuntimeConfig;
   googleMaps?: GoogleMapsRuntimeConfig;
   googleCalendar?: GoogleCalendarRuntimeConfig;
   invoiceOCR?: InvoiceOcrRuntimeConfig;
+  appVersion?: string;
+  appCommit?: string;
+  appBuildTime?: string;
 };
 
 const runtime = globalThis as typeof globalThis & {
@@ -40,9 +49,34 @@ const runtime = globalThis as typeof globalThis & {
   __WENDEAL_GOOGLE_MAPS_CONFIG__?: GoogleMapsRuntimeConfig;
   __WENDEAL_GOOGLE_CALENDAR_CONFIG__?: GoogleCalendarRuntimeConfig;
   __WENDEAL_INVOICE_OCR_CONFIG__?: InvoiceOcrRuntimeConfig;
+  __WENDEAL_APP_VERSION__?: string;
 };
 
 const runtimeConfig = runtime.__WENDEAL_RUNTIME_CONFIG__ ?? {};
+const buildMeta = __WENDEAL_BUILD_META__ as BuildMeta;
+const resolvedAppVersion =
+  runtimeConfig.appVersion?.trim() ||
+  buildMeta.version ||
+  import.meta.env.VITE_APP_VERSION ||
+  'unknown';
+const resolvedAppCommit =
+  runtimeConfig.appCommit?.trim() ||
+  buildMeta.commit ||
+  import.meta.env.VITE_APP_COMMIT ||
+  resolvedAppVersion;
+const resolvedBuildTime =
+  runtimeConfig.appBuildTime?.trim() ||
+  buildMeta.buildTime ||
+  import.meta.env.VITE_APP_BUILD_TIME ||
+  'unknown';
+
+runtime.__WENDEAL_APP_VERSION__ = resolvedAppVersion;
+runtime.__WENDEAL_RUNTIME_CONFIG__ = {
+  ...runtimeConfig,
+  appVersion: resolvedAppVersion,
+  appCommit: resolvedAppCommit,
+  appBuildTime: resolvedBuildTime,
+};
 
 runtime.__WENDEAL_SUPABASE_CONFIG__ = {
   url: runtimeConfig.supabase?.url ?? import.meta.env.VITE_SUPABASE_URL,
@@ -144,6 +178,9 @@ if (import.meta.env.DEV) {
 }
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  const serviceWorkerVersion = `${resolvedAppVersion}-${resolvedAppCommit}`;
+  const serviceWorkerUrl = `/sw.js?v=${encodeURIComponent(serviceWorkerVersion)}`;
+
   const syncDispatchConfig = () => {
     syncDispatchConfigToServiceWorker({
       ...(runtime.__WENDEAL_SUPABASE_CONFIG__?.url
@@ -162,8 +199,25 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/sw.js')
-      .then(() => {
+      .register(serviceWorkerUrl, { updateViaCache: 'none' })
+      .then(registration => {
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+
+        registration.addEventListener('updatefound', () => {
+          const installing = registration.installing;
+          if (!installing) {
+            return;
+          }
+
+          installing.addEventListener('statechange', () => {
+            if (installing.state === 'installed' && registration.waiting) {
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+
         syncDispatchConfig();
       })
       .catch(() => {

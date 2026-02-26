@@ -32,7 +32,12 @@ node scripts/release-rollback.mjs --target <stable_ref>
 1. `npm run typecheck`
 2. `npm run test:pyramid`
 3. `npm run build`
-4. Verify dispatch flows:
+4. `npm run verify:artifact`
+5. Verify dispatch flows:
    - job status update
    - finance confirm/payment
    - offline queue enqueue/flush
+
+## Related Operations Docs
+
+1. `docs/operations/deploy-hardening-checklist.md`

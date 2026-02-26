@@ -1,7 +1,37 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { execSync } from 'node:child_process';
 import { visualizer } from 'rollup-plugin-visualizer';
+
+const readBuildValue = (command: string): string | undefined => {
+  try {
+    return execSync(command, { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+  } catch {
+    return undefined;
+  }
+};
+
+const gitCommit =
+  process.env.VITE_APP_COMMIT ||
+  process.env.GITHUB_SHA?.slice(0, 12) ||
+  readBuildValue('git rev-parse --short=12 HEAD') ||
+  'unknown';
+
+const buildTime = process.env.VITE_APP_BUILD_TIME || new Date().toISOString();
+const appVersion = process.env.VITE_APP_VERSION || gitCommit;
+
+process.env.VITE_APP_VERSION = appVersion;
+process.env.VITE_APP_COMMIT = gitCommit;
+process.env.VITE_APP_BUILD_TIME = buildTime;
+
+const buildMeta = {
+  version: appVersion,
+  commit: gitCommit,
+  buildTime,
+};
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -27,6 +57,7 @@ export default defineConfig({
     'process.env': {},
     // 生产环境优化
     __DEV__: process.env.NODE_ENV !== 'production',
+    __WENDEAL_BUILD_META__: JSON.stringify(buildMeta),
   },
   resolve: {
     alias: {

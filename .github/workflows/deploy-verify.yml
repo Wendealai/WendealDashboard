@@ -1,0 +1,38 @@
+name: Deploy Verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Verify URL (must include protocol, e.g. https://oa.wendealai.com.au/)
+        required: true
+      expected_commit:
+        description: Optional expected commit (short or full SHA)
+        required: false
+        default: ""
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve expected commit
+        run: |
+          if [ -n "${{ github.event.inputs.expected_commit }}" ]; then
+            echo "EXPECTED_COMMIT=${{ github.event.inputs.expected_commit }}" >> "$GITHUB_ENV"
+          else
+            echo "EXPECTED_COMMIT=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_ENV"
+          fi
+
+      - name: Verify deployed endpoint
+        run: |
+          node scripts/verify-deploy.mjs \
+            --url "${{ github.event.inputs.url }}" \
+            --expect-commit "${EXPECTED_COMMIT}"

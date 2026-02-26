@@ -1,6 +1,23 @@
-const APP_SHELL_CACHE = 'wendeal-app-shell-v1';
-const RUNTIME_CACHE = 'wendeal-runtime-v1';
-const APP_SHELL_ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/vite.svg'];
+const resolveServiceWorkerVersion = () => {
+  try {
+    const version =
+      new URL(self.location.href).searchParams.get('v') || 'legacy-v1';
+    return version.replace(/[^a-zA-Z0-9._-]/g, '_');
+  } catch {
+    return 'legacy-v1';
+  }
+};
+
+const SW_VERSION = resolveServiceWorkerVersion();
+const APP_SHELL_CACHE = `wendeal-app-shell-${SW_VERSION}`;
+const RUNTIME_CACHE = `wendeal-runtime-${SW_VERSION}`;
+const APP_SHELL_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.webmanifest',
+  '/vite.svg',
+  '/runtime-config.js',
+];
 const STATIC_ASSET_PATTERN =
   /\.(?:js|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|map|json)$/i;
 
