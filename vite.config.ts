@@ -3,26 +3,6 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
 
-const getPackageNameFromId = (id: string): string | null => {
-  const marker = '/node_modules/';
-  const markerIndex = id.lastIndexOf(marker);
-  if (markerIndex < 0) {
-    return null;
-  }
-
-  const pathAfterNodeModules = id.slice(markerIndex + marker.length);
-  const segments = pathAfterNodeModules.split('/');
-  const first = segments[0];
-  if (!first) {
-    return null;
-  }
-  if (first.startsWith('@')) {
-    const second = segments[1];
-    return second ? `${first}/${second}` : first;
-  }
-  return first;
-};
-
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -216,149 +196,10 @@ export default defineConfig({
         warn(warning);
       },
       output: {
-        // 更细粒度的代码分割
+        // Stable-first chunking: only split third-party deps to avoid init-order regressions
         manualChunks: id => {
-          // 第三方库分割
           if (id.includes('node_modules')) {
-            const packageName = getPackageNameFromId(id);
-            if (!packageName) {
-              return 'vendor-misc';
-            }
-            if (
-              packageName === 'react' ||
-              packageName === 'react-dom' ||
-              packageName === 'scheduler' ||
-              packageName === 'use-sync-external-store'
-            ) {
-              return 'react-vendor';
-            }
-            if (
-              packageName === '@reduxjs/toolkit' ||
-              packageName === 'react-redux' ||
-              packageName === 'redux' ||
-              packageName === 'immer' ||
-              packageName === 'reselect'
-            ) {
-              return 'redux-vendor';
-            }
-            if (
-              packageName === 'react-router' ||
-              packageName === 'react-router-dom' ||
-              packageName.startsWith('@remix-run/')
-            ) {
-              return 'router-vendor';
-            }
-            if (packageName === '@ant-design/icons') {
-              return 'icons-vendor';
-            }
-            if (
-              packageName === '@ant-design/charts' ||
-              packageName === '@ant-design/plots'
-            ) {
-              return 'ant-design-plots-vendor';
-            }
-            if (packageName.startsWith('@antv/')) {
-              return 'antv-core-vendor';
-            }
-            if (packageName === 'antd') {
-              return 'antd-core-vendor';
-            }
-            if (
-              packageName.startsWith('@rc-component/') ||
-              packageName.startsWith('rc-')
-            ) {
-              return 'antd-rc-vendor';
-            }
-            if (packageName.startsWith('@ant-design/')) {
-              return 'antd-support-vendor';
-            }
-            if (packageName === 'lodash' || packageName === 'lodash-es') {
-              return 'lodash-vendor';
-            }
-            if (
-              packageName === 'html2canvas' ||
-              packageName === 'canvg' ||
-              packageName === 'pako' ||
-              packageName === 'fflate' ||
-              packageName === 'fast-png' ||
-              packageName === 'iobuffer' ||
-              packageName === 'svg-pathdata' ||
-              packageName === 'gl-matrix' ||
-              packageName === 'dompurify'
-            ) {
-              return 'canvas-vendor';
-            }
-            if (packageName === 'dayjs' || packageName === 'moment') {
-              return 'date-vendor';
-            }
-            if (packageName === 'axios' || packageName === 'msw') {
-              return 'http-vendor';
-            }
-            if (
-              packageName === 'i18next' ||
-              packageName === 'react-i18next' ||
-              packageName === 'i18next-browser-languagedetector'
-            ) {
-              return 'i18n-vendor';
-            }
-            if (
-              packageName === 'jspdf' ||
-              packageName === 'jspdf-autotable' ||
-              packageName === 'html2pdf.js' ||
-              packageName === 'xlsx'
-            ) {
-              return 'document-vendor';
-            }
-            if (
-              packageName === 'react-markdown' ||
-              packageName.startsWith('remark-') ||
-              packageName.startsWith('rehype-') ||
-              packageName === 'unified' ||
-              packageName === 'micromark'
-            ) {
-              return 'markdown-vendor';
-            }
-            if (
-              packageName === '@tanstack/react-query' ||
-              packageName === '@tanstack/query-core'
-            ) {
-              return 'query-vendor';
-            }
-            if (packageName.startsWith('@novu/')) {
-              return 'novu-vendor';
-            }
-            if (packageName === 'airtable') {
-              return 'airtable-vendor';
-            }
-            if (
-              packageName === 'socket.io-client' ||
-              packageName === 'engine.io-client' ||
-              packageName === 'socket.io-parser'
-            ) {
-              return 'socket-vendor';
-            }
-            if (
-              packageName === 'deep-chat-react' ||
-              packageName === 'iframe-resizer'
-            ) {
-              return 'chat-vendor';
-            }
-            if (packageName === 'typescript') {
-              return 'typescript-vendor';
-            }
-            return 'vendor-misc';
-          }
-          // 页面级别分割
-          if (id.includes('/pages/')) {
-            const pageName = id.split('/pages/')[1].split('/')[0];
-            return `page-${pageName}`;
-          }
-          // 组件级别分割
-          if (
-            id.includes('/components/') &&
-            !id.includes('/components/common/')
-          ) {
-            return 'components';
+            return 'vendor';
           }
         },
         // 文件命名优化
