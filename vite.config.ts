@@ -37,11 +37,11 @@ const buildMeta = {
 export default defineConfig({
   plugins: [
     react({
-      // React优化配置
-      // 暂时移除Babel插件配置以解决解析错误
+      // React浼樺寲閰嶇疆
+      // 鏆傛椂绉婚櫎Babel鎻掍欢閰嶇疆浠ヨВ鍐宠В鏋愰敊璇?
     }),
-    // 代码分割通过rollupOptions.output.manualChunks实现
-    // Bundle分析插件（仅在分析模式下启用）
+    // 浠ｇ爜鍒嗗壊閫氳繃rollupOptions.output.manualChunks瀹炵幇
+    // Bundle鍒嗘瀽鎻掍欢锛堜粎鍦ㄥ垎鏋愭ā寮忎笅鍚敤锛?
     ...(process.env.ANALYZE
       ? [
           visualizer({
@@ -55,7 +55,7 @@ export default defineConfig({
   ],
   define: {
     'process.env': {},
-    // 生产环境优化
+    // 鐢熶骇鐜浼樺寲
     __DEV__: process.env.NODE_ENV !== 'production',
     __WENDEAL_BUILD_META__: JSON.stringify(buildMeta),
   },
@@ -66,13 +66,13 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    open: true,
-    host: '0.0.0.0', // 允许外部访问
-    // 开发服务器优化
+    open: false,
+    host: '0.0.0.0', // 鍏佽澶栭儴璁块棶
+    // 寮€鍙戞湇鍔″櫒浼樺寲
     hmr: {
-      overlay: false, // 禁用错误覆盖层
+      overlay: false, // 绂佺敤閿欒瑕嗙洊灞?
     },
-    // CSP头部配置 - 开发环境移除以避免Cloudflare cookie限制
+    // CSP澶撮儴閰嶇疆 - 寮€鍙戠幆澧冪Щ闄や互閬垮厤Cloudflare cookie闄愬埗
     // headers: {
     //   'Content-Security-Policy': [
     //     "default-src 'self' https:",
@@ -88,7 +88,7 @@ export default defineConfig({
     //     "upgrade-insecure-requests"
     //   ].join('; '),
     // },
-    // API代理配置 - 代理到n8n服务器
+    // API浠ｇ悊閰嶇疆 - 浠ｇ悊鍒皀8n鏈嶅姟鍣?
     proxy: {
       '/api': {
         target: 'https://n8n.wendealai.com',
@@ -103,12 +103,12 @@ export default defineConfig({
           });
         },
       },
-      // Webhook代理配置 - 解决CORS问题
+      // Webhook浠ｇ悊閰嶇疆 - 瑙ｅ喅CORS闂
       '/webhook': {
         target: 'https://n8n.wendealai.com',
         changeOrigin: true,
         secure: true,
-        // 处理OPTIONS预检请求
+        // 澶勭悊OPTIONS棰勬璇锋眰
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('webhook proxy error', err);
@@ -120,7 +120,7 @@ export default defineConfig({
               req.url
             );
 
-            // 处理OPTIONS预检请求
+            // 澶勭悊OPTIONS棰勬璇锋眰
             if (req.method === 'OPTIONS') {
               console.log('Handling OPTIONS preflight request for webhook');
               res.writeHead(200, {
@@ -136,7 +136,7 @@ export default defineConfig({
             }
 
             console.log('Request Headers:', proxyReq.getHeaders());
-            // 确保multipart/form-data请求正确转发
+            // 纭繚multipart/form-data璇锋眰姝ｇ‘杞彂
             if (req.headers['content-type']) {
               proxyReq.setHeader('Content-Type', req.headers['content-type']);
             }
@@ -147,7 +147,7 @@ export default defineConfig({
               proxyRes.statusCode,
               req.url
             );
-            // 添加CORS头部到所有响应
+            // 娣诲姞CORS澶撮儴鍒版墍鏈夊搷搴?
             proxyRes.headers['Access-Control-Allow-Origin'] = '*';
             proxyRes.headers['Access-Control-Allow-Methods'] =
               'GET, POST, PUT, DELETE, OPTIONS';
@@ -156,7 +156,7 @@ export default defineConfig({
           });
         },
       },
-      // Airtable API代理配置 - 解决CORS问题
+      // Airtable API浠ｇ悊閰嶇疆 - 瑙ｅ喅CORS闂
       '/airtable': {
         target: 'https://api.airtable.com',
         changeOrigin: true,
@@ -174,7 +174,7 @@ export default defineConfig({
           });
         },
       },
-      // Notion API代理配置 - 获取Notion数据库数据
+      // Notion API浠ｇ悊閰嶇疆 - 鑾峰彇Notion鏁版嵁搴撴暟鎹?
       '/webhook/notion-fetch': {
         target: 'https://api.notion.com',
         changeOrigin: true,
@@ -188,7 +188,7 @@ export default defineConfig({
             console.log('notion proxy error', err);
           });
           proxy.on('proxyReq', (proxyReq, _req, _res) => {
-            // 添加Notion API所需的headers
+            // 娣诲姞Notion API鎵€闇€鐨刪eaders
             proxyReq.setHeader(
               'Authorization',
               `Bearer ${process.env.NOTION_API_KEY || 'YOUR_NOTION_API_TOKEN'}`
@@ -205,18 +205,19 @@ export default defineConfig({
     },
   },
   preview: {
-    host: '0.0.0.0', // 关键：允许外部访问
-    port: 5173, // 与Container Port匹配
-    strictPort: true, // 强制使用指定端口
+    open: false,
+    host: '0.0.0.0', // 鍏抽敭锛氬厑璁稿閮ㄨ闂?
+    port: 5173, // 涓嶤ontainer Port鍖归厤
+    strictPort: true, // 寮哄埗浣跨敤鎸囧畾绔彛
   },
 
   build: {
-    // 构建优化
+    // 鏋勫缓浼樺寲
     target: 'es2015',
-    minify: 'esbuild', // 使用esbuild进行压缩，更快更稳定
-    // 代码分割
+    minify: 'esbuild', // 浣跨敤esbuild杩涜鍘嬬缉锛屾洿蹇洿绋冲畾
+    // 浠ｇ爜鍒嗗壊
     rollupOptions: {
-      // 忽略 "use client" 指令的警告
+      // 蹇界暐 "use client" 鎸囦护鐨勮鍛?
       onwarn(warning, warn) {
         if (
           warning.code === 'MODULE_LEVEL_DIRECTIVE' &&
@@ -233,7 +234,7 @@ export default defineConfig({
             return 'vendor';
           }
         },
-        // 文件命名优化
+        // 鏂囦欢鍛藉悕浼樺寲
         chunkFileNames: () => {
           return `js/[name]-[hash].js`;
         },
@@ -255,14 +256,14 @@ export default defineConfig({
         },
       },
     },
-    // 构建输出优化
+    // 鏋勫缓杈撳嚭浼樺寲
     chunkSizeWarningLimit: 1000,
-    sourcemap: false, // 生产环境不生成sourcemap
-    // 压缩优化
+    sourcemap: false, // 鐢熶骇鐜涓嶇敓鎴恠ourcemap
+    // 鍘嬬缉浼樺寲
     cssCodeSplit: true,
-    assetsInlineLimit: 4096, // 小于4kb的资源内联
+    assetsInlineLimit: 4096, // 灏忎簬4kb鐨勮祫婧愬唴鑱?
   },
-  // 预构建优化
+  // 棰勬瀯寤轰紭鍖?
   optimizeDeps: {
     include: [
       'react',
@@ -275,25 +276,25 @@ export default defineConfig({
       'dayjs',
       'axios',
     ],
-    exclude: ['msw'], // MSW不需要预构建
+    exclude: ['msw'], // MSW涓嶉渶瑕侀鏋勫缓
   },
-  // CSS优化
+  // CSS浼樺寲
   css: {
     devSourcemap: true,
-    // CSS代码分割
+    // CSS浠ｇ爜鍒嗗壊
     modules: {
       localsConvention: 'camelCase',
     },
-    // PostCSS优化
+    // PostCSS浼樺寲
     postcss: {
       plugins: [
-        // 可以添加autoprefixer等插件
+        // 鍙互娣诲姞autoprefixer绛夋彃浠?
       ],
     },
   },
-  // 性能优化
+  // 鎬ц兘浼樺寲
   esbuild: {
-    // 生产环境移除console和debugger
+    // 鐢熶骇鐜绉婚櫎console鍜宒ebugger
     drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
   },
 });
