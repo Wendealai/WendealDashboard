@@ -33,15 +33,26 @@ const buildMeta = {
   buildTime,
 };
 
+const allowedHosts = Array.from(
+  new Set(
+    [
+      'oa.wendealai.com',
+      ...(process.env.VITE_ALLOWED_HOSTS || '').split(','),
+    ]
+      .map(host => host.trim())
+      .filter(Boolean)
+  )
+);
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react({
-      // React浼樺寲閰嶇疆
-      // 鏆傛椂绉婚櫎Babel鎻掍欢閰嶇疆浠ヨВ鍐宠В鏋愰敊璇?
+      // React婵炴潙鍚嬮敋閻庡灚鐓￠弻濠傤吋閸モ晜鐎?
+      // 闂佸搫妫楅崐鐟邦渻閸屾粎鐭撳┑鐘崇閻濈優abel闂佸湱绮敮濠傗枎閵忋倖鐓€鐎广儱娲ㄩ弸鍌毭归悩顔煎姤鐞氭瑩鏌涢幇顒傛瀮鐞氭瑩鏌＄€ｎ偄濮嶉柡浣革功閹?
     }),
-    // 浠ｇ爜鍒嗗壊閫氳繃rollupOptions.output.manualChunks瀹炵幇
-    // Bundle鍒嗘瀽鎻掍欢锛堜粎鍦ㄥ垎鏋愭ā寮忎笅鍚敤锛?
+    // 婵炲濯寸徊鍧楁偉濠婂牆绀嗛柛鈩冾殔椤ュ繘姊洪锝勪孩缂佽鍏恛llupOptions.output.manualChunks闁诲骸婀遍崑鐔肩嵁?
+    // Bundle闂佸憡甯掑Λ娆撴倵娴犲绠甸柟鍝勭У椤愪粙鏌ㄥ☉妯煎缂侇喖閰ｅ畷鐑藉Ω閵夈儳鈧鏌＄€ｎ偄濮堥懚鈺冣偓娈垮枛缁诲绮崨鏉戣Е妞ゆ牗绮嶉弳蹇涙煥?
     ...(process.env.ANALYZE
       ? [
           visualizer({
@@ -55,7 +66,7 @@ export default defineConfig({
   ],
   define: {
     'process.env': {},
-    // 鐢熶骇鐜浼樺寲
+    // 闂佹眹鍨婚崰宥嗩殽閸ヮ剚鍋濇い鏍ㄥ嚬閺嗘柨霉閸忔祹顏嗏偓?
     __DEV__: process.env.NODE_ENV !== 'production',
     __WENDEAL_BUILD_META__: JSON.stringify(buildMeta),
   },
@@ -67,12 +78,13 @@ export default defineConfig({
   server: {
     port: 5173,
     open: false,
-    host: '0.0.0.0', // 鍏佽澶栭儴璁块棶
-    // 寮€鍙戞湇鍔″櫒浼樺寲
+    host: '0.0.0.0',
+    allowedHosts, // 闂佺绻嬪ù鍥敊韫囨柨绶為柡宥庡幖閸斻儵鎮规担鍛婂仴婵?
+    // 閻庢鍠掗崑鎾绘煕濞嗘劕鐏︽繝鈧崶顒€绀夐柍銉ㄦ珪閻濄倕霉閸忔祹顏嗏偓?
     hmr: {
-      overlay: false, // 绂佺敤閿欒瑕嗙洊灞?
+      overlay: false, // 缂備礁鍊烽懗鍫曞极閵堝鐓ユ繛鍡樺俯閸ゆ牠鎮烽弴鐐搭棤婵炴彃锕︽禒?
     },
-    // CSP澶撮儴閰嶇疆 - 寮€鍙戠幆澧冪Щ闄や互閬垮厤Cloudflare cookie闄愬埗
+    // CSP婵犮垼鍩栭幐鎶藉磿閹绢喗鐓€鐎广儱娲ㄩ弸?- 閻庢鍠掗崑鎾绘煕濞嗘劕鐏╂鐐叉閺呭爼宕橀顖楁櫊濮婁粙濡堕崟顏嗛瀺闂備緡鍓欓悘婵嬪储椤ワ箥oudflare cookie闂傚倸瀚崝鏇㈠春?
     // headers: {
     //   'Content-Security-Policy': [
     //     "default-src 'self' https:",
@@ -88,7 +100,7 @@ export default defineConfig({
     //     "upgrade-insecure-requests"
     //   ].join('; '),
     // },
-    // API浠ｇ悊閰嶇疆 - 浠ｇ悊鍒皀8n鏈嶅姟鍣?
+    // API婵炲濯寸徊鍧楀箖婵犲洦鐓€鐎广儱娲ㄩ弸?- 婵炲濯寸徊鍧楀箖婵犲洤绀嗛柣銊㈠亾8n闂佸搫鐗嗙粔瀛樻叏閻旂厧闂?
     proxy: {
       '/api': {
         target: 'https://n8n.wendealai.com',
@@ -103,12 +115,12 @@ export default defineConfig({
           });
         },
       },
-      // Webhook浠ｇ悊閰嶇疆 - 瑙ｅ喅CORS闂
+      // Webhook婵炲濯寸徊鍧楀箖婵犲洦鐓€鐎广儱娲ㄩ弸?- 闁荤喐鐟辩徊浠嬪窗閸栨摦RS闂傚倸鍋嗛崳锝夈€?
       '/webhook': {
         target: 'https://n8n.wendealai.com',
         changeOrigin: true,
         secure: true,
-        // 澶勭悊OPTIONS棰勬璇锋眰
+        // 婵犮垼娉涚€氼噣骞冩總娣IONS婵☆偅婢樼€氼參藟閸涱垱瀚氶梺鍨儑濠€?
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('webhook proxy error', err);
@@ -120,7 +132,7 @@ export default defineConfig({
               req.url
             );
 
-            // 澶勭悊OPTIONS棰勬璇锋眰
+            // 婵犮垼娉涚€氼噣骞冩總娣IONS婵☆偅婢樼€氼參藟閸涱垱瀚氶梺鍨儑濠€?
             if (req.method === 'OPTIONS') {
               console.log('Handling OPTIONS preflight request for webhook');
               res.writeHead(200, {
@@ -136,7 +148,7 @@ export default defineConfig({
             }
 
             console.log('Request Headers:', proxyReq.getHeaders());
-            // 纭繚multipart/form-data璇锋眰姝ｇ‘杞彂
+            // 缂佺虎鍙庨崰鏇犳崲濮濈晩ltipart/form-data闁荤姴娲弨閬嶆儑閺夋娼伴柨婵嗘礌閳ь剚蓱濞碱亪顢楅埀顒冦亹?
             if (req.headers['content-type']) {
               proxyReq.setHeader('Content-Type', req.headers['content-type']);
             }
@@ -147,7 +159,7 @@ export default defineConfig({
               proxyRes.statusCode,
               req.url
             );
-            // 娣诲姞CORS澶撮儴鍒版墍鏈夊搷搴?
+            // 濠电儑缍€椤曆勬叏濠点帯RS婵犮垼鍩栭幐鎶藉磿閹绢喖绀嗛柣妤€鐗嗛。鏌ユ煛閸繍妲搁柟濂告敱閹?
             proxyRes.headers['Access-Control-Allow-Origin'] = '*';
             proxyRes.headers['Access-Control-Allow-Methods'] =
               'GET, POST, PUT, DELETE, OPTIONS';
@@ -156,7 +168,7 @@ export default defineConfig({
           });
         },
       },
-      // Airtable API浠ｇ悊閰嶇疆 - 瑙ｅ喅CORS闂
+      // Airtable API婵炲濯寸徊鍧楀箖婵犲洦鐓€鐎广儱娲ㄩ弸?- 闁荤喐鐟辩徊浠嬪窗閸栨摦RS闂傚倸鍋嗛崳锝夈€?
       '/airtable': {
         target: 'https://api.airtable.com',
         changeOrigin: true,
@@ -174,7 +186,7 @@ export default defineConfig({
           });
         },
       },
-      // Notion API浠ｇ悊閰嶇疆 - 鑾峰彇Notion鏁版嵁搴撴暟鎹?
+      // Notion API婵炲濯寸徊鍧楀箖婵犲洦鐓€鐎广儱娲ㄩ弸?- 闂佸吋鍎抽崲鑼躲亹閸㈡tion闂佽桨鑳舵晶妤€鐣垫担瑙勫劅闁规儳鐡ㄥ▓鍫曟煙?
       '/webhook/notion-fetch': {
         target: 'https://api.notion.com',
         changeOrigin: true,
@@ -188,7 +200,7 @@ export default defineConfig({
             console.log('notion proxy error', err);
           });
           proxy.on('proxyReq', (proxyReq, _req, _res) => {
-            // 娣诲姞Notion API鎵€闇€鐨刪eaders
+            // 濠电儑缍€椤曆勬叏濠电tion API闂佸湱顣介崑鎾绘⒒閸ワ絽浜鹃梺姹囧妼閸╁崘aders
             proxyReq.setHeader(
               'Authorization',
               `Bearer ${process.env.NOTION_API_KEY || 'YOUR_NOTION_API_TOKEN'}`
@@ -206,18 +218,19 @@ export default defineConfig({
   },
   preview: {
     open: false,
-    host: '0.0.0.0', // 鍏抽敭锛氬厑璁稿閮ㄨ闂?
-    port: 5173, // 涓嶤ontainer Port鍖归厤
-    strictPort: true, // 寮哄埗浣跨敤鎸囧畾绔彛
+    host: '0.0.0.0',
+    allowedHosts, // 闂佺绻戞繛濠囧极椤撱垺鏅慨姗嗗墮鐢帡鎮规担渚劸妞わ箑顭烽弻鍫ュΩ椤垵鏅遍梻?
+    port: 5173, // 婵炴垶鎸搁柦濉穘tainer Port闂佸憡鐗曠紞濠囧储?
+    strictPort: true, // 閻庢鍠栭幖顐﹀春濡や焦濯撮悹鎭掑妽閺嗗繘鏌熺粙鎸庢悙闁伙絽澧界划鈺咁敍濮橆剛绋?
   },
 
   build: {
-    // 鏋勫缓浼樺寲
+    // 闂佸搫顑呯€氼剛绱撻幘鏉戭嚤婵☆垰鎼?
     target: 'es2015',
-    minify: 'esbuild', // 浣跨敤esbuild杩涜鍘嬬缉锛屾洿蹇洿绋冲畾
-    // 浠ｇ爜鍒嗗壊
+    minify: 'esbuild', // 婵炶揪缍€濞夋洟寮ˇ濯燽uild闁哄鏅滅粙鏍€侀幋锕€鍌ㄩ悗锝庡墰缁辨岸鏌ㄥ☉妯绘拱婵炶尪鍎荤粻娑㈩敃閿濆棛鍑界紓浣割儏閸熷潡鎮?
+    // 婵炲濯寸徊鍧楁偉濠婂牆绀嗛柛鈩冾殔椤?
     rollupOptions: {
-      // 蹇界暐 "use client" 鎸囦护鐨勮鍛?
+      // 闂婎偄娲ㄩ弲顐﹀汲?"use client" 闂佸湱顭堝ú锝夊箮閵堝鍎嶉柛鏇ㄥ櫘閸斿懘鏌?
       onwarn(warning, warn) {
         if (
           warning.code === 'MODULE_LEVEL_DIRECTIVE' &&
@@ -234,7 +247,7 @@ export default defineConfig({
             return 'vendor';
           }
         },
-        // 鏂囦欢鍛藉悕浼樺寲
+        // 闂佸搫鍊稿ú锝呪枎閵忋倕宸濋柦妯侯槹閸婂啿霉閸忔祹顏嗏偓?
         chunkFileNames: () => {
           return `js/[name]-[hash].js`;
         },
@@ -256,14 +269,14 @@ export default defineConfig({
         },
       },
     },
-    // 鏋勫缓杈撳嚭浼樺寲
+    // 闂佸搫顑呯€氼剛绱撻幘瀛樼秶闁规儳鍟垮В澶娒归崗娴庮亞鈧?
     chunkSizeWarningLimit: 1000,
-    sourcemap: false, // 鐢熶骇鐜涓嶇敓鎴恠ourcemap
-    // 鍘嬬缉浼樺寲
+    sourcemap: false, // 闂佹眹鍨婚崰宥嗩殽閸ヮ剚鍋濇い鏍ㄥ嚬閺嗘柨鈽夐幘宕囆ら柡浣规崌楠炲骞侀悥濯cemap
+    // 闂佸憡锚椤戝洨绱撴径瀣嚤婵☆垰鎼?
     cssCodeSplit: true,
-    assetsInlineLimit: 4096, // 灏忎簬4kb鐨勮祫婧愬唴鑱?
+    assetsInlineLimit: 4096, // 闁诲繐绻愮换瀣姳?kb闂佹眹鍔岀€氼垳绮婇鈶╂敠闁归偊鍓欓弫鍫曟煠?
   },
-  // 棰勬瀯寤轰紭鍖?
+  // 婵☆偅婢樼€氼參鎮楅姘煎殘閺夌偞澹嗛崰姗€鏌?
   optimizeDeps: {
     include: [
       'react',
@@ -276,25 +289,25 @@ export default defineConfig({
       'dayjs',
       'axios',
     ],
-    exclude: ['msw'], // MSW涓嶉渶瑕侀鏋勫缓
+    exclude: ['msw'], // MSW婵炴垶鎸哥粔鐟般€掗崜浣瑰暫濞撴埃鍋撴い锝傛櫊瀵悂宕熼銈囧
   },
-  // CSS浼樺寲
+  // CSS婵炴潙鍚嬮敋閻?
   css: {
     devSourcemap: true,
-    // CSS浠ｇ爜鍒嗗壊
+    // CSS婵炲濯寸徊鍧楁偉濠婂牆绀嗛柛鈩冾殔椤?
     modules: {
       localsConvention: 'camelCase',
     },
-    // PostCSS浼樺寲
+    // PostCSS婵炴潙鍚嬮敋閻?
     postcss: {
       plugins: [
-        // 鍙互娣诲姞autoprefixer绛夋彃浠?
+        // 闂佸憡鐟崹顖涚閹烘嚞搴ｆ嫚閹绘帩娼盿utoprefixer缂備焦绋戦ˇ鎷屻亹閸愨晝顩?
       ],
     },
   },
-  // 鎬ц兘浼樺寲
+  // 闂佽鍎搁崱妤€骞嬫繛鏉戝悑閿氶悗?
   esbuild: {
-    // 鐢熶骇鐜绉婚櫎console鍜宒ebugger
+    // 闂佹眹鍨婚崰宥嗩殽閸ヮ剚鍋濇い鏍ㄥ嚬閺嗘梻绱掓径濠庣吋婵炲懎绌痮nsole闂佸憡绮岄悾鐮産ugger
     drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
   },
 });
