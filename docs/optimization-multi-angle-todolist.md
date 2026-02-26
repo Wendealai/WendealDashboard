@@ -241,3 +241,16 @@ Status keys:
   - Scope: `src/__tests__/contract/**` for one-off payload and section/checklist contracts
   - Done when: one-off data contracts are protected against breaking refactors
   - Progress: added contract suite `src/__tests__/contract/inspectionOneOff.contract.test.ts`
+
+## Phase G: Bundle De-monolithization (P0)
+
+- [x] Replace catch-all `vendor` chunk with stable dependency-family split strategy
+  - Scope: `vite.config.ts` (`build.rollupOptions.output.manualChunks`)
+  - Done when: build output no longer contains single mega vendor chunk and chunk-size warning is cleared
+  - Progress: introduced grouped + package-aware chunking for react, antd ecosystem, antv/d3, pdf, xlsx, i18n, markdown, and package fallback
+
+## Verification (Phase G)
+
+- Build before: `vendor` chunk `4,781.26 kB` and chunk-size warning present
+- Build after: largest chunk `antv-vendor` `938.69 kB`; no chunk-size warning emitted
+- Command: `npm run build --silent` passed

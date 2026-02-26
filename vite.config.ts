@@ -241,11 +241,155 @@ export default defineConfig({
         warn(warning);
       },
       output: {
-        // Stable-first chunking: only split third-party deps to avoid init-order regressions
+        // Stable library-group chunking: reduce monolithic vendor blast radius.
         manualChunks: id => {
-          if (id.includes('node_modules')) {
-            return 'vendor';
+          if (!id.includes('node_modules')) {
+            return undefined;
           }
+
+          const toChunkSafe = (value: string): string =>
+            value.replace(/^@/, '').replace(/[\/\\@]/g, '-');
+
+          const packageNameFromId = (): string | undefined => {
+            const marker = 'node_modules/';
+            const index = id.lastIndexOf(marker);
+            if (index < 0) return undefined;
+            const rest = id.slice(index + marker.length);
+            const segments = rest.split(/[\/\\]/).filter(Boolean);
+            if (segments.length === 0) return undefined;
+            if (segments[0]?.startsWith('@') && segments[1]) {
+              return `${segments[0]}/${segments[1]}`;
+            }
+            return segments[0];
+          };
+
+          const isAny = (patterns: string[]): boolean =>
+            patterns.some(pattern => id.includes(pattern));
+
+          if (
+            isAny([
+              '/react/',
+              '/react-dom/',
+              '/scheduler/',
+              '/react-router/',
+              '/react-router-dom/',
+            ])
+          ) {
+            return 'react-vendor';
+          }
+
+          if (isAny(['/@ant-design/icons/'])) {
+            return 'antd-icons-vendor';
+          }
+
+          if (isAny(['/@rc-component/', '/rc-'])) {
+            return 'antd-rc-vendor';
+          }
+
+          if (
+            isAny([
+              '/antd/',
+              '/antd-style/',
+            ])
+          ) {
+            const antdComponentMatch = id.match(/\/antd\/(?:es|lib)\/([^/\\]+)/);
+            const componentName = antdComponentMatch?.[1];
+            if (componentName) {
+              return `antd-${toChunkSafe(componentName)}-vendor`;
+            }
+            return 'antd-core-vendor';
+          }
+
+          if (isAny(['/@ant-design/charts/'])) {
+            return 'ant-design-charts-vendor';
+          }
+
+          if (isAny(['/@antv/'])) {
+            return 'antv-vendor';
+          }
+
+          if (isAny(['/d3-'])) {
+            return 'd3-vendor';
+          }
+
+          if (
+            isAny([
+              '/@reduxjs/toolkit/',
+              '/react-redux/',
+              '/redux/',
+              '/reselect/',
+              '/immer/',
+            ])
+          ) {
+            return 'state-vendor';
+          }
+
+          if (
+            isAny([
+              '/i18next/',
+              '/react-i18next/',
+              '/i18next-browser-languagedetector/',
+            ])
+          ) {
+            return 'i18n-vendor';
+          }
+
+          if (isAny(['/html2pdf.js/', '/jspdf/', '/jspdf-autotable/'])) {
+            return 'pdf-vendor';
+          }
+
+          if (isAny(['/xlsx/'])) {
+            return 'xlsx-vendor';
+          }
+
+          if (
+            isAny([
+              '/react-markdown/',
+              '/remark-',
+              '/rehype-',
+              '/unified/',
+              '/micromark/',
+              '/mdast-util-',
+              '/hast-util-',
+              '/vfile/',
+              '/trough/',
+            ])
+          ) {
+            return 'markdown-vendor';
+          }
+
+          if (
+            isAny([
+              '/@tanstack/react-query/',
+              '/axios/',
+              '/dayjs/',
+              '/clsx/',
+              '/class-variance-authority/',
+              '/tailwind-merge/',
+              '/minimatch/',
+            ])
+          ) {
+            return 'utility-vendor';
+          }
+
+          if (
+            isAny([
+              '/airtable/',
+              '/socket.io-client/',
+              '/deep-chat-react/',
+              '/@novu/js/',
+              '/@novu/react/',
+              '/iframe-resizer/',
+            ])
+          ) {
+            return 'integration-vendor';
+          }
+
+          const packageName = packageNameFromId();
+          if (packageName) {
+            return `vendor-${toChunkSafe(packageName)}`;
+          }
+          return 'vendor-misc';
         },
         // 闂佸搫鍊稿ú锝呪枎閵忋倕宸濋柦妯侯槹閸婂啿霉閸忔祹顏嗏偓?
         chunkFileNames: () => {
