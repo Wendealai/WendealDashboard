@@ -729,6 +729,10 @@ const DispatchWeekPlan: React.FC = () => {
     () => [...jobs].sort(compareJobsBySchedule),
     [jobs]
   );
+  const sortedJobIds = useMemo(
+    () => sortedJobs.map(job => job.id),
+    [sortedJobs]
+  );
 
   const jobsByDate = useMemo(() => {
     const map = new Map<string, DispatchJob[]>();
@@ -817,6 +821,33 @@ const DispatchWeekPlan: React.FC = () => {
   const displayWeekStart = weekDates[0] || queryPayload.weekStart;
   const displayWeekEnd =
     weekDates[weekDates.length - 1] || queryPayload.weekEnd;
+  const buildCurrentPlanUrl = useCallback(
+    (sourceJobIds?: string[]): string => {
+      const params = new URLSearchParams();
+      const employeeId = (employee?.id || queryPayload.employeeId || '').trim();
+      if (employeeId) {
+        params.set('employeeId', employeeId);
+      }
+      params.set('weekStart', displayWeekStart);
+      params.set('weekEnd', displayWeekEnd);
+      const resolvedJobIds = Array.from(
+        new Set(
+          (sourceJobIds || sortedJobIds).map(id => id.trim()).filter(Boolean)
+        )
+      );
+      if (resolvedJobIds.length > 0) {
+        params.set('jobIds', resolvedJobIds.join(','));
+      }
+      return `${window.location.origin}/dispatch-week-plan?${params.toString()}`;
+    },
+    [
+      displayWeekEnd,
+      displayWeekStart,
+      employee?.id,
+      queryPayload.employeeId,
+      sortedJobIds,
+    ]
+  );
 
   const customerProfileById = useMemo(() => {
     const map = new Map<string, DispatchCustomerProfile>();
@@ -900,7 +931,10 @@ const DispatchWeekPlan: React.FC = () => {
       try {
         const [employees, allJobs, profiles, templates] = await Promise.all([
           sparkeryDispatchService.getEmployees(),
-          sparkeryDispatchService.getJobs(),
+          sparkeryDispatchService.getJobs({
+            weekStart: queryPayload.weekStart,
+            weekEnd: queryPayload.weekEnd,
+          }),
           sparkeryDispatchService.getCustomerProfiles(),
           loadPropertyTemplates(),
         ]);
@@ -1165,8 +1199,22 @@ const DispatchWeekPlan: React.FC = () => {
     };
   }, [daySections, employee, naText, sortedJobs, t]);
 
+  useEffect(() => {
+    if (loading || !queryPayload.employeeId) {
+      return;
+    }
+    const canonicalSearch = new URL(buildCurrentPlanUrl()).search;
+    if (window.location.search !== canonicalSearch) {
+      window.history.replaceState(
+        {},
+        '',
+        `${window.location.pathname}${canonicalSearch}`
+      );
+    }
+  }, [buildCurrentPlanUrl, loading, queryPayload.employeeId]);
+
   const handleCopyCurrentPlanLink = useCallback(async () => {
-    const currentUrl = window.location.href;
+    const currentUrl = buildCurrentPlanUrl();
     try {
       if (!navigator.clipboard?.writeText) {
         messageApi.warning(
@@ -1185,7 +1233,7 @@ const DispatchWeekPlan: React.FC = () => {
         t('sparkery.dispatch.weekPlan.messages.copyWeeklyPlanLinkFailed')
       );
     }
-  }, [messageApi, t]);
+  }, [buildCurrentPlanUrl, messageApi, t]);
 
   const handleGenerateInspectionLink = useCallback(
     async (jobId: string) => {
