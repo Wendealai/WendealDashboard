@@ -2,7 +2,7 @@
 NIXPACKS_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 [phases.setup]
-nixPkgs = ["nodejs_22", "npm-10_x"]
+nixPkgs = ["nodejs_22"]
 
 [phases.install]
 cmds = ["npm ci --no-audit --no-fund"]
