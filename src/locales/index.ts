@@ -179,20 +179,16 @@ export const loadSparkeryLocaleOverrides = async (
   sparkeryOverridesLoaded.add(sparkeryLanguage);
 };
 
-if (defaultLanguage.startsWith('zh')) {
-  void (async () => {
-    await loadLanguageBundle(defaultLanguage);
-    await loadSparkeryLocaleOverrides(defaultLanguage);
-    await i18n.changeLanguage(defaultLanguage);
-  })();
-}
+void (async () => {
+  await loadLanguageBundle(defaultLanguage);
+  await loadSparkeryLocaleOverrides(defaultLanguage);
+  await i18n.changeLanguage(defaultLanguage);
+})();
 
 export const changeLanguage = (language: string) => {
   void (async () => {
     await loadLanguageBundle(language);
-    if (language.startsWith('zh')) {
-      await loadSparkeryLocaleOverrides(language);
-    }
+    await loadSparkeryLocaleOverrides(language);
     await i18n.changeLanguage(language);
     localStorage.setItem('wendeal-dashboard-language', language);
     window.dispatchEvent(
