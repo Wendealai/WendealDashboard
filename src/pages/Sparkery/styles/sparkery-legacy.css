@@ -976,8 +976,36 @@
   margin-bottom: 16px;
 }
 
+.sparkery-inspection-module-stack {
+  display: flex;
+  flex-direction: column;
+}
+
 .sparkery-inspection-overview-card {
   margin-bottom: 12px;
+}
+
+.sparkery-inspection-module-control-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 8px;
+}
+
+.sparkery-inspection-module-control-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e3edf8;
+  border-radius: 8px;
+  background: #f8fbff;
+  flex-wrap: wrap;
+}
+
+.sparkery-inspection-search-syntax-hint {
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .sparkery-inspection-overview-head {
@@ -1372,6 +1400,20 @@
 
 .sparkery-inspection-spacing-tight .ant-card-body {
   padding: 10px 12px !important;
+}
+
+.sparkery-inspection-night-review {
+  background:
+    radial-gradient(circle at 12% -5%, rgba(14, 45, 88, 0.14), transparent 36%),
+    radial-gradient(circle at 92% 8%, rgba(28, 66, 48, 0.12), transparent 30%);
+}
+
+.sparkery-inspection-night-review .sparkery-inspection-overview-card,
+.sparkery-inspection-night-review .sparkery-inspection-search-card,
+.sparkery-inspection-night-review .sparkery-inspection-action-log-card,
+.sparkery-inspection-night-review .sparkery-inspection-batch-card {
+  border-color: #d4e4f8;
+  box-shadow: 0 4px 14px rgba(17, 37, 68, 0.08);
 }
 
 .sparkery-inspection-command-list {

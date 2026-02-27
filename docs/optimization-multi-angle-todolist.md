@@ -579,3 +579,40 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase O: UI Hundred-Challenge Wave 2
+
+### P0 (Workspace orchestration)
+
+- [x] Add workspace module stack with per-module anchor IDs
+  - Scope: `CleaningInspectionAdminContainer` archive panel modules
+  - Done when: every primary module (`workspace/system_health/quick_start/overview/ui_preferences/quick_actions/search/batch/results/logs`) can be jumped to and controlled
+- [x] Add persisted module ordering impact to render order
+  - Scope: module-order state + order-style application
+  - Done when: module move up/down in workspace control changes actual page ordering
+- [x] Add module-level show/hide coverage for all major blocks
+  - Scope: module visibility checks wrapping archive modules
+  - Done when: hidden modules are fully removed from render tree until re-enabled
+
+### P1 (Night operations and discoverability)
+
+- [x] Add night-review visual treatment
+  - Scope: inspection admin root + card variants in `sparkery-legacy.css`
+  - Done when: enabling night-review mode applies a distinct low-glare visual layer across control cards
+- [x] Add search syntax hint for key:value triage
+  - Scope: search card inline hint copy
+  - Done when: users can discover `status:/assignee:/id:/tag:/address:/customer:/oneoff:` syntax without docs
+
+### P2 (Recall and continuity)
+
+- [x] Add “Recent Opened” modal for fast context return
+  - Scope: header action + modal list + detail/open/copy link actions
+  - Done when: users can reopen recently reviewed inspections and clear history when needed
+- [x] Add workspace module control visual grid styling
+  - Scope: `sparkery-legacy.css` module-control styles
+  - Done when: module controls are readable and compact across desktop/mobile
+
+## Verification (Phase O)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
