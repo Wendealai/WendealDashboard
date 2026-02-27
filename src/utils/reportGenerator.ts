@@ -376,6 +376,7 @@ export class ReportGenerator {
     statistics: ReportStatistics,
     _options: ReportOptions
   ): string {
+    const generatedAt = new Date().toLocaleString();
     const html = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -384,34 +385,174 @@ export class ReportGenerator {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>导出一致性分析报告</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px 8px 0 0; }
-        .content { padding: 30px; }
-        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: #f8f9fa; padding: 20px; border-radius: 6px; border-left: 4px solid #667eea; }
-        .stat-number { font-size: 2em; font-weight: bold; color: #667eea; }
-        .stat-label { color: #6c757d; margin-top: 5px; }
-        .issue-group { margin-bottom: 30px; }
-        .issue-group h3 { color: #495057; border-bottom: 2px solid #e9ecef; padding-bottom: 10px; }
-        .issue-item { background: #fff; border: 1px solid #e9ecef; border-radius: 4px; padding: 15px; margin-bottom: 10px; }
-        .issue-severity { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; }
-        .severity-error { background: #f8d7da; color: #721c24; }
-        .severity-warning { background: #fff3cd; color: #856404; }
-        .severity-info { background: #d1ecf1; color: #0c5460; }
-        .suggestion { background: #e7f3ff; border-left: 3px solid #0066cc; padding: 10px; margin-top: 10px; font-style: italic; }
+        :root {
+          --report-bg: #f3f7fc;
+          --report-surface: #ffffff;
+          --report-border: #d9e3ef;
+          --report-text: #17212f;
+          --report-muted: #5d6b7c;
+          --report-primary: #0f5bdb;
+          --report-primary-soft: #edf4ff;
+          --report-warning: #8d5a00;
+          --report-danger: #9b2226;
+          --report-radius: 12px;
+        }
+        * { box-sizing: border-box; }
+        body {
+          font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+          margin: 0;
+          padding: 18px;
+          background: var(--report-bg);
+          color: var(--report-text);
+        }
+        .container {
+          max-width: 1120px;
+          margin: 0 auto;
+          background: var(--report-surface);
+          border: 1px solid var(--report-border);
+          border-radius: var(--report-radius);
+          overflow: hidden;
+          box-shadow: 0 8px 24px rgba(8, 27, 51, 0.08);
+        }
+        .header {
+          background: linear-gradient(120deg, #0f5bdb 0%, #1f4aa8 50%, #0f5bdb 100%);
+          color: white;
+          padding: 22px 26px 20px;
+        }
+        .header h1 {
+          margin: 0;
+          font-size: 28px;
+          line-height: 1.2;
+          letter-spacing: 0.2px;
+        }
+        .header-meta { margin-top: 8px; opacity: 0.92; font-size: 13px; }
+        .summary-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .summary-chip {
+          border: 1px solid rgba(255,255,255,0.38);
+          border-radius: 999px;
+          padding: 4px 10px;
+          font-size: 12px;
+          background: rgba(255,255,255,0.14);
+        }
+        .content { padding: 22px 24px 26px; }
+        .stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 12px;
+          margin-bottom: 18px;
+        }
+        .stat-card {
+          background: var(--report-primary-soft);
+          border: 1px solid #cfe0ff;
+          padding: 14px 14px 12px;
+          border-radius: 10px;
+        }
+        .stat-number {
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--report-primary);
+          line-height: 1;
+        }
+        .stat-label {
+          color: var(--report-muted);
+          margin-top: 6px;
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .issue-group { margin-bottom: 20px; }
+        .issue-group h3 {
+          color: #223248;
+          border-bottom: 1px solid var(--report-border);
+          margin: 0 0 10px;
+          padding-bottom: 7px;
+          font-size: 16px;
+        }
+        .issue-item {
+          background: #fff;
+          border: 1px solid var(--report-border);
+          border-radius: 10px;
+          padding: 12px;
+          margin-bottom: 10px;
+        }
+        .issue-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-bottom: 6px;
+        }
+        .issue-message { margin: 0; color: #213147; line-height: 1.5; }
+        .issue-severity {
+          display: inline-block;
+          padding: 3px 9px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.4px;
+          text-transform: uppercase;
+        }
+        .severity-error { background: #fde8ea; color: var(--report-danger); border: 1px solid #f4b7bc; }
+        .severity-warning { background: #fff4da; color: var(--report-warning); border: 1px solid #f1d08c; }
+        .severity-info { background: #e4f1ff; color: #1f4d8f; border: 1px solid #b8d5ff; }
+        .issue-location { color: var(--report-muted); font-size: 12px; }
+        .suggestion {
+          margin-top: 8px;
+          background: #f4f8ff;
+          border: 1px solid #d5e4ff;
+          border-left: 3px solid var(--report-primary);
+          border-radius: 6px;
+          padding: 8px 10px;
+          color: #29456f;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+        .report-footer {
+          border-top: 1px solid var(--report-border);
+          margin-top: 8px;
+          padding-top: 10px;
+          font-size: 12px;
+          color: var(--report-muted);
+          text-align: right;
+        }
+        @media print {
+          body { background: #fff; padding: 0; }
+          .container {
+            border: none;
+            box-shadow: none;
+            max-width: none;
+            border-radius: 0;
+          }
+          .header {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+        @media (max-width: 768px) {
+          body { padding: 8px; }
+          .content { padding: 14px; }
+          .header { padding: 16px 14px; }
+          .header h1 { font-size: 22px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>📊 导出一致性分析报告</h1>
-            <p>生成时间: ${new Date().toLocaleString()}</p>
+            <div class="header-meta">生成时间: ${generatedAt}</div>
+            <div class="summary-strip">
+              <span class="summary-chip">总问题: ${statistics.totalIssues}</span>
+              <span class="summary-chip">错误: ${statistics.issuesBySeverity.error || 0}</span>
+              <span class="summary-chip">警告: ${statistics.issuesBySeverity.warning || 0}</span>
+              <span class="summary-chip">信息: ${statistics.issuesBySeverity.info || 0}</span>
+            </div>
         </div>
         <div class="content">
             ${this.generateHtmlStatistics(statistics)}
             ${this.fixResult ? this.generateHtmlFixResult(this.fixResult) : ''}
             ${this.generateHtmlIssues(groupedIssues, _options)}
+            <div class="report-footer">Export Consistency Report</div>
         </div>
     </div>
 </body>
@@ -653,23 +794,31 @@ export class ReportGenerator {
 
     let html = '';
     for (const [group, issues] of groupedIssues) {
-      html += `<div class="issue-group"><h3>📁 ${group}</h3>`;
+      html += `<div class="issue-group"><h3>📁 ${this.escapeHtml(group)}</h3>`;
 
       for (const issue of issues) {
         const severityClass = `severity-${issue.severity}`;
         const location = issue.sourceLocation?.startLine
           ? `:${issue.sourceLocation.startLine}`
           : '';
+        const issueSeverity = this.escapeHtml(issue.severity || '');
+        const issueType = this.escapeHtml(issue.type || '');
+        const issueMessage = this.escapeHtml(issue.message || '');
+        const issueFilePath = this.escapeHtml(issue.filePath || '');
+        const issueSuggestion = this.escapeHtml(issue.suggestion || '');
 
         html += `
           <div class="issue-item">
-            <span class="issue-severity ${severityClass}">${issue.severity}</span>
-            <strong>${issue.type}</strong>${location}
-            <p>${issue.message}</p>
+            <div class="issue-title">
+              <span class="issue-severity ${severityClass}">${issueSeverity}</span>
+              <strong>${issueType}</strong>
+              <span class="issue-location">${issueFilePath}${location}</span>
+            </div>
+            <p class="issue-message">${issueMessage}</p>
         `;
 
         if (_options.includeSuggestions !== false && issue.suggestion) {
-          html += `<div class="suggestion">💡 建议: ${issue.suggestion}</div>`;
+          html += `<div class="suggestion">💡 建议: ${issueSuggestion}</div>`;
         }
 
         html += '</div>';
@@ -679,6 +828,15 @@ export class ReportGenerator {
     }
 
     return html;
+  }
+
+  private escapeHtml(input: string): string {
+    return input
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }
 

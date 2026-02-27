@@ -517,13 +517,19 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       });
 
       // Open print dialog to print the HTML report as PDF
-      const printWindow = window.open('', '_blank');
+      const printWindow = window.open(
+        '',
+        '_blank',
+        'noopener,noreferrer,width=1024,height=768'
+      );
       if (printWindow) {
         const titleLang: 'en' | 'cn' = language === 'cn' ? 'cn' : 'en';
         printWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <title>${tForTemplate(titleLang, 'sparkery.quoteCalculator.template.window.quoteTitle', 'Quote')} - ${quoteId}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -650,6 +656,85 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       .sparkery-page-break { page-break-after: always; break-after: page; }
     `;
   };
+  const getUnifiedReportEnhancementStyles = (): string => `
+      :root {
+        --report-bg: #ffffff;
+        --report-text: #1f2937;
+        --report-muted: #5b6675;
+        --report-primary: #005901;
+        --report-primary-soft: #f4faf1;
+        --report-border: #dfe7dd;
+      }
+      body {
+        background: var(--report-bg);
+        color: var(--report-text);
+      }
+      .report-summary-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+      .report-summary-card {
+        border: 1px solid #cfe0c6;
+        background: var(--report-primary-soft);
+        border-radius: 8px;
+        padding: 10px 11px;
+      }
+      .report-summary-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: #6f7c70;
+        margin-bottom: 4px;
+      }
+      .report-summary-value {
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1.2;
+        color: var(--report-primary);
+      }
+      table {
+        table-layout: fixed;
+        border: 1px solid var(--report-border);
+      }
+      thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      tbody tr:nth-child(even) {
+        background: #fbfcfb;
+      }
+      .page-footer {
+        color: #7b8592;
+      }
+      @media print {
+        thead th {
+          position: static;
+        }
+      }
+      @media screen and (max-width: 768px) {
+        .report-summary-strip {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+  `;
+  const buildReportSummaryStripHtml = (
+    cards: Array<{ label: string; value: string }>
+  ): string => `
+    <section class="report-summary-strip">
+      ${cards
+        .map(
+          card => `
+        <div class="report-summary-card">
+          <div class="report-summary-label">${card.label}</div>
+          <div class="report-summary-value">${card.value}</div>
+        </div>`
+        )
+        .join('')}
+    </section>
+  `;
 
   // 保存配置到localStorage
   useEffect(() => {
@@ -1583,6 +1668,55 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         'sparkery.quoteCalculator.template.quote.thankYou',
         'Thank you for choosing Sparkery - Making Brisbane Sparkle!'
       );
+      const generatedAtLabel = tForTemplate(
+        lang,
+        'sparkery.quoteCalculator.labels.generatedAt',
+        'Generated'
+      );
+      const summaryTotalLabel = tForTemplate(
+        lang,
+        'sparkery.quoteCalculator.summary.total',
+        'Total'
+      );
+      const summaryHoursLabel = tForTemplate(
+        lang,
+        'sparkery.quoteCalculator.summary.totalWorkHours',
+        'Total Work Hours'
+      );
+      const summaryLineItemsLabel = tForTemplate(
+        lang,
+        'sparkery.quoteCalculator.labels.lineItems',
+        'Line Items'
+      );
+      const summaryGstLabel = tForTemplate(
+        lang,
+        'sparkery.quoteCalculator.summary.gst',
+        'GST'
+      );
+      const lineItemCount = isServicePackage
+        ? serviceItems.length
+        : 1 +
+          (quote.workHours.steamCarpet > 0 ? 1 : 0) +
+          (quote.adjustments > 0 ? 1 : 0) +
+          ((quote.htmlRows || '').match(/<tr>/g)?.length || 0);
+      const summaryStripHtml = buildReportSummaryStripHtml([
+        {
+          label: summaryTotalLabel,
+          value: `$${quote.total.toFixed(2)}`,
+        },
+        {
+          label: summaryHoursLabel,
+          value: `${quote.workHours.total.toFixed(1)} ${hoursUnitLabel}`,
+        },
+        {
+          label: summaryLineItemsLabel,
+          value: String(lineItemCount),
+        },
+        {
+          label: summaryGstLabel,
+          value: includeGST ? `$${quote.gst.toFixed(2)}` : includedLabel,
+        },
+      ]);
 
       return `<!DOCTYPE html>
 <html lang="${lang === 'cn' ? 'zh-CN' : 'en'}">
@@ -1828,6 +1962,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 padding-top: 8px;
             }
         }
+        ${getUnifiedReportEnhancementStyles()}
     </style>
 </head>
 <body>
@@ -1871,7 +2006,8 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             </div>
         </div>
     </div>
-    <table>
+    ${summaryStripHtml}
+    <table aria-label="${quoteHeadingLabel}">
         <thead>
             <tr>
                 <th>${descriptionLabel}</th>
@@ -1905,7 +2041,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     </div>
 
     <div class="page-footer">
-        ${thankYouLabel}
+        ${thankYouLabel} · ${generatedAtLabel}: ${currentDate}
     </div>
     </div>
 </body>
@@ -2375,6 +2511,40 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           'sparkery.quoteCalculator.template.invoice.thankYou',
           'Thank you for your business.'
         );
+    const generatedAtLabel = tForTemplate(
+      lang,
+      'sparkery.quoteCalculator.labels.generatedAt',
+      'Generated'
+    );
+    const summaryLineItemsLabel = tForTemplate(
+      lang,
+      'sparkery.quoteCalculator.labels.lineItems',
+      'Line Items'
+    );
+    const lineItemCount = isServicePackage
+      ? serviceItems.length
+      : 1 +
+        (quote.workHours.steamCarpet > 0 ? 1 : 0) +
+        (quote.adjustments > 0 ? 1 : 0) +
+        ((quote.htmlRows || '').match(/<tr>/g)?.length || 0);
+    const summaryStripHtml = buildReportSummaryStripHtml([
+      {
+        label: totalLabel,
+        value: `$${quote.total.toFixed(2)}`,
+      },
+      {
+        label: totalHoursLabel,
+        value: `${quote.workHours.total.toFixed(1)} ${hoursUnitLabel}`,
+      },
+      {
+        label: summaryLineItemsLabel,
+        value: String(lineItemCount),
+      },
+      {
+        label: gstLabel,
+        value: includeGST ? `$${quote.gst.toFixed(2)}` : includedLabel,
+      },
+    ]);
     const invoiceHeaderHTML =
       invoiceHeaderMode === 'sparkery'
         ? `
@@ -2477,6 +2647,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             .terms-list { padding-left: 16px; }
             .page-footer { position: static; margin-top: 16px; padding-top: 8px; }
         }
+        ${getUnifiedReportEnhancementStyles()}
     </style>
 </head>
 <body>
@@ -2505,7 +2676,8 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             </div>
         </div>
     </div>
-    <table>
+    ${summaryStripHtml}
+    <table aria-label="${documentHeadingLabel}">
         <thead>
             <tr>
                 <th>${descriptionLabel}</th>
@@ -2559,7 +2731,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     </div>
 
     <div class="page-footer">
-        ${thankYouLabel}
+        ${thankYouLabel} · ${generatedAtLabel}: ${invoiceDateFormatted}
     </div>
 </div>
 </body>
@@ -2604,13 +2776,19 @@ const BrisbaneQuoteCalculator: React.FC = () => {
             documentType
           ),
       });
-      const printWindow = window.open('', '_blank');
+      const printWindow = window.open(
+        '',
+        '_blank',
+        'noopener,noreferrer,width=1024,height=768'
+      );
       if (printWindow) {
         const titleLang: 'en' | 'cn' = language === 'cn' ? 'cn' : 'en';
         printWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <title>${
             documentType === 'quote'
               ? tForTemplate(

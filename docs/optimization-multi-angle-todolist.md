@@ -807,3 +807,32 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase U: Report HTML Beautification & Print Hardening
+
+### P0 (Cross-report visual baseline)
+
+- [x] Upgrade export diagnostic HTML report visual system
+  - Scope: `src/utils/reportGenerator.ts`
+  - Done when: summary cards, issue cards, print-ready layout, and severity hierarchy are consistently rendered
+- [x] Upgrade CLI diagnostic HTML renderer
+  - Scope: `src/cli/diagnostic.ts`
+  - Done when: generated HTML has responsive summary grid, typed issue cards, and printable hero/header behavior
+
+### P1 (Business report template quality)
+
+- [x] Improve China procurement report cover readability
+  - Scope: `src/utils/chinaProcurementPdfTemplate.ts`
+  - Done when: cover includes attachment/coverage/line-item summary strip and footer generation timestamp
+- [x] Improve cleaning inspection cover signal density
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: cover includes checklist completion, completion rate, required-photo missing count, and damage count
+
+### P2 (Quote/receipt template UX)
+
+- [x] Add quote/receipt summary strip and table accessibility upgrades
+  - Scope: `src/pages/Sparkery/quoteCalculator/BrisbaneQuoteCalculatorContainer.tsx`
+  - Done when: quote and custom receipt/quote templates include summary cards + table aria labels + stronger responsive behavior
+- [x] Harden report print window open strategy
+  - Scope: `src/pages/Sparkery/quoteCalculator/BrisbaneQuoteCalculatorContainer.tsx`, `src/utils/chinaProcurementPdfTemplate.ts`, `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: print windows open with safer flags and report wrappers include stronger document metadata

@@ -358,6 +358,35 @@ function generatePrintStyles(): string {
       margin-bottom: 5mm;
     }
 
+    .cover-summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 2.5mm;
+      margin-bottom: 4mm;
+    }
+
+    .cover-summary-card {
+      border: 1px solid ${COLORS.greenBorder};
+      background: ${COLORS.greenBgLight};
+      border-radius: 3px;
+      padding: 2mm 2.5mm;
+    }
+
+    .cover-summary-label {
+      font-size: 6.8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: ${COLORS.textLight};
+      margin-bottom: 0.6mm;
+    }
+
+    .cover-summary-value {
+      font-size: 10.5pt;
+      line-height: 1.1;
+      font-weight: 700;
+      color: ${COLORS.brandDark};
+    }
+
     .info-item {
       display: flex;
       flex-direction: column;
@@ -415,6 +444,7 @@ function generatePrintStyles(): string {
       border-collapse: collapse;
       margin-bottom: 4mm;
       font-size: 9pt;
+      table-layout: fixed;
     }
 
     .purchase-table thead th {
@@ -440,6 +470,7 @@ function generatePrintStyles(): string {
       border-bottom: 1px solid ${COLORS.borderLight};
       vertical-align: middle;
       color: ${COLORS.textMedium};
+      word-break: break-word;
     }
 
     .purchase-table tbody td.col-num  { text-align: center; color: ${COLORS.textLight}; }
@@ -725,6 +756,11 @@ function generatePrintStyles(): string {
           0 8px 24px rgba(0,0,0,0.12);
         border-radius: 2px;
       }
+      .purchase-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
     }
   `;
 }
@@ -758,6 +794,18 @@ function generateCoverPage(
   const notesHtml = record.notes
     ? `<div class="notes-box">${record.notes}</div>`
     : '';
+  const sectionsWithImagesCount = record.sections.filter(
+    section => section.images.length > 0
+  ).length;
+  const sectionCoveragePercent =
+    record.sections.length > 0
+      ? Math.round((sectionsWithImagesCount / record.sections.length) * 100)
+      : 0;
+  const totalImageCount = record.sections.reduce(
+    (sum, section) => sum + section.images.length,
+    0
+  );
+  const generatedAt = dayjs().format('YYYY-MM-DD HH:mm');
 
   return `
   <div class="page cover-page">
@@ -817,6 +865,25 @@ function generateCoverPage(
         </div>
       </div>
 
+      <div class="cover-summary-strip">
+        <div class="cover-summary-card">
+          <div class="cover-summary-label">Attachment Count</div>
+          <div class="cover-summary-value">${totalImageCount}</div>
+        </div>
+        <div class="cover-summary-card">
+          <div class="cover-summary-label">Section Coverage</div>
+          <div class="cover-summary-value">${sectionsWithImagesCount}/${record.sections.length}</div>
+        </div>
+        <div class="cover-summary-card">
+          <div class="cover-summary-label">Coverage Rate</div>
+          <div class="cover-summary-value">${sectionCoveragePercent}%</div>
+        </div>
+        <div class="cover-summary-card">
+          <div class="cover-summary-label">Line Items</div>
+          <div class="cover-summary-value">${purchaseItems.length}</div>
+        </div>
+      </div>
+
       ${notesHtml}
 
       <!-- Purchase Details Table -->
@@ -831,7 +898,7 @@ function generateCoverPage(
 
     <!-- ── Footer ──────────────────────────────── -->
     <div class="cover-footer">
-      Generated for ATO Audit Compliance &nbsp;&middot;&nbsp; Sparkery Business Records &nbsp;&middot;&nbsp; Page ${currentPage} of ${totalPages}
+      Generated for ATO Audit Compliance &nbsp;&middot;&nbsp; Sparkery Business Records &nbsp;&middot;&nbsp; ${generatedAt} &nbsp;&middot;&nbsp; Page ${currentPage} of ${totalPages}
     </div>
   </div>`;
 }
@@ -982,7 +1049,11 @@ ${sectionsStr}
  * Open HTML in new window for printing
  */
 export function openPrintWindow(htmlContent: string): Window | null {
-  const printWindow = window.open('', '_blank', 'width=900,height=700');
+  const printWindow = window.open(
+    '',
+    '_blank',
+    'width=900,height=700,noopener,noreferrer'
+  );
 
   if (printWindow) {
     printWindow.document.write(htmlContent);

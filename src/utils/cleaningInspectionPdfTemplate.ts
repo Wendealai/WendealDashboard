@@ -561,6 +561,32 @@ function generatePrintStyles(): string {
       border-bottom: 0.5pt solid #f0f0f0;
     }
 
+    .cover-summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 2.5mm;
+      margin-bottom: 4mm;
+    }
+    .cover-summary-card {
+      border: 0.5pt solid #cfe8c3;
+      border-radius: 3px;
+      background: #f5fff0;
+      padding: 2mm 2.5mm;
+    }
+    .cover-summary-label {
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #6f8a66;
+      margin-bottom: 0.6mm;
+    }
+    .cover-summary-value {
+      font-size: 11pt;
+      font-weight: 700;
+      line-height: 1.1;
+      color: #26670d;
+    }
+
     .company-card {
       border: 1pt solid #d9d9d9;
       border-radius: 3px;
@@ -672,6 +698,9 @@ function generatePrintStyles(): string {
       border-bottom: 0.3pt solid #f0f0f0;
       font-size: 9pt;
     }
+    .cl-row:nth-child(odd) {
+      background: #fcfffb;
+    }
     .cl-row:last-child { border-bottom: none; }
     .cl-icon {
       width: 4mm; height: 4mm;
@@ -730,6 +759,9 @@ function generatePrintStyles(): string {
     @media screen {
       body { background: #e8e8e8; padding: 10mm; }
       .page { margin: 0 auto 10mm; box-shadow: 0 2px 16px rgba(0,0,0,0.12); }
+      .cover-summary-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
   `;
 }
@@ -786,11 +818,32 @@ function generateCoverPage(
   submittedAt: string
 ): string {
   const roomCount = inspection.sections.length;
+  const checklistTotal = inspection.sections.reduce(
+    (sum, section) => sum + (section.checklist || []).length,
+    0
+  );
+  const checklistPassed = inspection.sections.reduce(
+    (sum, section) =>
+      sum + (section.checklist || []).filter(item => item.checked).length,
+    0
+  );
+  const checklistCompletionRate =
+    checklistTotal > 0
+      ? Math.round((checklistPassed / checklistTotal) * 100)
+      : 0;
   const totalPhotos = inspection.sections.reduce(
     (sum, s) =>
       sum +
       (s.photos || []).length +
       (s.checklist || []).filter(i => i.photo).length,
+    0
+  );
+  const requiredPhotoMissing = inspection.sections.reduce(
+    (sum, section) =>
+      sum +
+      (section.checklist || []).filter(
+        item => item.requiredPhoto && !item.photo
+      ).length,
     0
   );
   const damageCount = (inspection.damageReports || []).length;
@@ -864,6 +917,25 @@ function generateCoverPage(
         <tr><td class="label-cell">房间 / 照片 / 损坏</td><td class="value-cell">${roomCount} 个房间 · ${totalPhotos} 张照片 · ${damageCount} 处损坏</td></tr>
         <tr><td class="label-cell">提交时间 / Submitted</td><td class="value-cell">${submittedAt}</td></tr>
       </table>
+
+      <div class="cover-summary-strip">
+        <div class="cover-summary-card">
+          <div class="cover-summary-label">Checklist Completion</div>
+          <div class="cover-summary-value">${checklistPassed}/${checklistTotal}</div>
+        </div>
+        <div class="cover-summary-card">
+          <div class="cover-summary-label">Completion Rate</div>
+          <div class="cover-summary-value">${checklistCompletionRate}%</div>
+        </div>
+        <div class="cover-summary-card">
+          <div class="cover-summary-label">Missing Required Photos</div>
+          <div class="cover-summary-value">${requiredPhotoMissing}</div>
+        </div>
+        <div class="cover-summary-card">
+          <div class="cover-summary-label">Damage Reports</div>
+          <div class="cover-summary-value">${damageCount}</div>
+        </div>
+      </div>
       <div class="company-card">
         <div class="company-title">Company Information</div>
         <div class="company-grid">
@@ -1049,7 +1121,11 @@ function generateRoomPhotoPage(
  * Open HTML in new window for printing
  */
 export function openInspectionPrintWindow(htmlContent: string): Window | null {
-  const printWindow = window.open('', '_blank', 'width=900,height=700');
+  const printWindow = window.open(
+    '',
+    '_blank',
+    'width=900,height=700,noopener,noreferrer'
+  );
   if (printWindow) {
     printWindow.document.write(htmlContent);
     printWindow.document.close();

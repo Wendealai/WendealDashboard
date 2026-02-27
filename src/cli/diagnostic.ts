@@ -385,53 +385,219 @@ function formatAsText(report: any): string {
  * 格式化为HTML
  */
 function formatAsHtml(report: any): string {
+  const escapeHtml = (value: unknown): string =>
+    String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const issueRows =
+    report.issues && report.issues.length > 0
+      ? report.issues
+          .map(
+            (issue: any, index: number) => `
+      <article class="issue issue-${String(issue.severity || 'info').toLowerCase()}">
+        <div class="issue-head">
+          <span class="issue-index">#${index + 1}</span>
+          <span class="issue-level">${escapeHtml(issue.severity || 'INFO')}</span>
+          <h3>${escapeHtml(issue.description || '未知问题')}</h3>
+        </div>
+        <p class="issue-meta"><strong>文件:</strong> ${escapeHtml(issue.location?.filePath || '')}:${escapeHtml(issue.location?.line || '')}</p>
+        ${
+          issue.location?.codeSnippet
+            ? `<pre><code>${escapeHtml(issue.location.codeSnippet)}</code></pre>`
+            : ''
+        }
+      </article>
+    `
+          )
+          .join('')
+      : '';
+
   return `
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>导出诊断报告</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .summary { background: #f5f5f5; padding: 15px; border-radius: 5px; }
-    .issues { margin-top: 20px; }
-    .issue { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; }
-    .error { border-color: #f56565; background: #fed7d7; }
-    .warning { border-color: #ed8936; background: #feebc8; }
-    .info { border-color: #4299e1; background: #bee3f8; }
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --line: #dbe5f0;
+      --text: #1a2533;
+      --muted: #5f6f83;
+      --primary: #0f5bdb;
+      --danger: #9b2226;
+      --warning: #8d5a00;
+      --info: #1f4d8f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--surface);
+      box-shadow: 0 8px 24px rgba(8, 27, 51, 0.08);
+    }
+    .hero {
+      padding: 22px 24px;
+      color: #fff;
+      background: linear-gradient(120deg, #0f5bdb 0%, #1f4aa8 60%, #0f5bdb 100%);
+    }
+    .hero h1 { margin: 0; font-size: 28px; }
+    .hero p { margin: 8px 0 0; font-size: 13px; opacity: 0.92; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: #f9fbff;
+    }
+    .summary-card {
+      border: 1px solid #cfe0ff;
+      border-radius: 10px;
+      padding: 12px;
+      background: #eef4ff;
+    }
+    .summary-card .num {
+      font-size: 24px;
+      line-height: 1;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+    .summary-card .label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .issues {
+      padding: 18px 20px 22px;
+    }
+    .issues h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      color: #223248;
+    }
+    .issue {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+    .issue-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+    .issue-head h3 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.45;
+      color: #223248;
+    }
+    .issue-index {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      color: var(--muted);
+      background: #f8fbff;
+    }
+    .issue-level {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+    }
+    .issue-error .issue-level {
+      color: var(--danger);
+      background: #fde8ea;
+      border-color: #f4b7bc;
+    }
+    .issue-warning .issue-level {
+      color: var(--warning);
+      background: #fff4da;
+      border-color: #f1d08c;
+    }
+    .issue-info .issue-level {
+      color: var(--info);
+      background: #e4f1ff;
+      border-color: #b8d5ff;
+    }
+    .issue-meta {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    pre {
+      margin: 0;
+      padding: 10px;
+      overflow: auto;
+      border-radius: 8px;
+      border: 1px solid #d7e4f5;
+      background: #f7fbff;
+      color: #1f2f47;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .empty {
+      border: 1px dashed #b7cae3;
+      border-radius: 10px;
+      padding: 14px;
+      color: #2e4a74;
+      background: #f6f9ff;
+    }
+    @media print {
+      body { padding: 0; background: #fff; }
+      .container { border: none; box-shadow: none; border-radius: 0; max-width: none; }
+      .hero {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>导出诊断报告</h1>
-  <div class="summary">
-    <h2>摘要</h2>
-    <p>扫描时间: ${new Date().toLocaleString()}</p>
-    <p>扫描文件: ${report.filesScanned || 0}</p>
-    <p>发现导出: ${report.totalExports || 0}</p>
-    <p>已使用导出: ${report.usedExports || 0}</p>
-    <p>未使用导出: ${report.unusedExports || 0}</p>
-    <p>发现问题: ${report.issues?.length || 0}</p>
+  <div class="container">
+    <section class="hero">
+      <h1>导出诊断报告</h1>
+      <p>生成时间: ${new Date().toLocaleString()}</p>
+    </section>
+    <section class="summary-grid">
+      <div class="summary-card"><div class="num">${report.filesScanned || 0}</div><div class="label">扫描文件</div></div>
+      <div class="summary-card"><div class="num">${report.totalExports || 0}</div><div class="label">发现导出</div></div>
+      <div class="summary-card"><div class="num">${report.usedExports || 0}</div><div class="label">已使用导出</div></div>
+      <div class="summary-card"><div class="num">${report.unusedExports || 0}</div><div class="label">未使用导出</div></div>
+      <div class="summary-card"><div class="num">${report.issues?.length || 0}</div><div class="label">发现问题</div></div>
+    </section>
+    <section class="issues">
+      <h2>问题列表</h2>
+      ${
+        issueRows || '<div class="empty">没有发现问题，当前扫描结果良好。</div>'
+      }
+    </section>
   </div>
-
-  ${
-    report.issues && report.issues.length > 0
-      ? `
-  <div class="issues">
-    <h2>问题列表</h2>
-    ${report.issues
-      .map(
-        (issue: any) => `
-      <div class="issue ${issue.severity.toLowerCase()}">
-        <h3>[${issue.severity}] ${issue.description}</h3>
-        <p><strong>文件:</strong> ${issue.location?.filePath}:${issue.location?.line}</p>
-        ${issue.location?.codeSnippet ? `<pre><code>${issue.location.codeSnippet}</code></pre>` : ''}
-      </div>
-    `
-      )
-      .join('')}
-  </div>
-  `
-      : ''
-  }
 </body>
 </html>
   `.trim();
