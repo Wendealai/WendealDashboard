@@ -426,3 +426,28 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase L: Long-Session Operations Ergonomics
+
+### P0 (Night-shift batch comfort)
+
+- [x] Add configurable archive auto-refresh interval (`Off/15s/30s/60s`)
+  - Scope: overview control + polling scheduler + local persistence
+  - Done when: operator controls refresh pressure based on workload/network
+- [x] Add one-click visible detail expand/collapse
+  - Scope: quick selection strip + keyboard shortcuts
+  - Done when: reviewer can open/close detail blocks for all visible records in one action
+
+### P1 (Drawer navigation efficiency)
+
+- [x] Add “Next Unsubmitted” drawer navigation action
+  - Scope: detail drawer navigation row
+  - Done when: reviewer can jump across unfinished records without scanning submitted ones
+- [x] Extend shortcut catalog with detail expand/collapse commands
+  - Scope: shortcut hint and help modal
+  - Done when: power-user commands remain discoverable and consistent with behavior
+
+## Verification (Phase L)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed

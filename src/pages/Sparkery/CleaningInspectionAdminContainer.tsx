@@ -329,6 +329,8 @@ const INSPECTION_ARCHIVE_FIELD_VISIBILITY_STORAGE_KEY =
   'sparkery_inspection_archive_fields_v1';
 const INSPECTION_ARCHIVE_BOARD_COLLAPSE_STORAGE_KEY =
   'sparkery_inspection_archive_board_collapse_v1';
+const INSPECTION_ARCHIVE_REFRESH_INTERVAL_STORAGE_KEY =
+  'sparkery_inspection_archive_refresh_interval_v1';
 const INSPECTION_ARCHIVE_VIEWS_STORAGE_KEY =
   'sparkery_inspection_archive_views_v1';
 const INSPECTION_ARCHIVE_ACTION_LOG_STORAGE_KEY =
@@ -338,6 +340,7 @@ const MAX_ARCHIVE_VIEWS = 12;
 const MAX_ARCHIVE_ACTION_LOGS = 50;
 const ONE_OFF_MAX_SESSION_DRAFTS = 8;
 const ONE_OFF_ADVANCED_ROLE_SET = new Set(['admin', 'owner', 'ops_manager']);
+const ARCHIVE_REFRESH_INTERVAL_OPTIONS = [0, 15, 30, 60] as const;
 
 type ArchiveStatusFilter = 'all' | 'pending' | 'in_progress' | 'submitted';
 type ArchiveSortMode =
@@ -713,6 +716,18 @@ const CleaningInspectionAdmin: React.FC = () => {
   const [lastArchiveRefreshAt, setLastArchiveRefreshAt] = useState<
     string | null
   >(null);
+  const [archiveRefreshIntervalSeconds, setArchiveRefreshIntervalSeconds] =
+    useState<number>(() => {
+      const stored = safeReadLocalJson<number>(
+        INSPECTION_ARCHIVE_REFRESH_INTERVAL_STORAGE_KEY,
+        15
+      );
+      return ARCHIVE_REFRESH_INTERVAL_OPTIONS.includes(
+        stored as (typeof ARCHIVE_REFRESH_INTERVAL_OPTIONS)[number]
+      )
+        ? stored
+        : 15;
+    });
   const [detailArchiveId, setDetailArchiveId] = useState('');
   const [lastDeletedArchive, setLastDeletedArchive] =
     useState<InspectionArchive | null>(null);
@@ -1021,15 +1036,23 @@ const CleaningInspectionAdmin: React.FC = () => {
       refreshArchives();
     };
 
-    const timer = window.setInterval(refreshArchives, 15000);
+    const timer =
+      archiveRefreshIntervalSeconds > 0
+        ? window.setInterval(
+            refreshArchives,
+            archiveRefreshIntervalSeconds * 1000
+          )
+        : null;
     window.addEventListener('focus', onFocus);
 
     return () => {
       disposed = true;
-      window.clearInterval(timer);
+      if (timer) {
+        window.clearInterval(timer);
+      }
       window.removeEventListener('focus', onFocus);
     };
-  }, []);
+  }, [archiveRefreshIntervalSeconds]);
 
   React.useEffect(() => {
     safeWriteLocalJson(INSPECTION_ARCHIVE_FILTER_STORAGE_KEY, archiveFilters);
@@ -1048,6 +1071,13 @@ const CleaningInspectionAdmin: React.FC = () => {
       archiveBoardCollapse
     );
   }, [archiveBoardCollapse]);
+
+  React.useEffect(() => {
+    safeWriteLocalJson(
+      INSPECTION_ARCHIVE_REFRESH_INTERVAL_STORAGE_KEY,
+      archiveRefreshIntervalSeconds
+    );
+  }, [archiveRefreshIntervalSeconds]);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') {
@@ -3116,6 +3146,17 @@ const CleaningInspectionAdmin: React.FC = () => {
     () => filteredArchives.findIndex(item => item.id === detailArchiveId),
     [detailArchiveId, filteredArchives]
   );
+  const hasNextUnsubmittedArchive = React.useMemo(() => {
+    if (filteredArchives.length === 0) {
+      return false;
+    }
+    const startIndex = detailArchiveIndex >= 0 ? detailArchiveIndex + 1 : 0;
+    const rotated = [
+      ...filteredArchives.slice(startIndex),
+      ...filteredArchives.slice(0, startIndex),
+    ];
+    return rotated.some(item => item.status !== 'submitted');
+  }, [detailArchiveIndex, filteredArchives]);
 
   const focusNextArchiveInDrawer = React.useCallback(() => {
     if (detailArchiveIndex < 0) {
@@ -3137,6 +3178,21 @@ const CleaningInspectionAdmin: React.FC = () => {
       return;
     }
     setDetailArchiveId(prev.id);
+  }, [detailArchiveIndex, filteredArchives]);
+
+  const focusNextUnsubmittedArchiveInDrawer = React.useCallback(() => {
+    if (filteredArchives.length === 0) {
+      return;
+    }
+    const startIndex = detailArchiveIndex >= 0 ? detailArchiveIndex + 1 : 0;
+    const rotated = [
+      ...filteredArchives.slice(startIndex),
+      ...filteredArchives.slice(0, startIndex),
+    ];
+    const next = rotated.find(item => item.status !== 'submitted');
+    if (next) {
+      setDetailArchiveId(next.id);
+    }
   }, [detailArchiveIndex, filteredArchives]);
 
   React.useEffect(() => {
@@ -3397,6 +3453,37 @@ const CleaningInspectionAdmin: React.FC = () => {
     [appendArchiveActionLog, filteredArchives, messageApi, t]
   );
 
+  const toggleArchiveExpanded = React.useCallback((archiveId: string) => {
+    setExpandedArchiveIds(prev =>
+      prev.includes(archiveId)
+        ? prev.filter(id => id !== archiveId)
+        : [...prev, archiveId]
+    );
+  }, []);
+
+  const handleSetVisibleArchiveExpanded = React.useCallback(
+    (expanded: boolean) => {
+      const visibleIds = filteredArchives.map(item => item.id);
+      if (visibleIds.length === 0) {
+        return;
+      }
+      const visibleSet = new Set(visibleIds);
+      setExpandedArchiveIds(prev => {
+        if (expanded) {
+          const next = new Set(prev);
+          visibleIds.forEach(id => next.add(id));
+          return Array.from(next);
+        }
+        return prev.filter(id => !visibleSet.has(id));
+      });
+      appendArchiveActionLog(
+        expanded ? 'detail.expand_visible' : 'detail.collapse_visible',
+        `${expanded ? 'Expanded' : 'Collapsed'} ${visibleIds.length} visible detail cards`
+      );
+    },
+    [appendArchiveActionLog, filteredArchives]
+  );
+
   React.useEffect(() => {
     const handleSelectionShortcut = (event: KeyboardEvent) => {
       const withMeta = event.ctrlKey || event.metaKey;
@@ -3431,6 +3518,16 @@ const CleaningInspectionAdmin: React.FC = () => {
       if (key === 'd') {
         event.preventDefault();
         void handleCopySelectedIds();
+        return;
+      }
+      if (key === 'e') {
+        event.preventDefault();
+        handleSetVisibleArchiveExpanded(true);
+        return;
+      }
+      if (key === 'w') {
+        event.preventDefault();
+        handleSetVisibleArchiveExpanded(false);
       }
     };
     window.addEventListener('keydown', handleSelectionShortcut);
@@ -3441,16 +3538,9 @@ const CleaningInspectionAdmin: React.FC = () => {
     handleCopySelectedIds,
     handleCopySelectedLinks,
     handleInvertVisibleSelection,
+    handleSetVisibleArchiveExpanded,
     toggleSelectAllVisible,
   ]);
-
-  const toggleArchiveExpanded = React.useCallback((archiveId: string) => {
-    setExpandedArchiveIds(prev =>
-      prev.includes(archiveId)
-        ? prev.filter(id => id !== archiveId)
-        : [...prev, archiveId]
-    );
-  }, []);
 
   const handleSaveArchiveView = React.useCallback(() => {
     const viewName = archiveViewName.trim();
@@ -4350,7 +4440,7 @@ const CleaningInspectionAdmin: React.FC = () => {
           <Text type='secondary' className='sparkery-inspection-shortcut-hint'>
             {t('sparkery.inspectionAdmin.hints.oneOffShortcut', {
               defaultValue:
-                'Shortcuts: Ctrl/Cmd+Shift+N (one-off), Ctrl/Cmd+Shift+R (refresh), Ctrl/Cmd+Shift+F (focus search), Ctrl/Cmd+Shift+A (select visible), Ctrl/Cmd+Shift+I (invert), Ctrl/Cmd+Shift+L (copy links), Ctrl/Cmd+Shift+D (copy IDs)',
+                'Shortcuts: Ctrl/Cmd+Shift+N (one-off), Ctrl/Cmd+Shift+R (refresh), Ctrl/Cmd+Shift+F (focus search), Ctrl/Cmd+Shift+A (select visible), Ctrl/Cmd+Shift+I (invert), Ctrl/Cmd+Shift+L (copy links), Ctrl/Cmd+Shift+D (copy IDs), Ctrl/Cmd+Shift+E (expand details), Ctrl/Cmd+Shift+W (collapse details)',
             })}
           </Text>
         </Space>
@@ -4381,6 +4471,47 @@ const CleaningInspectionAdmin: React.FC = () => {
                     }),
               })}
             </Text>
+            <Space size={6} align='center'>
+              <Text type='secondary'>
+                {t('sparkery.inspectionAdmin.labels.autoRefresh', {
+                  defaultValue: 'Auto-refresh',
+                })}
+              </Text>
+              <Select
+                size='small'
+                value={archiveRefreshIntervalSeconds}
+                style={{ width: 150 }}
+                onChange={(value: number) =>
+                  setArchiveRefreshIntervalSeconds(value)
+                }
+                options={[
+                  {
+                    value: 0,
+                    label: t('sparkery.inspectionAdmin.labels.refreshOff', {
+                      defaultValue: 'Off',
+                    }),
+                  },
+                  {
+                    value: 15,
+                    label: t('sparkery.inspectionAdmin.labels.refresh15s', {
+                      defaultValue: '15s',
+                    }),
+                  },
+                  {
+                    value: 30,
+                    label: t('sparkery.inspectionAdmin.labels.refresh30s', {
+                      defaultValue: '30s',
+                    }),
+                  },
+                  {
+                    value: 60,
+                    label: t('sparkery.inspectionAdmin.labels.refresh60s', {
+                      defaultValue: '60s',
+                    }),
+                  },
+                ]}
+              />
+            </Space>
           </Space>
         </div>
         <div className='sparkery-inspection-progress-wrap'>
@@ -5166,6 +5297,22 @@ const CleaningInspectionAdmin: React.FC = () => {
                   defaultValue: 'Invert Visible Selection',
                 })}
               </Button>
+              <Button
+                size='small'
+                onClick={() => handleSetVisibleArchiveExpanded(true)}
+              >
+                {t('sparkery.inspectionAdmin.actions.expandVisibleDetails', {
+                  defaultValue: 'Expand Visible Details',
+                })}
+              </Button>
+              <Button
+                size='small'
+                onClick={() => handleSetVisibleArchiveExpanded(false)}
+              >
+                {t('sparkery.inspectionAdmin.actions.collapseVisibleDetails', {
+                  defaultValue: 'Collapse Visible Details',
+                })}
+              </Button>
             </Space>
           </div>
         </Space>
@@ -5531,6 +5678,15 @@ const CleaningInspectionAdmin: React.FC = () => {
                   defaultValue: 'Next',
                 })}
               </Button>
+              <Button
+                size='small'
+                disabled={!hasNextUnsubmittedArchive}
+                onClick={focusNextUnsubmittedArchiveInDrawer}
+              >
+                {t('sparkery.inspectionAdmin.actions.nextUnsubmitted', {
+                  defaultValue: 'Next Unsubmitted',
+                })}
+              </Button>
             </Space>
 
             <Card size='small' className='sparkery-inspection-drawer-card'>
@@ -5814,6 +5970,18 @@ const CleaningInspectionAdmin: React.FC = () => {
             <Text code>Ctrl/Cmd + Shift + D</Text> -{' '}
             {t('sparkery.inspectionAdmin.shortcuts.copyIds', {
               defaultValue: 'Copy selected IDs',
+            })}
+          </Text>
+          <Text>
+            <Text code>Ctrl/Cmd + Shift + E</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.expandVisibleDetails', {
+              defaultValue: 'Expand visible detail cards',
+            })}
+          </Text>
+          <Text>
+            <Text code>Ctrl/Cmd + Shift + W</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.collapseVisibleDetails', {
+              defaultValue: 'Collapse visible detail cards',
             })}
           </Text>
           <Text>
