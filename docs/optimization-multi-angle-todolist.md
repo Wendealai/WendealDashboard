@@ -954,3 +954,92 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase Z: Inspection Client Report UX Sweep (Low-Ops)
+
+### P0 (Client-facing readability and professionalism)
+
+- [x] Add report render options for cover style, density, issue-only export, and client-facing toggles
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: PDF render path supports low-maintenance appearance and mode control without changing business workflow
+- [x] Add service-type tag + export-mode chip + optional client chip on cover
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: customer can identify report scenario and export intent at first glance
+- [x] Add room risk badges and issue-prioritized checklist ordering
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: unresolved items become visually front-loaded for client review
+- [x] Add cover success banner for zero-issue report
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: all-pass inspections clearly communicate completion quality
+
+### P1 (Report structure and handoff speed)
+
+- [x] Add executive summary page and issue evidence page
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: customer receives quick findings + next actions + issue-focused list before room detail pages
+- [x] Add section divider page before detailed checklist/photo stream
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: long reports feel structured and less fatiguing
+- [x] Extend contents page with issue counts and mode note
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: section index provides actionable issue density signal
+
+### P2 (Print resilience and low-friction polish)
+
+- [x] Add unified report footer (contact + report id + generated time) across pages
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: all pages stay traceable in standalone print/PDF contexts
+- [x] Add image-fallback handling for broken photos
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: missing/broken image assets no longer produce blank confusing blocks
+- [x] Add optional sign-off block and optional online-report QR in closing page
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: customer approval handoff and mobile follow-up are supported without mandatory operational burden
+- [x] Add long-text preview/full rendering in cover table
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: long address/notes stay readable without breaking page layout
+
+## Verification (Phase Z)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
+
+## Phase AA: Inspection Report P0 Visual Sweep 2
+
+### P0 (Fast-scan professionalism)
+
+- [x] Add prominent cover `Report Class` strip (`STANDARD` / `ISSUE-ONLY`)
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: report intent is immediately visible from cover
+- [x] Add unified section-progress hint via footer section token on all pages
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: every page footer indicates current section context
+- [x] Add room-page one-line conclusion block (`PASS WITH EVIDENCE` / `ACTION NEEDED`)
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: customer can understand room outcome before reading full checklist
+- [x] Add fail/missing visual left accent bar for checklist rows
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: unresolved items are instantly scannable
+- [x] Standardize missing-evidence wording to uppercase `EVIDENCE MISSING`
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: missing-proof signal is consistent across checklist/evidence views
+- [x] Add damage severity grouping (`High/Medium/Low`) in damage summary page
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: damage review follows severity-first reading order
+- [x] Add contents issue-total banner (`TOTAL ISSUES`)
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: total risk volume is visible before detail navigation
+- [x] Enable tabular numeric rendering for cover KPI values
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: numeric cards align cleanly and look more professional
+- [x] Reduce footer font weight/size for lower visual noise
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: footer remains informative without competing with body content
+- [x] Normalize status/label casing (`PASS/FAIL/MISSING/PHOTO/NO PHOTO`)
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: report status language is visually consistent
+
+## Verification (Phase AA)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed

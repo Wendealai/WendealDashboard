@@ -25,9 +25,18 @@ import { reverseGeocode } from '@/pages/CleaningInspection/utils';
 
 export type InspectionReportLang = 'zh' | 'en';
 export type InspectionReportStylePreset = 'residential' | 'moveout' | 'office';
+export type InspectionReportCoverVariant = 'clean' | 'business' | 'contrast';
+export type InspectionReportDensity = 'standard' | 'compact';
 
 export interface InspectionReportRenderOptions {
   preset?: InspectionReportStylePreset;
+  coverVariant?: InspectionReportCoverVariant;
+  density?: InspectionReportDensity;
+  issueOnly?: boolean;
+  includeSignoff?: boolean;
+  clientLabel?: string;
+  onlineReportUrl?: string;
+  customerFriendlyLanguage?: boolean;
 }
 
 type InspectionTheme = {
@@ -36,6 +45,22 @@ type InspectionTheme = {
   accentSoft: string;
   badgePassBg: string;
   badgePassText: string;
+};
+
+type InspectionReportRenderConfig = {
+  preset: InspectionReportStylePreset;
+  coverVariant: InspectionReportCoverVariant;
+  density: InspectionReportDensity;
+  issueOnly: boolean;
+  includeSignoff: boolean;
+  clientLabel?: string;
+  onlineReportUrl?: string;
+  customerFriendlyLanguage: boolean;
+};
+
+type ReportPageMeta = {
+  reportId: string;
+  generatedAt: string;
 };
 
 const SECTION_NAME_EN_BY_ID: Record<string, string> = {
@@ -135,6 +160,139 @@ function inferInspectionPreset(
   return 'residential';
 }
 
+function inferCoverVariant(
+  preset: InspectionReportStylePreset
+): InspectionReportCoverVariant {
+  if (preset === 'office') return 'business';
+  if (preset === 'moveout') return 'contrast';
+  return 'clean';
+}
+
+function resolveInspectionRenderConfig(
+  inspection: CleaningInspection,
+  options: InspectionReportRenderOptions
+): InspectionReportRenderConfig {
+  const preset = options.preset || inferInspectionPreset(inspection);
+  const clientLabel = options.clientLabel?.trim();
+  const onlineReportUrl = options.onlineReportUrl?.trim();
+  return {
+    preset,
+    coverVariant: options.coverVariant || inferCoverVariant(preset),
+    density: options.density || 'standard',
+    issueOnly: Boolean(options.issueOnly),
+    includeSignoff: Boolean(options.includeSignoff),
+    customerFriendlyLanguage: options.customerFriendlyLanguage ?? true,
+    ...(clientLabel ? { clientLabel } : {}),
+    ...(onlineReportUrl ? { onlineReportUrl } : {}),
+  };
+}
+
+function getChecklistIssueCount(section: RoomSection): number {
+  return (section.checklist || []).filter(
+    item => !item.checked || (item.requiredPhoto && !item.photo)
+  ).length;
+}
+
+function hasChecklistIssue(section: RoomSection): boolean {
+  return getChecklistIssueCount(section) > 0;
+}
+
+function getRoomRiskLevel(section: RoomSection): 'low' | 'medium' | 'high' {
+  const total = (section.checklist || []).length;
+  if (total === 0) return 'low';
+  const issues = getChecklistIssueCount(section);
+  const ratio = issues / total;
+  if (ratio >= 0.4) return 'high';
+  if (ratio >= 0.15) return 'medium';
+  return 'low';
+}
+
+function getRoomStatusSummary(
+  section: RoomSection,
+  customerFriendlyLanguage: boolean
+): string {
+  const total = (section.checklist || []).length;
+  const checked = (section.checklist || []).filter(i => i.checked).length;
+  const missingRequiredCount = (section.checklist || []).filter(
+    item => item.requiredPhoto && !item.photo
+  ).length;
+  if (total === 0) {
+    return customerFriendlyLanguage
+      ? 'No checklist items added.'
+      : 'No checklist entries configured.';
+  }
+  if (missingRequiredCount > 0) {
+    return customerFriendlyLanguage
+      ? `Need ${missingRequiredCount} more required photos.`
+      : `Required evidence missing: ${missingRequiredCount}.`;
+  }
+  if (checked === total) {
+    return customerFriendlyLanguage
+      ? 'All checklist items are completed.'
+      : 'Checklist completed with full evidence.';
+  }
+  return customerFriendlyLanguage
+    ? `${total - checked} item(s) still need attention.`
+    : `${total - checked} item(s) remain unresolved.`;
+}
+
+function inferServiceLabel(
+  inspection: CleaningInspection,
+  preset: InspectionReportStylePreset
+): string {
+  const hint =
+    `${inspection.templateName || ''} ${inspection.propertyNotes || ''}`.toLowerCase();
+  if (hint.includes('bond') || hint.includes('move')) return 'Move-out Clean';
+  if (hint.includes('office') || hint.includes('commercial'))
+    return 'Commercial Clean';
+  if (hint.includes('deep')) return 'Deep Clean';
+  if (preset === 'office') return 'Office Inspection';
+  if (preset === 'moveout') return 'Move-out Inspection';
+  return 'Residential Inspection';
+}
+
+function buildReportMeta(inspection: CleaningInspection): ReportPageMeta {
+  return {
+    reportId: inspection.id || 'N/A',
+    generatedAt: dayjs().format('DD/MM/YYYY HH:mm'),
+  };
+}
+
+function buildFooterHtml(meta: ReportPageMeta, sectionHint: string): string {
+  const safeReportId = escapeHtml(meta.reportId);
+  const safeGeneratedAt = escapeHtml(meta.generatedAt);
+  const safeSectionHint = escapeHtml(sectionHint);
+  return `<div class="report-footer-line">${escapeHtml(SPARKERY_COMPANY_PROFILE.name)} · ${escapeHtml(SPARKERY_COMPANY_PROFILE.phone)} · Report ${safeReportId} · Section ${safeSectionHint} · Generated ${safeGeneratedAt} · 第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页</div>`;
+}
+
+function toSafeQrImageUrl(url: string): string {
+  const encoded = encodeURIComponent(url);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=132x132&data=${encoded}`;
+}
+
+function inferDamageSeverity(damage: DamageReport): 'high' | 'medium' | 'low' {
+  const hint =
+    `${damage.location || ''} ${damage.description || ''}`.toLowerCase();
+  if (
+    hint.includes('broken') ||
+    hint.includes('crack') ||
+    hint.includes('leak') ||
+    hint.includes('电') ||
+    hint.includes('hazard')
+  ) {
+    return 'high';
+  }
+  if (
+    hint.includes('stain') ||
+    hint.includes('scratch') ||
+    hint.includes('dent') ||
+    hint.includes('mark')
+  ) {
+    return 'medium';
+  }
+  return 'low';
+}
+
 function extractTrailingEnglish(value: string): string {
   const match = value.match(/[A-Za-z][A-Za-z0-9 /&().,'-]*$/);
   return match ? match[0].trim() : '';
@@ -160,6 +318,17 @@ function escapeHtml(value: string | number | null | undefined): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function formatPreviewText(
+  value: string | null | undefined,
+  maxLength = 96
+): string {
+  const raw = (value || '').trim();
+  if (!raw) return 'N/A';
+  if (raw.length <= maxLength) return escapeHtml(raw);
+  const preview = escapeHtml(`${raw.slice(0, maxLength).trimEnd()}...`);
+  return `${preview}<div class="long-text-muted">Full: ${escapeHtml(raw)}</div>`;
 }
 
 function toFileToken(
@@ -316,7 +485,9 @@ function localizePdfHtmlForEnglish(html: string): string {
     [/清洁人员\s*\/\s*Cleaner/g, 'Cleaner'],
     [/清洁时长\s*\/\s*Duration/g, 'Duration'],
     [/房间\s*\/\s*照片\s*\/\s*损坏/g, 'Rooms / Photos / Damage Reports'],
+    [/备注\s*\/\s*Notes/g, 'Notes'],
     [/提交时间\s*\/\s*Submitted/g, 'Submitted'],
+    [/目录\s*\/\s*Contents/g, 'Contents'],
     [/签到\s*\/\s*签退/g, 'Check-in / Check-out'],
     [/签到\s*CHECK-IN/g, 'CHECK-IN'],
     [/签退\s*CHECK-OUT/g, 'CHECK-OUT'],
@@ -402,8 +573,18 @@ export async function generateInspectionPdfHtml(
   const submittedAt = enriched.submittedAt
     ? dayjs(enriched.submittedAt).format('DD/MM/YYYY HH:mm')
     : 'N/A';
-  const preset = options.preset || inferInspectionPreset(enriched);
-  const validationWarnings = collectInspectionValidationWarnings(enriched);
+  const renderConfig = resolveInspectionRenderConfig(enriched, options);
+  const validationWarnings = collectInspectionValidationWarnings(
+    enriched,
+    renderConfig
+  );
+  const reportMeta = buildReportMeta(enriched);
+  const preset = renderConfig.preset;
+  const sectionsForRender = renderConfig.issueOnly
+    ? enriched.sections.filter(
+        section => hasChecklistIssue(section) || Boolean(section.notes?.trim())
+      )
+    : enriched.sections;
 
   const pages: string[] = [];
 
@@ -413,51 +594,110 @@ export async function generateInspectionPdfHtml(
       enriched,
       formattedDate,
       submittedAt,
-      preset,
-      validationWarnings
+      renderConfig,
+      validationWarnings,
+      reportMeta
     )
   );
 
   // Page 2: simple contents
+  const damagesWithPhotos = (enriched.damageReports || []).filter(d => d.photo);
+  const includeIssueEvidencePage =
+    sectionsForRender.some(section => hasChecklistIssue(section)) ||
+    damagesWithPhotos.length > 0;
   pages.push(
-    generateContentsPage(enriched, preset, {
-      hasDamageSection:
-        (enriched.damageReports || []).filter(d => d.photo).length > 0,
-    })
+    generateContentsPage(
+      enriched,
+      sectionsForRender,
+      renderConfig,
+      reportMeta,
+      {
+        hasDamageSection: damagesWithPhotos.length > 0,
+        includeIssueEvidencePage,
+      }
+    )
   );
 
+  pages.push(
+    generateExecutiveSummaryPage(
+      enriched,
+      sectionsForRender,
+      renderConfig,
+      reportMeta
+    )
+  );
+
+  if (includeIssueEvidencePage) {
+    pages.push(
+      generateIssueEvidencePage(
+        enriched,
+        sectionsForRender,
+        renderConfig,
+        reportMeta
+      )
+    );
+  }
+
   // Damage report pages (one photo per page)
-  const damagesWithPhotos = (enriched.damageReports || []).filter(d => d.photo);
   if (damagesWithPhotos.length > 0) {
-    pages.push(generateDamageSummaryPage(damagesWithPhotos));
+    pages.push(generateDamageSummaryPage(damagesWithPhotos, reportMeta));
     damagesWithPhotos.forEach((d, idx) => {
-      pages.push(generateDamagePhotoPage(d, idx));
+      pages.push(generateDamagePhotoPage(d, idx, reportMeta));
     });
   }
 
+  if (sectionsForRender.length > 0) {
+    pages.push(generateSectionDividerPage(renderConfig, reportMeta));
+  }
+
   // Per-room: checklist page + checklist item photos + additional photos
-  enriched.sections.forEach((section, sectionIdx) => {
+  sectionsForRender.forEach((section, sectionIdx) => {
     // Checklist summary for this room
-    if (section.checklist && section.checklist.length > 0) {
+    if (
+      (section.checklist && section.checklist.length > 0) ||
+      Boolean(section.notes?.trim())
+    ) {
       pages.push(
-        generateRoomChecklistPage(section, sectionIdx, enriched.sections.length)
+        generateRoomChecklistPage(
+          section,
+          sectionIdx,
+          sectionsForRender.length,
+          renderConfig,
+          reportMeta
+        )
       );
     }
 
     // Checklist item photos (one per page, labeled with the item)
-    const itemsWithPhotos = (section.checklist || []).filter(i => i.photo);
+    const itemsWithPhotos = (section.checklist || []).filter(item =>
+      renderConfig.issueOnly
+        ? Boolean(item.photo && !item.checked)
+        : Boolean(item.photo)
+    );
     itemsWithPhotos.forEach(item => {
-      pages.push(generateChecklistPhotoPage(item, section, sectionIdx));
+      pages.push(
+        generateChecklistPhotoPage(item, section, sectionIdx, reportMeta)
+      );
     });
 
     // Additional room photos (one per page)
-    (section.photos || []).forEach((photo, photoIdx) => {
-      pages.push(generateRoomPhotoPage(photo, section, sectionIdx, photoIdx));
-    });
+    if (!renderConfig.issueOnly) {
+      (section.photos || []).forEach((photo, photoIdx) => {
+        pages.push(
+          generateRoomPhotoPage(
+            photo,
+            section,
+            sectionIdx,
+            photoIdx,
+            reportMeta
+          )
+        );
+      });
+    }
   });
 
   // Closing page for client-facing handoff
-  pages.push(generateClosingPage(enriched, preset));
+  pages.push(generateClosingPage(enriched, renderConfig, reportMeta));
 
   // Add page numbers
   const totalPages = pages.length;
@@ -479,10 +719,10 @@ export async function generateInspectionPdfHtml(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${reportTitle}</title>
   <style>
-    ${generatePrintStyles(preset)}
+    ${generatePrintStyles(renderConfig)}
   </style>
 </head>
-<body>
+<body class="density-${renderConfig.density}${renderConfig.issueOnly ? ' issue-only-export' : ''}">
   ${numberedPages.join('\n')}
   <script>
     window.onload = function() {
@@ -532,8 +772,9 @@ export async function generateInspectionPdfHtml(
 /**
  * Print-optimized CSS - clean, high-contrast, professional
  */
-function generatePrintStyles(preset: InspectionReportStylePreset): string {
-  const theme = getInspectionTheme(preset);
+function generatePrintStyles(config: InspectionReportRenderConfig): string {
+  const theme = getInspectionTheme(config.preset);
+  const compact = config.density === 'compact';
   return `
     :root {
       --report-accent: ${theme.accent};
@@ -545,6 +786,10 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       --report-badge-fail-text: #cf1322;
       --report-badge-missing-bg: #fff7e6;
       --report-badge-missing-text: #ad6800;
+      --report-section-gap: ${compact ? '2.3mm' : '3mm'};
+      --report-card-padding: ${compact ? '1.8mm 2.2mm' : '2.3mm 2.8mm'};
+      --report-row-gap: ${compact ? '1.1mm' : '1.6mm'};
+      --report-body-top: ${compact ? '55mm' : '58mm'};
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -554,6 +799,11 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       line-height: 1.6;
       color: #222;
       background: #fff;
+    }
+    .secondary-lang {
+      color: #94a3b8;
+      font-size: 0.92em;
+      font-weight: 500;
     }
 
     @page { size: A4 portrait; margin: 0; }
@@ -613,6 +863,24 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       max-height: 100%;
       object-fit: contain;
     }
+    .photo-area.img-fallback {
+      border: 0.8pt dashed #cbd5e1;
+      border-radius: 4px;
+      background: repeating-linear-gradient(
+        -45deg,
+        #f8fafc,
+        #f8fafc 8px,
+        #f1f5f9 8px,
+        #f1f5f9 16px
+      );
+    }
+    .photo-area.img-fallback::after {
+      content: 'Image unavailable';
+      font-size: 10pt;
+      color: #64748b;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
 
     /* ── Minimal footer with caption ── */
     .photo-caption {
@@ -650,6 +918,12 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       align-items: center;
       color: #fff;
     }
+    .cover-page.cover-style-business .cover-banner {
+      background: linear-gradient(140deg, #0f172a 0%, var(--report-accent-dark) 100%);
+    }
+    .cover-page.cover-style-contrast .cover-banner {
+      background: linear-gradient(145deg, #111827 0%, #000000 100%);
+    }
     .cover-brand {
       font-size: 11pt;
       font-weight: 400;
@@ -662,16 +936,58 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       font-size: 22pt;
       font-weight: 700;
       letter-spacing: 1px;
+      margin-top: 0.5mm;
     }
     .cover-subtitle {
       font-size: 9pt;
       opacity: 0.8;
       margin-top: 2mm;
     }
+    .cover-tag-row {
+      margin-top: 2mm;
+      display: flex;
+      gap: 2mm;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .cover-service-tag,
+    .cover-mode-chip,
+    .cover-client-chip {
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      border-radius: 999px;
+      padding: 0.6mm 1.8mm;
+      border: 0.5pt solid rgba(255, 255, 255, 0.38);
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+      text-transform: uppercase;
+    }
+    .cover-mode-chip {
+      background: rgba(255, 255, 255, 0.24);
+    }
+    .cover-page.cover-style-contrast .cover-service-tag,
+    .cover-page.cover-style-contrast .cover-mode-chip,
+    .cover-page.cover-style-contrast .cover-client-chip {
+      border-color: rgba(255, 255, 255, 0.52);
+      background: rgba(255, 255, 255, 0.18);
+    }
+    .cover-class-strip {
+      margin-top: 1.3mm;
+      border-radius: 999px;
+      padding: 0.7mm 2mm;
+      border: 0.5pt solid rgba(255, 255, 255, 0.52);
+      background: rgba(255, 255, 255, 0.22);
+      color: #fff;
+      font-size: 7.1pt;
+      font-weight: 700;
+      letter-spacing: 0.45px;
+      text-transform: uppercase;
+    }
 
     .cover-body {
       position: absolute;
-      top: 58mm; left: 15mm; right: 15mm; bottom: 12mm;
+      top: var(--report-body-top); left: 15mm; right: 15mm; bottom: 12mm;
     }
 
     /* Info table on cover */
@@ -696,6 +1012,14 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       color: #222;
       font-weight: 600;
       border-bottom: 0.5pt solid #f0f0f0;
+      word-break: break-word;
+    }
+    .long-text-muted {
+      margin-top: 0.6mm;
+      font-size: 7.4pt;
+      color: #64748b;
+      line-height: 1.35;
+      font-weight: 500;
     }
     .info-table tr:nth-child(odd) .label-cell,
     .info-table tr:nth-child(odd) .value-cell {
@@ -712,20 +1036,49 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       border: 0.5pt solid #dbe9d7;
       border-radius: 3px;
       background: var(--report-accent-soft);
-      padding: 2mm 2.5mm;
+      padding: var(--report-card-padding);
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
     }
     .cover-summary-label {
-      font-size: 7pt;
+      font-size: 7.1pt;
       text-transform: uppercase;
       letter-spacing: 0.4px;
       color: #6f8a66;
       margin-bottom: 0.6mm;
+      display: flex;
+      align-items: center;
+      gap: 1mm;
+    }
+    .metric-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 3.8mm;
+      height: 3.8mm;
+      border-radius: 50%;
+      border: 0.5pt solid #cfe4cd;
+      background: #fff;
+      color: var(--report-accent-dark);
+      font-size: 6.4pt;
+      font-weight: 700;
+      flex-shrink: 0;
     }
     .cover-summary-value {
       font-size: 11pt;
       font-weight: 700;
       line-height: 1.1;
       color: var(--report-accent-dark);
+      font-variant-numeric: tabular-nums;
+    }
+    .cover-success-banner {
+      border: 0.7pt solid #b7eb8f;
+      border-radius: 3px;
+      padding: 1.9mm 2.3mm;
+      background: #f6ffed;
+      color: #237804;
+      font-size: 8.3pt;
+      font-weight: 700;
+      margin-bottom: 3mm;
     }
     .validation-warning-box {
       border: 0.7pt solid #ffd591;
@@ -787,7 +1140,7 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       font-size: 10pt;
       font-weight: 700;
       color: #222;
-      margin: 5mm 0 3mm;
+      margin: calc(var(--report-section-gap) + 2mm) 0 var(--report-section-gap);
       padding-bottom: 1.5mm;
       border-bottom: 1.5pt solid var(--report-accent);
       display: inline-block;
@@ -817,11 +1170,43 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
     .room-card {
       border: 1pt solid #e0e0e0;
       border-radius: 3px;
-      padding: 2.5mm 3mm;
+      padding: var(--report-card-padding);
       background: #fff;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
     }
+    .room-card-topline {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 2mm;
+    }
     .room-card-name { font-size: 9pt; font-weight: 700; color: #333; }
+    .room-risk-badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      font-size: 6.8pt;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      padding: 0.3mm 1.2mm;
+      border: 0.5pt solid transparent;
+      flex-shrink: 0;
+    }
+    .room-risk-low {
+      color: #237804;
+      background: #f6ffed;
+      border-color: #b7eb8f;
+    }
+    .room-risk-medium {
+      color: #ad6800;
+      background: #fff7e6;
+      border-color: #ffd591;
+    }
+    .room-risk-high {
+      color: #a8071a;
+      background: #fff1f0;
+      border-color: #ffa39e;
+    }
     .room-card-stat { font-size: 7.5pt; color: #888; margin-top: 0.5mm; }
     .room-card-summary {
       margin-top: 1mm;
@@ -830,12 +1215,13 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       font-weight: 600;
     }
 
-    .cover-footer-line {
+    .report-footer-line {
       position: absolute;
       bottom: 5mm; left: 15mm; right: 15mm;
       text-align: center;
-      font-size: 7pt;
+      font-size: 6.5pt;
       color: #bbb;
+      letter-spacing: 0.15px;
     }
 
     /* ════════════════════ CHECKLIST PAGE ════════════════════ */
@@ -854,6 +1240,22 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
+    }
+    .list-room-conclusion {
+      margin-bottom: 2mm;
+      padding: 1.6mm 2.2mm;
+      border: 0.6pt solid #d9f7be;
+      background: #f6ffed;
+      color: #237804;
+      border-radius: 3px;
+      font-size: 8.2pt;
+      font-weight: 700;
+      letter-spacing: 0.15px;
+    }
+    .list-room-conclusion.alert {
+      border-color: #ffd591;
+      background: #fff7e6;
+      color: #ad6800;
     }
     .room-missing-alert {
       margin-bottom: 2mm;
@@ -874,11 +1276,21 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       display: flex;
       align-items: center;
       gap: 2.5mm;
-      padding: 2mm 0;
+      padding: var(--report-row-gap) 0;
       border-bottom: 0.3pt solid #f0f0f0;
       font-size: 9pt;
+      border-left: 1.5pt solid transparent;
+      padding-left: 1.4mm;
     }
-    .cl-row:nth-child(odd) {
+    .cl-row.cl-row-fail {
+      border-left-color: #cf1322;
+      background: #fff7f7;
+    }
+    .cl-row.cl-row-missing {
+      border-left-color: #d48806;
+      background: #fffdf5;
+    }
+    .cl-row:nth-child(odd):not(.cl-row-fail):not(.cl-row-missing) {
       background: #fcfffb;
     }
     .cl-row:last-child { border-bottom: none; }
@@ -904,6 +1316,8 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       min-width: 11mm;
       text-align: center;
       flex-shrink: 0;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
     }
     .cl-status-pass {
       background: var(--report-badge-pass-bg);
@@ -925,13 +1339,19 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       padding: 0.5mm 2mm;
       border-radius: 2px;
       flex-shrink: 0;
+      font-weight: 700;
+      letter-spacing: 0.25px;
+      text-transform: uppercase;
     }
     .cl-badge-photo { background: var(--report-accent-soft); color: var(--report-accent-dark); }
     .cl-badge-missing { background: #fff2f0; color: #cf1322; }
 
     /* ════════════════════ CONTENTS / CLOSING ════════════════════ */
     .toc-body,
-    .closing-body {
+    .closing-body,
+    .summary-body,
+    .evidence-body,
+    .divider-body {
       position: absolute;
       top: 16mm;
       left: 15mm;
@@ -939,14 +1359,20 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       bottom: 16mm;
     }
     .toc-title,
-    .closing-title {
+    .closing-title,
+    .summary-title,
+    .evidence-title,
+    .divider-title {
       font-size: 20pt;
       font-weight: 700;
       color: #0f172a;
       margin-bottom: 2mm;
     }
     .toc-subtitle,
-    .closing-subtitle {
+    .closing-subtitle,
+    .summary-subtitle,
+    .evidence-subtitle,
+    .divider-subtitle {
       font-size: 9pt;
       color: #64748b;
       margin-bottom: 4mm;
@@ -976,6 +1402,21 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       font-size: 8.8pt;
       color: #1f2937;
     }
+    .toc-issue-total {
+      margin-bottom: 2.2mm;
+      border: 0.6pt solid #ffd591;
+      border-radius: 3px;
+      background: #fff7e6;
+      padding: 1.5mm 2mm;
+      font-size: 8.4pt;
+      color: #ad6800;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .toc-list .toc-meta {
+      color: #64748b;
+      font-size: 8pt;
+    }
     .toc-list li:last-child {
       border-bottom: none;
     }
@@ -998,6 +1439,155 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       color: #1f2937;
       margin-bottom: 1.2mm;
     }
+    .closing-signoff-grid {
+      margin-top: 4mm;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4mm;
+    }
+    .signoff-box {
+      border: 0.8pt dashed #cbd5e1;
+      border-radius: 3px;
+      padding: 2.2mm 2.5mm;
+      min-height: 18mm;
+    }
+    .signoff-title {
+      font-size: 8pt;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 8mm;
+    }
+    .signoff-line {
+      border-top: 0.6pt solid #94a3b8;
+      font-size: 7.5pt;
+      color: #64748b;
+      padding-top: 1mm;
+    }
+    .closing-qr {
+      margin-top: 4mm;
+      display: flex;
+      gap: 3mm;
+      align-items: center;
+    }
+    .closing-qr img {
+      width: 24mm;
+      height: 24mm;
+      border: 0.8pt solid #dbeafe;
+      border-radius: 2px;
+      object-fit: contain;
+      background: #fff;
+    }
+    .closing-qr-note {
+      font-size: 8.2pt;
+      color: #475569;
+      line-height: 1.45;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 2.3mm;
+      margin-bottom: 3.5mm;
+    }
+    .summary-card {
+      border: 0.8pt solid #dbe7dc;
+      border-radius: 3px;
+      padding: var(--report-card-padding);
+      background: #f8fffa;
+    }
+    .summary-card-label {
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      color: #64748b;
+      margin-bottom: 0.7mm;
+    }
+    .summary-card-value {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .summary-section {
+      margin-top: 3.2mm;
+    }
+    .summary-section-title {
+      font-size: 10pt;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 1.5mm;
+      display: inline-block;
+      border-bottom: 1pt solid var(--report-accent);
+      padding-bottom: 0.6mm;
+    }
+    .summary-list {
+      list-style: none;
+      border: 0.8pt solid #e2e8f0;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .summary-list li {
+      font-size: 8.6pt;
+      color: #334155;
+      padding: 1.5mm 2mm;
+      border-bottom: 0.5pt solid #e2e8f0;
+      line-height: 1.45;
+    }
+    .summary-list li:last-child {
+      border-bottom: none;
+    }
+    .evidence-list {
+      list-style: none;
+      border: 0.8pt solid #e2e8f0;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 1mm;
+    }
+    .evidence-item {
+      display: grid;
+      grid-template-columns: 32% 46% 22%;
+      gap: 2mm;
+      align-items: center;
+      font-size: 8.2pt;
+      padding: 1.6mm 2mm;
+      border-bottom: 0.5pt solid #edf2f7;
+      color: #1f2937;
+    }
+    .evidence-item:last-child {
+      border-bottom: none;
+    }
+    .evidence-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      font-size: 6.9pt;
+      font-weight: 700;
+      padding: 0.3mm 1.3mm;
+      border: 0.5pt solid transparent;
+      min-width: 11mm;
+    }
+    .evidence-status-fail {
+      color: #a8071a;
+      background: #fff1f0;
+      border-color: #ffa39e;
+    }
+    .evidence-status-missing {
+      color: #ad6800;
+      background: #fff7e6;
+      border-color: #ffd591;
+    }
+    .evidence-more {
+      margin-top: 2mm;
+      font-size: 8pt;
+      color: #64748b;
+    }
+    .divider-body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .divider-subtitle {
+      margin-bottom: 0;
+    }
 
     /* ════════════════════ DAMAGE SUMMARY ════════════════════ */
     .damage-body {
@@ -1011,8 +1601,61 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       margin-bottom: 3mm;
       padding: 3mm;
       border: 1pt solid #ffd591;
+      border-left: 2pt solid #ffd591;
       border-radius: 3px;
       background: #fffbe6;
+    }
+    .dmg-item.severity-high {
+      border-left-color: #cf1322;
+      background: #fff2f0;
+    }
+    .dmg-item.severity-medium {
+      border-left-color: #d48806;
+      background: #fff7e6;
+    }
+    .dmg-item.severity-low {
+      border-left-color: #389e0d;
+      background: #f6ffed;
+    }
+    .dmg-group {
+      margin-bottom: 2.5mm;
+    }
+    .dmg-group-title {
+      font-size: 8.1pt;
+      font-weight: 800;
+      letter-spacing: 0.45px;
+      text-transform: uppercase;
+      color: #334155;
+      margin-bottom: 1.4mm;
+    }
+    .dmg-severity-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      font-size: 6.7pt;
+      font-weight: 700;
+      letter-spacing: 0.35px;
+      text-transform: uppercase;
+      min-width: 12mm;
+      padding: 0.35mm 1.3mm;
+      border: 0.5pt solid transparent;
+      margin-left: 1.2mm;
+    }
+    .dmg-severity-tag.high {
+      color: #a8071a;
+      background: #fff1f0;
+      border-color: #ffa39e;
+    }
+    .dmg-severity-tag.medium {
+      color: #ad6800;
+      background: #fff7e6;
+      border-color: #ffd591;
+    }
+    .dmg-severity-tag.low {
+      color: #237804;
+      background: #f6ffed;
+      border-color: #b7eb8f;
     }
     .dmg-thumb {
       width: 22mm; height: 16mm;
@@ -1020,6 +1663,11 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       border-radius: 2px;
       border: 0.5pt solid #d9d9d9;
       flex-shrink: 0;
+    }
+    .dmg-thumb.img-fallback {
+      border-style: dashed;
+      background: #f1f5f9;
+      object-fit: contain;
     }
     .dmg-info { flex: 1; }
     .dmg-loc { font-size: 9pt; font-weight: 700; color: #d46b08; }
@@ -1034,7 +1682,9 @@ function generatePrintStyles(preset: InspectionReportStylePreset): string {
       .dmg-item,
       .room-card,
       .company-card,
-      .cover-summary-card {
+      .cover-summary-card,
+      .summary-card,
+      .evidence-item {
         break-inside: avoid;
         page-break-inside: avoid;
       }
@@ -1093,7 +1743,8 @@ function formatCioBox(data: CheckInOut | null, label: string): string {
 }
 
 function collectInspectionValidationWarnings(
-  inspection: CleaningInspection
+  inspection: CleaningInspection,
+  config: InspectionReportRenderConfig
 ): string[] {
   const warnings: string[] = [];
   const roomCount = inspection.sections.length;
@@ -1114,23 +1765,64 @@ function collectInspectionValidationWarnings(
   if (totalPhotos === 0) {
     warnings.push('No photos attached yet.');
   }
+  if (!inspection.checkOutDate) {
+    warnings.push('Check-out date is missing.');
+  }
+  if (!inspection.checkOut?.timestamp) {
+    warnings.push('Check-out time record is missing.');
+  }
+  if (inspection.propertyAddress && inspection.propertyAddress.length > 180) {
+    warnings.push(
+      'Property address is very long and may wrap in print layout.'
+    );
+  }
+  if (
+    config.issueOnly &&
+    !inspection.sections.some(section => hasChecklistIssue(section))
+  ) {
+    warnings.push('Issue-only mode is enabled, but no issue items were found.');
+  }
 
   return warnings;
 }
 
 function generateContentsPage(
   inspection: CleaningInspection,
-  preset: InspectionReportStylePreset,
-  options: { hasDamageSection: boolean }
+  sections: RoomSection[],
+  config: InspectionReportRenderConfig,
+  reportMeta: ReportPageMeta,
+  options: { hasDamageSection: boolean; includeIssueEvidencePage: boolean }
 ): string {
   const safeReportId = escapeHtml(inspection.id || 'N/A');
-  const safePreset = escapeHtml(preset.toUpperCase());
-  const roomLines = inspection.sections
-    .map(
-      (section, index) =>
-        `<li><span>${index + 1}. ${escapeHtml(section.name)}</span><span>${(section.checklist || []).length} items</span></li>`
-    )
+  const safePreset = escapeHtml(config.preset.toUpperCase());
+  const totalIssues = sections.reduce(
+    (sum, section) => sum + getChecklistIssueCount(section),
+    0
+  );
+  const roomLines = sections
+    .map((section, index) => {
+      const issueCount = getChecklistIssueCount(section);
+      return `<li><span>${index + 1}. ${escapeHtml(section.name)}</span><span class="toc-meta">${(section.checklist || []).length} items · ${issueCount} issue(s)</span></li>`;
+    })
     .join('');
+  const systemLines: string[] = [
+    '<li><span>1. Cover</span><span class="toc-meta">Overview</span></li>',
+    '<li><span>2. Contents</span><span class="toc-meta">Index</span></li>',
+    '<li><span>3. Executive Summary</span><span class="toc-meta">Client Snapshot</span></li>',
+  ];
+  if (options.includeIssueEvidencePage) {
+    systemLines.push(
+      '<li><span>4. Issue Evidence</span><span class="toc-meta">Action Required</span></li>'
+    );
+  }
+  if (options.hasDamageSection) {
+    systemLines.push(
+      '<li><span>5. Damage Summary</span><span class="toc-meta">Photos</span></li>'
+    );
+  }
+  const modeNote = config.issueOnly
+    ? 'Export mode: Issues only (focus version).'
+    : 'Export mode: Full report.';
 
   return `
   <div class="page">
@@ -1138,28 +1830,282 @@ function generateContentsPage(
     <div class="toc-body">
       <div class="toc-title">目录 / Contents</div>
       <div class="toc-subtitle">Report ID: ${safeReportId} · Style: ${safePreset}</div>
+      <div class="toc-issue-total">TOTAL ISSUES: ${totalIssues} · ROOMS: ${sections.length}</div>
       <div class="toc-section-title">Sections</div>
       <ul class="toc-list">
-        <li><span>1. Cover</span><span>Overview</span></li>
-        <li><span>2. Contents</span><span>Index</span></li>
-        ${options.hasDamageSection ? '<li><span>3. Damage Summary</span><span>Photos</span></li>' : ''}
+        ${systemLines.join('')}
         ${roomLines}
       </ul>
-      <div class="toc-note">This report is designed for client-facing review and presentation.</div>
+      <div class="toc-note">This report is designed for client-facing review and presentation. ${modeNote}</div>
     </div>
-    <div class="cover-footer-line">
-      Sparkery Cleaning Services · 第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页 · ${safeReportId}
+    ${buildFooterHtml(reportMeta, 'Contents')}
+  </div>
+  `;
+}
+
+function buildActionRecommendations(
+  inspection: CleaningInspection,
+  sections: RoomSection[],
+  customerFriendlyLanguage: boolean
+): string[] {
+  const totalIssues = sections.reduce(
+    (sum, section) => sum + getChecklistIssueCount(section),
+    0
+  );
+  const missingRequiredPhotos = sections.reduce(
+    (sum, section) =>
+      sum +
+      (section.checklist || []).filter(
+        item => item.requiredPhoto && !item.photo
+      ).length,
+    0
+  );
+  const actions: string[] = [];
+
+  if (totalIssues === 0) {
+    actions.push(
+      customerFriendlyLanguage
+        ? 'All checklist items are complete. No immediate follow-up required.'
+        : 'Inspection is complete with no unresolved checklist items.'
+    );
+  } else {
+    actions.push(
+      customerFriendlyLanguage
+        ? `Review the ${totalIssues} highlighted item(s) and confirm re-clean scope if needed.`
+        : `Prioritize remediation for ${totalIssues} unresolved checklist item(s).`
+    );
+  }
+
+  if (missingRequiredPhotos > 0) {
+    actions.push(
+      customerFriendlyLanguage
+        ? `Collect ${missingRequiredPhotos} missing required photo(s) for full evidence archive.`
+        : `Capture and upload ${missingRequiredPhotos} required evidence photo(s).`
+    );
+  }
+
+  if ((inspection.damageReports || []).length > 0) {
+    actions.push(
+      customerFriendlyLanguage
+        ? 'Confirm pre-existing damage acknowledgement with customer before close-out.'
+        : 'Review and acknowledge all pre-clean damage records before sign-off.'
+    );
+  }
+
+  actions.push(
+    customerFriendlyLanguage
+      ? 'Keep this report ID for future service follow-up and client communication.'
+      : 'Reference this report ID for subsequent operational tracking.'
+  );
+
+  return actions.slice(0, 5);
+}
+
+function generateExecutiveSummaryPage(
+  inspection: CleaningInspection,
+  sections: RoomSection[],
+  config: InspectionReportRenderConfig,
+  reportMeta: ReportPageMeta
+): string {
+  const totalChecklist = sections.reduce(
+    (sum, section) => sum + (section.checklist || []).length,
+    0
+  );
+  const totalIssues = sections.reduce(
+    (sum, section) => sum + getChecklistIssueCount(section),
+    0
+  );
+  const missingRequiredPhotos = sections.reduce(
+    (sum, section) =>
+      sum +
+      (section.checklist || []).filter(
+        item => item.requiredPhoto && !item.photo
+      ).length,
+    0
+  );
+  const passRate =
+    totalChecklist > 0
+      ? Math.max(
+          0,
+          Math.round(((totalChecklist - totalIssues) / totalChecklist) * 100)
+        )
+      : 100;
+  const actions = buildActionRecommendations(
+    inspection,
+    sections,
+    config.customerFriendlyLanguage
+  );
+
+  const keyFindings = [
+    `Property: ${inspection.propertyId || 'N/A'}`,
+    `Report mode: ${config.issueOnly ? 'Issues only' : 'Full report'}`,
+    `Coverage: ${sections.length} room section(s), ${(inspection.damageReports || []).length} damage record(s)`,
+    `Prepared for client-facing review and evidence handoff.`,
+  ];
+
+  return `
+  <div class="page">
+    <div class="page-bar"></div>
+    <div class="summary-body">
+      <div class="summary-title">Client Summary</div>
+      <div class="summary-subtitle">Quick review snapshot for customer communication and approval.</div>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-card-label">Rooms</div>
+          <div class="summary-card-value">${sections.length}</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-label">Checklist</div>
+          <div class="summary-card-value">${totalChecklist}</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-label">Issues</div>
+          <div class="summary-card-value">${totalIssues}</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-label">Pass Rate</div>
+          <div class="summary-card-value">${passRate}%</div>
+        </div>
+      </div>
+      <div class="summary-section">
+        <div class="summary-section-title">Key Findings</div>
+        <ul class="summary-list">
+          ${keyFindings.map(line => `<li>${escapeHtml(line)}</li>`).join('')}
+        </ul>
+      </div>
+      <div class="summary-section">
+        <div class="summary-section-title">Recommended Next Actions</div>
+        <ul class="summary-list">
+          ${actions.map(line => `<li>${escapeHtml(line)}</li>`).join('')}
+        </ul>
+      </div>
+      ${
+        missingRequiredPhotos > 0
+          ? `<div class="toc-note">Required evidence still missing: ${missingRequiredPhotos} photo(s).</div>`
+          : ''
+      }
     </div>
+    ${buildFooterHtml(reportMeta, 'Executive Summary')}
+  </div>
+  `;
+}
+
+function generateIssueEvidencePage(
+  inspection: CleaningInspection,
+  sections: RoomSection[],
+  config: InspectionReportRenderConfig,
+  reportMeta: ReportPageMeta
+): string {
+  const rows: Array<{
+    room: string;
+    item: string;
+    status: 'fail' | 'missing';
+    hasPhoto: boolean;
+  }> = [];
+
+  sections.forEach(section => {
+    (section.checklist || []).forEach(item => {
+      const isMissingRequired = item.requiredPhoto && !item.photo;
+      if (!item.checked || isMissingRequired) {
+        rows.push({
+          room: section.name,
+          item: item.labelEn || item.label,
+          status: isMissingRequired ? 'missing' : 'fail',
+          hasPhoto: Boolean(item.photo),
+        });
+      }
+    });
+  });
+
+  const maxRows = 34;
+  const visibleRows = rows.slice(0, maxRows);
+  const overflowCount = Math.max(0, rows.length - visibleRows.length);
+  const damageCount = (inspection.damageReports || []).length;
+  const subtitle = config.customerFriendlyLanguage
+    ? 'Items listed here usually need follow-up or customer confirmation.'
+    : 'Evidence-focused list of unresolved checklist items.';
+
+  return `
+  <div class="page">
+    <div class="page-bar"></div>
+    <div class="evidence-body">
+      <div class="evidence-title">Issue Evidence</div>
+      <div class="evidence-subtitle">${escapeHtml(subtitle)} Damage records: ${damageCount}</div>
+      <ul class="evidence-list">
+        ${visibleRows
+          .map(
+            row => `
+          <li class="evidence-item">
+            <span>${escapeHtml(row.room)}</span>
+            <span>${escapeHtml(row.item)}</span>
+            <span class="evidence-status ${row.status === 'missing' ? 'evidence-status-missing' : 'evidence-status-fail'}">
+              ${row.status === 'missing' ? 'MISSING' : 'FAIL'} · ${row.hasPhoto ? 'PHOTO' : 'NO PHOTO'}
+            </span>
+          </li>`
+          )
+          .join('')}
+      </ul>
+      ${
+        visibleRows.length === 0
+          ? '<div class="toc-note">No unresolved checklist item was detected.</div>'
+          : ''
+      }
+      ${
+        overflowCount > 0
+          ? `<div class="evidence-more">+ ${overflowCount} more issue item(s) are listed in room detail pages.</div>`
+          : ''
+      }
+    </div>
+    ${buildFooterHtml(reportMeta, 'Issue Evidence')}
+  </div>
+  `;
+}
+
+function generateSectionDividerPage(
+  config: InspectionReportRenderConfig,
+  reportMeta: ReportPageMeta
+): string {
+  return `
+  <div class="page">
+    <div class="page-bar"></div>
+    <div class="divider-body">
+      <div class="divider-title">Inspection Details</div>
+      <div class="divider-subtitle">Room-by-room checklist and evidence pages start from the next page.</div>
+      <div class="toc-note">${config.issueOnly ? 'Issue-only mode: only rooms with unresolved items are included.' : 'Full mode: all rooms are included.'}</div>
+    </div>
+    ${buildFooterHtml(reportMeta, 'Inspection Details')}
   </div>
   `;
 }
 
 function generateClosingPage(
   inspection: CleaningInspection,
-  _preset: InspectionReportStylePreset
+  config: InspectionReportRenderConfig,
+  reportMeta: ReportPageMeta
 ): string {
   const safeReportId = escapeHtml(inspection.id || 'N/A');
   const safeProperty = escapeHtml(inspection.propertyId || 'N/A');
+  const qrHtml = config.onlineReportUrl
+    ? `<div class="closing-qr">
+        <img src="${escapeHtml(toSafeQrImageUrl(config.onlineReportUrl))}" alt="Online report QR" onerror="this.style.display='none'" />
+        <div class="closing-qr-note">
+          Online version available for mobile viewing:<br/>
+          ${escapeHtml(config.onlineReportUrl)}
+        </div>
+      </div>`
+    : '';
+  const signoffHtml = config.includeSignoff
+    ? `<div class="closing-signoff-grid">
+        <div class="signoff-box">
+          <div class="signoff-title">Client Acknowledgement</div>
+          <div class="signoff-line">Name / Signature / Date</div>
+        </div>
+        <div class="signoff-box">
+          <div class="signoff-title">Sparkery Representative</div>
+          <div class="signoff-line">Name / Signature / Date</div>
+        </div>
+      </div>`
+    : '';
   return `
   <div class="page">
     <div class="page-bar"></div>
@@ -1175,10 +2121,10 @@ function generateClosingPage(
         <div class="closing-line"><strong>Website:</strong> ${escapeHtml(SPARKERY_COMPANY_PROFILE.website)}</div>
       </div>
       <div class="closing-note">If you need any follow-up service, please contact us and reference this report ID.</div>
+      ${qrHtml}
+      ${signoffHtml}
     </div>
-    <div class="cover-footer-line">
-      Sparkery Cleaning Services · 第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页 · ${safeReportId}
-    </div>
+    ${buildFooterHtml(reportMeta, 'Closing')}
   </div>
   `;
 }
@@ -1190,8 +2136,9 @@ function generateCoverPage(
   inspection: CleaningInspection,
   formattedDate: string,
   submittedAt: string,
-  preset: InspectionReportStylePreset,
-  validationWarnings: string[]
+  config: InspectionReportRenderConfig,
+  validationWarnings: string[],
+  reportMeta: ReportPageMeta
 ): string {
   const roomCount = inspection.sections.length;
   const checklistTotal = inspection.sections.reduce(
@@ -1215,6 +2162,10 @@ function generateCoverPage(
     0
   );
   const damageCount = (inspection.damageReports || []).length;
+  const issueCount = inspection.sections.reduce(
+    (sum, section) => sum + getChecklistIssueCount(section),
+    0
+  );
   const assignedEmployees =
     inspection.assignedEmployees && inspection.assignedEmployees.length > 0
       ? inspection.assignedEmployees
@@ -1228,17 +2179,27 @@ function generateCoverPage(
           .join(' / ')
       : inspection.submitterName || 'N/A';
   const safePropertyId = escapeHtml(inspection.propertyId || 'N/A');
-  const safePropertyAddress = escapeHtml(inspection.propertyAddress || 'N/A');
+  const safePropertyAddressPreview = formatPreviewText(
+    inspection.propertyAddress
+  );
+  const safePropertyNotesPreview = formatPreviewText(
+    inspection.propertyNotes || inspection.propertyNotesZh,
+    120
+  );
   const safeFormattedDate = escapeHtml(formattedDate);
   const safeCleanerName = escapeHtml(cleanerName);
   const safeSubmittedAt = escapeHtml(submittedAt);
-  const safeInspectionId = escapeHtml(inspection.id || 'N/A');
+  const safeClientLabel = config.clientLabel
+    ? escapeHtml(config.clientLabel)
+    : '';
+  const serviceLabel = inferServiceLabel(inspection, config.preset);
+  const safeServiceLabel = escapeHtml(serviceLabel);
   const presetLabelMap: Record<InspectionReportStylePreset, string> = {
     residential: 'Residential',
     moveout: 'Move-out',
     office: 'Office',
   };
-  const safePresetLabel = escapeHtml(presetLabelMap[preset]);
+  const safePresetLabel = escapeHtml(presetLabelMap[config.preset]);
 
   let durationStr = 'N/A';
   if (inspection.checkIn?.timestamp && inspection.checkOut?.timestamp) {
@@ -1260,13 +2221,22 @@ function generateCoverPage(
       const missingRequiredCount = (s.checklist || []).filter(
         item => item.requiredPhoto && !item.photo
       ).length;
-      const roomStatus =
-        missingRequiredCount > 0 || checked < total
-          ? 'Needs Attention'
-          : 'Good';
+      const roomStatus = getRoomStatusSummary(
+        s,
+        config.customerFriendlyLanguage
+      );
+      const riskLevel = getRoomRiskLevel(s);
+      const riskLabelMap: Record<'low' | 'medium' | 'high', string> = {
+        low: 'LOW',
+        medium: 'MEDIUM',
+        high: 'HIGH',
+      };
       return `
         <div class="room-card">
-          <div class="room-card-name">${idx + 1}. ${safeRoomName}</div>
+          <div class="room-card-topline">
+            <div class="room-card-name">${idx + 1}. ${safeRoomName}</div>
+            <span class="room-risk-badge room-risk-${riskLevel}">${riskLabelMap[riskLevel]}</span>
+          </div>
           <div class="room-card-stat">${photoCount} 张照片${total ? ` · ${checked}/${total} 完成` : ''}</div>
           <div class="room-card-summary">${roomStatus}${missingRequiredCount > 0 ? ` · Missing ${missingRequiredCount}` : ''}</div>
         </div>`;
@@ -1281,6 +2251,19 @@ function generateCoverPage(
           )
           .join('')}</div>`
       : '';
+  const noIssueBannerHtml =
+    issueCount === 0
+      ? `<div class="cover-success-banner">All inspection checks passed. This report is ready for client handoff.</div>`
+      : '';
+  const modeChipHtml = config.issueOnly
+    ? '<span class="cover-mode-chip">Issue-only Export</span>'
+    : '<span class="cover-mode-chip">Full Export</span>';
+  const clientChipHtml = safeClientLabel
+    ? `<span class="cover-client-chip">Client: ${safeClientLabel}</span>`
+    : '';
+  const reportClassLabel = config.issueOnly
+    ? 'REPORT CLASS · ISSUE-ONLY REVIEW'
+    : 'REPORT CLASS · STANDARD CLIENT COPY';
 
   const companyInfoItems = [
     ['Company', SPARKERY_COMPANY_PROFILE.name],
@@ -1298,42 +2281,50 @@ function generateCoverPage(
     .join('');
 
   return `
-  <div class="page">
+  <div class="page cover-page cover-style-${config.coverVariant}">
     <div class="cover-banner">
       <div class="cover-brand">Sparkery</div>
       <div class="cover-title">清洁检查报告</div>
       <div class="cover-subtitle">Cleaning Inspection Report · ${safeFormattedDate} · ${safePresetLabel}</div>
+      <div class="cover-class-strip">${reportClassLabel}</div>
+      <div class="cover-tag-row">
+        <span class="cover-service-tag">${safeServiceLabel}</span>
+        ${modeChipHtml}
+        ${clientChipHtml}
+      </div>
     </div>
 
     <div class="cover-body">
       <table class="info-table">
         <tr><td class="label-cell">房产名称 / Property</td><td class="value-cell">${safePropertyId}</td></tr>
-        <tr><td class="label-cell">地址 / Address</td><td class="value-cell">${safePropertyAddress}</td></tr>
+        <tr><td class="label-cell">地址 / Address</td><td class="value-cell">${safePropertyAddressPreview}</td></tr>
         <tr><td class="label-cell">退房日期 / Check-out Date</td><td class="value-cell">${safeFormattedDate}</td></tr>
         <tr><td class="label-cell">清洁人员 / Cleaner</td><td class="value-cell">${safeCleanerName}</td></tr>
         <tr><td class="label-cell">清洁时长 / Duration</td><td class="value-cell">${escapeHtml(durationStr)}</td></tr>
         <tr><td class="label-cell">房间 / 照片 / 损坏</td><td class="value-cell">${roomCount} 个房间 · ${totalPhotos} 张照片 · ${damageCount} 处损坏</td></tr>
+        <tr><td class="label-cell">备注 / Notes</td><td class="value-cell">${safePropertyNotesPreview}</td></tr>
         <tr><td class="label-cell">提交时间 / Submitted</td><td class="value-cell">${safeSubmittedAt}</td></tr>
       </table>
 
       <div class="cover-summary-strip">
         <div class="cover-summary-card">
-          <div class="cover-summary-label">Rooms</div>
+          <div class="cover-summary-label"><span class="metric-icon">R</span>Rooms</div>
           <div class="cover-summary-value">${roomCount}</div>
         </div>
         <div class="cover-summary-card">
-          <div class="cover-summary-label">Checklist Items</div>
+          <div class="cover-summary-label"><span class="metric-icon">C</span>Checklist Items</div>
           <div class="cover-summary-value">${checklistTotal}</div>
         </div>
         <div class="cover-summary-card">
-          <div class="cover-summary-label">Pass Rate</div>
+          <div class="cover-summary-label"><span class="metric-icon">P</span>Pass Rate</div>
           <div class="cover-summary-value">${checklistCompletionRate}%</div>
         </div>
         <div class="cover-summary-card">
-          <div class="cover-summary-label">Damage Reports</div>
+          <div class="cover-summary-label"><span class="metric-icon">D</span>Damage Reports</div>
           <div class="cover-summary-value">${damageCount}</div>
         </div>
       </div>
+      ${noIssueBannerHtml}
       ${validationWarningsHtml}
       <div class="company-card">
         <div class="company-title">Company Information</div>
@@ -1354,9 +2345,7 @@ function generateCoverPage(
       </div>
     </div>
 
-    <div class="cover-footer-line">
-      Sparkery Cleaning Services · 第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页 · ${safeInspectionId}
-    </div>
+    ${buildFooterHtml(reportMeta, 'Cover')}
   </div>
   `;
 }
@@ -1364,19 +2353,47 @@ function generateCoverPage(
 /**
  * Damage summary page (list with thumbnails)
  */
-function generateDamageSummaryPage(damages: DamageReport[]): string {
-  const itemsHtml = damages
-    .map(
-      (d, idx) => `
-      <div class="dmg-item">
-        <img class="dmg-thumb" src="${escapeHtml(d.photo)}" alt="损坏 ${idx + 1}" />
+function generateDamageSummaryPage(
+  damages: DamageReport[],
+  reportMeta: ReportPageMeta
+): string {
+  const groups: Record<'high' | 'medium' | 'low', DamageReport[]> = {
+    high: [],
+    medium: [],
+    low: [],
+  };
+  damages.forEach(damage => {
+    groups[inferDamageSeverity(damage)].push(damage);
+  });
+  const severityTitle: Record<'high' | 'medium' | 'low', string> = {
+    high: 'High Severity',
+    medium: 'Medium Severity',
+    low: 'Low Severity',
+  };
+  const severityLabel: Record<'high' | 'medium' | 'low', string> = {
+    high: 'HIGH',
+    medium: 'MEDIUM',
+    low: 'LOW',
+  };
+  const itemsHtml = (['high', 'medium', 'low'] as const)
+    .map(severity => {
+      const groupItems = groups[severity];
+      if (!groupItems.length) return '';
+      const groupBody = groupItems
+        .map(
+          (d, idx) => `
+      <div class="dmg-item severity-${severity}">
+        <img class="dmg-thumb" src="${escapeHtml(d.photo)}" alt="损坏 ${idx + 1}" onerror="this.classList.add('img-fallback'); this.alt='Image unavailable';" />
         <div class="dmg-info">
-          <div class="dmg-loc">${escapeHtml(d.location || '未知位置')}</div>
+          <div class="dmg-loc">${escapeHtml(d.location || '未知位置')}<span class="dmg-severity-tag ${severity}">${severityLabel[severity]}</span></div>
           <div class="dmg-desc">${escapeHtml(d.description || '无描述')}</div>
           <div class="dmg-time">${escapeHtml(dayjs(d.timestamp).format('DD/MM/YYYY HH:mm:ss'))}</div>
         </div>
       </div>`
-    )
+        )
+        .join('');
+      return `<div class="dmg-group"><div class="dmg-group-title">${severityTitle[severity]}</div>${groupBody}</div>`;
+    })
     .join('');
 
   return `
@@ -1389,6 +2406,7 @@ function generateDamageSummaryPage(damages: DamageReport[]): string {
     <div class="damage-body" style="top:16mm;">
       ${itemsHtml}
     </div>
+    ${buildFooterHtml(reportMeta, 'Damage Summary')}
   </div>
   `;
 }
@@ -1396,25 +2414,36 @@ function generateDamageSummaryPage(damages: DamageReport[]): string {
 /**
  * Damage photo page - one full-page photo per damage
  */
-function generateDamagePhotoPage(damage: DamageReport, index: number): string {
+function generateDamagePhotoPage(
+  damage: DamageReport,
+  index: number,
+  reportMeta: ReportPageMeta
+): string {
+  const severity = inferDamageSeverity(damage);
+  const severityLabel: Record<'high' | 'medium' | 'low', string> = {
+    high: 'HIGH',
+    medium: 'MEDIUM',
+    low: 'LOW',
+  };
   const loc = escapeHtml(damage.location || '未知位置');
   const desc = escapeHtml(damage.description || '');
-  const caption = `损坏 #${index + 1} — ${loc}${desc ? ': ' + desc : ''}`;
+  const caption = `损坏 #${index + 1} — ${loc}${desc ? ': ' + desc : ''} · ${severityLabel[severity]}`;
 
   return `
   <div class="page">
     <div class="page-bar"></div>
     <div class="page-topline">
-      <div class="topline-left">损坏照片 #${index + 1} — ${loc}</div>
+      <div class="topline-left">损坏照片 #${index + 1} — ${loc} · ${severityLabel[severity]}</div>
       <div class="topline-right">第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页</div>
     </div>
     <div class="photo-area">
-      <img src="${escapeHtml(damage.photo)}" alt="损坏 ${index + 1}" />
+      <img src="${escapeHtml(damage.photo)}" alt="损坏 ${index + 1}" onerror="this.style.display='none'; var p=this.closest('.photo-area'); if(p){p.classList.add('img-fallback');}" />
     </div>
     <div class="photo-caption">
       <div class="caption-text">${caption}</div>
       <div class="caption-page">{PAGE_NUM} / {TOTAL_PAGES}</div>
     </div>
+    ${buildFooterHtml(reportMeta, `Damage Photo ${index + 1}`)}
   </div>
   `;
 }
@@ -1425,32 +2454,62 @@ function generateDamagePhotoPage(damage: DamageReport, index: number): string {
 function generateRoomChecklistPage(
   section: RoomSection,
   sectionIdx: number,
-  totalSections: number
+  totalSections: number,
+  config: InspectionReportRenderConfig,
+  reportMeta: ReportPageMeta
 ): string {
   const safeSectionName = escapeHtml(section.name);
-  const passCount = section.checklist.filter(i => i.checked).length;
-  const total = section.checklist.length;
-  const missingRequiredCount = section.checklist.filter(
+  const checklistItems = (section.checklist || [])
+    .filter(item =>
+      config.issueOnly
+        ? !item.checked || (item.requiredPhoto && !item.photo)
+        : true
+    )
+    .sort((a, b) => {
+      const score = (item: ChecklistItem) => {
+        if (item.requiredPhoto && !item.photo) return 0;
+        if (!item.checked) return 1;
+        return 2;
+      };
+      return score(a) - score(b);
+    });
+  const passCount = checklistItems.filter(i => i.checked).length;
+  const total = checklistItems.length;
+  const missingRequiredCount = checklistItems.filter(
     item => item.requiredPhoto && !item.photo
   ).length;
+  const unresolvedCount = checklistItems.filter(item => !item.checked).length;
+  const roomConclusion =
+    missingRequiredCount > 0 || unresolvedCount > 0
+      ? `ACTION NEEDED · ${Math.max(unresolvedCount, 0)} FAIL · ${missingRequiredCount} EVIDENCE MISSING`
+      : 'PASS WITH EVIDENCE · READY FOR CLIENT REVIEW';
+  const roomConclusionClass =
+    missingRequiredCount > 0 || unresolvedCount > 0
+      ? 'list-room-conclusion alert'
+      : 'list-room-conclusion';
 
-  const rowsHtml = section.checklist
+  const rowsHtml = checklistItems
     .map(item => {
-      const statusLabel =
-        item.requiredPhoto && !item.photo
-          ? '<span class="cl-status-label cl-status-missing">MISSING</span>'
-          : item.checked
-            ? '<span class="cl-status-label cl-status-pass">PASS</span>'
-            : '<span class="cl-status-label cl-status-fail">FAIL</span>';
+      const isMissingRequired = item.requiredPhoto && !item.photo;
+      const rowClass = isMissingRequired
+        ? 'cl-row cl-row-missing'
+        : item.checked
+          ? 'cl-row'
+          : 'cl-row cl-row-fail';
+      const statusLabel = isMissingRequired
+        ? '<span class="cl-status-label cl-status-missing">MISSING</span>'
+        : item.checked
+          ? '<span class="cl-status-label cl-status-pass">PASS</span>'
+          : '<span class="cl-status-label cl-status-fail">FAIL</span>';
       return `
-      <div class="cl-row">
+      <div class="${rowClass}">
         <div class="cl-icon ${item.checked ? 'cl-pass' : 'cl-fail'}">
           ${item.checked ? '✓' : '✗'}
         </div>
         ${statusLabel}
-        <div class="cl-label">${escapeHtml(item.label)}${item.labelEn ? ` <span style="color:#888;font-size:11px">(${escapeHtml(item.labelEn)})</span>` : ''}</div>
-        ${item.photo ? '<span class="cl-badge cl-badge-photo">📷 已拍照</span>' : ''}
-        ${item.requiredPhoto && !item.photo ? '<span class="cl-badge cl-badge-missing">⚠ 缺少照片</span>' : ''}
+        <div class="cl-label">${escapeHtml(item.label)}${item.labelEn ? ` <span class="secondary-lang">(${escapeHtml(item.labelEn)})</span>` : ''}</div>
+        ${item.photo ? '<span class="cl-badge cl-badge-photo">PHOTO</span>' : ''}
+        ${isMissingRequired ? '<span class="cl-badge cl-badge-missing">EVIDENCE MISSING</span>' : ''}
       </div>`;
     })
     .join('');
@@ -1465,8 +2524,9 @@ function generateRoomChecklistPage(
     <div class="list-body" style="top:16mm;">
       <div class="list-room-title">
         <span>${sectionIdx + 1}. ${safeSectionName}</span>
-        <span class="list-room-stat">${passCount} / ${total} 通过</span>
+        <span class="list-room-stat">${passCount} / ${total} 通过 · ${sectionIdx + 1}/${totalSections}</span>
       </div>
+      <div class="${roomConclusionClass}">${roomConclusion}</div>
       ${
         missingRequiredCount > 0
           ? `<div class="room-missing-alert">Missing required photos: ${missingRequiredCount}</div>`
@@ -1475,6 +2535,7 @@ function generateRoomChecklistPage(
       ${rowsHtml}
       ${section.notes ? `<div style="margin-top:3mm;padding:2.5mm 3mm;background:#fafafa;border-radius:3px;font-size:8.5pt;color:#555;border:0.5pt solid #e0e0e0;"><strong>备注：</strong>${escapeHtml(section.notes)}</div>` : ''}
     </div>
+    ${buildFooterHtml(reportMeta, `Room ${sectionIdx + 1}/${totalSections}`)}
   </div>
   `;
 }
@@ -1485,7 +2546,8 @@ function generateRoomChecklistPage(
 function generateChecklistPhotoPage(
   item: ChecklistItem,
   section: RoomSection,
-  sectionIdx: number
+  sectionIdx: number,
+  reportMeta: ReportPageMeta
 ): string {
   const safeSectionName = escapeHtml(section.name);
   const safeChecklistLabel = escapeHtml(item.label);
@@ -1498,12 +2560,13 @@ function generateChecklistPhotoPage(
       <div class="topline-right">第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页</div>
     </div>
     <div class="photo-area">
-      <img src="${escapeHtml(item.photo)}" alt="${safeChecklistLabelEn || safeChecklistLabel}" />
+      <img src="${escapeHtml(item.photo)}" alt="${safeChecklistLabelEn || safeChecklistLabel}" onerror="this.style.display='none'; var p=this.closest('.photo-area'); if(p){p.classList.add('img-fallback');}" />
     </div>
     <div class="photo-caption">
       <div class="caption-text">${item.checked ? '✓' : '✗'} ${safeChecklistLabel}${safeChecklistLabelEn ? ` (${safeChecklistLabelEn})` : ''}</div>
       <div class="caption-page">{PAGE_NUM} / {TOTAL_PAGES}</div>
     </div>
+    ${buildFooterHtml(reportMeta, `Checklist Photo ${sectionIdx + 1}`)}
   </div>
   `;
 }
@@ -1515,7 +2578,8 @@ function generateRoomPhotoPage(
   photo: UploadFile,
   section: RoomSection,
   sectionIdx: number,
-  photoIdx: number
+  photoIdx: number,
+  reportMeta: ReportPageMeta
 ): string {
   const safeSectionName = escapeHtml(section.name);
   const safePhotoName = escapeHtml(photo.name);
@@ -1528,12 +2592,13 @@ function generateRoomPhotoPage(
       <div class="topline-right">第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页</div>
     </div>
     <div class="photo-area">
-      <img src="${safePhotoUrl}" alt="${safePhotoName}" />
+      <img src="${safePhotoUrl}" alt="${safePhotoName}" onerror="this.style.display='none'; var p=this.closest('.photo-area'); if(p){p.classList.add('img-fallback');}" />
     </div>
     <div class="photo-caption">
       <div class="caption-text">${safeSectionName} · 补充照片 ${photoIdx + 1}</div>
       <div class="caption-page">{PAGE_NUM} / {TOTAL_PAGES}</div>
     </div>
+    ${buildFooterHtml(reportMeta, `Room Photo ${sectionIdx + 1}`)}
   </div>
   `;
 }
