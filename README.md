@@ -1,5 +1,13 @@
 # 🚀 Wendeal Dashboard
 
+## Sparkery 迁移说明
+
+Sparkery 前端已迁移至独立仓库并作为唯一发布源：
+
+- https://github.com/Wendealai/Sparkery
+
+请不要在本仓库执行 Sparkery 的开发、构建或部署流程。
+
 ## 版本与发布
 
 - 版本策略：遵循语义化版本（SemVer），采用 `MAJOR.MINOR.PATCH`

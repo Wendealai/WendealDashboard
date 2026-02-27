@@ -5,12 +5,13 @@
 
 ## Validation
 
-- [ ] `npm run typecheck:sparkery`
-- [ ] `npm run build:sparkery`
+- [ ] `npm run typecheck`
+- [ ] `npm run build`
 - [ ] Manual smoke test completed for touched modules
 
 ## Sparkery UI Checklist
 
+- [ ] Sparkery frontend changes were submitted to `https://github.com/Wendealai/Sparkery`
 - [ ] Uses SaaS tokens from `saas-shell.css` (no ad-hoc colors/sizes)
 - [ ] Button hierarchy follows `docs/sparkery/sparkery-ui-button-policy.md`
 - [ ] Spacing follows 4/8 rhythm tokens

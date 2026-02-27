@@ -27,8 +27,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Sparkery UI quality gate
-        run: npm run ui:quality:sparkery
+      - name: Sparkery ownership note
+        run: echo "Sparkery UI quality gates now run in Wendealai/Sparkery."
 
       - name: Run smoke tests
         run: npm run test:smoke
