@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Card,
-  Table,
   Tag,
   Button,
   Space,
@@ -13,8 +12,10 @@ import {
   Row,
   Col,
   message,
+  notification,
   Popconfirm,
   Statistic,
+  type TableColumnsType,
 } from 'antd';
 import {
   ClockCircleOutlined,
@@ -29,12 +30,14 @@ import {
   EditOutlined,
   MailOutlined,
   MessageOutlined,
+  FilterOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useQuoteDraft, type QuoteDraftData } from './quoteDraftContext';
+import SparkeryDataTable from '@/components/sparkery/SparkeryDataTable';
 import {
   listSubmissions,
   updateSubmission,
@@ -88,6 +91,35 @@ interface QuoteSubmission {
 
 type FollowUpStep = 'first' | 'second';
 type TranslateFn = TFunction;
+
+interface BatchStatusSnapshot {
+  key: string;
+  nextStatus: QuoteSubmission['status'];
+  rows: Array<{
+    id: string;
+    previousStatus: QuoteSubmission['status'];
+  }>;
+}
+
+type AdvancedRuleField =
+  | 'customer'
+  | 'contact'
+  | 'address'
+  | 'status'
+  | 'follow_up';
+type AdvancedRuleOperator =
+  | 'contains'
+  | 'equals'
+  | 'starts_with'
+  | 'is_empty'
+  | 'is_not_empty';
+
+interface AdvancedFilterRule {
+  id: string;
+  field: AdvancedRuleField;
+  operator: AdvancedRuleOperator;
+  value: string;
+}
 
 interface FollowUpMeta {
   stageLabel: string;
@@ -318,6 +350,52 @@ const buildSmsDraftLink = (
   return `sms:${phone}?body=${encodeURIComponent(body)}`;
 };
 
+const resolveAdvancedRuleFieldValue = (
+  submission: QuoteSubmission,
+  field: AdvancedRuleField,
+  t: TranslateFn
+): string => {
+  if (field === 'customer') {
+    return submission.customerName || '';
+  }
+  if (field === 'contact') {
+    return `${submission.email || ''} ${submission.phone || ''}`.trim();
+  }
+  if (field === 'address') {
+    return submission.propertyAddress || '';
+  }
+  if (field === 'status') {
+    return submission.status || '';
+  }
+  const followUp = getFollowUpMeta(submission, t);
+  return `${followUp.stageLabel} ${followUp.dueText}`.trim();
+};
+
+const matchAdvancedRule = (
+  value: string,
+  operator: AdvancedRuleOperator,
+  query: string
+): boolean => {
+  const normalizedValue = value.toLowerCase();
+  const normalizedQuery = query.trim().toLowerCase();
+  if (operator === 'is_empty') {
+    return normalizedValue.length === 0;
+  }
+  if (operator === 'is_not_empty') {
+    return normalizedValue.length > 0;
+  }
+  if (!normalizedQuery) {
+    return true;
+  }
+  if (operator === 'equals') {
+    return normalizedValue === normalizedQuery;
+  }
+  if (operator === 'starts_with') {
+    return normalizedValue.startsWith(normalizedQuery);
+  }
+  return normalizedValue.includes(normalizedQuery);
+};
+
 const BondCleanQuoteSubmissions: React.FC = () => {
   const { t } = useTranslation();
   const { setDraftData, setActiveTab } = useQuoteDraft();
@@ -330,6 +408,21 @@ const BondCleanQuoteSubmissions: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [formTypeFilter, setFormTypeFilter] = useState<string>('all');
   const [followUpSavingId, setFollowUpSavingId] = useState<string | null>(null);
+  const [selectedSubmissionIds, setSelectedSubmissionIds] = useState<string[]>(
+    []
+  );
+  const [batchStatusTarget, setBatchStatusTarget] =
+    useState<QuoteSubmission['status']>('contacted');
+  const [batchPreviewOpen, setBatchPreviewOpen] = useState(false);
+  const [batchApplying, setBatchApplying] = useState(false);
+  const [batchUndoing, setBatchUndoing] = useState(false);
+  const [lastBatchSnapshot, setLastBatchSnapshot] =
+    useState<BatchStatusSnapshot | null>(null);
+  const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false);
+  const [advancedFilterMode, setAdvancedFilterMode] = useState<'and' | 'or'>(
+    'and'
+  );
+  const [advancedRules, setAdvancedRules] = useState<AdvancedFilterRule[]>([]);
 
   const upsertSubmission = (updatedSubmission: QuoteSubmission): void => {
     setSubmissions(prev =>
@@ -509,6 +602,11 @@ const BondCleanQuoteSubmissions: React.FC = () => {
       );
     }
   };
+
+  const openSubmissionDetails = useCallback((submission: QuoteSubmission) => {
+    setSelectedSubmission(submission);
+    setDetailModalVisible(true);
+  }, []);
 
   // Generate quote draft - pass data to calculator
   const generateQuoteDraft = (record: QuoteSubmission) => {
@@ -690,6 +788,35 @@ const BondCleanQuoteSubmissions: React.FC = () => {
     );
   };
 
+  const addAdvancedRule = useCallback(() => {
+    setAdvancedRules(prev => [
+      ...prev,
+      {
+        id: `advanced-rule-${Date.now()}-${prev.length}`,
+        field: 'customer',
+        operator: 'contains',
+        value: '',
+      },
+    ]);
+  }, []);
+
+  const updateAdvancedRule = useCallback(
+    (ruleId: string, patch: Partial<AdvancedFilterRule>) => {
+      setAdvancedRules(prev =>
+        prev.map(rule => (rule.id === ruleId ? { ...rule, ...patch } : rule))
+      );
+    },
+    []
+  );
+
+  const removeAdvancedRule = useCallback((ruleId: string) => {
+    setAdvancedRules(prev => prev.filter(rule => rule.id !== ruleId));
+  }, []);
+
+  const clearAdvancedRules = useCallback(() => {
+    setAdvancedRules([]);
+  }, []);
+
   // Filter submissions
   const filteredSubmissions = useMemo(
     () =>
@@ -705,11 +832,42 @@ const BondCleanQuoteSubmissions: React.FC = () => {
           statusFilter === 'all' || submission.status === statusFilter;
         const matchesFormType =
           formTypeFilter === 'all' || submission.formType === formTypeFilter;
+        const advancedMatches =
+          advancedRules.length === 0
+            ? true
+            : advancedFilterMode === 'and'
+              ? advancedRules.every(rule =>
+                  matchAdvancedRule(
+                    resolveAdvancedRuleFieldValue(submission, rule.field, t),
+                    rule.operator,
+                    rule.value
+                  )
+                )
+              : advancedRules.some(rule =>
+                  matchAdvancedRule(
+                    resolveAdvancedRuleFieldValue(submission, rule.field, t),
+                    rule.operator,
+                    rule.value
+                  )
+                );
 
-        return matchesSearch && matchesStatus && matchesFormType;
+        return matchesSearch && matchesStatus && matchesFormType && advancedMatches;
       }),
-    [submissions, searchText, statusFilter, formTypeFilter]
+    [
+      advancedFilterMode,
+      advancedRules,
+      formTypeFilter,
+      searchText,
+      statusFilter,
+      submissions,
+      t,
+    ]
   );
+
+  useEffect(() => {
+    const visibleIds = new Set(filteredSubmissions.map(submission => submission.id));
+    setSelectedSubmissionIds(prev => prev.filter(id => visibleIds.has(id)));
+  }, [filteredSubmissions]);
 
   // Statistics
   const stats = useMemo(
@@ -732,6 +890,113 @@ const BondCleanQuoteSubmissions: React.FC = () => {
       ).length,
     }),
     [submissions, t]
+  );
+
+  const applySelectionPreset = useCallback(
+    (preset: 'overdue' | 'new' | 'cn' | 'pending_follow_up') => {
+      const nextIds = filteredSubmissions
+        .filter(submission => {
+          if (preset === 'overdue') {
+            return getFollowUpMeta(submission, t).isOverdue;
+          }
+          if (preset === 'new') {
+            return submission.status === 'new';
+          }
+          if (preset === 'cn') {
+            return submission.formType.includes('cn');
+          }
+          return Boolean(getFollowUpMeta(submission, t).nextStep);
+        })
+        .map(submission => submission.id);
+      setSelectedSubmissionIds(nextIds);
+    },
+    [filteredSubmissions, t]
+  );
+
+  const selectionToolbar = useMemo(
+    () => (
+      <Space wrap size={6}>
+        <Text type='secondary'>
+          {t('sparkery.quoteSubmissions.batch.selected', {
+            defaultValue: 'Selected: {{count}}',
+            count: selectedSubmissionIds.length,
+          })}
+        </Text>
+        <Button size='small' onClick={() => applySelectionPreset('overdue')}>
+          {t('sparkery.quoteSubmissions.batch.presets.overdue', {
+            defaultValue: 'Overdue Follow-up',
+          })}
+        </Button>
+        <Button size='small' onClick={() => applySelectionPreset('new')}>
+          {t('sparkery.quoteSubmissions.batch.presets.new', {
+            defaultValue: 'New Leads',
+          })}
+        </Button>
+        <Button size='small' onClick={() => applySelectionPreset('cn')}>
+          {t('sparkery.quoteSubmissions.batch.presets.cn', {
+            defaultValue: 'Chinese Forms',
+          })}
+        </Button>
+        <Button
+          size='small'
+          onClick={() => applySelectionPreset('pending_follow_up')}
+        >
+          {t('sparkery.quoteSubmissions.batch.presets.pendingFollowUp', {
+            defaultValue: 'Pending Follow-up',
+          })}
+        </Button>
+        <Button
+          size='small'
+          disabled={selectedSubmissionIds.length === 0}
+          onClick={() => setSelectedSubmissionIds([])}
+        >
+          {t('sparkery.quoteSubmissions.batch.clearSelection', {
+            defaultValue: 'Clear Selection',
+          })}
+        </Button>
+        <Select
+          size='small'
+          value={batchStatusTarget}
+          onChange={value =>
+            setBatchStatusTarget(value as QuoteSubmission['status'])
+          }
+          className='sparkery-submissions-batch-status-select'
+        >
+          <Option value='new'>{t('sparkery.quoteSubmissions.status.new')}</Option>
+          <Option value='contacted'>
+            {t('sparkery.quoteSubmissions.status.contacted')}
+          </Option>
+          <Option value='quoted'>
+            {t('sparkery.quoteSubmissions.status.quoted')}
+          </Option>
+          <Option value='confirmed'>
+            {t('sparkery.quoteSubmissions.status.confirmed')}
+          </Option>
+          <Option value='completed'>
+            {t('sparkery.quoteSubmissions.status.completed')}
+          </Option>
+          <Option value='cancelled'>
+            {t('sparkery.quoteSubmissions.status.cancelled')}
+          </Option>
+        </Select>
+        <Button
+          size='small'
+          type='primary'
+          disabled={selectedSubmissionIds.length === 0}
+          onClick={() => setBatchPreviewOpen(true)}
+        >
+          {t('sparkery.quoteSubmissions.batch.preview', {
+            defaultValue: 'Preview Batch',
+          })}
+        </Button>
+      </Space>
+    ),
+    [
+      applySelectionPreset,
+      batchStatusTarget,
+      selectedSubmissionIds.length,
+      t,
+    ]
   );
 
   const statusColors: Record<string, string> = {
@@ -761,7 +1026,162 @@ const BondCleanQuoteSubmissions: React.FC = () => {
     }),
   };
 
-  const columns: ColumnsType<QuoteSubmission> = [
+  const selectedSubmissions = useMemo(
+    () =>
+      filteredSubmissions.filter(submission =>
+        selectedSubmissionIds.includes(submission.id)
+      ),
+    [filteredSubmissions, selectedSubmissionIds]
+  );
+
+  const batchImpact = useMemo(() => {
+    const changes = selectedSubmissions.filter(
+      submission => submission.status !== batchStatusTarget
+    );
+    const breakdown = changes.reduce<Record<QuoteSubmission['status'], number>>(
+      (acc, submission) => {
+        acc[submission.status] = (acc[submission.status] || 0) + 1;
+        return acc;
+      },
+      {
+        new: 0,
+        contacted: 0,
+        quoted: 0,
+        confirmed: 0,
+        completed: 0,
+        cancelled: 0,
+      }
+    );
+    return {
+      affectedCount: changes.length,
+      unchangedCount: selectedSubmissions.length - changes.length,
+      breakdown,
+      rows: changes.map(submission => ({
+        id: submission.id,
+        previousStatus: submission.status,
+      })),
+    };
+  }, [batchStatusTarget, selectedSubmissions]);
+
+  const undoBatchStatus = useCallback(
+    async (snapshot: BatchStatusSnapshot) => {
+      if (snapshot.rows.length === 0) {
+        return;
+      }
+      setBatchUndoing(true);
+      try {
+        const reverted = await Promise.all(
+          snapshot.rows.map(row =>
+            updateSubmission(row.id, { status: row.previousStatus as BondQuoteStatus })
+          )
+        );
+        const revertedMap = new Map(
+          reverted.map(row => {
+            const normalized = normalizeSubmission(row as QuoteSubmission);
+            return [normalized.id, normalized] as const;
+          })
+        );
+        setSubmissions(prev =>
+          prev.map(submission => revertedMap.get(submission.id) || submission)
+        );
+        message.success(
+          t('sparkery.quoteSubmissions.batch.undoSuccess', {
+            defaultValue: 'Batch status update reverted',
+          })
+        );
+        setLastBatchSnapshot(null);
+        notification.destroy(snapshot.key);
+      } catch {
+        message.error(
+          t('sparkery.quoteSubmissions.batch.undoFailed', {
+            defaultValue: 'Failed to undo batch status update',
+          })
+        );
+      } finally {
+        setBatchUndoing(false);
+      }
+    },
+    [t]
+  );
+
+  const applyBatchStatus = useCallback(async () => {
+    if (batchImpact.rows.length === 0) {
+      message.info(
+        t('sparkery.quoteSubmissions.batch.noChanges', {
+          defaultValue: 'No status changes to apply',
+        })
+      );
+      setBatchPreviewOpen(false);
+      return;
+    }
+    setBatchApplying(true);
+    try {
+      const updatedRows = await Promise.all(
+        batchImpact.rows.map(row =>
+          updateSubmission(row.id, { status: batchStatusTarget as BondQuoteStatus })
+        )
+      );
+      const updatedMap = new Map(
+        updatedRows.map(row => {
+          const normalized = normalizeSubmission(row as QuoteSubmission);
+          return [normalized.id, normalized] as const;
+        })
+      );
+      setSubmissions(prev =>
+        prev.map(submission => updatedMap.get(submission.id) || submission)
+      );
+      const snapshot: BatchStatusSnapshot = {
+        key: `sparkery-batch-undo-${Date.now()}`,
+        nextStatus: batchStatusTarget,
+        rows: batchImpact.rows,
+      };
+      setLastBatchSnapshot(snapshot);
+      setBatchPreviewOpen(false);
+      setSelectedSubmissionIds([]);
+      notification.success({
+        key: snapshot.key,
+        message: t('sparkery.quoteSubmissions.batch.successTitle', {
+          defaultValue: 'Batch status update applied',
+        }),
+        description: t('sparkery.quoteSubmissions.batch.successDescription', {
+          defaultValue: '{{count}} submissions updated to {{status}}.',
+          count: batchImpact.rows.length,
+          status: statusLabels[batchStatusTarget],
+        }),
+        duration: 10,
+        btn: (
+          <Button
+            size='small'
+            loading={batchUndoing}
+            onClick={() => {
+              void undoBatchStatus(snapshot);
+            }}
+          >
+            {t('sparkery.quoteSubmissions.batch.undoAction', {
+              defaultValue: 'Undo',
+            })}
+          </Button>
+        ),
+      });
+    } catch {
+      message.error(
+        t('sparkery.quoteSubmissions.batch.applyFailed', {
+          defaultValue: 'Failed to apply batch status update',
+        })
+      );
+    } finally {
+      setBatchApplying(false);
+    }
+  }, [
+    batchImpact.rows,
+    batchStatusTarget,
+    batchUndoing,
+    statusLabels,
+    t,
+    undoBatchStatus,
+  ]);
+
+  const columns: TableColumnsType<QuoteSubmission> = [
     {
       title: t('sparkery.quoteSubmissions.table.submittedAt', {
         defaultValue: 'Submitted At',
@@ -924,10 +1344,7 @@ const BondCleanQuoteSubmissions: React.FC = () => {
             <Button
               size='small'
               icon={<EyeOutlined />}
-              onClick={() => {
-                setSelectedSubmission(record);
-                setDetailModalVisible(true);
-              }}
+              onClick={() => openSubmissionDetails(record)}
             >
               {t('sparkery.quoteSubmissions.actions.view', {
                 defaultValue: 'View',
@@ -946,6 +1363,293 @@ const BondCleanQuoteSubmissions: React.FC = () => {
       },
     },
   ];
+
+  const quickFilterColumns = useMemo(
+    () => ({
+      submittedAt: {
+        placeholder: t('sparkery.quoteSubmissions.filters.quick.submittedAt', {
+          defaultValue: 'Filter submitted date/time',
+        }),
+      },
+      formType: {
+        placeholder: t('sparkery.quoteSubmissions.filters.quick.type', {
+          defaultValue: 'Filter form type',
+        }),
+        match: (record: QuoteSubmission, query: string) =>
+          (record.formType.includes('cn') ? 'cn chinese' : 'en english')
+            .toLowerCase()
+            .includes(query),
+      },
+      customerName: {
+        placeholder: t('sparkery.quoteSubmissions.filters.quick.customer', {
+          defaultValue: 'Filter customer name',
+        }),
+      },
+      contact: {
+        placeholder: t('sparkery.quoteSubmissions.filters.quick.contact', {
+          defaultValue: 'Filter phone or email',
+        }),
+        match: (record: QuoteSubmission, query: string) =>
+          `${record.phone} ${record.email}`.toLowerCase().includes(query),
+      },
+      property: {
+        placeholder: t('sparkery.quoteSubmissions.filters.quick.property', {
+          defaultValue: 'Filter property type/address',
+        }),
+        match: (record: QuoteSubmission, query: string) =>
+          `${record.propertyType} ${record.roomType} ${record.propertyAddress}`
+            .toLowerCase()
+            .includes(query),
+      },
+      status: {
+        placeholder: t('sparkery.quoteSubmissions.filters.quick.status', {
+          defaultValue: 'Filter status',
+        }),
+      },
+      followUp: {
+        placeholder: t('sparkery.quoteSubmissions.filters.quick.followUp', {
+          defaultValue: 'Filter follow-up stage',
+        }),
+        match: (record: QuoteSubmission, query: string) => {
+          const followUp = getFollowUpMeta(record, t);
+          return `${followUp.stageLabel} ${followUp.dueText}`
+            .toLowerCase()
+            .includes(query);
+        },
+      },
+      actions: false as const,
+    }),
+    [t]
+  );
+
+  const renderAdvancedFilterModal = () => (
+    <Modal
+      title={t('sparkery.quoteSubmissions.filters.advancedTitle', {
+        defaultValue: 'Advanced Filter Builder',
+      })}
+      open={advancedFilterOpen}
+      onCancel={() => setAdvancedFilterOpen(false)}
+      onOk={() => setAdvancedFilterOpen(false)}
+      okText={t('sparkery.quoteSubmissions.actions.apply', {
+        defaultValue: 'Apply',
+      })}
+      width={700}
+    >
+      <Space direction='vertical' className='sparkery-submissions-advanced-rules'>
+        <Space wrap>
+          <Text type='secondary'>
+            {t('sparkery.quoteSubmissions.filters.logic', {
+              defaultValue: 'Match logic',
+            })}
+          </Text>
+          <Select
+            size='small'
+            value={advancedFilterMode}
+            onChange={value => setAdvancedFilterMode(value as 'and' | 'or')}
+            className='sparkery-submissions-advanced-logic-select'
+          >
+            <Option value='and'>
+              {t('sparkery.quoteSubmissions.filters.logicAll', {
+                defaultValue: 'Match all rules (AND)',
+              })}
+            </Option>
+            <Option value='or'>
+              {t('sparkery.quoteSubmissions.filters.logicAny', {
+                defaultValue: 'Match any rule (OR)',
+              })}
+            </Option>
+          </Select>
+          <Button size='small' icon={<PlusOutlined />} onClick={addAdvancedRule}>
+            {t('sparkery.quoteSubmissions.filters.addRule', {
+              defaultValue: 'Add Rule',
+            })}
+          </Button>
+          <Button
+            size='small'
+            disabled={advancedRules.length === 0}
+            onClick={clearAdvancedRules}
+          >
+            {t('sparkery.quoteSubmissions.filters.clearRules', {
+              defaultValue: 'Clear Rules',
+            })}
+          </Button>
+        </Space>
+        {advancedRules.length === 0 ? (
+          <Text type='secondary'>
+            {t('sparkery.quoteSubmissions.filters.noAdvancedRules', {
+              defaultValue:
+                'No advanced rules configured. Add rules to filter with AND/OR logic.',
+            })}
+          </Text>
+        ) : (
+          <Space direction='vertical' className='sparkery-submissions-advanced-list'>
+            {advancedRules.map(rule => (
+              <Space key={rule.id} wrap className='sparkery-submissions-advanced-row'>
+                <Select
+                  size='small'
+                  value={rule.field}
+                  className='sparkery-submissions-advanced-field'
+                  onChange={value =>
+                    updateAdvancedRule(rule.id, {
+                      field: value as AdvancedRuleField,
+                    })
+                  }
+                >
+                  <Option value='customer'>
+                    {t('sparkery.quoteSubmissions.filters.fields.customer', {
+                      defaultValue: 'Customer',
+                    })}
+                  </Option>
+                  <Option value='contact'>
+                    {t('sparkery.quoteSubmissions.filters.fields.contact', {
+                      defaultValue: 'Contact',
+                    })}
+                  </Option>
+                  <Option value='address'>
+                    {t('sparkery.quoteSubmissions.filters.fields.address', {
+                      defaultValue: 'Address',
+                    })}
+                  </Option>
+                  <Option value='status'>
+                    {t('sparkery.quoteSubmissions.filters.fields.status', {
+                      defaultValue: 'Status',
+                    })}
+                  </Option>
+                  <Option value='follow_up'>
+                    {t('sparkery.quoteSubmissions.filters.fields.followUp', {
+                      defaultValue: 'Follow-up',
+                    })}
+                  </Option>
+                </Select>
+                <Select
+                  size='small'
+                  value={rule.operator}
+                  className='sparkery-submissions-advanced-operator'
+                  onChange={value =>
+                    updateAdvancedRule(rule.id, {
+                      operator: value as AdvancedRuleOperator,
+                    })
+                  }
+                >
+                  <Option value='contains'>
+                    {t('sparkery.quoteSubmissions.filters.operators.contains', {
+                      defaultValue: 'contains',
+                    })}
+                  </Option>
+                  <Option value='equals'>
+                    {t('sparkery.quoteSubmissions.filters.operators.equals', {
+                      defaultValue: 'equals',
+                    })}
+                  </Option>
+                  <Option value='starts_with'>
+                    {t('sparkery.quoteSubmissions.filters.operators.startsWith', {
+                      defaultValue: 'starts with',
+                    })}
+                  </Option>
+                  <Option value='is_empty'>
+                    {t('sparkery.quoteSubmissions.filters.operators.isEmpty', {
+                      defaultValue: 'is empty',
+                    })}
+                  </Option>
+                  <Option value='is_not_empty'>
+                    {t('sparkery.quoteSubmissions.filters.operators.isNotEmpty', {
+                      defaultValue: 'is not empty',
+                    })}
+                  </Option>
+                </Select>
+                <Input
+                  size='small'
+                  className='sparkery-submissions-advanced-value'
+                  value={rule.value}
+                  disabled={
+                    rule.operator === 'is_empty' ||
+                    rule.operator === 'is_not_empty'
+                  }
+                  placeholder={t('sparkery.quoteSubmissions.filters.value', {
+                    defaultValue: 'Value',
+                  })}
+                  onChange={event =>
+                    updateAdvancedRule(rule.id, {
+                      value: event.target.value,
+                    })
+                  }
+                />
+                <Button
+                  size='small'
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => removeAdvancedRule(rule.id)}
+                />
+              </Space>
+            ))}
+          </Space>
+        )}
+      </Space>
+    </Modal>
+  );
+
+  const renderBatchPreviewModal = () => (
+    <Modal
+      title={t('sparkery.quoteSubmissions.batch.previewTitle', {
+        defaultValue: 'Batch Impact Preview',
+      })}
+      open={batchPreviewOpen}
+      onCancel={() => setBatchPreviewOpen(false)}
+      onOk={() => {
+        void applyBatchStatus();
+      }}
+      okButtonProps={{
+        loading: batchApplying,
+        disabled: batchImpact.affectedCount === 0,
+      }}
+      okText={t('sparkery.quoteSubmissions.batch.apply', {
+        defaultValue: 'Apply Updates',
+      })}
+      width={640}
+    >
+      <Space direction='vertical' className='sparkery-submissions-batch-preview'>
+        <Text>
+          {t('sparkery.quoteSubmissions.batch.previewSummary', {
+            defaultValue:
+              'Selected {{selected}} submissions. {{affected}} will change to {{status}}.',
+            selected: selectedSubmissions.length,
+            affected: batchImpact.affectedCount,
+            status: statusLabels[batchStatusTarget],
+          })}
+        </Text>
+        {batchImpact.unchangedCount > 0 && (
+          <Text type='secondary'>
+            {t('sparkery.quoteSubmissions.batch.unchanged', {
+              defaultValue: '{{count}} already in target status.',
+              count: batchImpact.unchangedCount,
+            })}
+          </Text>
+        )}
+        <Space wrap>
+          {(Object.keys(batchImpact.breakdown) as QuoteSubmission['status'][]).map(
+            status => {
+              const count = batchImpact.breakdown[status];
+              if (!count) {
+                return null;
+              }
+              return (
+                <Tag key={status} color={statusColors[status] || 'default'}>
+                  {statusLabels[status]}: {count}
+                </Tag>
+              );
+            }
+          )}
+        </Space>
+        {lastBatchSnapshot && (
+          <Text type='secondary'>
+            {t('sparkery.quoteSubmissions.batch.undoHint', {
+              defaultValue: 'Last batch can be undone from notification toast.',
+            })}
+          </Text>
+        )}
+      </Space>
+    </Modal>
+  );
 
   const renderDetailModal = () => {
     if (!selectedSubmission) return null;
@@ -1440,6 +2144,15 @@ const BondCleanQuoteSubmissions: React.FC = () => {
           >
             <Space>
               <Button
+                icon={<FilterOutlined />}
+                onClick={() => setAdvancedFilterOpen(true)}
+              >
+                {t('sparkery.quoteSubmissions.filters.advanced', {
+                  defaultValue: 'Advanced Rules ({{count}})',
+                  count: advancedRules.length,
+                })}
+              </Button>
+              <Button
                 icon={<ReloadOutlined />}
                 onClick={() => {
                   loadSubmissions().catch(() => {
@@ -1467,11 +2180,22 @@ const BondCleanQuoteSubmissions: React.FC = () => {
 
       {/* Table */}
       <Card className='sparkery-table-card'>
-        <Table
+        <SparkeryDataTable<QuoteSubmission>
+          tableId='bond-clean-quote-submissions'
+          toolbar={selectionToolbar}
           columns={columns}
           dataSource={filteredSubmissions}
           rowKey='id'
+          rowSelection={{
+            selectedRowKeys: selectedSubmissionIds,
+            onChange: keys => setSelectedSubmissionIds(keys.map(String)),
+          }}
           loading={loading}
+          onRowOpen={openSubmissionDetails}
+          showQuickFilterRow
+          showSortBuilder
+          quickFilterColumns={quickFilterColumns}
+          virtualizeThreshold={80}
           scroll={{ x: 1400 }}
           pagination={{
             pageSize: 10,
@@ -1485,6 +2209,8 @@ const BondCleanQuoteSubmissions: React.FC = () => {
         />
       </Card>
 
+      {renderAdvancedFilterModal()}
+      {renderBatchPreviewModal()}
       {renderDetailModal()}
     </div>
   );

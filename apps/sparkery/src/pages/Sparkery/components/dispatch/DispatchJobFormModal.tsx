@@ -1,15 +1,20 @@
 ﻿import React from 'react';
 import {
+  Alert,
   Button,
   Form,
   Input,
   InputNumber,
   Modal,
   Select,
+  Space,
+  Tag,
+  Typography,
   Upload,
   message,
 } from 'antd';
-import type { UploadFile } from 'antd/es/upload/interface';
+import { CameraOutlined, InboxOutlined } from '@ant-design/icons';
+import type { RcFile, UploadFile } from 'antd/es/upload/interface';
 import type {
   CreateDispatchJobPayload,
   DispatchCustomerProfile,
@@ -18,6 +23,8 @@ import type {
   UpsertDispatchCustomerProfilePayload,
 } from '../../dispatch/types';
 import { useTranslation } from 'react-i18next';
+
+const { Text } = Typography;
 
 const getTodayDateKey = (): string => {
   const now = new Date();
@@ -51,8 +58,16 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
   const { t } = useTranslation();
   const [form] = Form.useForm<CreateDispatchJobPayload>();
   const recurringEnabled = Form.useWatch('recurringEnabled', form);
+  const watchedUploads = (Form.useWatch('imageUrls', form) ||
+    []) as unknown as UploadFile[];
   const MAX_IMAGE_SIZE_MB = 2;
   const MAX_IMAGE_COUNT = 8;
+  const [attachmentStatusByUid, setAttachmentStatusByUid] = React.useState<
+    Record<string, 'parsing' | 'ready'>
+  >({});
+  const attachmentParseTimersRef = React.useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
   const defaultFormValues = React.useMemo<CreateDispatchJobPayload>(
     () => ({
       title: '',
@@ -236,8 +251,47 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
     }));
   }, [initialValue?.imageUrls]);
 
+  const syncAttachmentStatuses = React.useCallback((fileList: UploadFile[]) => {
+    const activeUids = new Set(fileList.map(file => file.uid));
+    Object.entries(attachmentParseTimersRef.current).forEach(([uid, timer]) => {
+      if (!activeUids.has(uid)) {
+        clearTimeout(timer);
+        delete attachmentParseTimersRef.current[uid];
+      }
+    });
+
+    setAttachmentStatusByUid(prev => {
+      const next: Record<string, 'parsing' | 'ready'> = {};
+      fileList.forEach(file => {
+        const knownStatus = prev[file.uid];
+        if (file.url || knownStatus === 'ready') {
+          next[file.uid] = 'ready';
+          return;
+        }
+        next[file.uid] = knownStatus || 'parsing';
+        if (!knownStatus && !attachmentParseTimersRef.current[file.uid]) {
+          attachmentParseTimersRef.current[file.uid] = setTimeout(() => {
+            setAttachmentStatusByUid(current => ({
+              ...current,
+              [file.uid]: 'ready',
+            }));
+            delete attachmentParseTimersRef.current[file.uid];
+          }, 600);
+        }
+      });
+      return next;
+    });
+  }, []);
+
   React.useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      Object.values(attachmentParseTimersRef.current).forEach(timer =>
+        clearTimeout(timer)
+      );
+      attachmentParseTimersRef.current = {};
+      setAttachmentStatusByUid({});
+      return;
+    }
     form.resetFields();
     if (initialValue) {
       const { imageUrls: _ignoredImageUrls, ...initialWithoutImages } =
@@ -258,10 +312,101 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
             ? initialValue.manualAdjustment
             : 0,
       });
+      syncAttachmentStatuses(uploadInitialFiles);
       return;
     }
     form.setFieldsValue(defaultFormValues);
-  }, [open, initialValue, form, defaultFormValues]);
+    syncAttachmentStatuses([]);
+  }, [
+    open,
+    initialValue,
+    form,
+    defaultFormValues,
+    syncAttachmentStatuses,
+    uploadInitialFiles,
+  ]);
+
+  React.useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handlePaste = (event: ClipboardEvent) => {
+      const clipboardItems = Array.from(event.clipboardData?.items || []);
+      const imageFiles: File[] = [];
+      clipboardItems.forEach(item => {
+        const file = item.getAsFile();
+        if (file && file.type.toLowerCase().startsWith('image/')) {
+          imageFiles.push(file);
+        }
+      });
+      if (imageFiles.length === 0) {
+        return;
+      }
+      event.preventDefault();
+
+      const currentUploads = ((form.getFieldValue('imageUrls') as UploadFile[]) ||
+        []) as UploadFile[];
+      const remainingSlots = Math.max(0, MAX_IMAGE_COUNT - currentUploads.length);
+      if (remainingSlots <= 0) {
+        message.warning(
+          t('sparkery.dispatch.jobForm.messages.imageCountLimit', {
+            defaultValue: 'Maximum {{count}} images allowed.',
+            count: MAX_IMAGE_COUNT,
+          })
+        );
+        return;
+      }
+      const nextUploads: UploadFile[] = [];
+      imageFiles.slice(0, remainingSlots).forEach((file, index) => {
+        const isTooLarge = file.size / 1024 / 1024 > MAX_IMAGE_SIZE_MB;
+        if (isTooLarge) {
+          return;
+        }
+        nextUploads.push({
+          uid: `paste-${Date.now()}-${index}`,
+          name: file.name || `pasted-${index + 1}.png`,
+          status: 'done',
+          originFileObj: file as RcFile,
+        });
+      });
+
+      if (nextUploads.length === 0) {
+        message.warning(
+          t('sparkery.dispatch.jobForm.messages.imageSizeLimit', {
+            size: MAX_IMAGE_SIZE_MB,
+          })
+        );
+        return;
+      }
+
+      const mergedUploads = [...currentUploads, ...nextUploads].slice(
+        0,
+        MAX_IMAGE_COUNT
+      );
+      form.setFieldsValue({
+        imageUrls: mergedUploads as unknown as string[],
+      } as Partial<CreateDispatchJobPayload>);
+      syncAttachmentStatuses(mergedUploads);
+      message.success(
+        t('sparkery.dispatch.jobForm.messages.pastedImages', {
+          defaultValue: 'Added {{count}} image(s) from clipboard.',
+          count: nextUploads.length,
+        })
+      );
+    };
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [form, open, syncAttachmentStatuses, t]);
+
+  React.useEffect(
+    () => () => {
+      Object.values(attachmentParseTimersRef.current).forEach(timer =>
+        clearTimeout(timer)
+      );
+      attachmentParseTimersRef.current = {};
+    },
+    []
+  );
 
   return (
     <Modal
@@ -588,9 +733,15 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
           valuePropName='fileList'
           getValueFromEvent={e => (Array.isArray(e) ? e : e?.fileList || [])}
         >
-          <Upload
+          <Upload.Dragger
             className='dispatch-job-form-upload'
-            listType='picture-card'
+            listType='picture'
+            accept='image/*'
+            capture='environment'
+            aria-label={t('sparkery.dispatch.jobForm.uploadDropText', {
+              defaultValue: 'Drag images here or click to upload',
+            })}
+            aria-describedby='dispatch-job-form-upload-hint dispatch-job-form-upload-workflow'
             beforeUpload={file => {
               const isTooLarge = file.size / 1024 / 1024 > MAX_IMAGE_SIZE_MB;
               if (isTooLarge) {
@@ -603,12 +754,88 @@ const DispatchJobFormModal: React.FC<DispatchJobFormModalProps> = ({
               }
               return false;
             }}
+            onChange={info =>
+              syncAttachmentStatuses((info.fileList || []) as UploadFile[])
+            }
             multiple
             maxCount={MAX_IMAGE_COUNT}
           >
-            {t('sparkery.dispatch.jobForm.actions.upload')}
-          </Upload>
+            <p className='ant-upload-drag-icon'>
+              <InboxOutlined />
+            </p>
+            <p className='ant-upload-text'>
+              {t('sparkery.dispatch.jobForm.uploadDropText', {
+                defaultValue: 'Drag images here or click to upload',
+              })}
+            </p>
+            <p className='ant-upload-hint'>
+              <Space size={6}>
+                <CameraOutlined />
+                <span id='dispatch-job-form-upload-hint'>
+                  {t('sparkery.dispatch.jobForm.uploadDropHint', {
+                    defaultValue:
+                      'Supports drag, paste screenshot (Ctrl/Cmd+V), and mobile camera capture.',
+                  })}
+                </span>
+              </Space>
+            </p>
+          </Upload.Dragger>
         </Form.Item>
+        {watchedUploads.length > 0 && (
+          <Space
+            wrap
+            className='dispatch-job-form-attachment-statuses'
+            role='status'
+            aria-live='polite'
+            aria-label={t('sparkery.dispatch.jobForm.uploadWorkflow.title', {
+              defaultValue: 'Attachment workflow',
+            })}
+          >
+            {watchedUploads.map(file => {
+              const status = attachmentStatusByUid[file.uid] || 'parsing';
+              return (
+                <Tag
+                  key={file.uid}
+                  color={status === 'ready' ? 'success' : 'processing'}
+                >
+                  {file.name} |{' '}
+                  {status === 'ready'
+                    ? t('sparkery.dispatch.jobForm.parseStatus.ready', {
+                        defaultValue: 'Ready',
+                      })
+                    : t('sparkery.dispatch.jobForm.parseStatus.parsing', {
+                        defaultValue: 'Parsing',
+                      })}
+                </Tag>
+              );
+            })}
+          </Space>
+        )}
+        <Alert
+          id='dispatch-job-form-upload-workflow'
+          type='info'
+          showIcon
+          message={t('sparkery.dispatch.jobForm.uploadWorkflow.title', {
+            defaultValue: 'Attachment workflow',
+          })}
+          description={
+            <Space direction='vertical' size={2}>
+              <Text>
+                {t('sparkery.dispatch.jobForm.uploadWorkflow.step1', {
+                  defaultValue:
+                    '1) Upload or paste all job photos in one place.',
+                })}
+              </Text>
+              <Text>
+                {t('sparkery.dispatch.jobForm.uploadWorkflow.step2', {
+                  defaultValue:
+                    '2) Wait for parse status to become Ready before saving.',
+                })}
+              </Text>
+            </Space>
+          }
+          className='dispatch-job-form-upload-alert'
+        />
         <div className='dispatch-job-form-help'>
           {t('sparkery.dispatch.jobForm.imageHelp', {
             count: MAX_IMAGE_COUNT,

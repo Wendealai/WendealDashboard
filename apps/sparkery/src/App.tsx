@@ -36,7 +36,20 @@ const AppContent = () => {
   }, [i18nInstance.language]);
 
   return (
-    <ConfigProvider locale={locale} componentSize='middle'>
+    <ConfigProvider
+      locale={locale}
+      componentSize='middle'
+      theme={{
+        token: {
+          colorPrimary: '#1677ff',
+          borderRadius: 10,
+          colorBgLayout: '#f3f6fb',
+          colorBgContainer: '#ffffff',
+          colorTextSecondary: '#64748b',
+          fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
+        },
+      }}
+    >
       <AppRouter />
     </ConfigProvider>
   );

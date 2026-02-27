@@ -5,13 +5,13 @@ import {
   Checkbox,
   InputNumber,
   Space,
-  Table,
   Tag,
   Typography,
+  type TableColumnsType,
 } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
 import { useTranslation } from 'react-i18next';
 import type { DispatchEmployee, DispatchJob } from '../../dispatch/types';
+import SparkeryDataTable from '@/components/sparkery/SparkeryDataTable';
 
 const { Text } = Typography;
 
@@ -119,7 +119,7 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
     0
   );
 
-  const columns: ColumnsType<FinanceRow> = [
+  const columns: TableColumnsType<FinanceRow> = [
     {
       title: t('sparkery.dispatch.financeBoard.columns.dateTime'),
       key: 'dateTime',
@@ -428,12 +428,14 @@ const WeeklyFinanceBoard: React.FC<WeeklyFinanceBoardProps> = ({
         </Tag>
       </Space>
 
-      <Table<FinanceRow>
+      <SparkeryDataTable<FinanceRow>
+        tableId='dispatch-weekly-finance-board'
         className='dispatch-finance-table'
         rowKey='id'
         size='small'
         pagination={false}
         loading={Boolean(loading)}
+        showSortBuilder
         columns={columns}
         dataSource={rows}
         scroll={{ x: 1450 }}

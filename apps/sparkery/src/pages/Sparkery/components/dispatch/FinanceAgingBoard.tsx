@@ -4,16 +4,16 @@ import {
   Card,
   Empty,
   Space,
-  Table,
   Tag,
   Typography,
   message,
+  type TableColumnsType,
 } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
 import { CopyOutlined, DollarOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import type { DispatchJob } from '../../dispatch/types';
+import SparkeryDataTable from '@/components/sparkery/SparkeryDataTable';
 
 const { Text } = Typography;
 
@@ -202,7 +202,7 @@ const FinanceAgingBoard: React.FC<FinanceAgingBoardProps> = ({
     }
   };
 
-  const columns: ColumnsType<AgingRow> = [
+  const columns: TableColumnsType<AgingRow> = [
     {
       title: t('sparkery.dispatch.aging.columns.priority'),
       key: 'priority',
@@ -354,12 +354,14 @@ const FinanceAgingBoard: React.FC<FinanceAgingBoardProps> = ({
           description={t('sparkery.dispatch.aging.empty')}
         />
       ) : (
-        <Table<AgingRow>
+        <SparkeryDataTable<AgingRow>
+          tableId='dispatch-finance-aging-board'
           className='dispatch-aging-table'
           rowKey='id'
           size='small'
           loading={Boolean(loading)}
           pagination={false}
+          showSortBuilder
           columns={columns}
           dataSource={receivableRows}
           scroll={{ x: 1260 }}

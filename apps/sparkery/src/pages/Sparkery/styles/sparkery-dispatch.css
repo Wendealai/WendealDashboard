@@ -436,6 +436,42 @@
   width: 100%;
 }
 
+.sparkery-submissions-batch-status-select {
+  min-width: 160px;
+}
+
+.sparkery-submissions-batch-preview {
+  width: 100%;
+}
+
+.sparkery-submissions-advanced-rules {
+  width: 100%;
+}
+
+.sparkery-submissions-advanced-logic-select {
+  min-width: 220px;
+}
+
+.sparkery-submissions-advanced-list {
+  width: 100%;
+}
+
+.sparkery-submissions-advanced-row {
+  width: 100%;
+}
+
+.sparkery-submissions-advanced-field {
+  min-width: 150px;
+}
+
+.sparkery-submissions-advanced-operator {
+  min-width: 150px;
+}
+
+.sparkery-submissions-advanced-value {
+  min-width: 180px;
+}
+
 .sparkery-submissions-page .sparkery-table-card .ant-card-body {
   padding-top: 8px;
 }
@@ -568,11 +604,36 @@
   border-radius: 10px !important;
 }
 
+.dispatch-job-form .ant-btn:focus-visible,
+.dispatch-job-form .ant-upload:focus-within,
+.dispatch-job-form .ant-checkbox-wrapper:focus-within,
+.dispatch-job-form .ant-input:focus,
+.dispatch-job-form .ant-input-focused,
+.dispatch-job-form .ant-select-focused .ant-select-selector,
+.dispatch-job-form .ant-input-number-focused,
+.dispatch-recurring-workflow-shell .ant-btn:focus-visible,
+.dispatch-recurring-workflow-shell .ant-input:focus,
+.dispatch-recurring-workflow-shell .ant-input-focused,
+.dispatch-recurring-workflow-shell .ant-select-focused .ant-select-selector,
+.dispatch-recurring-workflow-shell .ant-input-number-focused,
+.dispatch-recurring-review-item:focus-within {
+  outline: 2px solid #1677ff;
+  outline-offset: 2px;
+}
+
 .dispatch-job-form-help {
   margin-top: -4px;
   margin-bottom: 2px;
   font-size: 12px;
   color: #5f728d;
+}
+
+.dispatch-job-form-attachment-statuses {
+  margin-bottom: 8px;
+}
+
+.dispatch-job-form-upload-alert {
+  margin-bottom: 8px;
 }
 
 .dispatch-assignee-select,
@@ -1631,6 +1692,85 @@
   background: #eef5ff;
 }
 
+.dispatch-recurring-workflow-shell {
+  width: 100%;
+}
+
+.dispatch-recurring-workflow-meta {
+  width: 100%;
+}
+
+.dispatch-recurring-optional-shell {
+  width: 100%;
+}
+
+.dispatch-recurring-inline-hint {
+  margin-top: -6px;
+  margin-bottom: 10px;
+}
+
+.dispatch-recurring-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dispatch-recurring-review-list,
+.dispatch-recurring-preview-shell {
+  width: 100%;
+}
+
+.dispatch-recurring-review-item {
+  border: 1px solid #e2ecfa;
+  background: #fbfdff;
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.dispatch-recurring-review-item-header {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.dispatch-recurring-review-value {
+  display: block;
+  color: #2a4264;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.dispatch-recurring-review-reason {
+  display: block;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.dispatch-recurring-review-confidence-row {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.dispatch-recurring-preview-paper {
+  border: 1px solid #dce8f6;
+  background: #fbfdff;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dispatch-recurring-preview-title {
+  color: #213854;
+  line-height: 1.35;
+}
+
+.dispatch-recurring-preview-line {
+  display: block;
+  color: #5f728d;
+  line-height: 1.45;
+}
+
 .dispatch-finance-year-select {
   width: 110px;
 }
@@ -2205,6 +2345,14 @@
 
   .dispatch-recurring-fee-input {
     width: 96px;
+  }
+
+  .dispatch-recurring-workflow-meta {
+    align-items: flex-start;
+  }
+
+  .dispatch-recurring-review-grid {
+    grid-template-columns: 1fr;
   }
 
   .dispatch-finance-summary-tags {

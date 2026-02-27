@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './locales';
 import './styles/app.css';
+import './styles/saas-shell.css';
 import 'antd/dist/reset.css';
 import { syncDispatchConfigToServiceWorker } from '@/pages/Sparkery/dispatch/offlineBackgroundSync';
 

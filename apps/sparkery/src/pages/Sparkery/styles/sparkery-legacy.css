@@ -694,6 +694,64 @@
   border-radius: 4px;
 }
 
+.sparkery-quote-calc-report-blocks {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fcfdff;
+  margin-bottom: 8px;
+}
+
+.sparkery-quote-calc-report-block-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.sparkery-quote-calc-export-cluster {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.sparkery-quote-calc-share-panel {
+  margin-top: 8px;
+}
+
+.sparkery-quote-calc-report-block-row .ant-checkbox-wrapper:focus-within,
+.sparkery-quote-calc-report-block-row .ant-btn:focus-visible,
+.sparkery-quote-calc-export-cluster .ant-btn:focus-visible,
+.sparkery-quote-calc-share-panel .ant-checkbox-wrapper:focus-within,
+.sparkery-quote-calc-share-panel .ant-radio-wrapper:focus-within,
+.sparkery-quote-calc-share-panel .ant-input:focus,
+.sparkery-quote-calc-share-panel .ant-select-focused .ant-select-selector,
+.sparkery-quote-calc-client-preview-frame-shell:focus-within {
+  outline: 2px solid #1677ff;
+  outline-offset: 2px;
+}
+
+.sparkery-quote-calc-client-preview-frame-shell {
+  width: 100%;
+  border: 1px solid #dbe2ec;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f5f7fb;
+}
+
+.sparkery-quote-calc-client-preview-frame-shell.sparkery-quote-calc-client-preview-mobile {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.sparkery-quote-calc-client-preview-frame {
+  width: 100%;
+  min-height: 70vh;
+  border: 0;
+  background: #fff;
+}
+
 .sparkery-quote-calc-preview-section {
   margin-top: 30px;
 }
@@ -813,6 +871,15 @@
     width: 100%;
   }
 
+  .sparkery-quote-calc-report-block-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sparkery-quote-calc-client-preview-frame {
+    min-height: 62vh;
+  }
+
   .sparkery-quote-calc-preview-section {
     margin-top: 20px;
   }
@@ -845,7 +912,9 @@
 
 .sparkery-inspection-skip-link:focus {
   left: 12px;
-  outline: none;
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.3);
 }
 
 .sparkery-inspection-status-note {

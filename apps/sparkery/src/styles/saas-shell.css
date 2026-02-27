@@ -1,0 +1,851 @@
+:root {
+  --sparkery-saas-bg: #f3f6fb;
+  --sparkery-saas-bg-soft: #eef3fa;
+  --sparkery-saas-card: #ffffff;
+  --sparkery-saas-border: #e6ebf4;
+  --sparkery-saas-text: #1f2937;
+  --sparkery-saas-muted: #64748b;
+  --sparkery-saas-primary: #1677ff;
+  --sparkery-saas-success: #12a150;
+  --sparkery-saas-warning: #805200;
+  --sparkery-saas-danger: #cf2f44;
+  --sparkery-saas-status-success: #12a150;
+  --sparkery-saas-status-warning: #805200;
+  --sparkery-saas-status-danger: #cf2f44;
+  --sparkery-saas-status-info: #1677ff;
+  --sparkery-saas-severity-low: #13a8a8;
+  --sparkery-saas-severity-medium: #8f5400;
+  --sparkery-saas-severity-high: #cf2f44;
+  --sparkery-saas-font-h1: 30px;
+  --sparkery-saas-font-h2: 24px;
+  --sparkery-saas-font-h3: 20px;
+  --sparkery-saas-font-h4: 18px;
+  --sparkery-saas-font-h5: 16px;
+  --sparkery-saas-font-h6: 14px;
+  --sparkery-saas-font-body: 14px;
+  --sparkery-saas-font-caption: 12px;
+  --sparkery-saas-line-tight: 1.25;
+  --sparkery-saas-line-base: 1.45;
+  --sparkery-saas-space-1: 4px;
+  --sparkery-saas-space-2: 8px;
+  --sparkery-saas-space-3: 12px;
+  --sparkery-saas-space-4: 16px;
+  --sparkery-saas-space-5: 20px;
+  --sparkery-saas-radius-sm: 8px;
+  --sparkery-saas-radius-md: 12px;
+  --sparkery-saas-radius-lg: 16px;
+  --sparkery-saas-shadow-soft-md: 0 12px 28px rgba(17, 34, 68, 0.1);
+  --sparkery-saas-shadow-soft-lg: 0 18px 40px rgba(12, 26, 56, 0.16);
+  --sparkery-saas-z-base: 1;
+  --sparkery-saas-z-dropdown: 1000;
+  --sparkery-saas-z-modal: 1100;
+  --sparkery-saas-control-height: 38px;
+  --sparkery-saas-shadow-soft: 0 8px 24px rgba(18, 34, 70, 0.08);
+}
+
+body {
+  background: var(--sparkery-saas-bg);
+  color: var(--sparkery-saas-text);
+  font-family: 'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif;
+}
+
+:root[data-sparkery-density='compact'] {
+  --sparkery-saas-control-height: 34px;
+  --sparkery-saas-space-2: 6px;
+  --sparkery-saas-space-3: 10px;
+  --sparkery-saas-space-4: 14px;
+}
+
+:root[data-sparkery-density='dense'] {
+  --sparkery-saas-control-height: 30px;
+  --sparkery-saas-space-2: 4px;
+  --sparkery-saas-space-3: 8px;
+  --sparkery-saas-space-4: 12px;
+}
+
+:root[data-sparkery-theme='dark-neutral'] {
+  --sparkery-saas-bg: #1a1f29;
+  --sparkery-saas-bg-soft: #202734;
+  --sparkery-saas-card: #242d3d;
+  --sparkery-saas-border: #334056;
+  --sparkery-saas-text: #e9edf5;
+  --sparkery-saas-muted: #a8b4c8;
+}
+
+.sparkery-saas-h1,
+.sparkery-saas-h2,
+.sparkery-saas-h3,
+.sparkery-saas-h4,
+.sparkery-saas-h5,
+.sparkery-saas-h6 {
+  margin: 0;
+  color: var(--sparkery-saas-text);
+  line-height: var(--sparkery-saas-line-tight);
+}
+
+.sparkery-saas-h1 {
+  font-size: var(--sparkery-saas-font-h1);
+}
+
+.sparkery-saas-h2 {
+  font-size: var(--sparkery-saas-font-h2);
+}
+
+.sparkery-saas-h3 {
+  font-size: var(--sparkery-saas-font-h3);
+}
+
+.sparkery-saas-h4 {
+  font-size: var(--sparkery-saas-font-h4);
+}
+
+.sparkery-saas-h5 {
+  font-size: var(--sparkery-saas-font-h5);
+}
+
+.sparkery-saas-h6 {
+  font-size: var(--sparkery-saas-font-h6);
+}
+
+.sparkery-saas-body {
+  font-size: var(--sparkery-saas-font-body);
+  line-height: var(--sparkery-saas-line-base);
+}
+
+.sparkery-saas-caption {
+  font-size: var(--sparkery-saas-font-caption);
+  line-height: var(--sparkery-saas-line-base);
+  color: var(--sparkery-saas-muted);
+}
+
+.sparkery-saas-layout {
+  min-height: 100vh;
+  background: var(--sparkery-saas-bg);
+}
+
+.sparkery-saas-sider {
+  border-inline-end: 1px solid var(--sparkery-saas-border);
+  background: #fff !important;
+}
+
+.sparkery-saas-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 14px;
+  border-bottom: 1px solid var(--sparkery-saas-border);
+  min-height: 72px;
+}
+
+.sparkery-saas-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1677ff, #40a9ff);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+.sparkery-saas-brand-title {
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.sparkery-saas-brand-subtitle {
+  font-size: 12px;
+}
+
+.sparkery-saas-menu {
+  border-inline-end: none !important;
+  padding-top: 10px;
+}
+
+.sparkery-saas-menu-label,
+.sparkery-saas-group-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sparkery-saas-menu-description,
+.sparkery-saas-group-description {
+  color: var(--sparkery-saas-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.sparkery-saas-menu-meta {
+  margin-top: 2px;
+}
+
+.sparkery-saas-sla-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 18px;
+  border-radius: 999px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+
+.sparkery-saas-sla-p1 {
+  background: rgba(207, 47, 68, 0.12);
+  color: var(--sparkery-saas-severity-high);
+  border-color: rgba(207, 47, 68, 0.24);
+}
+
+.sparkery-saas-sla-p2 {
+  background: rgba(250, 140, 22, 0.14);
+  color: var(--sparkery-saas-severity-medium);
+  border-color: rgba(250, 140, 22, 0.3);
+}
+
+.sparkery-saas-sla-p3 {
+  background: rgba(19, 168, 168, 0.14);
+  color: var(--sparkery-saas-severity-low);
+  border-color: rgba(19, 168, 168, 0.25);
+}
+
+.sparkery-saas-menu-label-compact {
+  line-height: 1;
+}
+
+.sparkery-saas-menu-entry {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sparkery-saas-menu-entry-compact {
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.sparkery-saas-menu-unread-count {
+  margin-top: 2px;
+}
+
+.sparkery-saas-menu-unread-dot {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+}
+
+.sparkery-saas-tooltip-description {
+  color: #c8dcff;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.sparkery-saas-quick-panels {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px 6px;
+  border-bottom: 1px solid var(--sparkery-saas-border);
+}
+
+.sparkery-saas-quick-panel {
+  padding: 8px;
+  border: 1px solid var(--sparkery-saas-border);
+  border-radius: 10px;
+  background: var(--sparkery-saas-bg-soft);
+}
+
+.sparkery-saas-quick-title {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sparkery-saas-quick-empty {
+  font-size: 12px;
+}
+
+.sparkery-saas-main {
+  background: var(--sparkery-saas-bg);
+}
+
+.sparkery-saas-header {
+  background: #fff !important;
+  border-bottom: 1px solid var(--sparkery-saas-border);
+  padding: 0 20px !important;
+  height: 72px !important;
+  line-height: 1 !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sparkery-saas-header-left {
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.sparkery-saas-title-wrap {
+  min-width: 0;
+}
+
+.sparkery-saas-page-title {
+  margin: 0 !important;
+  line-height: 1.1 !important;
+}
+
+.sparkery-saas-breadcrumb {
+  margin: 2px 0 4px;
+}
+
+.sparkery-saas-module-switch {
+  min-width: 260px;
+  max-width: 360px;
+}
+
+.sparkery-saas-density-switch,
+.sparkery-saas-theme-switch {
+  min-width: 120px;
+}
+
+.sparkery-saas-header-primary-action {
+  box-shadow: var(--sparkery-saas-shadow-soft);
+}
+
+.sparkery-saas-workspace-switch {
+  min-width: 208px;
+  max-width: 240px;
+}
+
+.sparkery-saas-user-trigger {
+  min-width: 160px;
+}
+
+.sparkery-saas-content {
+  padding: 16px;
+  overflow: auto;
+}
+
+.sparkery-saas-connection-banner {
+  margin: 0 16px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: var(--sparkery-saas-radius-sm);
+  border: 1px solid transparent;
+  font-size: 13px;
+}
+
+.sparkery-saas-connection-banner-offline {
+  background: rgba(207, 47, 68, 0.1);
+  color: #8f1d31;
+  border-color: rgba(207, 47, 68, 0.24);
+}
+
+.sparkery-saas-connection-banner-online {
+  background: rgba(18, 161, 80, 0.1);
+  color: #0d7c3d;
+  border-color: rgba(18, 161, 80, 0.24);
+}
+
+.sparkery-saas-error-toast-details {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sparkery-saas-ops-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sparkery-saas-space-3);
+  margin-bottom: var(--sparkery-saas-space-4);
+}
+
+.sparkery-saas-ops-card .ant-card-body {
+  display: grid;
+  gap: var(--sparkery-saas-space-2);
+}
+
+.sparkery-saas-kpi-grid {
+  display: grid;
+  gap: var(--sparkery-saas-space-2);
+}
+
+.sparkery-saas-kpi-item {
+  display: grid;
+  gap: 4px;
+}
+
+.sparkery-saas-kpi-label {
+  font-size: 12px;
+  color: var(--sparkery-saas-muted);
+}
+
+.sparkery-saas-kpi-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sparkery-saas-kpi-delta {
+  width: fit-content;
+  margin: 0;
+}
+
+.sparkery-saas-kpi-delta-positive {
+  color: var(--sparkery-saas-success);
+  border-color: rgba(18, 161, 80, 0.24);
+  background: rgba(18, 161, 80, 0.1);
+}
+
+.sparkery-saas-kpi-delta-negative {
+  color: var(--sparkery-saas-danger);
+  border-color: rgba(207, 47, 68, 0.24);
+  background: rgba(207, 47, 68, 0.1);
+}
+
+.sparkery-saas-health-stack {
+  width: 100%;
+}
+
+.sparkery-saas-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sparkery-saas-space-2);
+}
+
+.sparkery-saas-jobs-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sparkery-saas-heatmap {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  min-height: 72px;
+}
+
+.sparkery-saas-heatmap-col {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.sparkery-saas-heatmap-bar {
+  width: 100%;
+  border-radius: 7px;
+  background: linear-gradient(
+    180deg,
+    rgba(22, 119, 255, 0.8),
+    rgba(22, 119, 255, 0.2)
+  );
+}
+
+.sparkery-saas-heatmap-label {
+  font-size: 11px;
+  color: var(--sparkery-saas-muted);
+}
+
+.sparkery-saas-drawer-stack {
+  width: 100%;
+}
+
+.sparkery-saas-alert-icon {
+  font-size: 14px;
+}
+
+.sparkery-saas-alert-icon-warning {
+  color: var(--sparkery-saas-warning);
+}
+
+.sparkery-saas-alert-icon-error {
+  color: var(--sparkery-saas-danger);
+}
+
+.sparkery-saas-alert-icon-info {
+  color: var(--sparkery-saas-primary);
+}
+
+.sparkery-saas-command-panel {
+  width: 100%;
+}
+
+.sparkery-saas-command-list {
+  display: grid;
+  gap: 6px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.sparkery-saas-command-section {
+  display: grid;
+  gap: 6px;
+}
+
+.sparkery-saas-command-section-title {
+  color: var(--sparkery-saas-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sparkery-saas-command-item {
+  width: 100%;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--sparkery-saas-border);
+  border-radius: 8px;
+  background: #f9fbff;
+}
+
+.sparkery-saas-command-hint {
+  color: var(--sparkery-saas-muted);
+  font-size: 12px;
+}
+
+.sparkery-saas-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sparkery-saas-chip--neutral {
+  background: #f1f5fb;
+  color: #2e3f57;
+  border-color: #d8e3f3;
+}
+
+.sparkery-saas-chip--success {
+  background: rgba(18, 161, 80, 0.12);
+  color: var(--sparkery-saas-status-success);
+  border-color: rgba(18, 161, 80, 0.24);
+}
+
+.sparkery-saas-chip--warning {
+  background: rgba(207, 143, 9, 0.14);
+  color: var(--sparkery-saas-status-warning);
+  border-color: rgba(207, 143, 9, 0.22);
+}
+
+.sparkery-saas-chip--danger {
+  background: rgba(207, 47, 68, 0.12);
+  color: var(--sparkery-saas-status-danger);
+  border-color: rgba(207, 47, 68, 0.26);
+}
+
+.sparkery-saas-layout .anticon {
+  font-size: 14px;
+  vertical-align: -0.125em;
+}
+
+.sparkery-saas-layout .ant-btn {
+  border-radius: var(--sparkery-saas-radius-sm);
+}
+
+.sparkery-saas-layout .ant-input,
+.sparkery-saas-layout .ant-input-affix-wrapper,
+.sparkery-saas-layout .ant-input-number,
+.sparkery-saas-layout .ant-picker,
+.sparkery-saas-layout .ant-select-single .ant-select-selector {
+  min-height: var(--sparkery-saas-control-height);
+  border-radius: var(--sparkery-saas-radius-sm);
+}
+
+.sparkery-saas-layout .ant-input-number-input-wrap input {
+  min-height: calc(var(--sparkery-saas-control-height) - 2px);
+}
+
+.sparkery-saas-layout
+  .ant-select-single:not(.ant-select-customize-input)
+  .ant-select-selector {
+  display: flex;
+  align-items: center;
+}
+
+.sparkery-saas-layout .ant-card {
+  border-radius: var(--sparkery-saas-radius-md);
+  box-shadow: var(--sparkery-saas-shadow-soft);
+}
+
+.sparkery-saas-layout .ant-card-head {
+  min-height: 52px;
+  border-bottom-color: var(--sparkery-saas-border);
+}
+
+.sparkery-saas-layout .ant-card-head-title {
+  font-size: var(--sparkery-saas-font-h6);
+  font-weight: 600;
+}
+
+.sparkery-saas-layout .ant-card-body {
+  padding: var(--sparkery-saas-space-4);
+}
+
+.sparkery-saas-layout .ant-card-actions {
+  border-top-color: var(--sparkery-saas-border);
+}
+
+.sparkery-saas-layout .ant-skeleton .ant-skeleton-content .ant-skeleton-title,
+.sparkery-saas-layout
+  .ant-skeleton
+  .ant-skeleton-content
+  .ant-skeleton-paragraph
+  > li {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.18),
+    rgba(148, 163, 184, 0.32),
+    rgba(148, 163, 184, 0.18)
+  );
+  background-size: 220% 100%;
+  animation: sparkery-saas-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes sparkery-saas-skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.sparkery-saas-empty-state {
+  padding: 20px 16px;
+  border: 1px dashed var(--sparkery-saas-border);
+  border-radius: var(--sparkery-saas-radius-md);
+  background: var(--sparkery-saas-bg-soft);
+  display: grid;
+  gap: var(--sparkery-saas-space-2);
+  justify-items: start;
+}
+
+.sparkery-saas-empty-state-title {
+  margin: 0;
+  font-size: var(--sparkery-saas-font-h6);
+  color: var(--sparkery-saas-text);
+}
+
+.sparkery-saas-empty-state-description {
+  margin: 0;
+  font-size: var(--sparkery-saas-font-caption);
+  color: var(--sparkery-saas-muted);
+}
+
+.sparkery-saas-layout .ant-table-tbody > tr > td {
+  transition: background-color 0.18s ease;
+}
+
+.sparkery-saas-layout .ant-table-tbody > tr:hover > td {
+  background: #f8fbff !important;
+}
+
+.sparkery-saas-layout .ant-table-row-selected > td {
+  background: #e8f2ff !important;
+}
+
+.sparkery-saas-layout .ant-table-tbody > tr:focus-within > td {
+  outline: 2px solid rgba(22, 119, 255, 0.25);
+  outline-offset: -2px;
+}
+
+.sparkery-saas-layout .ant-btn:focus-visible,
+.sparkery-saas-layout .ant-input:focus,
+.sparkery-saas-layout .ant-select-focused .ant-select-selector {
+  outline: 2px solid var(--sparkery-saas-primary);
+  outline-offset: 1px;
+}
+
+.sparkery-saas-login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  position: relative;
+  background: var(--sparkery-saas-bg);
+}
+
+.sparkery-saas-login-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 15% 20%,
+      rgba(22, 119, 255, 0.16),
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 85% 15%,
+      rgba(12, 199, 128, 0.14),
+      transparent 40%
+    );
+  pointer-events: none;
+}
+
+.sparkery-saas-login-card {
+  width: min(460px, 100%);
+  border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(19, 38, 83, 0.12);
+  position: relative;
+  z-index: 1;
+}
+
+.sparkery-saas-login-title {
+  margin: 10px 0 6px !important;
+}
+
+.sparkery-saas-login-subtitle {
+  margin-bottom: 0 !important;
+  color: var(--sparkery-saas-muted);
+}
+
+.sparkery-saas-login-submit {
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.sparkery-saas-users-page {
+  display: grid;
+  gap: 12px;
+}
+
+.sparkery-saas-users-hero {
+  border-radius: 12px;
+}
+
+.sparkery-saas-users-stats .ant-card {
+  border-radius: 12px;
+}
+
+.sparkery-data-table {
+  display: grid;
+  gap: var(--sparkery-saas-space-2);
+}
+
+.sparkery-data-table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sparkery-saas-space-2);
+  flex-wrap: wrap;
+}
+
+.sparkery-data-table-quick-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--sparkery-saas-space-2);
+}
+
+.sparkery-data-table-empty-diagnostics {
+  display: grid;
+  gap: var(--sparkery-saas-space-2);
+  justify-items: start;
+  text-align: left;
+}
+
+.sparkery-data-table-empty-diagnostics-list {
+  display: grid;
+  gap: 2px;
+}
+
+.sparkery-data-table-sort-builder {
+  width: 100%;
+}
+
+.sparkery-data-table-sort-row {
+  width: 100%;
+}
+
+.sparkery-data-table-sort-column-select {
+  flex: 1;
+  min-width: 170px;
+}
+
+.sparkery-data-table-sort-direction-select {
+  width: 126px;
+}
+
+.sparkery-data-table-settings {
+  width: 100%;
+}
+
+.sparkery-data-table-settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sparkery-saas-space-2);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--sparkery-saas-border);
+}
+
+.sparkery-data-table-row-openable:focus-within > td {
+  outline: 2px solid rgba(22, 119, 255, 0.24);
+  outline-offset: -2px;
+}
+
+:root[data-sparkery-theme='dark-neutral'] .sparkery-saas-sider,
+:root[data-sparkery-theme='dark-neutral'] .sparkery-saas-header,
+:root[data-sparkery-theme='dark-neutral'] .sparkery-saas-quick-panel,
+:root[data-sparkery-theme='dark-neutral'] .sparkery-saas-layout .ant-card,
+:root[data-sparkery-theme='dark-neutral'] .sparkery-saas-layout .ant-input,
+:root[data-sparkery-theme='dark-neutral']
+  .sparkery-saas-layout
+  .ant-input-affix-wrapper,
+:root[data-sparkery-theme='dark-neutral']
+  .sparkery-saas-layout
+  .ant-select-selector,
+:root[data-sparkery-theme='dark-neutral'] .sparkery-saas-layout .ant-picker {
+  background: var(--sparkery-saas-card) !important;
+  color: var(--sparkery-saas-text) !important;
+  border-color: var(--sparkery-saas-border) !important;
+}
+
+:root[data-sparkery-theme='dark-neutral'] .sparkery-saas-menu-description,
+:root[data-sparkery-theme='dark-neutral'] .sparkery-saas-group-description,
+:root[data-sparkery-theme='dark-neutral'] .sparkery-saas-command-hint,
+:root[data-sparkery-theme='dark-neutral']
+  .sparkery-saas-empty-state-description {
+  color: var(--sparkery-saas-muted) !important;
+}
+
+@media (max-width: 960px) {
+  .sparkery-saas-header {
+    padding: 0 12px !important;
+  }
+
+  .sparkery-saas-module-switch {
+    min-width: 220px;
+    max-width: 280px;
+  }
+
+  .sparkery-saas-workspace-switch {
+    min-width: 170px;
+    max-width: 220px;
+  }
+
+  .sparkery-saas-density-switch,
+  .sparkery-saas-theme-switch {
+    min-width: 108px;
+    max-width: 140px;
+  }
+
+  .sparkery-saas-user-trigger {
+    min-width: auto;
+  }
+
+  .sparkery-saas-content {
+    padding: 12px;
+  }
+}

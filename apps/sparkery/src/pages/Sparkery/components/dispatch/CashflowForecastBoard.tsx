@@ -1,9 +1,17 @@
 import React from 'react';
-import { Card, Empty, Progress, Space, Table, Tag, Typography } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
+import {
+  Card,
+  Empty,
+  Progress,
+  Space,
+  Tag,
+  Typography,
+  type TableColumnsType,
+} from 'antd';
 import { useTranslation } from 'react-i18next';
 import dayjs, { type Dayjs } from 'dayjs';
 import type { DispatchJob } from '../../dispatch/types';
+import SparkeryDataTable from '@/components/sparkery/SparkeryDataTable';
 
 const { Text } = Typography;
 
@@ -324,7 +332,7 @@ const CashflowForecastBoard: React.FC<CashflowForecastBoardProps> = ({
     [overdueRows]
   );
 
-  const monthColumns: ColumnsType<MonthForecastRow> = [
+  const monthColumns: TableColumnsType<MonthForecastRow> = [
     {
       title: t('sparkery.dispatch.cashflow.columns.period'),
       key: 'period',
@@ -400,7 +408,7 @@ const CashflowForecastBoard: React.FC<CashflowForecastBoardProps> = ({
     },
   ];
 
-  const riskColumns: ColumnsType<RiskQueueRow> = [
+  const riskColumns: TableColumnsType<RiskQueueRow> = [
     {
       title: t('sparkery.dispatch.cashflow.columns.risk'),
       key: 'risk',
@@ -518,12 +526,14 @@ const CashflowForecastBoard: React.FC<CashflowForecastBoardProps> = ({
             </Tag>
           </Space>
 
-          <Table<MonthForecastRow>
+          <SparkeryDataTable<MonthForecastRow>
+            tableId='dispatch-cashflow-month-forecast'
             className='dispatch-cashflow-forecast-table'
             rowKey='key'
             size='small'
             loading={Boolean(loading)}
             pagination={false}
+            showSortBuilder
             columns={monthColumns}
             dataSource={monthRows}
             scroll={{ x: 780 }}
@@ -538,12 +548,14 @@ const CashflowForecastBoard: React.FC<CashflowForecastBoardProps> = ({
               {t('sparkery.dispatch.cashflow.riskQueueEmpty')}
             </Text>
           ) : (
-            <Table<RiskQueueRow>
+            <SparkeryDataTable<RiskQueueRow>
+              tableId='dispatch-cashflow-risk-queue'
               className='dispatch-cashflow-risk-table'
               rowKey='id'
               size='small'
               loading={Boolean(loading)}
               pagination={false}
+              showSortBuilder
               columns={riskColumns}
               dataSource={riskRows}
               scroll={{ x: 760 }}

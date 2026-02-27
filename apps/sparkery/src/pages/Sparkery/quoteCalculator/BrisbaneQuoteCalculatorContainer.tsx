@@ -35,6 +35,8 @@ import {
   PlusOutlined,
   DeleteOutlined,
   PrinterOutlined,
+  DownloadOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -61,6 +63,13 @@ import {
 import '../sparkery.css';
 
 const { Title, Text, Paragraph } = Typography;
+
+type ReportThemePreset = 'clean' | 'formal' | 'brand';
+type ReportBlockId = 'summary' | 'line_items' | 'totals' | 'terms';
+type ReportBlockOption = {
+  id: ReportBlockId;
+  enabled: boolean;
+};
 
 const BrisbaneQuoteCalculator: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -228,6 +237,26 @@ const BrisbaneQuoteCalculator: React.FC = () => {
   /** 自定义输出模块：默认打印 receipt，可切换为 quote */
   const [customReportType, setCustomReportType] =
     useState<QuoteCustomDocumentType>('receipt');
+  const [reportThemePreset, setReportThemePreset] =
+    useState<ReportThemePreset>('brand');
+  const [reportBlocks, setReportBlocks] = useState<ReportBlockOption[]>([
+    { id: 'summary', enabled: true },
+    { id: 'line_items', enabled: true },
+    { id: 'totals', enabled: true },
+    { id: 'terms', enabled: true },
+  ]);
+  const [reportHeaderNote, setReportHeaderNote] = useState('');
+  const [reportFooterNote, setReportFooterNote] = useState('');
+  const [clientPreviewOpen, setClientPreviewOpen] = useState(false);
+  const [clientPreviewViewport, setClientPreviewViewport] = useState<
+    'desktop' | 'mobile'
+  >('desktop');
+  const [shareModeEnabled, setShareModeEnabled] = useState(false);
+  const [sharePermission, setSharePermission] = useState<'view' | 'download'>(
+    'view'
+  );
+  const [shareExpiryDays, setShareExpiryDays] = useState<number>(7);
+  const [shareDraftLink, setShareDraftLink] = useState('');
 
   // 折扣状态
   const [discountEnabled, setDiscountEnabled] = useState<boolean>(false);
@@ -510,11 +539,13 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     });
 
     try {
-      const renderedHtml = renderTemplateBundle({
-        language,
-        renderSingleLanguage: lang =>
-          generateQuoteHTML(lang as QuoteTemplateSingleLanguage),
-      });
+      const renderedHtml = applyReportOutputOptions(
+        renderTemplateBundle({
+          language,
+          renderSingleLanguage: lang =>
+            generateQuoteHTML(lang as QuoteTemplateSingleLanguage),
+        })
+      );
 
       // Open print dialog to print the HTML report as PDF
       const printWindow = window.open(
@@ -754,6 +785,164 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         .join('')}
     </section>
   `;
+
+  const reportBlockLabels = React.useMemo<Record<ReportBlockId, string>>(
+    () => ({
+      summary: t(
+        'sparkery.quoteCalculator.reportBlocks.summary',
+        {
+          defaultValue: 'Summary Strip',
+        }
+      ),
+      line_items: t(
+        'sparkery.quoteCalculator.reportBlocks.lineItems',
+        {
+          defaultValue: 'Line Items',
+        }
+      ),
+      totals: t(
+        'sparkery.quoteCalculator.reportBlocks.totals',
+        {
+          defaultValue: 'Totals',
+        }
+      ),
+      terms: t(
+        'sparkery.quoteCalculator.reportBlocks.terms',
+        {
+          defaultValue: 'Terms & Notes',
+        }
+      ),
+    }),
+    [t]
+  );
+
+  const moveReportBlock = useCallback(
+    (id: ReportBlockId, direction: 'up' | 'down') => {
+      setReportBlocks(prev => {
+        const index = prev.findIndex(item => item.id === id);
+        if (index < 0) {
+          return prev;
+        }
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= prev.length) {
+          return prev;
+        }
+        const next = [...prev];
+        const [picked] = next.splice(index, 1);
+        if (!picked) {
+          return prev;
+        }
+        next.splice(targetIndex, 0, picked);
+        return next;
+      });
+    },
+    []
+  );
+
+  const applyReportOutputOptions = useCallback(
+    (html: string): string => {
+      const blockConfig = reportBlocks.map(item => ({
+        id: item.id,
+        enabled: item.enabled,
+      }));
+      const blockConfigJson = JSON.stringify(blockConfig).replace(
+        /</g,
+        '\\u003c'
+      );
+      const selectorsJson = JSON.stringify({
+        summary: '.report-summary-strip',
+        line_items: 'table[aria-label]',
+        totals: '.total-section',
+        terms: '.footer-note',
+      }).replace(/</g, '\\u003c');
+      const safeHeaderNote = escapeTemplateHtml(reportHeaderNote.trim());
+      const safeFooterNote = escapeTemplateHtml(reportFooterNote.trim());
+      const headerNoteHtml = safeHeaderNote
+        ? `<div class="client-brand-note">${safeHeaderNote}</div>`
+        : '';
+      const footerNoteHtml = safeFooterNote
+        ? `<div class="client-brand-footer-note">${safeFooterNote}</div>`
+        : '';
+
+      let next = html.replace(
+        '<div class="page-container">',
+        `<div class="page-container report-theme-${reportThemePreset}">`
+      );
+      if (headerNoteHtml) {
+        next = next.replace('</header>', `</header>${headerNoteHtml}`);
+      }
+      if (footerNoteHtml) {
+        next = next.replace(
+          '<div class="page-footer">',
+          `${footerNoteHtml}<div class="page-footer">`
+        );
+      }
+      const themeStyle = `
+<style>
+  .report-theme-clean { --report-primary: #334155; --report-primary-soft: #f8fafc; --report-border: #d5dbe3; }
+  .report-theme-formal { --report-primary: #0f2740; --report-primary-soft: #edf3fa; --report-border: #c6d3e2; }
+  .report-theme-brand { --report-primary: #005901; --report-primary-soft: #f4faf1; --report-border: #dfe7dd; }
+  .report-theme-clean header, .report-theme-formal header, .report-theme-brand header {
+    border-bottom-color: var(--report-primary) !important;
+  }
+  .report-theme-clean .company-name, .report-theme-formal .company-name, .report-theme-brand .company-name,
+  .report-theme-clean .quote-title, .report-theme-formal .quote-title, .report-theme-brand .quote-title {
+    color: var(--report-primary) !important;
+  }
+  .report-theme-clean .grand-total, .report-theme-formal .grand-total, .report-theme-brand .grand-total {
+    color: var(--report-primary) !important;
+    border-top-color: var(--report-border) !important;
+  }
+  .client-brand-note, .client-brand-footer-note {
+    margin: 8px 0 10px;
+    padding: 8px 10px;
+    border: 1px dashed var(--report-border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #5b6675;
+    line-height: 1.45;
+    background: #fafcfe;
+  }
+  .client-brand-footer-note {
+    margin-top: 16px;
+  }
+  @media screen and (max-width: 768px) {
+    .client-brand-note, .client-brand-footer-note {
+      font-size: 11px;
+      padding: 7px 8px;
+    }
+  }
+</style>`;
+      const reorderScript = `
+<script>
+  (function () {
+    var blocks = ${blockConfigJson};
+    var selectors = ${selectorsJson};
+    var container = document.querySelector('.page-container');
+    if (!container) return;
+    var footer = container.querySelector('.page-footer');
+    var nodes = {};
+    Object.keys(selectors).forEach(function (key) {
+      nodes[key] = container.querySelector(selectors[key]);
+    });
+    blocks.forEach(function (block) {
+      var node = nodes[block.id];
+      if (!node) return;
+      if (!block.enabled) {
+        node.style.display = 'none';
+        return;
+      }
+      node.style.display = '';
+      container.insertBefore(node, footer || null);
+    });
+  })();
+</script>`;
+      next = next.replace('</head>', `${themeStyle}</head>`);
+      next = next.replace('</body>', `${reorderScript}</body>`);
+      return next;
+    },
+    [reportBlocks, reportFooterNote, reportHeaderNote, reportThemePreset]
+  );
 
   // 保存配置到localStorage
   useEffect(() => {
@@ -2879,14 +3068,16 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       },
     });
     try {
-      const html = renderTemplateBundle({
-        language,
-        renderSingleLanguage: lang =>
-          generateInvoiceHTML(
-            lang as QuoteTemplateSingleLanguage,
-            documentType
-          ),
-      });
+      const html = applyReportOutputOptions(
+        renderTemplateBundle({
+          language,
+          renderSingleLanguage: lang =>
+            generateInvoiceHTML(
+              lang as QuoteTemplateSingleLanguage,
+              documentType
+            ),
+        })
+      );
       const printWindow = window.open(
         '',
         '_blank',
@@ -3014,17 +3205,90 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     }
   };
 
+  const getCurrentCustomReportHtml = useCallback(
+    (language: QuoteTemplateLanguage = pdfLanguage) =>
+      applyReportOutputOptions(
+        renderTemplateBundle({
+          language,
+          renderSingleLanguage: lang =>
+            generateInvoiceHTML(
+              lang as QuoteTemplateSingleLanguage,
+              customReportType
+            ),
+        })
+      ),
+    [
+      pdfLanguage,
+      applyReportOutputOptions,
+      generateInvoiceHTML,
+      customReportType,
+    ]
+  );
+
+  const downloadCurrentReportHtml = useCallback(() => {
+    const html = getCurrentCustomReportHtml(pdfLanguage);
+    const blob = new Blob([html], {
+      type: 'text/html;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${quoteId}-${customReportType}.html`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+    message.success(
+      t('sparkery.quoteCalculator.messages.downloadedHtml', {
+        defaultValue: 'HTML report downloaded.',
+      })
+    );
+  }, [customReportType, getCurrentCustomReportHtml, pdfLanguage, quoteId, t]);
+
+  const handleCreateShareLink = useCallback(() => {
+    if (!shareModeEnabled) {
+      message.warning(
+        t('sparkery.quoteCalculator.messages.enableShareFirst', {
+          defaultValue: 'Enable sharing first.',
+        })
+      );
+      return;
+    }
+    const expiresAt = dayjs()
+      .add(shareExpiryDays, 'day')
+      .format('YYYY-MM-DD');
+    const token = Math.random().toString(36).slice(2, 10).toUpperCase();
+    const link = `${window.location.origin}/sparkery/client-report/${quoteId}?token=${token}&permission=${sharePermission}&expires=${expiresAt}`;
+    setShareDraftLink(link);
+    message.success(
+      t('sparkery.quoteCalculator.messages.shareLinkGenerated', {
+        defaultValue: 'Share link generated.',
+      })
+    );
+  }, [quoteId, shareExpiryDays, shareModeEnabled, sharePermission, t]);
+
+  const handleCopyShareLink = useCallback(async () => {
+    if (!shareDraftLink) {
+      message.warning(
+        t('sparkery.quoteCalculator.messages.generateShareFirst', {
+          defaultValue: 'Generate share link first.',
+        })
+      );
+      return;
+    }
+    await navigator.clipboard.writeText(shareDraftLink);
+    message.success(
+      t('sparkery.quoteCalculator.messages.shareLinkCopied', {
+        defaultValue: 'Share link copied to clipboard.',
+      })
+    );
+  }, [shareDraftLink, t]);
+
   // 生成实时HTML预览
   useEffect(() => {
     if (!quote) return;
 
-    const html = renderTemplateBundle({
-      language: pdfLanguage,
-      renderSingleLanguage: lang =>
-        generateQuoteHTML(lang as QuoteTemplateSingleLanguage),
-    });
-
-    setLivePreviewHTML(html);
+    setLivePreviewHTML(getCurrentCustomReportHtml(pdfLanguage));
   }, [
     quote,
     customerName,
@@ -3036,11 +3300,12 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     includeGST,
     notes,
     pdfLanguage,
+    customReportType,
     serviceItems,
     sqmArea,
     sqmPrice,
     sqmMultiplier,
-    generateQuoteHTML,
+    getCurrentCustomReportHtml,
   ]);
 
   return (
@@ -4511,7 +4776,11 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 })}
               </Text>
 
-              <Text type='secondary' className='sparkery-quote-calc-caption'>
+              <Text
+                id='sparkery-quote-calc-report-type-label'
+                type='secondary'
+                className='sparkery-quote-calc-caption'
+              >
                 {t('sparkery.quoteCalculator.fields.reportType', {
                   defaultValue:
                     currentUiLanguage === 'cn' ? '报告类型' : 'Report Type',
@@ -4523,6 +4792,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   setCustomReportType(e.target.value as QuoteCustomDocumentType)
                 }
                 className='sparkery-quote-calc-radio-row'
+                aria-labelledby='sparkery-quote-calc-report-type-label'
               >
                 <Radio.Button value='receipt'>
                   {t('sparkery.quoteCalculator.reportType.receiptOption', {
@@ -4537,6 +4807,144 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   })}
                 </Radio.Button>
               </Radio.Group>
+
+              <Text
+                id='sparkery-quote-calc-theme-label'
+                type='secondary'
+                className='sparkery-quote-calc-caption'
+              >
+                {t('sparkery.quoteCalculator.reportTheme.label', {
+                  defaultValue: 'Theme Preset',
+                })}
+              </Text>
+              <Radio.Group
+                value={reportThemePreset}
+                onChange={e =>
+                  setReportThemePreset(e.target.value as ReportThemePreset)
+                }
+                className='sparkery-quote-calc-radio-row'
+                aria-labelledby='sparkery-quote-calc-theme-label'
+              >
+                <Radio.Button value='clean'>
+                  {t('sparkery.quoteCalculator.reportTheme.clean', {
+                    defaultValue: 'Clean',
+                  })}
+                </Radio.Button>
+                <Radio.Button value='formal'>
+                  {t('sparkery.quoteCalculator.reportTheme.formal', {
+                    defaultValue: 'Formal',
+                  })}
+                </Radio.Button>
+                <Radio.Button value='brand'>
+                  {t('sparkery.quoteCalculator.reportTheme.brand', {
+                    defaultValue: 'Brand',
+                  })}
+                </Radio.Button>
+              </Radio.Group>
+
+              <Text
+                id='sparkery-quote-calc-report-blocks-label'
+                type='secondary'
+                className='sparkery-quote-calc-caption'
+              >
+                {t('sparkery.quoteCalculator.reportBlocks.label', {
+                  defaultValue: 'Report Blocks',
+                })}
+              </Text>
+              <div
+                className='sparkery-quote-calc-report-blocks'
+                role='list'
+                aria-labelledby='sparkery-quote-calc-report-blocks-label'
+              >
+                {reportBlocks.map((block, index) => (
+                  <div
+                    key={block.id}
+                    className='sparkery-quote-calc-report-block-row'
+                    role='listitem'
+                  >
+                    <Checkbox
+                      checked={block.enabled}
+                      aria-label={reportBlockLabels[block.id]}
+                      onChange={event =>
+                        setReportBlocks(prev =>
+                          prev.map(item =>
+                            item.id === block.id
+                              ? { ...item, enabled: event.target.checked }
+                              : item
+                          )
+                        )
+                      }
+                    >
+                      {reportBlockLabels[block.id]}
+                    </Checkbox>
+                    <Space size={4}>
+                      <Button
+                        size='small'
+                        disabled={index === 0}
+                        onClick={() => moveReportBlock(block.id, 'up')}
+                        aria-label={`${reportBlockLabels[block.id]} up`}
+                      >
+                        {t('common.up', { defaultValue: 'Up' })}
+                      </Button>
+                      <Button
+                        size='small'
+                        disabled={index >= reportBlocks.length - 1}
+                        onClick={() => moveReportBlock(block.id, 'down')}
+                        aria-label={`${reportBlockLabels[block.id]} down`}
+                      >
+                        {t('common.down', { defaultValue: 'Down' })}
+                      </Button>
+                    </Space>
+                  </div>
+                ))}
+              </div>
+
+              <Text type='secondary' className='sparkery-quote-calc-caption'>
+                {t('sparkery.quoteCalculator.branding.headerNote', {
+                  defaultValue: 'Header Branding Note',
+                })}
+              </Text>
+              <Input
+                value={reportHeaderNote}
+                onChange={event => setReportHeaderNote(event.target.value)}
+                placeholder={t(
+                  'sparkery.quoteCalculator.branding.headerPlaceholder',
+                  {
+                    defaultValue: 'Example: Residential Cleaning Proposal',
+                  }
+                )}
+                className='sparkery-quote-calc-gap-6'
+              />
+              <Text type='secondary' className='sparkery-quote-calc-caption'>
+                {t('sparkery.quoteCalculator.branding.footerNote', {
+                  defaultValue: 'Footer Branding Note',
+                })}
+              </Text>
+              <Input.TextArea
+                value={reportFooterNote}
+                onChange={event => setReportFooterNote(event.target.value)}
+                placeholder={t(
+                  'sparkery.quoteCalculator.branding.footerPlaceholder',
+                  {
+                    defaultValue:
+                      'Example: Service scope confirmed by onsite inspection.',
+                  }
+                )}
+                rows={2}
+                className='sparkery-quote-calc-gap-6'
+              />
+              <Button
+                block
+                icon={<EyeOutlined />}
+                onClick={() => setClientPreviewOpen(true)}
+                aria-label={t('sparkery.quoteCalculator.actions.clientPreview', {
+                  defaultValue: 'Client View Preview',
+                })}
+              >
+                {t('sparkery.quoteCalculator.actions.clientPreview', {
+                  defaultValue: 'Client View Preview',
+                })}
+              </Button>
 
               <>
                 <Text type='secondary' className='sparkery-quote-calc-caption'>
@@ -4611,6 +5019,9 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                   value={invoiceHeaderMode}
                   onChange={e => setInvoiceHeaderMode(e.target.value)}
                   className='sparkery-quote-calc-radio-block'
+                  aria-label={t('sparkery.quoteCalculator.fields.invoiceHeader', {
+                    defaultValue: 'Receipt Header',
+                  })}
                 >
                   <Radio value='sparkery'>
                     {t('sparkery.quoteCalculator.invoiceHeader.sparkery', {
@@ -4788,38 +5199,184 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 )}
               </>
 
-              <Button
-                type='default'
-                size='large'
-                block
-                icon={
-                  customReportType === 'quote' ? (
-                    <FileTextOutlined />
-                  ) : (
-                    <PrinterOutlined />
-                  )
-                }
-                onClick={() =>
-                  generateInvoicePDF(pdfLanguage, customReportType)
-                }
-                className='sparkery-quote-calc-top-8'
+              <div
+                className='sparkery-quote-calc-export-cluster sparkery-quote-calc-top-8'
+                role='group'
+                aria-label={t('sparkery.quoteCalculator.actions.exportHtml', {
+                  defaultValue: 'Export actions',
+                })}
               >
-                {customReportType === 'quote'
-                  ? pdfLanguage === 'cn'
-                    ? t('sparkery.quoteCalculator.actions.printQuoteCn', {
-                        defaultValue: 'Print Quote (CN)',
+                <Button
+                  type='default'
+                  size='large'
+                  block
+                  icon={
+                    customReportType === 'quote' ? (
+                      <FileTextOutlined />
+                    ) : (
+                      <PrinterOutlined />
+                    )
+                  }
+                  onClick={() =>
+                    generateInvoicePDF(pdfLanguage, customReportType)
+                  }
+                >
+                  {customReportType === 'quote'
+                    ? pdfLanguage === 'cn'
+                      ? t('sparkery.quoteCalculator.actions.printQuoteCn', {
+                          defaultValue: 'Print Quote (CN)',
+                        })
+                      : t('sparkery.quoteCalculator.actions.printQuote', {
+                          defaultValue: 'Print Quote',
+                        })
+                    : pdfLanguage === 'cn'
+                      ? t('sparkery.quoteCalculator.actions.printReceiptCn', {
+                          defaultValue: '打印收据',
+                        })
+                      : t('sparkery.quoteCalculator.actions.printReceipt', {
+                          defaultValue: 'Print Receipt',
+                        })}
+                </Button>
+                <Button
+                  size='large'
+                  block
+                  icon={<DownloadOutlined />}
+                  onClick={downloadCurrentReportHtml}
+                >
+                  {t('sparkery.quoteCalculator.actions.exportHtml', {
+                    defaultValue: 'Export HTML',
+                  })}
+                </Button>
+                <Button
+                  size='large'
+                  block
+                  icon={<LinkOutlined />}
+                  onClick={handleCreateShareLink}
+                >
+                  {t('sparkery.quoteCalculator.actions.generateShare', {
+                    defaultValue: 'Generate Share Link',
+                  })}
+                </Button>
+              </div>
+
+              <div
+                className='sparkery-quote-calc-panel-soft sparkery-quote-calc-share-panel'
+                role='group'
+                aria-label={t('sparkery.quoteCalculator.share.enable', {
+                  defaultValue: 'Enable Client Sharing',
+                })}
+              >
+                <Checkbox
+                  checked={shareModeEnabled}
+                  onChange={event => setShareModeEnabled(event.target.checked)}
+                >
+                  {t('sparkery.quoteCalculator.share.enable', {
+                    defaultValue: 'Enable Client Sharing',
+                  })}
+                </Checkbox>
+                <Text
+                  id='sparkery-quote-calc-share-permission-label'
+                  type='secondary'
+                  className='sparkery-quote-calc-caption'
+                >
+                  {t('sparkery.quoteCalculator.share.permission', {
+                    defaultValue: 'Permission',
+                  })}
+                </Text>
+                <Radio.Group
+                  value={sharePermission}
+                  onChange={event =>
+                    setSharePermission(event.target.value as 'view' | 'download')
+                  }
+                  className='sparkery-quote-calc-radio-block'
+                  aria-labelledby='sparkery-quote-calc-share-permission-label'
+                >
+                  <Radio value='view'>
+                    {t('sparkery.quoteCalculator.share.viewOnly', {
+                      defaultValue: 'View only',
+                    })}
+                  </Radio>
+                  <Radio value='download'>
+                    {t('sparkery.quoteCalculator.share.allowDownload', {
+                      defaultValue: 'View + download',
+                    })}
+                  </Radio>
+                </Radio.Group>
+                <Text
+                  id='sparkery-quote-calc-share-expiry-label'
+                  type='secondary'
+                  className='sparkery-quote-calc-caption'
+                >
+                  {t('sparkery.quoteCalculator.share.expiry', {
+                    defaultValue: 'Expiry',
+                  })}
+                </Text>
+                <Select
+                  value={shareExpiryDays}
+                  onChange={value => setShareExpiryDays(Number(value))}
+                  className='sparkery-quote-calc-full-width'
+                  aria-labelledby='sparkery-quote-calc-share-expiry-label'
+                  options={[
+                    {
+                      value: 1,
+                      label: t('sparkery.quoteCalculator.share.expiryDays', {
+                        defaultValue: '1 day',
+                      }),
+                    },
+                    {
+                      value: 7,
+                      label: t('sparkery.quoteCalculator.share.expiry7Days', {
+                        defaultValue: '7 days',
+                      }),
+                    },
+                    {
+                      value: 14,
+                      label: t('sparkery.quoteCalculator.share.expiry14Days', {
+                        defaultValue: '14 days',
+                      }),
+                    },
+                    {
+                      value: 30,
+                      label: t('sparkery.quoteCalculator.share.expiry30Days', {
+                        defaultValue: '30 days',
+                      }),
+                    },
+                  ]}
+                />
+                <Input
+                  value={shareDraftLink}
+                  readOnly
+                  aria-label={t(
+                    'sparkery.quoteCalculator.share.linkInputLabel',
+                    {
+                      defaultValue: 'Share link',
+                    }
+                  )}
+                  placeholder={t('sparkery.quoteCalculator.share.linkPlaceholder', {
+                    defaultValue: 'Share link will appear here',
+                  })}
+                  className='sparkery-quote-calc-gap-6'
+                />
+                <Text
+                  type='secondary'
+                  className='sparkery-quote-calc-caption'
+                  role='status'
+                  aria-live='polite'
+                >
+                  {shareDraftLink
+                    ? t('sparkery.quoteCalculator.messages.shareLinkGenerated', {
+                        defaultValue: 'Share link generated.',
                       })
-                    : t('sparkery.quoteCalculator.actions.printQuote', {
-                        defaultValue: 'Print Quote',
-                      })
-                  : pdfLanguage === 'cn'
-                    ? t('sparkery.quoteCalculator.actions.printReceiptCn', {
-                        defaultValue: '打印收据',
-                      })
-                    : t('sparkery.quoteCalculator.actions.printReceipt', {
-                        defaultValue: 'Print Receipt',
+                    : t('sparkery.quoteCalculator.share.linkPlaceholder', {
+                        defaultValue: 'Share link will appear here',
                       })}
-              </Button>
+                </Text>
+                <Button block onClick={() => void handleCopyShareLink()}>
+                  {t('sparkery.quoteCalculator.actions.copyShareLink', {
+                    defaultValue: 'Copy Share Link',
+                  })}
+                </Button>
+              </div>
             </div>
 
             <Button
@@ -4854,6 +5411,20 @@ const BrisbaneQuoteCalculator: React.FC = () => {
                 setManualMeasurementAddons([]);
                 setInvoiceHeaderMode('sparkery');
                 setCustomReportType('receipt');
+                setReportThemePreset('brand');
+                setReportBlocks([
+                  { id: 'summary', enabled: true },
+                  { id: 'line_items', enabled: true },
+                  { id: 'totals', enabled: true },
+                  { id: 'terms', enabled: true },
+                ]);
+                setReportHeaderNote('');
+                setReportFooterNote('');
+                setClientPreviewViewport('desktop');
+                setShareModeEnabled(false);
+                setSharePermission('view');
+                setShareExpiryDays(7);
+                setShareDraftLink('');
                 setCustomInvoiceHeader({
                   companyName: '',
                   abn: '',
@@ -4890,6 +5461,53 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           className='sparkery-quote-calc-preview-paper'
         />
       </div>
+
+      <Modal
+        title={t('sparkery.quoteCalculator.sections.clientPreview', {
+          defaultValue: 'Client Preview',
+        })}
+        open={clientPreviewOpen}
+        onCancel={() => setClientPreviewOpen(false)}
+        footer={null}
+        width='min(1100px, 96vw)'
+      >
+        <Space direction='vertical' className='sparkery-quote-calc-full-width'>
+          <Radio.Group
+            value={clientPreviewViewport}
+            onChange={event =>
+              setClientPreviewViewport(event.target.value as 'desktop' | 'mobile')
+            }
+            className='sparkery-quote-calc-radio-row'
+            aria-label={t('sparkery.quoteCalculator.sections.clientPreview', {
+              defaultValue: 'Client Preview',
+            })}
+          >
+            <Radio.Button value='desktop'>
+              {t('sparkery.quoteCalculator.preview.desktop', {
+                defaultValue: 'Desktop',
+              })}
+            </Radio.Button>
+            <Radio.Button value='mobile'>
+              {t('sparkery.quoteCalculator.preview.mobile', {
+                defaultValue: 'Mobile',
+              })}
+            </Radio.Button>
+          </Radio.Group>
+          <div
+            className={`sparkery-quote-calc-client-preview-frame-shell ${
+              clientPreviewViewport === 'mobile'
+                ? 'sparkery-quote-calc-client-preview-mobile'
+                : ''
+            }`}
+          >
+            <iframe
+              title='client-preview'
+              srcDoc={getCurrentCustomReportHtml(pdfLanguage)}
+              className='sparkery-quote-calc-client-preview-frame'
+            />
+          </div>
+        </Space>
+      </Modal>
 
       {/* 配置管理弹窗 */}
       <Modal

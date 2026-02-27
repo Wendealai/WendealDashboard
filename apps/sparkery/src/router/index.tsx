@@ -1,8 +1,24 @@
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
 import { Spin } from 'antd';
+import RequireAuth from '@/components/auth/RequireAuth';
+import SparkerySaasLayout from '@/layouts/SparkerySaasLayout';
+import SparkeryQuoteDraftProvider from '@/pages/Sparkery/SparkeryQuoteDraftProvider';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import {
+  initializeAuthSession,
+  selectAuth,
+} from '@/store/slices/authSlice';
 
-const SparkeryPage = lazy(() => import('@/pages/Sparkery'));
+const BrisbaneQuoteCalculator = lazy(
+  () => import('@/pages/Sparkery/BrisbaneQuoteCalculator')
+);
+const CleaningInspectionAdmin = lazy(
+  () => import('@/pages/Sparkery/CleaningInspectionAdmin')
+);
+const ChinaProcurementReport = lazy(
+  () => import('@/pages/Sparkery/ChinaProcurementReport')
+);
 const DispatchDashboard = lazy(() => import('@/pages/Sparkery/DispatchDashboard'));
 const DispatchRecurringTemplatesPage = lazy(
   () => import('@/pages/Sparkery/DispatchRecurringTemplatesPage')
@@ -17,13 +33,20 @@ const DispatchWeekPlan = lazy(() => import('@/pages/Sparkery/DispatchWeekPlan'))
 const DispatchEmployeeTasksPage = lazy(
   () => import('@/pages/Sparkery/DispatchEmployeeTasksPage')
 );
+const UserManagementPage = lazy(
+  () => import('@/pages/Sparkery/UserManagementPage')
+);
 const BondCleanQuoteFormEN = lazy(
   () => import('@/pages/Sparkery/BondCleanQuoteFormEN')
 );
 const BondCleanQuoteFormCN = lazy(
   () => import('@/pages/Sparkery/BondCleanQuoteFormCN')
 );
+const BondCleanQuoteSubmissions = lazy(
+  () => import('@/pages/Sparkery/BondCleanQuoteSubmissions')
+);
 const CleaningInspectionPage = lazy(() => import('@/pages/CleaningInspection'));
+const LoginPage = lazy(() => import('@/pages/Auth/LoginPage'));
 
 const loading = (
   <div
@@ -53,18 +76,116 @@ const NotFound = () => (
   </div>
 );
 
+const resolveSparkeryLandingPath = (role: string | undefined): string => {
+  switch ((role || '').toLowerCase()) {
+    case 'admin':
+    case 'manager':
+      return '/sparkery/dispatch';
+    case 'employee':
+      return '/sparkery/cleaning-inspection';
+    case 'guest':
+      return '/sparkery/quote-form-en';
+    case 'user':
+    default:
+      return '/sparkery/quote-calculator';
+  }
+};
+
+const RootRedirect = () => {
+  const auth = useAppSelector(selectAuth);
+  if (auth.isInitializing) {
+    return loading;
+  }
+  return (
+    <Navigate
+      to={
+        auth.isAuthenticated
+          ? resolveSparkeryLandingPath(auth.user?.role)
+          : '/login'
+      }
+      replace
+    />
+  );
+};
+
+const SparkeryLandingRedirect = () => {
+  const auth = useAppSelector(selectAuth);
+  if (auth.isInitializing) {
+    return loading;
+  }
+  return (
+    <Navigate
+      to={resolveSparkeryLandingPath(auth.user?.role)}
+      replace
+    />
+  );
+};
+
 const AppRouter = () => {
+  const dispatch = useAppDispatch();
+  const bootstrapDoneRef = useRef(false);
+
+  useEffect(() => {
+    if (bootstrapDoneRef.current) {
+      return;
+    }
+    bootstrapDoneRef.current = true;
+    void dispatch(initializeAuthSession());
+  }, [dispatch]);
+
   return (
     <Suspense fallback={loading}>
       <Routes>
-        <Route path='/' element={<Navigate to='/sparkery' replace />} />
-        <Route path='/sparkery' element={<SparkeryPage />} />
-        <Route path='/sparkery/dispatch' element={<DispatchDashboard />} />
-        <Route
-          path='/sparkery/recurring'
-          element={<DispatchRecurringTemplatesPage />}
-        />
-        <Route path='/sparkery/finance' element={<DispatchFinanceDashboard />} />
+        <Route path='/' element={<RootRedirect />} />
+        <Route path='/login' element={<LoginPage />} />
+
+        <Route element={<RequireAuth />}>
+          <Route element={<SparkeryQuoteDraftProvider />}>
+            <Route element={<SparkerySaasLayout />}>
+              <Route
+                path='/sparkery'
+                element={<SparkeryLandingRedirect />}
+              />
+              <Route
+                path='/sparkery/quote-calculator'
+                element={<BrisbaneQuoteCalculator />}
+              />
+              <Route
+                path='/sparkery/cleaning-inspection'
+                element={<CleaningInspectionAdmin />}
+              />
+              <Route
+                path='/sparkery/china-procurement'
+                element={<ChinaProcurementReport />}
+              />
+              <Route
+                path='/sparkery/quote-form-en'
+                element={<BondCleanQuoteFormEN />}
+              />
+              <Route
+                path='/sparkery/quote-form-cn'
+                element={<BondCleanQuoteFormCN />}
+              />
+              <Route
+                path='/sparkery/quote-submissions'
+                element={<BondCleanQuoteSubmissions />}
+              />
+              <Route path='/sparkery/dispatch' element={<DispatchDashboard />} />
+              <Route
+                path='/sparkery/recurring'
+                element={<DispatchRecurringTemplatesPage />}
+              />
+              <Route
+                path='/sparkery/finance'
+                element={<DispatchFinanceDashboard />}
+              />
+              <Route
+                path='/sparkery/users'
+                element={<UserManagementPage />}
+              />
+            </Route>
+          </Route>
+        </Route>
 
         <Route path='/bond-clean-quote' element={<BondCleanQuoteFormEN />} />
         <Route path='/bond-clean-quote-cn' element={<BondCleanQuoteFormCN />} />
