@@ -327,6 +327,8 @@ const INSPECTION_ARCHIVE_FILTER_STORAGE_KEY =
   'sparkery_inspection_archive_filter_v1';
 const INSPECTION_ARCHIVE_FIELD_VISIBILITY_STORAGE_KEY =
   'sparkery_inspection_archive_fields_v1';
+const INSPECTION_ARCHIVE_BOARD_COLLAPSE_STORAGE_KEY =
+  'sparkery_inspection_archive_board_collapse_v1';
 const INSPECTION_ARCHIVE_VIEWS_STORAGE_KEY =
   'sparkery_inspection_archive_views_v1';
 const INSPECTION_ARCHIVE_ACTION_LOG_STORAGE_KEY =
@@ -370,6 +372,7 @@ type ArchiveFieldVisibilityState = {
   showAssignee: boolean;
   showId: boolean;
 };
+type ArchiveBoardCollapseState = Record<InspectionArchive['status'], boolean>;
 
 type ArchiveViewPreset = {
   id: string;
@@ -440,6 +443,11 @@ const DEFAULT_ARCHIVE_FIELD_VISIBILITY: ArchiveFieldVisibilityState = {
   showAssignee: true,
   showId: true,
 };
+const DEFAULT_ARCHIVE_BOARD_COLLAPSE_STATE: ArchiveBoardCollapseState = {
+  pending: false,
+  in_progress: false,
+  submitted: false,
+};
 
 const normalizeArchiveFieldVisibility = (
   value?: Partial<ArchiveFieldVisibilityState> | null
@@ -460,6 +468,23 @@ const normalizeArchiveFieldVisibility = (
     typeof value?.showId === 'boolean'
       ? value.showId
       : DEFAULT_ARCHIVE_FIELD_VISIBILITY.showId,
+});
+
+const normalizeArchiveBoardCollapseState = (
+  value?: Partial<Record<string, boolean>> | null
+): ArchiveBoardCollapseState => ({
+  pending:
+    typeof value?.pending === 'boolean'
+      ? value.pending
+      : DEFAULT_ARCHIVE_BOARD_COLLAPSE_STATE.pending,
+  in_progress:
+    typeof value?.in_progress === 'boolean'
+      ? value.in_progress
+      : DEFAULT_ARCHIVE_BOARD_COLLAPSE_STATE.in_progress,
+  submitted:
+    typeof value?.submitted === 'boolean'
+      ? value.submitted
+      : DEFAULT_ARCHIVE_BOARD_COLLAPSE_STATE.submitted,
 });
 
 const normalizeArchiveFilterState = (
@@ -626,6 +651,15 @@ const CleaningInspectionAdmin: React.FC = () => {
         safeReadLocalJson<Partial<ArchiveFieldVisibilityState>>(
           INSPECTION_ARCHIVE_FIELD_VISIBILITY_STORAGE_KEY,
           DEFAULT_ARCHIVE_FIELD_VISIBILITY
+        )
+      )
+    );
+  const [archiveBoardCollapse, setArchiveBoardCollapse] =
+    useState<ArchiveBoardCollapseState>(() =>
+      normalizeArchiveBoardCollapseState(
+        safeReadLocalJson<Partial<Record<string, boolean>>>(
+          INSPECTION_ARCHIVE_BOARD_COLLAPSE_STORAGE_KEY,
+          DEFAULT_ARCHIVE_BOARD_COLLAPSE_STATE
         )
       )
     );
@@ -1007,6 +1041,13 @@ const CleaningInspectionAdmin: React.FC = () => {
       archiveFieldVisibility
     );
   }, [archiveFieldVisibility]);
+
+  React.useEffect(() => {
+    safeWriteLocalJson(
+      INSPECTION_ARCHIVE_BOARD_COLLAPSE_STORAGE_KEY,
+      archiveBoardCollapse
+    );
+  }, [archiveBoardCollapse]);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') {
@@ -3356,6 +3397,53 @@ const CleaningInspectionAdmin: React.FC = () => {
     [appendArchiveActionLog, filteredArchives, messageApi, t]
   );
 
+  React.useEffect(() => {
+    const handleSelectionShortcut = (event: KeyboardEvent) => {
+      const withMeta = event.ctrlKey || event.metaKey;
+      if (!withMeta || !event.shiftKey) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      const targetTag = target?.tagName?.toLowerCase() || '';
+      const isTypingTarget =
+        targetTag === 'input' ||
+        targetTag === 'textarea' ||
+        target?.isContentEditable;
+      if (isTypingTarget) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (key === 'a') {
+        event.preventDefault();
+        toggleSelectAllVisible(true);
+        return;
+      }
+      if (key === 'i') {
+        event.preventDefault();
+        handleInvertVisibleSelection();
+        return;
+      }
+      if (key === 'l') {
+        event.preventDefault();
+        void handleCopySelectedLinks();
+        return;
+      }
+      if (key === 'd') {
+        event.preventDefault();
+        void handleCopySelectedIds();
+      }
+    };
+    window.addEventListener('keydown', handleSelectionShortcut);
+    return () => {
+      window.removeEventListener('keydown', handleSelectionShortcut);
+    };
+  }, [
+    handleCopySelectedIds,
+    handleCopySelectedLinks,
+    handleInvertVisibleSelection,
+    toggleSelectAllVisible,
+  ]);
+
   const toggleArchiveExpanded = React.useCallback((archiveId: string) => {
     setExpandedArchiveIds(prev =>
       prev.includes(archiveId)
@@ -3570,6 +3658,15 @@ const CleaningInspectionAdmin: React.FC = () => {
   const oneOffSections = getAllSections(oneOffSectionIds);
   const oneOffSectionAddOptions = React.useMemo(
     () => buildOneOffSectionAddOptions(),
+    []
+  );
+  const toggleArchiveBoardColumnCollapse = React.useCallback(
+    (status: InspectionArchive['status']) => {
+      setArchiveBoardCollapse(prev => ({
+        ...prev,
+        [status]: !prev[status],
+      }));
+    },
     []
   );
   const archiveBoardColumns = React.useMemo(
@@ -4253,7 +4350,7 @@ const CleaningInspectionAdmin: React.FC = () => {
           <Text type='secondary' className='sparkery-inspection-shortcut-hint'>
             {t('sparkery.inspectionAdmin.hints.oneOffShortcut', {
               defaultValue:
-                'Shortcuts: Ctrl/Cmd+Shift+N (one-off), Ctrl/Cmd+Shift+R (refresh), Ctrl/Cmd+Shift+F (focus search)',
+                'Shortcuts: Ctrl/Cmd+Shift+N (one-off), Ctrl/Cmd+Shift+R (refresh), Ctrl/Cmd+Shift+F (focus search), Ctrl/Cmd+Shift+A (select visible), Ctrl/Cmd+Shift+I (invert), Ctrl/Cmd+Shift+L (copy links), Ctrl/Cmd+Shift+D (copy IDs)',
             })}
           </Text>
         </Space>
@@ -5246,59 +5343,89 @@ const CleaningInspectionAdmin: React.FC = () => {
       ) : filteredArchives.length > 0 ? (
         archiveFilters.layout === 'board' ? (
           <div className='sparkery-inspection-board'>
-            {archiveBoardColumns.map(column => (
-              <Card
-                key={column.status}
-                size='small'
-                className={`sparkery-inspection-board-column ${
-                  column.items.length > column.wipLimit
-                    ? 'sparkery-inspection-board-column-overlimit'
-                    : ''
-                }`}
-              >
-                <div className='sparkery-inspection-board-column-head'>
-                  <Tag color={column.meta.color} icon={column.meta.icon}>
-                    {column.meta.label}
-                  </Tag>
-                  <Space size={8}>
-                    <Text type='secondary'>
-                      {t('sparkery.inspectionAdmin.labels.count', {
-                        defaultValue: '{{count}} items',
-                        count: column.items.length,
+            {archiveBoardColumns.map(column => {
+              const isCollapsed = archiveBoardCollapse[column.status];
+              return (
+                <Card
+                  key={column.status}
+                  size='small'
+                  className={`sparkery-inspection-board-column ${
+                    column.items.length > column.wipLimit
+                      ? 'sparkery-inspection-board-column-overlimit'
+                      : ''
+                  }`}
+                >
+                  <div className='sparkery-inspection-board-column-head'>
+                    <Tag color={column.meta.color} icon={column.meta.icon}>
+                      {column.meta.label}
+                    </Tag>
+                    <Space size={8} wrap>
+                      <Text type='secondary'>
+                        {t('sparkery.inspectionAdmin.labels.count', {
+                          defaultValue: '{{count}} items',
+                          count: column.items.length,
+                        })}
+                      </Text>
+                      <Tag
+                        color={
+                          column.items.length > column.wipLimit
+                            ? 'red'
+                            : 'default'
+                        }
+                      >
+                        {t('sparkery.inspectionAdmin.labels.wip', {
+                          defaultValue: 'WIP {{count}}',
+                          count: column.wipLimit,
+                        })}
+                      </Tag>
+                      <Button
+                        size='small'
+                        type='text'
+                        onClick={() =>
+                          toggleArchiveBoardColumnCollapse(column.status)
+                        }
+                      >
+                        {isCollapsed
+                          ? t('sparkery.inspectionAdmin.actions.expandColumn', {
+                              defaultValue: 'Expand',
+                            })
+                          : t(
+                              'sparkery.inspectionAdmin.actions.collapseColumn',
+                              {
+                                defaultValue: 'Collapse',
+                              }
+                            )}
+                      </Button>
+                    </Space>
+                  </div>
+                  {isCollapsed ? (
+                    <Text
+                      type='secondary'
+                      className='sparkery-inspection-board-empty'
+                    >
+                      {t('sparkery.inspectionAdmin.labels.columnCollapsed', {
+                        defaultValue: 'Column collapsed.',
                       })}
                     </Text>
-                    <Tag
-                      color={
-                        column.items.length > column.wipLimit
-                          ? 'red'
-                          : 'default'
-                      }
-                    >
-                      {t('sparkery.inspectionAdmin.labels.wip', {
-                        defaultValue: 'WIP {{count}}',
-                        count: column.wipLimit,
-                      })}
-                    </Tag>
-                  </Space>
-                </div>
-                {column.items.length === 0 ? (
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description={t(
-                      'sparkery.inspectionAdmin.empty.noItemsInColumn',
-                      {
-                        defaultValue: 'No inspections in this status.',
-                      }
-                    )}
-                    className='sparkery-inspection-board-empty'
-                  />
-                ) : (
-                  <div className='sparkery-inspection-board-list'>
-                    {column.items.map(item => renderArchiveCard(item, true))}
-                  </div>
-                )}
-              </Card>
-            ))}
+                  ) : column.items.length === 0 ? (
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description={t(
+                        'sparkery.inspectionAdmin.empty.noItemsInColumn',
+                        {
+                          defaultValue: 'No inspections in this status.',
+                        }
+                      )}
+                      className='sparkery-inspection-board-empty'
+                    />
+                  ) : (
+                    <div className='sparkery-inspection-board-list'>
+                      {column.items.map(item => renderArchiveCard(item, true))}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         ) : (
           <div className='sparkery-inspection-archive-list'>
@@ -5663,6 +5790,30 @@ const CleaningInspectionAdmin: React.FC = () => {
             <Text code>Ctrl/Cmd + Shift + F</Text> -{' '}
             {t('sparkery.inspectionAdmin.shortcuts.focusSearch', {
               defaultValue: 'Focus search',
+            })}
+          </Text>
+          <Text>
+            <Text code>Ctrl/Cmd + Shift + A</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.selectVisible', {
+              defaultValue: 'Select all visible records',
+            })}
+          </Text>
+          <Text>
+            <Text code>Ctrl/Cmd + Shift + I</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.invertSelection', {
+              defaultValue: 'Invert visible selection',
+            })}
+          </Text>
+          <Text>
+            <Text code>Ctrl/Cmd + Shift + L</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.copyLinks', {
+              defaultValue: 'Copy selected links',
+            })}
+          </Text>
+          <Text>
+            <Text code>Ctrl/Cmd + Shift + D</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.copyIds', {
+              defaultValue: 'Copy selected IDs',
             })}
           </Text>
           <Text>

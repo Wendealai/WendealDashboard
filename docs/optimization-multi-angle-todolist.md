@@ -404,3 +404,25 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase K: Power-User Interaction Compression
+
+### P0 (Faster board + keyboard operations)
+
+- [x] Add board-column collapse/expand with persisted preference
+  - Scope: board column head controls + local storage
+  - Done when: operators can fold low-priority columns and keep preference after reload
+- [x] Add keyboard shortcuts for bulk selection and copy actions
+  - Scope: archive page keybindings (`Ctrl/Cmd+Shift+A/I/L/D`)
+  - Done when: visible select, invert, copy links, and copy IDs are executable without mouse
+
+### P1 (Discoverability)
+
+- [x] Expand shortcut hint text and help modal command list
+  - Scope: shortcut hint banner + `?` help modal
+  - Done when: new selection/copy shortcuts are discoverable in-page
+
+## Verification (Phase K)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
