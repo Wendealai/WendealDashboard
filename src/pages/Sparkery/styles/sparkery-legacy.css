@@ -1070,6 +1070,15 @@
   justify-content: flex-end;
 }
 
+.sparkery-inspection-risk-strip {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
 .sparkery-inspection-batch-card {
   margin-bottom: 12px;
   border-color: #cce2ff;
@@ -2222,6 +2231,11 @@
 
   .sparkery-inspection-filter-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sparkery-inspection-risk-strip {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .sparkery-inspection-batch-row {

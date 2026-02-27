@@ -364,3 +364,43 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase J: Inspection Review Intelligence (UI)
+
+### P0 (Signal-first workflow)
+
+- [x] Add archive field-visibility persistence and quick visibility presets
+  - Scope: archive filter panel + local storage
+  - Done when: operators can hide/show dense metadata and keep preference after reload
+- [x] Include field-visibility in saved views
+  - Scope: saved view schema and apply/dirty-state checks
+  - Done when: applying a saved view restores both filters and visible-field profile
+- [x] Add date preset shortcuts (All / Today / Last 7d / Last 30d)
+  - Scope: archive date filtering controls
+  - Done when: date range can be switched in one click without manual from/to edits
+
+### P1 (Triage acceleration)
+
+- [x] Add operational signal strip with live counts
+  - Scope: filtered result summaries (`Overdue`, `Due Today`, `Missing Required Photos`, `No Assignee`, `Stale 48h+`)
+  - Done when: risk dimensions are visible and directly clickable as quick filters
+- [x] Add quick subset selection actions
+  - Scope: selection controls for visible records
+  - Done when: one click can select overdue/due-today/missing-photo/no-assignee subsets or invert visible selection
+- [x] Add batch copy IDs action
+  - Scope: batch toolbar + clipboard flow
+  - Done when: selected inspection IDs can be copied directly for support/escalation workflows
+
+### P2 (Detail-panel throughput)
+
+- [x] Add inline drawer mutation for assignees/status/check-out date
+  - Scope: archive detail drawer quick-edit card
+  - Done when: reviewer can complete common updates without leaving drawer
+- [x] Add card-level risk badges for overdue/due-today/missing-photos/no-assignee
+  - Scope: archive card title metadata
+  - Done when: high-risk records are visually elevated in both list and board layouts
+
+## Verification (Phase J)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
