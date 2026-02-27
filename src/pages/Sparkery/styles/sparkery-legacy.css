@@ -1074,6 +1074,9 @@
   margin-bottom: 12px;
   border-color: #cce2ff;
   background: #f3f8ff;
+  position: sticky;
+  top: 12px;
+  z-index: 3;
 }
 
 .sparkery-inspection-batch-row {
@@ -1082,6 +1085,11 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.sparkery-inspection-batch-row-compact {
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .sparkery-inspection-archive-list {
@@ -1099,6 +1107,11 @@
 .sparkery-inspection-board-column {
   border: 1px solid #d8e4f3;
   background: #f7fbff;
+}
+
+.sparkery-inspection-board-column-overlimit {
+  border-color: #ff7875;
+  box-shadow: 0 0 0 1px rgba(255, 77, 79, 0.12);
 }
 
 .sparkery-inspection-board-column .ant-card-body {
@@ -2214,6 +2227,15 @@
   .sparkery-inspection-batch-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .sparkery-inspection-batch-row-compact {
+    width: 100%;
+  }
+
+  .sparkery-inspection-batch-card {
+    position: static;
+    top: auto;
   }
 
   .sparkery-inspection-board {

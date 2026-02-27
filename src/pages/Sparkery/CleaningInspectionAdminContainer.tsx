@@ -59,6 +59,10 @@ import {
   CheckCircleOutlined,
   HourglassOutlined,
   BarChartOutlined,
+  DownloadOutlined,
+  LeftOutlined,
+  RightOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -339,7 +343,14 @@ type ArchiveSortMode =
   | 'check_out_oldest';
 type ArchiveDensityMode = 'comfortable' | 'compact';
 type ArchiveLayoutMode = 'list' | 'board';
-type ArchiveQuickChip = 'all' | 'needs_attention' | 'stale_48h' | 'no_assignee';
+type ArchiveQuickChip =
+  | 'all'
+  | 'needs_attention'
+  | 'stale_48h'
+  | 'no_assignee'
+  | 'due_today'
+  | 'overdue'
+  | 'missing_required_photos';
 
 type ArchiveFilterState = {
   status: ArchiveStatusFilter;
@@ -389,7 +400,15 @@ const ARCHIVE_QUICK_CHIPS: ArchiveQuickChip[] = [
   'needs_attention',
   'stale_48h',
   'no_assignee',
+  'due_today',
+  'overdue',
+  'missing_required_photos',
 ];
+const ARCHIVE_BOARD_WIP_LIMITS: Record<InspectionArchive['status'], number> = {
+  pending: 20,
+  in_progress: 16,
+  submitted: 40,
+};
 const ARCHIVE_BOARD_STATUS_ORDER: InspectionArchive['status'][] = [
   'pending',
   'in_progress',
@@ -615,6 +634,14 @@ const CleaningInspectionAdmin: React.FC = () => {
   const [detailArchiveId, setDetailArchiveId] = useState('');
   const [lastDeletedArchive, setLastDeletedArchive] =
     useState<InspectionArchive | null>(null);
+  const [batchStatus, setBatchStatus] = useState<
+    InspectionArchive['status'] | ''
+  >('');
+  const [batchAssignEmployeeIds, setBatchAssignEmployeeIds] = useState<
+    string[]
+  >([]);
+  const [batchCheckOutDate, setBatchCheckOutDate] = useState('');
+  const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
   const archiveSearchInputRef = useRef<InputRef>(null);
 
   const [searchText, setSearchText] = useState(
@@ -1595,8 +1622,22 @@ const CleaningInspectionAdmin: React.FC = () => {
 
   React.useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const targetTag = target?.tagName?.toLowerCase() || '';
+      const isTypingTarget =
+        targetTag === 'input' ||
+        targetTag === 'textarea' ||
+        target?.isContentEditable;
+      if (isTypingTarget) {
+        return;
+      }
       const withMeta = event.ctrlKey || event.metaKey;
       if (!withMeta || !event.shiftKey) {
+        if (event.key === '?' || (event.shiftKey && event.key === '/')) {
+          event.preventDefault();
+          setIsShortcutHelpOpen(true);
+          return;
+        }
         return;
       }
       const shortcutKey = event.key.toLowerCase();
@@ -2412,6 +2453,132 @@ const CleaningInspectionAdmin: React.FC = () => {
     );
   }, [appendArchiveActionLog, archives, messageApi, selectedArchiveIds, t]);
 
+  const runBatchArchiveMutation = React.useCallback(
+    async (
+      mutationType: string,
+      mutateRecord: (record: InspectionArchive) => InspectionArchive
+    ) => {
+      if (selectedArchiveIds.length === 0) {
+        return;
+      }
+      const selectedItems = archives.filter(item =>
+        selectedArchiveIds.includes(item.id)
+      );
+      if (selectedItems.length === 0) {
+        return;
+      }
+      const nextItems = selectedItems.map(item => mutateRecord(item));
+      const results = await Promise.allSettled(
+        nextItems.map(item => submitInspection(item as any))
+      );
+      const successIds = new Set<string>();
+      results.forEach((result, index) => {
+        if (result.status !== 'fulfilled') {
+          return;
+        }
+        const target = nextItems[index];
+        if (target) {
+          successIds.add(target.id);
+        }
+      });
+      if (successIds.size === 0) {
+        appendArchiveActionLog(
+          `${mutationType}.failed`,
+          'Batch mutation failed for all selected inspections'
+        );
+        messageApi.warning(
+          t('sparkery.inspectionAdmin.messages.batchMutationFailed', {
+            defaultValue: 'Batch update failed. Please retry.',
+          })
+        );
+        return;
+      }
+      const nextMap = new Map(nextItems.map(item => [item.id, item]));
+      setArchives(prev =>
+        prev.map(item =>
+          successIds.has(item.id) ? nextMap.get(item.id) || item : item
+        )
+      );
+      setLastCloudWriteAt(getInspectionLastCloudWriteAt());
+      appendArchiveActionLog(
+        `${mutationType}.succeeded`,
+        `Batch mutation updated ${successIds.size}/${selectedItems.length} inspections`
+      );
+      messageApi.success(
+        t('sparkery.inspectionAdmin.messages.batchMutationSuccess', {
+          defaultValue:
+            'Batch update applied to {{success}} of {{total}} selected inspections.',
+          success: successIds.size,
+          total: selectedItems.length,
+        })
+      );
+    },
+    [appendArchiveActionLog, archives, messageApi, selectedArchiveIds, t]
+  );
+
+  const handleApplyBatchStatus = React.useCallback(async () => {
+    if (!batchStatus) {
+      messageApi.info(
+        t('sparkery.inspectionAdmin.messages.batchStatusRequired', {
+          defaultValue: 'Select a target status first.',
+        })
+      );
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    await runBatchArchiveMutation('batch_status', item => ({
+      ...item,
+      status: batchStatus,
+      submittedAt:
+        batchStatus === 'submitted'
+          ? ((item as any).submittedAt as string) || nowIso
+          : ((item as any).submittedAt as string) || '',
+    }));
+  }, [batchStatus, messageApi, runBatchArchiveMutation, t]);
+
+  const handleApplyBatchAssignees = React.useCallback(async () => {
+    if (batchAssignEmployeeIds.length === 0) {
+      messageApi.info(
+        t('sparkery.inspectionAdmin.messages.batchAssigneeRequired', {
+          defaultValue: 'Select at least one assignee.',
+        })
+      );
+      return;
+    }
+    const assignedEmployees = employees.filter(emp =>
+      batchAssignEmployeeIds.includes(emp.id)
+    );
+    if (assignedEmployees.length === 0) {
+      return;
+    }
+    await runBatchArchiveMutation('batch_assign', item => ({
+      ...item,
+      assignedEmployees,
+      assignedEmployee: assignedEmployees[0],
+    }));
+  }, [
+    batchAssignEmployeeIds,
+    employees,
+    messageApi,
+    runBatchArchiveMutation,
+    t,
+  ]);
+
+  const handleApplyBatchCheckOutDate = React.useCallback(async () => {
+    if (!batchCheckOutDate) {
+      messageApi.info(
+        t('sparkery.inspectionAdmin.messages.batchDateRequired', {
+          defaultValue: 'Select a check-out date first.',
+        })
+      );
+      return;
+    }
+    await runBatchArchiveMutation('batch_checkout_date', item => ({
+      ...item,
+      checkOutDate: batchCheckOutDate,
+    }));
+  }, [batchCheckOutDate, messageApi, runBatchArchiveMutation, t]);
+
   const updateArchiveFilter = React.useCallback(
     (patch: Partial<ArchiveFilterState>) => {
       setActiveArchiveViewId('');
@@ -2493,6 +2660,8 @@ const CleaningInspectionAdmin: React.FC = () => {
         ? dayjs(rawFromDateValue).endOf('day').valueOf()
         : rawToDateEndValue;
     const nowValue = dayjs().valueOf();
+    const todayStart = dayjs().startOf('day').valueOf();
+    const todayEnd = dayjs().endOf('day').valueOf();
     const sorted = archives.filter(item => {
       const assignedEmployees = (item as any).assignedEmployees as
         | Employee[]
@@ -2548,6 +2717,51 @@ const CleaningInspectionAdmin: React.FC = () => {
       }
       if (archiveFilters.quickChip === 'no_assignee' && hasAssignee) {
         return false;
+      }
+      const checkOutDateValue = parseArchiveDateValue(
+        (item as any).checkOutDate
+      );
+      if (archiveFilters.quickChip === 'due_today') {
+        if (
+          item.status === 'submitted' ||
+          !checkOutDateValue ||
+          checkOutDateValue < todayStart ||
+          checkOutDateValue > todayEnd
+        ) {
+          return false;
+        }
+      }
+      if (archiveFilters.quickChip === 'overdue') {
+        if (
+          item.status === 'submitted' ||
+          !checkOutDateValue ||
+          checkOutDateValue >= todayStart
+        ) {
+          return false;
+        }
+      }
+      if (archiveFilters.quickChip === 'missing_required_photos') {
+        const sectionItems = Array.isArray((item as any).sections)
+          ? ((item as any).sections as any[])
+          : [];
+        const missingRequiredPhotoCount = sectionItems.reduce(
+          (total, section) => {
+            const checklist = Array.isArray(section?.checklist)
+              ? section.checklist
+              : [];
+            return (
+              total +
+              checklist.filter(
+                (checklistItem: any) =>
+                  checklistItem?.requiredPhoto === true && !checklistItem?.photo
+              ).length
+            );
+          },
+          0
+        );
+        if (missingRequiredPhotoCount <= 0) {
+          return false;
+        }
       }
       if (archiveFilters.quickChip === 'stale_48h') {
         const staleHours = primaryArchiveDate
@@ -2606,6 +2820,137 @@ const CleaningInspectionAdmin: React.FC = () => {
     () => archives.find(item => item.id === detailArchiveId) || null,
     [archives, detailArchiveId]
   );
+  const detailArchiveIndex = React.useMemo(
+    () => filteredArchives.findIndex(item => item.id === detailArchiveId),
+    [detailArchiveId, filteredArchives]
+  );
+
+  const focusNextArchiveInDrawer = React.useCallback(() => {
+    if (detailArchiveIndex < 0) {
+      return;
+    }
+    const next = filteredArchives[detailArchiveIndex + 1];
+    if (!next) {
+      return;
+    }
+    setDetailArchiveId(next.id);
+  }, [detailArchiveIndex, filteredArchives]);
+
+  const focusPrevArchiveInDrawer = React.useCallback(() => {
+    if (detailArchiveIndex < 0) {
+      return;
+    }
+    const prev = filteredArchives[detailArchiveIndex - 1];
+    if (!prev) {
+      return;
+    }
+    setDetailArchiveId(prev.id);
+  }, [detailArchiveIndex, filteredArchives]);
+
+  React.useEffect(() => {
+    const handleDrawerNavigation = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const targetTag = target?.tagName?.toLowerCase() || '';
+      const isTypingTarget =
+        targetTag === 'input' ||
+        targetTag === 'textarea' ||
+        target?.isContentEditable;
+      if (isTypingTarget) {
+        return;
+      }
+      if (event.key.toLowerCase() === 'j') {
+        event.preventDefault();
+        focusNextArchiveInDrawer();
+      } else if (event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        focusPrevArchiveInDrawer();
+      }
+    };
+    window.addEventListener('keydown', handleDrawerNavigation);
+    return () => {
+      window.removeEventListener('keydown', handleDrawerNavigation);
+    };
+  }, [focusNextArchiveInDrawer, focusPrevArchiveInDrawer]);
+
+  const handleExportFilteredArchivesCsv = React.useCallback(() => {
+    if (filteredArchives.length === 0) {
+      messageApi.info(
+        t('sparkery.inspectionAdmin.messages.noRecordsToExport', {
+          defaultValue: 'No records to export.',
+        })
+      );
+      return;
+    }
+    const escapeCsv = (value: unknown): string => {
+      const raw =
+        typeof value === 'string'
+          ? value
+          : typeof value === 'number' || typeof value === 'boolean'
+            ? String(value)
+            : '';
+      return `"${raw.replace(/"/g, '""')}"`;
+    };
+    const rows = filteredArchives.map(item => {
+      const assignedEmployees = (item as any).assignedEmployees as
+        | Employee[]
+        | undefined;
+      const assignedEmployee = (item as any).assignedEmployee as
+        | Employee
+        | undefined;
+      const assignedLabel = assignedEmployees?.length
+        ? assignedEmployees
+            .map(emp => [emp.name, emp.nameEn].filter(Boolean).join(' '))
+            .join('; ')
+        : [assignedEmployee?.name, assignedEmployee?.nameEn]
+            .filter(Boolean)
+            .join(' ');
+      const isOneOff = (item as any)?.oneOffMeta?.mode === 'one_off';
+      return [
+        item.id,
+        item.propertyId,
+        (item as any).propertyAddress || '',
+        item.status,
+        (item as any).checkOutDate || '',
+        (item as any).submittedAt || '',
+        assignedLabel,
+        isOneOff ? 'yes' : 'no',
+      ]
+        .map(cell => escapeCsv(cell))
+        .join(',');
+    });
+    const header = [
+      'id',
+      'property',
+      'address',
+      'status',
+      'check_out_date',
+      'submitted_at',
+      'assigned',
+      'one_off',
+    ]
+      .map(cell => `"${cell}"`)
+      .join(',');
+    const csvContent = [header, ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `inspection-archive-${dayjs().format('YYYYMMDD-HHmmss')}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+    appendArchiveActionLog(
+      'export.csv',
+      `Exported ${filteredArchives.length} filtered inspections`
+    );
+    messageApi.success(
+      t('sparkery.inspectionAdmin.messages.exportCsvSuccess', {
+        defaultValue: '{{count}} records exported to CSV.',
+        count: filteredArchives.length,
+      })
+    );
+  }, [appendArchiveActionLog, filteredArchives, messageApi, t]);
 
   const allVisibleSelected =
     filteredArchives.length > 0 &&
@@ -2852,6 +3197,7 @@ const CleaningInspectionAdmin: React.FC = () => {
       ARCHIVE_BOARD_STATUS_ORDER.map(status => ({
         status,
         meta: getArchiveStatusMeta(status),
+        wipLimit: ARCHIVE_BOARD_WIP_LIMITS[status],
         items: filteredArchives.filter(item => item.status === status),
       })),
     [filteredArchives, getArchiveStatusMeta]
@@ -3582,6 +3928,14 @@ const CleaningInspectionAdmin: React.FC = () => {
             />
             <Space wrap className='sparkery-inspection-filter-actions'>
               <Button
+                icon={<DownloadOutlined />}
+                onClick={handleExportFilteredArchivesCsv}
+              >
+                {t('sparkery.inspectionAdmin.actions.exportCsv', {
+                  defaultValue: 'Export CSV',
+                })}
+              </Button>
+              <Button
                 icon={<ReloadOutlined />}
                 loading={isArchiveRefreshing}
                 onClick={() => {
@@ -3595,6 +3949,14 @@ const CleaningInspectionAdmin: React.FC = () => {
               <Button onClick={resetArchiveFilters}>
                 {t('sparkery.inspectionAdmin.actions.resetFilters', {
                   defaultValue: 'Reset Filters',
+                })}
+              </Button>
+              <Button
+                icon={<QuestionCircleOutlined />}
+                onClick={() => setIsShortcutHelpOpen(true)}
+              >
+                {t('sparkery.inspectionAdmin.actions.shortcuts', {
+                  defaultValue: 'Shortcuts',
                 })}
               </Button>
             </Space>
@@ -3878,11 +4240,32 @@ const CleaningInspectionAdmin: React.FC = () => {
                     }),
                   },
                   {
+                    value: 'due_today',
+                    label: t('sparkery.inspectionAdmin.filters.quickDueToday', {
+                      defaultValue: 'Due Today',
+                    }),
+                  },
+                  {
+                    value: 'overdue',
+                    label: t('sparkery.inspectionAdmin.filters.quickOverdue', {
+                      defaultValue: 'Overdue',
+                    }),
+                  },
+                  {
                     value: 'no_assignee',
                     label: t(
                       'sparkery.inspectionAdmin.filters.quickNoAssignee',
                       {
                         defaultValue: 'No Assignee',
+                      }
+                    ),
+                  },
+                  {
+                    value: 'missing_required_photos',
+                    label: t(
+                      'sparkery.inspectionAdmin.filters.quickMissingPhotos',
+                      {
+                        defaultValue: 'Missing Required Photos',
                       }
                     ),
                   },
@@ -3957,49 +4340,144 @@ const CleaningInspectionAdmin: React.FC = () => {
 
       {selectedArchiveItems.length > 0 ? (
         <Card size='small' className='sparkery-inspection-batch-card'>
-          <div className='sparkery-inspection-batch-row'>
-            <Text strong>
-              {t('sparkery.inspectionAdmin.batch.selectedCount', {
-                defaultValue: '{{count}} selected',
-                count: selectedArchiveItems.length,
-              })}
-            </Text>
-            <Space wrap>
-              <Button
-                icon={<LinkOutlined />}
-                onClick={() => void handleCopySelectedLinks()}
-              >
-                {t('sparkery.inspectionAdmin.actions.batchCopyLinks', {
-                  defaultValue: 'Copy Links',
+          <Space
+            direction='vertical'
+            size={10}
+            className='sparkery-inspection-full-width'
+          >
+            <div className='sparkery-inspection-batch-row'>
+              <Text strong>
+                {t('sparkery.inspectionAdmin.batch.selectedCount', {
+                  defaultValue: '{{count}} selected',
+                  count: selectedArchiveItems.length,
                 })}
-              </Button>
-              <Button
-                icon={<EyeOutlined />}
-                onClick={handleOpenSelectedArchives}
-              >
-                {t('sparkery.inspectionAdmin.actions.batchOpen', {
-                  defaultValue: 'Open Selected',
-                })}
-              </Button>
-              <Popconfirm
-                title={t('sparkery.inspectionAdmin.confirm.batchDelete', {
-                  defaultValue: 'Delete selected inspections?',
-                })}
-                onConfirm={() => void handleDeleteSelectedArchives()}
-              >
-                <Button danger icon={<DeleteOutlined />}>
-                  {t('sparkery.inspectionAdmin.actions.batchDelete', {
-                    defaultValue: 'Delete Selected',
+              </Text>
+              <Space wrap>
+                <Button
+                  icon={<LinkOutlined />}
+                  onClick={() => void handleCopySelectedLinks()}
+                >
+                  {t('sparkery.inspectionAdmin.actions.batchCopyLinks', {
+                    defaultValue: 'Copy Links',
                   })}
                 </Button>
-              </Popconfirm>
-              <Button onClick={() => setSelectedArchiveIds([])}>
-                {t('sparkery.inspectionAdmin.actions.clearSelection', {
-                  defaultValue: 'Clear Selection',
-                })}
-              </Button>
-            </Space>
-          </div>
+                <Button
+                  icon={<EyeOutlined />}
+                  onClick={handleOpenSelectedArchives}
+                >
+                  {t('sparkery.inspectionAdmin.actions.batchOpen', {
+                    defaultValue: 'Open Selected',
+                  })}
+                </Button>
+                <Popconfirm
+                  title={t('sparkery.inspectionAdmin.confirm.batchDelete', {
+                    defaultValue: 'Delete selected inspections?',
+                  })}
+                  onConfirm={() => void handleDeleteSelectedArchives()}
+                >
+                  <Button danger icon={<DeleteOutlined />}>
+                    {t('sparkery.inspectionAdmin.actions.batchDelete', {
+                      defaultValue: 'Delete Selected',
+                    })}
+                  </Button>
+                </Popconfirm>
+                <Button onClick={() => setSelectedArchiveIds([])}>
+                  {t('sparkery.inspectionAdmin.actions.clearSelection', {
+                    defaultValue: 'Clear Selection',
+                  })}
+                </Button>
+              </Space>
+            </div>
+            <div className='sparkery-inspection-batch-row sparkery-inspection-batch-row-compact'>
+              <Space wrap>
+                <Select
+                  value={batchStatus || null}
+                  placeholder={t(
+                    'sparkery.inspectionAdmin.placeholders.batchStatus',
+                    {
+                      defaultValue: 'Batch status...',
+                    }
+                  )}
+                  onChange={(value: InspectionArchive['status']) =>
+                    setBatchStatus(value)
+                  }
+                  style={{ minWidth: 170 }}
+                  options={[
+                    {
+                      value: 'pending',
+                      label: t(
+                        'sparkery.inspectionAdmin.filters.statusPendingShort',
+                        {
+                          defaultValue: 'Pending',
+                        }
+                      ),
+                    },
+                    {
+                      value: 'in_progress',
+                      label: t(
+                        'sparkery.inspectionAdmin.filters.statusInProgressShort',
+                        {
+                          defaultValue: 'In Progress',
+                        }
+                      ),
+                    },
+                    {
+                      value: 'submitted',
+                      label: t(
+                        'sparkery.inspectionAdmin.filters.statusSubmittedShort',
+                        {
+                          defaultValue: 'Submitted',
+                        }
+                      ),
+                    },
+                  ]}
+                />
+                <Button onClick={() => void handleApplyBatchStatus()}>
+                  {t('sparkery.inspectionAdmin.actions.applyBatchStatus', {
+                    defaultValue: 'Apply Status',
+                  })}
+                </Button>
+              </Space>
+              <Space wrap>
+                <Select
+                  mode='multiple'
+                  value={batchAssignEmployeeIds}
+                  placeholder={t(
+                    'sparkery.inspectionAdmin.placeholders.batchAssignEmployees',
+                    {
+                      defaultValue: 'Assign employees...',
+                    }
+                  )}
+                  onChange={(values: string[]) =>
+                    setBatchAssignEmployeeIds(values)
+                  }
+                  style={{ minWidth: 240 }}
+                  options={employees.map(emp => ({
+                    value: emp.id,
+                    label: [emp.name, emp.nameEn].filter(Boolean).join(' '),
+                  }))}
+                />
+                <Button onClick={() => void handleApplyBatchAssignees()}>
+                  {t('sparkery.inspectionAdmin.actions.applyBatchAssignees', {
+                    defaultValue: 'Apply Assignees',
+                  })}
+                </Button>
+              </Space>
+              <Space wrap>
+                <Input
+                  type='date'
+                  value={batchCheckOutDate}
+                  onChange={event => setBatchCheckOutDate(event.target.value)}
+                  style={{ width: 160 }}
+                />
+                <Button onClick={() => void handleApplyBatchCheckOutDate()}>
+                  {t('sparkery.inspectionAdmin.actions.applyBatchDate', {
+                    defaultValue: 'Apply Date',
+                  })}
+                </Button>
+              </Space>
+            </div>
+          </Space>
         </Card>
       ) : null}
 
@@ -4028,18 +4506,36 @@ const CleaningInspectionAdmin: React.FC = () => {
               <Card
                 key={column.status}
                 size='small'
-                className='sparkery-inspection-board-column'
+                className={`sparkery-inspection-board-column ${
+                  column.items.length > column.wipLimit
+                    ? 'sparkery-inspection-board-column-overlimit'
+                    : ''
+                }`}
               >
                 <div className='sparkery-inspection-board-column-head'>
                   <Tag color={column.meta.color} icon={column.meta.icon}>
                     {column.meta.label}
                   </Tag>
-                  <Text type='secondary'>
-                    {t('sparkery.inspectionAdmin.labels.count', {
-                      defaultValue: '{{count}} items',
-                      count: column.items.length,
-                    })}
-                  </Text>
+                  <Space size={8}>
+                    <Text type='secondary'>
+                      {t('sparkery.inspectionAdmin.labels.count', {
+                        defaultValue: '{{count}} items',
+                        count: column.items.length,
+                      })}
+                    </Text>
+                    <Tag
+                      color={
+                        column.items.length > column.wipLimit
+                          ? 'red'
+                          : 'default'
+                      }
+                    >
+                      {t('sparkery.inspectionAdmin.labels.wip', {
+                        defaultValue: 'WIP {{count}}',
+                        count: column.wipLimit,
+                      })}
+                    </Tag>
+                  </Space>
                 </div>
                 {column.items.length === 0 ? (
                   <Empty
@@ -4134,6 +4630,36 @@ const CleaningInspectionAdmin: React.FC = () => {
                   })}
                 </Tag>
               ) : null}
+              <Tag>
+                {t('sparkery.inspectionAdmin.labels.drawerIndex', {
+                  defaultValue: '{{index}} / {{total}}',
+                  index: detailArchiveIndex + 1,
+                  total: filteredArchives.length,
+                })}
+              </Tag>
+              <Button
+                size='small'
+                icon={<LeftOutlined />}
+                disabled={detailArchiveIndex <= 0}
+                onClick={focusPrevArchiveInDrawer}
+              >
+                {t('sparkery.inspectionAdmin.actions.previous', {
+                  defaultValue: 'Previous',
+                })}
+              </Button>
+              <Button
+                size='small'
+                icon={<RightOutlined />}
+                disabled={
+                  detailArchiveIndex < 0 ||
+                  detailArchiveIndex >= filteredArchives.length - 1
+                }
+                onClick={focusNextArchiveInDrawer}
+              >
+                {t('sparkery.inspectionAdmin.actions.next', {
+                  defaultValue: 'Next',
+                })}
+              </Button>
             </Space>
 
             <Card size='small' className='sparkery-inspection-drawer-card'>
@@ -4275,6 +4801,47 @@ const CleaningInspectionAdmin: React.FC = () => {
           </Space>
         ) : null}
       </Drawer>
+      <Modal
+        title={t('sparkery.inspectionAdmin.shortcuts.title', {
+          defaultValue: 'Keyboard Shortcuts',
+        })}
+        open={isShortcutHelpOpen}
+        onCancel={() => setIsShortcutHelpOpen(false)}
+        footer={null}
+      >
+        <Space direction='vertical' className='sparkery-inspection-full-width'>
+          <Text>
+            <Text code>Ctrl/Cmd + Shift + N</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.newOneOff', {
+              defaultValue: 'Open one-off generator',
+            })}
+          </Text>
+          <Text>
+            <Text code>Ctrl/Cmd + Shift + R</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.refresh', {
+              defaultValue: 'Refresh archive',
+            })}
+          </Text>
+          <Text>
+            <Text code>Ctrl/Cmd + Shift + F</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.focusSearch', {
+              defaultValue: 'Focus search',
+            })}
+          </Text>
+          <Text>
+            <Text code>J / K</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.navigateDrawer', {
+              defaultValue: 'Next/previous record in detail drawer',
+            })}
+          </Text>
+          <Text>
+            <Text code>?</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.help', {
+              defaultValue: 'Open this shortcuts panel',
+            })}
+          </Text>
+        </Space>
+      </Modal>
 
       <Card size='small' className='sparkery-inspection-action-log-card'>
         <div className='sparkery-inspection-action-log-head'>

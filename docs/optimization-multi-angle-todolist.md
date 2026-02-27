@@ -324,3 +324,43 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase I: Inspection Ops Throughput Expansion
+
+### P0 (Operator throughput)
+
+- [x] Add status-column WIP guardrails in board mode
+  - Scope: board column rendering + threshold highlight
+  - Done when: overloaded columns surface warning state instead of blending into normal flow
+- [x] Add operational quick filters for due-today/overdue/missing-required-photos
+  - Scope: archive filter model + quick chip segmented controls
+  - Done when: urgent and quality-risk inspections can be isolated in one click
+- [x] Add batch mutation actions (status / assignees / check-out date)
+  - Scope: selected-items action panel + persistence via inspection service
+  - Done when: common fleet updates no longer require opening records one-by-one
+- [x] Add filtered archive CSV export
+  - Scope: archive toolbar export action
+  - Done when: current query result can be exported for external review/reconciliation
+
+### P1 (Review speed)
+
+- [x] Add drawer-level previous/next navigation
+  - Scope: detail drawer controls + filtered archive index tracking
+  - Done when: reviewer can navigate neighboring records without closing drawer
+- [x] Add keyboard acceleration (`J/K`) for drawer navigation
+  - Scope: page-level shortcut listener for non-input focus
+  - Done when: keyboard users can rapidly traverse archive records
+- [x] Add shortcut help panel (`?`) and toolbar entry
+  - Scope: keyboard helper modal + explicit trigger button
+  - Done when: hotkeys are discoverable without external documentation
+
+### P2 (Interaction polish)
+
+- [x] Make batch action panel sticky with mobile fallback
+  - Scope: archive batch card CSS + responsive overrides
+  - Done when: multi-select actions remain reachable during long-list scrolling
+
+## Verification (Phase I)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
