@@ -1,6 +1,6 @@
 # Multi-Angle Optimization Todo List
 
-Updated: 2026-02-24  
+Updated: 2026-02-27  
 Status keys:
 
 - `[ ]` not started
@@ -254,3 +254,64 @@ Status keys:
 - Build before: `vendor` chunk `4,781.26 kB` and chunk-size warning present
 - Build after: largest chunk `antv-vendor` `938.69 kB`; no chunk-size warning emitted
 - Command: `npm run build --silent` passed
+
+## Phase H: Cleaning Inspection Admin UI Deep Optimization
+
+### P0 (High-frequency workflow)
+
+- [x] Add archive saved-view system (save/apply/delete filter presets)
+  - Scope: archive filter toolbar + local cache persistence
+  - Done when: user can restore full search+filter context in one click
+- [x] Add archive quick-filter chips for operational triage
+  - Scope: filter model + UI (`Needs Attention`, `Stale 48h+`, `No Assignee`)
+  - Done when: high-priority records can be isolated without manual multi-filtering
+- [x] Add batch-selection workflow on archive cards
+  - Scope: card checkbox + select-visible control
+  - Done when: users can multi-select and manage visible records efficiently
+- [x] Add batch actions (copy links / open selected / bulk delete)
+  - Scope: batch action bar + execution handlers
+  - Done when: repetitive archive operations are reduced to one action row
+- [x] Add keyboard shortcuts for high-frequency actions
+  - Scope: inspection admin page shortcut handler
+  - Done when: `Ctrl/Cmd+Shift+N/R/F` supports create one-off, refresh, focus search
+
+### P1 (Information density and review speed)
+
+- [x] Add submission progress and refresh freshness signal in overview
+  - Scope: overview metrics card
+  - Done when: user sees completion ratio and data freshness without scrolling
+- [x] Add expandable card details for rapid inspection context
+  - Scope: archive card detail panel
+  - Done when: section/checklist/photo/damage summary is visible inline
+- [x] Add operation center panel for recent UI actions
+  - Scope: local operation log stream
+  - Done when: key UI actions (refresh/copy/open/delete/view ops) are traceable in-page
+- [x] Add selected-card visual emphasis and denser action affordances
+  - Scope: archive card styling and action cluster
+  - Done when: selected items are clearly distinguishable for batch workflows
+- [x] Add archived view dirty-state behavior
+  - Scope: active view tracking
+  - Done when: editing filters/search automatically exits the saved-view locked state
+
+### P2 (Robustness and responsive polish)
+
+- [x] Persist archive views and action logs with bounded retention
+  - Scope: local storage for views/logs + limits
+  - Done when: state survives reload while storage growth stays bounded
+- [x] Normalize date-range filtering for reversed input
+  - Scope: archive filter evaluator
+  - Done when: date-from > date-to still produces deterministic filtering
+- [x] Add archive selection cleanup on data churn
+  - Scope: archive selection state lifecycle
+  - Done when: stale selected/expanded IDs are automatically pruned after refresh/delete
+- [x] Add aria labels for key row actions (search/open/copy/select)
+  - Scope: archive interaction controls
+  - Done when: primary interaction controls provide explicit accessible labels
+- [x] Add responsive layout rules for new view/batch/log modules
+  - Scope: `sparkery-legacy.css` mobile breakpoints
+  - Done when: filter presets, batch bar, and logs remain usable on mobile widths
+
+## Verification (Phase H)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed

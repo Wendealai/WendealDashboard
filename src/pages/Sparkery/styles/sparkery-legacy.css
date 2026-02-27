@@ -989,6 +989,14 @@
   margin-bottom: 10px;
 }
 
+.sparkery-inspection-progress-wrap {
+  margin-bottom: 10px;
+}
+
+.sparkery-inspection-progress-wrap .ant-progress {
+  margin-top: 6px;
+}
+
 .sparkery-inspection-metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1030,6 +1038,17 @@
   margin-left: auto;
 }
 
+.sparkery-inspection-view-row {
+  display: grid;
+  grid-template-columns: 240px minmax(180px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.sparkery-inspection-view-select {
+  min-width: 0;
+}
+
 .sparkery-inspection-filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -1051,6 +1070,20 @@
   justify-content: flex-end;
 }
 
+.sparkery-inspection-batch-card {
+  margin-bottom: 12px;
+  border-color: #cce2ff;
+  background: #f3f8ff;
+}
+
+.sparkery-inspection-batch-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .sparkery-inspection-archive-list {
   display: grid;
   gap: 12px;
@@ -1058,6 +1091,11 @@
 
 .sparkery-inspection-archive-card {
   border: 1px solid #d8e4f3;
+}
+
+.sparkery-inspection-archive-card-selected {
+  border-color: #91caff;
+  box-shadow: 0 0 0 1px rgba(22, 119, 255, 0.12);
 }
 
 .sparkery-inspection-archive-card .ant-card-body {
@@ -1087,12 +1125,68 @@
   justify-content: flex-end;
 }
 
+.sparkery-inspection-archive-detail-grid {
+  margin-top: 10px;
+  border-top: 1px dashed #d8e4f3;
+  padding-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sparkery-inspection-archive-note-preview {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
 .sparkery-inspection-id-text {
   font-size: 11px;
   font-family: monospace;
 }
 
 .sparkery-inspection-shortcut-hint {
+  font-size: 12px;
+}
+
+.sparkery-inspection-action-log-card {
+  margin-top: 14px;
+}
+
+.sparkery-inspection-action-log-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.sparkery-inspection-action-log-list {
+  display: grid;
+  gap: 8px;
+}
+
+.sparkery-inspection-action-log-item {
+  padding: 8px 10px;
+  border: 1px solid #e3edf9;
+  border-radius: 8px;
+  background: #f9fbff;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sparkery-inspection-action-log-type {
+  font-family: monospace;
+  font-size: 12px;
+  color: #1f3652;
+}
+
+.sparkery-inspection-action-log-time {
   font-size: 12px;
 }
 
@@ -2040,12 +2134,31 @@
     justify-content: flex-start;
   }
 
+  .sparkery-inspection-view-row {
+    grid-template-columns: 1fr;
+  }
+
   .sparkery-inspection-filter-grid {
     grid-template-columns: 1fr;
   }
 
+  .sparkery-inspection-batch-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .sparkery-inspection-archive-actions {
     justify-content: flex-start;
+  }
+
+  .sparkery-inspection-archive-detail-grid {
+    gap: 6px;
+  }
+
+  .sparkery-inspection-action-log-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
 
   .sparkery-inspection-empty-card {
