@@ -1089,8 +1089,46 @@
   gap: 12px;
 }
 
+.sparkery-inspection-board {
+  display: grid;
+  gap: 12px;
+  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.sparkery-inspection-board-column {
+  border: 1px solid #d8e4f3;
+  background: #f7fbff;
+}
+
+.sparkery-inspection-board-column .ant-card-body {
+  padding: 12px;
+}
+
+.sparkery-inspection-board-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.sparkery-inspection-board-list {
+  display: grid;
+  gap: 10px;
+}
+
+.sparkery-inspection-board-empty {
+  margin: 8px 0 2px;
+}
+
 .sparkery-inspection-archive-card {
   border: 1px solid #d8e4f3;
+}
+
+.sparkery-inspection-archive-card-board {
+  margin-bottom: 0;
 }
 
 .sparkery-inspection-archive-card-selected {
@@ -1125,6 +1163,10 @@
   justify-content: flex-end;
 }
 
+.sparkery-inspection-archive-actions-board {
+  justify-content: flex-start;
+}
+
 .sparkery-inspection-archive-detail-grid {
   margin-top: 10px;
   border-top: 1px dashed #d8e4f3;
@@ -1145,6 +1187,33 @@
 .sparkery-inspection-id-text {
   font-size: 11px;
   font-family: monospace;
+}
+
+.sparkery-inspection-drawer-card {
+  border-color: #d8e4f3;
+}
+
+.sparkery-inspection-drawer-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sparkery-inspection-drawer-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sparkery-inspection-drawer-meta-item-full {
+  grid-column: 1 / -1;
+}
+
+.sparkery-inspection-drawer-section-list {
+  margin-top: 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .sparkery-inspection-shortcut-hint {
@@ -2147,12 +2216,24 @@
     align-items: flex-start;
   }
 
+  .sparkery-inspection-board {
+    grid-template-columns: 1fr;
+  }
+
+  .sparkery-inspection-board-column .ant-card-body {
+    padding: 10px;
+  }
+
   .sparkery-inspection-archive-actions {
     justify-content: flex-start;
   }
 
   .sparkery-inspection-archive-detail-grid {
     gap: 6px;
+  }
+
+  .sparkery-inspection-drawer-meta-grid {
+    grid-template-columns: 1fr;
   }
 
   .sparkery-inspection-action-log-item {

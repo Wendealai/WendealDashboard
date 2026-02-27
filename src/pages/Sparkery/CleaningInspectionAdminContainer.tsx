@@ -28,6 +28,7 @@ import {
   Segmented,
   Switch,
   Progress,
+  Drawer,
 } from 'antd';
 import type { RcFile } from 'antd/es/upload/interface';
 import type { InputRef } from 'antd/es/input';
@@ -324,6 +325,7 @@ const INSPECTION_ARCHIVE_VIEWS_STORAGE_KEY =
   'sparkery_inspection_archive_views_v1';
 const INSPECTION_ARCHIVE_ACTION_LOG_STORAGE_KEY =
   'sparkery_inspection_archive_action_logs_v1';
+const INSPECTION_ARCHIVE_QUERY_PREFIX = 'insp_';
 const MAX_ARCHIVE_VIEWS = 12;
 const MAX_ARCHIVE_ACTION_LOGS = 50;
 const ONE_OFF_MAX_SESSION_DRAFTS = 8;
@@ -336,6 +338,7 @@ type ArchiveSortMode =
   | 'check_out_latest'
   | 'check_out_oldest';
 type ArchiveDensityMode = 'comfortable' | 'compact';
+type ArchiveLayoutMode = 'list' | 'board';
 type ArchiveQuickChip = 'all' | 'needs_attention' | 'stale_48h' | 'no_assignee';
 
 type ArchiveFilterState = {
@@ -346,6 +349,7 @@ type ArchiveFilterState = {
   oneOffOnly: boolean;
   density: ArchiveDensityMode;
   quickChip: ArchiveQuickChip;
+  layout: ArchiveLayoutMode;
 };
 
 type ArchiveViewPreset = {
@@ -379,11 +383,17 @@ const ARCHIVE_SORT_MODES: ArchiveSortMode[] = [
 ];
 
 const ARCHIVE_DENSITY_MODES: ArchiveDensityMode[] = ['comfortable', 'compact'];
+const ARCHIVE_LAYOUT_MODES: ArchiveLayoutMode[] = ['list', 'board'];
 const ARCHIVE_QUICK_CHIPS: ArchiveQuickChip[] = [
   'all',
   'needs_attention',
   'stale_48h',
   'no_assignee',
+];
+const ARCHIVE_BOARD_STATUS_ORDER: InspectionArchive['status'][] = [
+  'pending',
+  'in_progress',
+  'submitted',
 ];
 
 const DEFAULT_ARCHIVE_FILTER_STATE: ArchiveFilterState = {
@@ -394,6 +404,7 @@ const DEFAULT_ARCHIVE_FILTER_STATE: ArchiveFilterState = {
   oneOffOnly: false,
   density: 'comfortable',
   quickChip: 'all',
+  layout: 'list',
 };
 
 const normalizeArchiveFilterState = (
@@ -418,6 +429,10 @@ const normalizeArchiveFilterState = (
     value?.quickChip && ARCHIVE_QUICK_CHIPS.includes(value.quickChip)
       ? value.quickChip
       : DEFAULT_ARCHIVE_FILTER_STATE.quickChip,
+  layout:
+    value?.layout && ARCHIVE_LAYOUT_MODES.includes(value.layout)
+      ? value.layout
+      : DEFAULT_ARCHIVE_FILTER_STATE.layout,
 });
 
 const parseArchiveDateValue = (value: unknown): number => {
@@ -426,6 +441,72 @@ const parseArchiveDateValue = (value: unknown): number => {
   }
   const parsed = dayjs(value);
   return parsed.isValid() ? parsed.valueOf() : 0;
+};
+
+const readArchiveFilterQueryState = (): {
+  searchText: string;
+  filters: Partial<ArchiveFilterState>;
+} => {
+  if (typeof window === 'undefined') {
+    return {
+      searchText: '',
+      filters: {},
+    };
+  }
+  const params = new URLSearchParams(window.location.search);
+  const rawOneOff = params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}oneoff`);
+  return {
+    searchText: params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}search`) || '',
+    filters: {
+      ...(params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}status`)
+        ? {
+            status: params.get(
+              `${INSPECTION_ARCHIVE_QUERY_PREFIX}status`
+            ) as ArchiveStatusFilter,
+          }
+        : {}),
+      ...(params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}sort`)
+        ? {
+            sortMode: params.get(
+              `${INSPECTION_ARCHIVE_QUERY_PREFIX}sort`
+            ) as ArchiveSortMode,
+          }
+        : {}),
+      ...(params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}from`)
+        ? {
+            dateFrom:
+              params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}from`) || '',
+          }
+        : {}),
+      ...(params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}to`)
+        ? { dateTo: params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}to`) || '' }
+        : {}),
+      ...(rawOneOff === '1' || rawOneOff === '0'
+        ? { oneOffOnly: rawOneOff === '1' }
+        : {}),
+      ...(params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}density`)
+        ? {
+            density: params.get(
+              `${INSPECTION_ARCHIVE_QUERY_PREFIX}density`
+            ) as ArchiveDensityMode,
+          }
+        : {}),
+      ...(params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}quick`)
+        ? {
+            quickChip: params.get(
+              `${INSPECTION_ARCHIVE_QUERY_PREFIX}quick`
+            ) as ArchiveQuickChip,
+          }
+        : {}),
+      ...(params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}layout`)
+        ? {
+            layout: params.get(
+              `${INSPECTION_ARCHIVE_QUERY_PREFIX}layout`
+            ) as ArchiveLayoutMode,
+          }
+        : {}),
+    },
+  };
 };
 
 const safeReadLocalJson = <T,>(key: string, fallback: T): T => {
@@ -469,13 +550,20 @@ const CleaningInspectionAdmin: React.FC = () => {
   const [archives, setArchives] = useState<InspectionArchive[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isArchiveRefreshing, setIsArchiveRefreshing] = useState(false);
-  const [archiveFilters, setArchiveFilters] = useState<ArchiveFilterState>(() =>
-    normalizeArchiveFilterState(
-      safeReadLocalJson<Partial<ArchiveFilterState>>(
-        INSPECTION_ARCHIVE_FILTER_STORAGE_KEY,
-        DEFAULT_ARCHIVE_FILTER_STATE
-      )
-    )
+  const [archiveFilters, setArchiveFilters] = useState<ArchiveFilterState>(
+    () => {
+      const queryState = readArchiveFilterQueryState();
+      const stored = normalizeArchiveFilterState(
+        safeReadLocalJson<Partial<ArchiveFilterState>>(
+          INSPECTION_ARCHIVE_FILTER_STORAGE_KEY,
+          DEFAULT_ARCHIVE_FILTER_STATE
+        )
+      );
+      return normalizeArchiveFilterState({
+        ...stored,
+        ...queryState.filters,
+      });
+    }
   );
   const [archiveViews, setArchiveViews] = useState<ArchiveViewPreset[]>(() => {
     const storedViews = safeReadLocalJson<ArchiveViewPreset[]>(
@@ -524,9 +612,14 @@ const CleaningInspectionAdmin: React.FC = () => {
   const [lastArchiveRefreshAt, setLastArchiveRefreshAt] = useState<
     string | null
   >(null);
+  const [detailArchiveId, setDetailArchiveId] = useState('');
+  const [lastDeletedArchive, setLastDeletedArchive] =
+    useState<InspectionArchive | null>(null);
   const archiveSearchInputRef = useRef<InputRef>(null);
 
-  const [searchText, setSearchText] = useState('');
+  const [searchText, setSearchText] = useState(
+    () => readArchiveFilterQueryState().searchText
+  );
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [checkOutDate, setCheckOutDate] = useState(
@@ -834,6 +927,66 @@ const CleaningInspectionAdmin: React.FC = () => {
   }, [archiveFilters]);
 
   React.useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const currentUrl = new URL(window.location.href);
+    const params = currentUrl.searchParams;
+    const setParam = (key: string, value: string | null) => {
+      const fullKey = `${INSPECTION_ARCHIVE_QUERY_PREFIX}${key}`;
+      if (!value) {
+        params.delete(fullKey);
+      } else {
+        params.set(fullKey, value);
+      }
+    };
+
+    setParam('search', searchText.trim() || null);
+    setParam(
+      'status',
+      archiveFilters.status !== DEFAULT_ARCHIVE_FILTER_STATE.status
+        ? archiveFilters.status
+        : null
+    );
+    setParam(
+      'sort',
+      archiveFilters.sortMode !== DEFAULT_ARCHIVE_FILTER_STATE.sortMode
+        ? archiveFilters.sortMode
+        : null
+    );
+    setParam('from', archiveFilters.dateFrom || null);
+    setParam('to', archiveFilters.dateTo || null);
+    setParam('oneoff', archiveFilters.oneOffOnly ? '1' : null);
+    setParam(
+      'density',
+      archiveFilters.density !== DEFAULT_ARCHIVE_FILTER_STATE.density
+        ? archiveFilters.density
+        : null
+    );
+    setParam(
+      'quick',
+      archiveFilters.quickChip !== DEFAULT_ARCHIVE_FILTER_STATE.quickChip
+        ? archiveFilters.quickChip
+        : null
+    );
+    setParam(
+      'layout',
+      archiveFilters.layout !== DEFAULT_ARCHIVE_FILTER_STATE.layout
+        ? archiveFilters.layout
+        : null
+    );
+
+    const nextSearch = params.toString();
+    const currentSearch = window.location.search.replace(/^\?/, '');
+    if (nextSearch !== currentSearch) {
+      const nextUrl = `${currentUrl.pathname}${
+        nextSearch ? `?${nextSearch}` : ''
+      }${currentUrl.hash}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
+  }, [archiveFilters, searchText]);
+
+  React.useEffect(() => {
     safeWriteLocalJson(INSPECTION_ARCHIVE_VIEWS_STORAGE_KEY, archiveViews);
   }, [archiveViews]);
 
@@ -848,6 +1001,7 @@ const CleaningInspectionAdmin: React.FC = () => {
     const archiveIds = new Set(archives.map(item => item.id));
     setSelectedArchiveIds(prev => prev.filter(id => archiveIds.has(id)));
     setExpandedArchiveIds(prev => prev.filter(id => archiveIds.has(id)));
+    setDetailArchiveId(prev => (prev && !archiveIds.has(prev) ? '' : prev));
   }, [archives]);
 
   /** Save employees to Supabase */
@@ -2011,19 +2165,85 @@ const CleaningInspectionAdmin: React.FC = () => {
     await persistInspectionAndOpenLink(newInspection);
   };
 
+  const handleUndoDeleteArchive = React.useCallback(
+    async (archiveToRestore?: InspectionArchive | null) => {
+      const targetArchive = archiveToRestore || lastDeletedArchive;
+      if (!targetArchive) {
+        return;
+      }
+      try {
+        await submitInspection(targetArchive as any);
+        setArchives(prev => [
+          targetArchive,
+          ...prev.filter(item => item.id !== targetArchive.id),
+        ]);
+        setLastCloudWriteAt(getInspectionLastCloudWriteAt());
+        appendArchiveActionLog(
+          'delete.undo.success',
+          `Restored inspection (${targetArchive.id})`
+        );
+        setLastDeletedArchive(prev =>
+          prev && prev.id === targetArchive.id ? null : prev
+        );
+        messageApi.success(
+          t('sparkery.inspectionAdmin.messages.undoDeleteSuccess', {
+            defaultValue: 'Deleted inspection restored.',
+          })
+        );
+      } catch {
+        appendArchiveActionLog(
+          'delete.undo.failed',
+          `Failed to restore inspection (${targetArchive.id})`
+        );
+        messageApi.warning(
+          t('sparkery.inspectionAdmin.messages.undoDeleteFailed', {
+            defaultValue: 'Unable to restore deleted inspection.',
+          })
+        );
+      }
+    },
+    [appendArchiveActionLog, lastDeletedArchive, messageApi, t]
+  );
+
   const handleDelete = React.useCallback(
     async (id: string) => {
+      const removedArchive = archives.find(item => item.id === id) || null;
       try {
         await deleteInspection(id);
         setArchives(prev => prev.filter(item => item.id !== id));
         setSelectedArchiveIds(prev => prev.filter(itemId => itemId !== id));
         setLastCloudWriteAt(getInspectionLastCloudWriteAt());
+        setLastDeletedArchive(removedArchive);
         appendArchiveActionLog('delete.success', `Inspection deleted (${id})`);
-        messageApi.success(
-          t('sparkery.inspectionAdmin.messages.deleted', {
-            defaultValue: 'Deleted',
-          })
-        );
+        const toastKey = `inspection-delete-${id}`;
+        messageApi.open({
+          key: toastKey,
+          duration: 8,
+          type: 'success',
+          content: (
+            <Space size={8}>
+              <span>
+                {t('sparkery.inspectionAdmin.messages.deleted', {
+                  defaultValue: 'Deleted',
+                })}
+              </span>
+              {removedArchive ? (
+                <Button
+                  size='small'
+                  type='link'
+                  onClick={() => {
+                    messageApi.destroy(toastKey);
+                    void handleUndoDeleteArchive(removedArchive);
+                  }}
+                >
+                  {t('sparkery.inspectionAdmin.actions.undo', {
+                    defaultValue: 'Undo',
+                  })}
+                </Button>
+              ) : null}
+            </Space>
+          ),
+        });
       } catch {
         appendArchiveActionLog(
           'delete.failed',
@@ -2036,7 +2256,7 @@ const CleaningInspectionAdmin: React.FC = () => {
         );
       }
     },
-    [appendArchiveActionLog, messageApi, t]
+    [appendArchiveActionLog, archives, handleUndoDeleteArchive, messageApi, t]
   );
 
   const handleDeleteSelectedArchives = React.useCallback(async () => {
@@ -2382,6 +2602,10 @@ const CleaningInspectionAdmin: React.FC = () => {
     () => archives.filter(item => selectedArchiveIds.includes(item.id)),
     [archives, selectedArchiveIds]
   );
+  const detailArchive = React.useMemo(
+    () => archives.find(item => item.id === detailArchiveId) || null,
+    [archives, detailArchiveId]
+  );
 
   const allVisibleSelected =
     filteredArchives.length > 0 &&
@@ -2622,6 +2846,411 @@ const CleaningInspectionAdmin: React.FC = () => {
   const oneOffSectionAddOptions = React.useMemo(
     () => buildOneOffSectionAddOptions(),
     []
+  );
+  const archiveBoardColumns = React.useMemo(
+    () =>
+      ARCHIVE_BOARD_STATUS_ORDER.map(status => ({
+        status,
+        meta: getArchiveStatusMeta(status),
+        items: filteredArchives.filter(item => item.status === status),
+      })),
+    [filteredArchives, getArchiveStatusMeta]
+  );
+  const detailArchiveSummary = React.useMemo(() => {
+    if (!detailArchive) {
+      return null;
+    }
+
+    const assignedEmployees = (detailArchive as any).assignedEmployees as
+      | Employee[]
+      | undefined;
+    const assignedEmployee = (detailArchive as any).assignedEmployee as
+      | Employee
+      | undefined;
+    const assignedLabel = assignedEmployees?.length
+      ? assignedEmployees
+          .map(emp => [emp.name, emp.nameEn].filter(Boolean).join(' '))
+          .join(', ')
+      : [assignedEmployee?.name, assignedEmployee?.nameEn]
+          .filter(Boolean)
+          .join(' ');
+    const sectionItems = Array.isArray((detailArchive as any).sections)
+      ? ((detailArchive as any).sections as any[])
+      : [];
+    const checklistCount = sectionItems.reduce((total, section) => {
+      const checklist = Array.isArray(section?.checklist)
+        ? section.checklist
+        : [];
+      return total + checklist.length;
+    }, 0);
+    const completedChecklistCount = sectionItems.reduce((total, section) => {
+      const checklist = Array.isArray(section?.checklist)
+        ? section.checklist
+        : [];
+      return (
+        total +
+        checklist.filter((checklistItem: any) => checklistItem?.checked).length
+      );
+    }, 0);
+    const requiredPhotoCount = sectionItems.reduce((total, section) => {
+      const checklist = Array.isArray(section?.checklist)
+        ? section.checklist
+        : [];
+      return (
+        total +
+        checklist.filter(
+          (checklistItem: any) => checklistItem?.requiredPhoto === true
+        ).length
+      );
+    }, 0);
+    const damageReportCount = Array.isArray(
+      (detailArchive as any).damageReports
+    )
+      ? ((detailArchive as any).damageReports as any[]).length
+      : 0;
+    const checkOutText =
+      typeof (detailArchive as any).checkOutDate === 'string' &&
+      (detailArchive as any).checkOutDate
+        ? (detailArchive as any).checkOutDate
+        : t('sparkery.inspectionAdmin.labels.notSet', {
+            defaultValue: 'Not set',
+          });
+    const submittedAt = parseArchiveDateValue(
+      (detailArchive as any).submittedAt
+    );
+    const submittedText = submittedAt
+      ? dayjs(submittedAt).format('YYYY-MM-DD HH:mm')
+      : t('sparkery.inspectionAdmin.labels.notSubmitted', {
+          defaultValue: 'Not submitted',
+        });
+    return {
+      assignedLabel,
+      sectionItems,
+      checklistCount,
+      completedChecklistCount,
+      requiredPhotoCount,
+      damageReportCount,
+      checkOutText,
+      submittedText,
+      notePreview: ((detailArchive as any).propertyNotes as string) || '',
+      isOneOff: (detailArchive as any)?.oneOffMeta?.mode === 'one_off',
+      statusMeta: getArchiveStatusMeta(detailArchive.status),
+    };
+  }, [detailArchive, getArchiveStatusMeta, t]);
+  const handleOpenArchiveDetailDrawer = React.useCallback(
+    (archiveId: string) => {
+      setDetailArchiveId(archiveId);
+      appendArchiveActionLog(
+        'detail.open',
+        `Opened detail drawer (${archiveId})`
+      );
+    },
+    [appendArchiveActionLog]
+  );
+  const handleCloseArchiveDetailDrawer = React.useCallback(() => {
+    if (detailArchiveId) {
+      appendArchiveActionLog(
+        'detail.close',
+        `Closed detail drawer (${detailArchiveId})`
+      );
+    }
+    setDetailArchiveId('');
+  }, [appendArchiveActionLog, detailArchiveId]);
+  const renderArchiveCard = React.useCallback(
+    (item: InspectionArchive, inBoard = false) => {
+      const statusMeta = getArchiveStatusMeta(item.status);
+      const assignedEmployees = (item as any).assignedEmployees as
+        | Employee[]
+        | undefined;
+      const assignedEmployee = (item as any).assignedEmployee as
+        | Employee
+        | undefined;
+      const assignedLabel = assignedEmployees?.length
+        ? assignedEmployees
+            .map(emp => [emp.name, emp.nameEn].filter(Boolean).join(' '))
+            .join(', ')
+        : [assignedEmployee?.name, assignedEmployee?.nameEn]
+            .filter(Boolean)
+            .join(' ');
+      const checkOutText =
+        typeof (item as any).checkOutDate === 'string' &&
+        (item as any).checkOutDate
+          ? (item as any).checkOutDate
+          : t('sparkery.inspectionAdmin.labels.notSet', {
+              defaultValue: 'Not set',
+            });
+      const submittedAt = parseArchiveDateValue((item as any).submittedAt);
+      const submittedText = submittedAt
+        ? dayjs(submittedAt).format('YYYY-MM-DD HH:mm')
+        : t('sparkery.inspectionAdmin.labels.notSubmitted', {
+            defaultValue: 'Not submitted',
+          });
+      const isOneOff = (item as any)?.oneOffMeta?.mode === 'one_off';
+      const sectionItems = Array.isArray((item as any).sections)
+        ? ((item as any).sections as any[])
+        : [];
+      const checklistCount = sectionItems.reduce((total, section) => {
+        const checklist = Array.isArray(section?.checklist)
+          ? section.checklist
+          : [];
+        return total + checklist.length;
+      }, 0);
+      const requiredPhotoCount = sectionItems.reduce((total, section) => {
+        const checklist = Array.isArray(section?.checklist)
+          ? section.checklist
+          : [];
+        return (
+          total +
+          checklist.filter(
+            (checklistItem: any) => checklistItem?.requiredPhoto === true
+          ).length
+        );
+      }, 0);
+      const completedChecklistCount = sectionItems.reduce((total, section) => {
+        const checklist = Array.isArray(section?.checklist)
+          ? section.checklist
+          : [];
+        return (
+          total +
+          checklist.filter((checklistItem: any) => checklistItem?.checked)
+            .length
+        );
+      }, 0);
+      const damageReportCount = Array.isArray((item as any).damageReports)
+        ? ((item as any).damageReports as any[]).length
+        : 0;
+      const notePreview = ((item as any).propertyNotes as string) || '';
+      const isSelected = selectedArchiveIds.includes(item.id);
+      const isExpanded = expandedArchiveIds.includes(item.id);
+      return (
+        <Card
+          key={item.id}
+          size='small'
+          className={`sparkery-inspection-archive-card ${
+            isSelected ? 'sparkery-inspection-archive-card-selected' : ''
+          } ${
+            archiveFilters.density === 'compact'
+              ? 'sparkery-inspection-archive-card-compact'
+              : 'sparkery-inspection-archive-card-comfortable'
+          } ${inBoard ? 'sparkery-inspection-archive-card-board' : ''}`}
+        >
+          <Row align='middle' justify='space-between' gutter={[12, 12]}>
+            <Col xs={24} md={inBoard ? 24 : 16}>
+              <Space
+                size={[8, 8]}
+                wrap
+                className='sparkery-inspection-archive-title-row'
+              >
+                <Checkbox
+                  checked={isSelected}
+                  onChange={event =>
+                    toggleArchiveSelection(item.id, event.target.checked)
+                  }
+                  aria-label={t(
+                    'sparkery.inspectionAdmin.aria.selectInspection',
+                    {
+                      defaultValue: 'Select inspection {{id}}',
+                      id: item.id,
+                    }
+                  )}
+                />
+                <Text strong>
+                  {item.propertyId ||
+                    t('sparkery.inspectionAdmin.labels.unnamed', {
+                      defaultValue: 'Unnamed',
+                    })}
+                </Text>
+                <Tag color={statusMeta.color} icon={statusMeta.icon}>
+                  {statusMeta.label}
+                </Tag>
+                {isOneOff ? (
+                  <Tag color='geekblue'>
+                    {t('sparkery.inspectionAdmin.labels.oneOff', {
+                      defaultValue: 'One-off',
+                    })}
+                  </Tag>
+                ) : null}
+              </Space>
+              <Text
+                type='secondary'
+                className='sparkery-inspection-archive-meta-text'
+              >
+                {t('sparkery.inspectionAdmin.labels.checkOutDate', {
+                  defaultValue: 'Check-out',
+                })}
+                : {checkOutText}
+                {' | '}
+                {t('sparkery.inspectionAdmin.labels.submittedAt', {
+                  defaultValue: 'Submitted',
+                })}
+                : {submittedText}
+              </Text>
+              {(item as any).propertyAddress ? (
+                <Text
+                  type='secondary'
+                  className='sparkery-inspection-archive-meta-text'
+                >
+                  {(item as any).propertyAddress}
+                </Text>
+              ) : null}
+              {assignedLabel ? (
+                <Text
+                  type='secondary'
+                  className='sparkery-inspection-archive-meta-text'
+                >
+                  {t('sparkery.inspectionAdmin.labels.assignedEmployees', {
+                    defaultValue: 'Assigned Employees',
+                  })}
+                  : {assignedLabel}
+                </Text>
+              ) : null}
+              <Text type='secondary' className='sparkery-inspection-id-text'>
+                {item.id}
+              </Text>
+            </Col>
+            <Col xs={24} md={inBoard ? 24 : 8}>
+              <Space
+                wrap
+                className={`sparkery-inspection-archive-actions ${
+                  inBoard ? 'sparkery-inspection-archive-actions-board' : ''
+                }`}
+                size={[6, 6]}
+              >
+                <Button
+                  type='text'
+                  icon={<UnorderedListOutlined />}
+                  onClick={() => toggleArchiveExpanded(item.id)}
+                >
+                  {isExpanded
+                    ? t('sparkery.inspectionAdmin.actions.hideDetails', {
+                        defaultValue: 'Hide',
+                      })
+                    : t('sparkery.inspectionAdmin.actions.showDetails', {
+                        defaultValue: 'Details',
+                      })}
+                </Button>
+                <Tooltip
+                  title={t('sparkery.inspectionAdmin.actions.viewPanel', {
+                    defaultValue: 'Detail panel',
+                  })}
+                >
+                  <Button
+                    type='text'
+                    icon={<InfoCircleOutlined />}
+                    onClick={() => handleOpenArchiveDetailDrawer(item.id)}
+                    aria-label={t(
+                      'sparkery.inspectionAdmin.aria.openDetailPanel',
+                      {
+                        defaultValue: 'Open detail panel for inspection {{id}}',
+                        id: item.id,
+                      }
+                    )}
+                  />
+                </Tooltip>
+                <Tooltip
+                  title={t('sparkery.inspectionAdmin.actions.openInspection', {
+                    defaultValue: 'Open inspection',
+                  })}
+                >
+                  <Button
+                    type='text'
+                    icon={<EyeOutlined />}
+                    onClick={() => handleOpen(item)}
+                    aria-label={t(
+                      'sparkery.inspectionAdmin.aria.openInspection',
+                      {
+                        defaultValue: 'Open inspection {{id}}',
+                        id: item.id,
+                      }
+                    )}
+                  />
+                </Tooltip>
+                <Tooltip
+                  title={t('sparkery.inspectionAdmin.actions.copyLink', {
+                    defaultValue: 'Copy link',
+                  })}
+                >
+                  <Button
+                    type='text'
+                    icon={<LinkOutlined />}
+                    onClick={() => void handleCopyLink(item)}
+                    aria-label={t(
+                      'sparkery.inspectionAdmin.aria.copyInspectionLink',
+                      {
+                        defaultValue: 'Copy link for inspection {{id}}',
+                        id: item.id,
+                      }
+                    )}
+                  />
+                </Tooltip>
+                <Popconfirm
+                  title={t(
+                    'sparkery.inspectionAdmin.confirm.deleteInspection',
+                    {
+                      defaultValue: 'Confirm delete?',
+                    }
+                  )}
+                  onConfirm={() => void handleDelete(item.id)}
+                >
+                  <Button type='text' danger icon={<DeleteOutlined />} />
+                </Popconfirm>
+              </Space>
+            </Col>
+          </Row>
+          {isExpanded ? (
+            <div className='sparkery-inspection-archive-detail-grid'>
+              <Tag>
+                {t('sparkery.inspectionAdmin.labels.sections', {
+                  defaultValue: 'Sections',
+                })}
+                : {sectionItems.length}
+              </Tag>
+              <Tag>
+                {t('sparkery.inspectionAdmin.labels.checklist', {
+                  defaultValue: 'Checklist',
+                })}
+                : {completedChecklistCount}/{checklistCount}
+              </Tag>
+              <Tag>
+                {t('sparkery.inspectionAdmin.labels.requiredPhotos', {
+                  defaultValue: 'Required Photos',
+                })}
+                : {requiredPhotoCount}
+              </Tag>
+              <Tag>
+                {t('sparkery.inspectionAdmin.labels.damageReports', {
+                  defaultValue: 'Damage Reports',
+                })}
+                : {damageReportCount}
+              </Tag>
+              {notePreview ? (
+                <Text
+                  type='secondary'
+                  className='sparkery-inspection-archive-note-preview'
+                >
+                  {notePreview.length > 180
+                    ? `${notePreview.slice(0, 180)}...`
+                    : notePreview}
+                </Text>
+              ) : null}
+            </div>
+          ) : null}
+        </Card>
+      );
+    },
+    [
+      archiveFilters.density,
+      expandedArchiveIds,
+      getArchiveStatusMeta,
+      handleCopyLink,
+      handleDelete,
+      handleOpen,
+      handleOpenArchiveDetailDrawer,
+      selectedArchiveIds,
+      t,
+      toggleArchiveExpanded,
+      toggleArchiveSelection,
+    ]
   );
 
   return (
@@ -3160,6 +3789,38 @@ const CleaningInspectionAdmin: React.FC = () => {
                 }
               />
             </div>
+            <div className='sparkery-inspection-filter-item'>
+              <Text
+                type='secondary'
+                className='sparkery-inspection-filter-item-label'
+              >
+                {t('sparkery.inspectionAdmin.filters.layout', {
+                  defaultValue: 'Layout',
+                })}
+              </Text>
+              <Segmented
+                value={archiveFilters.layout}
+                options={[
+                  {
+                    value: 'list',
+                    label: t('sparkery.inspectionAdmin.filters.layoutList', {
+                      defaultValue: 'List',
+                    }),
+                  },
+                  {
+                    value: 'board',
+                    label: t('sparkery.inspectionAdmin.filters.layoutBoard', {
+                      defaultValue: 'Board',
+                    }),
+                  },
+                ]}
+                onChange={value =>
+                  updateArchiveFilter({
+                    layout: value as ArchiveLayoutMode,
+                  })
+                }
+              />
+            </div>
             <div className='sparkery-inspection-filter-item sparkery-inspection-filter-item-toggle'>
               <Text
                 type='secondary'
@@ -3361,284 +4022,49 @@ const CleaningInspectionAdmin: React.FC = () => {
           ))}
         </div>
       ) : filteredArchives.length > 0 ? (
-        <div className='sparkery-inspection-archive-list'>
-          {filteredArchives.map(item => {
-            const statusMeta = getArchiveStatusMeta(item.status);
-            const assignedEmployees = (item as any).assignedEmployees as
-              | Employee[]
-              | undefined;
-            const assignedEmployee = (item as any).assignedEmployee as
-              | Employee
-              | undefined;
-            const assignedLabel = assignedEmployees?.length
-              ? assignedEmployees
-                  .map(emp => [emp.name, emp.nameEn].filter(Boolean).join(' '))
-                  .join(', ')
-              : [assignedEmployee?.name, assignedEmployee?.nameEn]
-                  .filter(Boolean)
-                  .join(' ');
-            const checkOutText =
-              typeof (item as any).checkOutDate === 'string' &&
-              (item as any).checkOutDate
-                ? (item as any).checkOutDate
-                : t('sparkery.inspectionAdmin.labels.notSet', {
-                    defaultValue: 'Not set',
-                  });
-            const submittedAt = parseArchiveDateValue(
-              (item as any).submittedAt
-            );
-            const submittedText = submittedAt
-              ? dayjs(submittedAt).format('YYYY-MM-DD HH:mm')
-              : t('sparkery.inspectionAdmin.labels.notSubmitted', {
-                  defaultValue: 'Not submitted',
-                });
-            const isOneOff = (item as any)?.oneOffMeta?.mode === 'one_off';
-            const sectionItems = Array.isArray((item as any).sections)
-              ? ((item as any).sections as any[])
-              : [];
-            const checklistCount = sectionItems.reduce((total, section) => {
-              const checklist = Array.isArray(section?.checklist)
-                ? section.checklist
-                : [];
-              return total + checklist.length;
-            }, 0);
-            const requiredPhotoCount = sectionItems.reduce((total, section) => {
-              const checklist = Array.isArray(section?.checklist)
-                ? section.checklist
-                : [];
-              return (
-                total +
-                checklist.filter(
-                  (checklistItem: any) => checklistItem?.requiredPhoto === true
-                ).length
-              );
-            }, 0);
-            const completedChecklistCount = sectionItems.reduce(
-              (total, section) => {
-                const checklist = Array.isArray(section?.checklist)
-                  ? section.checklist
-                  : [];
-                return (
-                  total +
-                  checklist.filter(
-                    (checklistItem: any) => checklistItem?.checked
-                  ).length
-                );
-              },
-              0
-            );
-            const damageReportCount = Array.isArray((item as any).damageReports)
-              ? ((item as any).damageReports as any[]).length
-              : 0;
-            const notePreview = ((item as any).propertyNotes as string) || '';
-            const isSelected = selectedArchiveIds.includes(item.id);
-            const isExpanded = expandedArchiveIds.includes(item.id);
-            return (
+        archiveFilters.layout === 'board' ? (
+          <div className='sparkery-inspection-board'>
+            {archiveBoardColumns.map(column => (
               <Card
-                key={item.id}
+                key={column.status}
                 size='small'
-                className={`sparkery-inspection-archive-card ${
-                  isSelected ? 'sparkery-inspection-archive-card-selected' : ''
-                } ${
-                  archiveFilters.density === 'compact'
-                    ? 'sparkery-inspection-archive-card-compact'
-                    : 'sparkery-inspection-archive-card-comfortable'
-                }`}
+                className='sparkery-inspection-board-column'
               >
-                <Row align='middle' justify='space-between' gutter={[12, 12]}>
-                  <Col xs={24} md={16}>
-                    <Space
-                      size={[8, 8]}
-                      wrap
-                      className='sparkery-inspection-archive-title-row'
-                    >
-                      <Checkbox
-                        checked={isSelected}
-                        onChange={event =>
-                          toggleArchiveSelection(item.id, event.target.checked)
-                        }
-                        aria-label={t(
-                          'sparkery.inspectionAdmin.aria.selectInspection',
-                          {
-                            defaultValue: 'Select inspection {{id}}',
-                            id: item.id,
-                          }
-                        )}
-                      />
-                      <Text strong>
-                        {item.propertyId ||
-                          t('sparkery.inspectionAdmin.labels.unnamed', {
-                            defaultValue: 'Unnamed',
-                          })}
-                      </Text>
-                      <Tag color={statusMeta.color} icon={statusMeta.icon}>
-                        {statusMeta.label}
-                      </Tag>
-                      {isOneOff ? (
-                        <Tag color='geekblue'>
-                          {t('sparkery.inspectionAdmin.labels.oneOff', {
-                            defaultValue: 'One-off',
-                          })}
-                        </Tag>
-                      ) : null}
-                    </Space>
-                    <Text
-                      type='secondary'
-                      className='sparkery-inspection-archive-meta-text'
-                    >
-                      {t('sparkery.inspectionAdmin.labels.checkOutDate', {
-                        defaultValue: 'Check-out',
-                      })}
-                      : {checkOutText}
-                      {' | '}
-                      {t('sparkery.inspectionAdmin.labels.submittedAt', {
-                        defaultValue: 'Submitted',
-                      })}
-                      : {submittedText}
-                    </Text>
-                    {(item as any).propertyAddress ? (
-                      <Text
-                        type='secondary'
-                        className='sparkery-inspection-archive-meta-text'
-                      >
-                        {(item as any).propertyAddress}
-                      </Text>
-                    ) : null}
-                    {assignedLabel ? (
-                      <Text
-                        type='secondary'
-                        className='sparkery-inspection-archive-meta-text'
-                      >
-                        {t(
-                          'sparkery.inspectionAdmin.labels.assignedEmployees',
-                          {
-                            defaultValue: 'Assigned Employees',
-                          }
-                        )}
-                        : {assignedLabel}
-                      </Text>
-                    ) : null}
-                    <Text
-                      type='secondary'
-                      className='sparkery-inspection-id-text'
-                    >
-                      {item.id}
-                    </Text>
-                  </Col>
-                  <Col xs={24} md={8}>
-                    <Space
-                      wrap
-                      className='sparkery-inspection-archive-actions'
-                      size={[6, 6]}
-                    >
-                      <Button
-                        type='text'
-                        icon={<UnorderedListOutlined />}
-                        onClick={() => toggleArchiveExpanded(item.id)}
-                      >
-                        {isExpanded
-                          ? t('sparkery.inspectionAdmin.actions.hideDetails', {
-                              defaultValue: 'Hide',
-                            })
-                          : t('sparkery.inspectionAdmin.actions.showDetails', {
-                              defaultValue: 'Details',
-                            })}
-                      </Button>
-                      <Tooltip
-                        title={t(
-                          'sparkery.inspectionAdmin.actions.openInspection',
-                          {
-                            defaultValue: 'Open inspection',
-                          }
-                        )}
-                      >
-                        <Button
-                          type='text'
-                          icon={<EyeOutlined />}
-                          onClick={() => handleOpen(item)}
-                          aria-label={t(
-                            'sparkery.inspectionAdmin.aria.openInspection',
-                            {
-                              defaultValue: 'Open inspection {{id}}',
-                              id: item.id,
-                            }
-                          )}
-                        />
-                      </Tooltip>
-                      <Tooltip
-                        title={t('sparkery.inspectionAdmin.actions.copyLink', {
-                          defaultValue: 'Copy link',
-                        })}
-                      >
-                        <Button
-                          type='text'
-                          icon={<LinkOutlined />}
-                          onClick={() => void handleCopyLink(item)}
-                          aria-label={t(
-                            'sparkery.inspectionAdmin.aria.copyInspectionLink',
-                            {
-                              defaultValue: 'Copy link for inspection {{id}}',
-                              id: item.id,
-                            }
-                          )}
-                        />
-                      </Tooltip>
-                      <Popconfirm
-                        title={t(
-                          'sparkery.inspectionAdmin.confirm.deleteInspection',
-                          {
-                            defaultValue: 'Confirm delete?',
-                          }
-                        )}
-                        onConfirm={() => void handleDelete(item.id)}
-                      >
-                        <Button type='text' danger icon={<DeleteOutlined />} />
-                      </Popconfirm>
-                    </Space>
-                  </Col>
-                </Row>
-                {isExpanded ? (
-                  <div className='sparkery-inspection-archive-detail-grid'>
-                    <Tag>
-                      {t('sparkery.inspectionAdmin.labels.sections', {
-                        defaultValue: 'Sections',
-                      })}
-                      : {sectionItems.length}
-                    </Tag>
-                    <Tag>
-                      {t('sparkery.inspectionAdmin.labels.checklist', {
-                        defaultValue: 'Checklist',
-                      })}
-                      : {completedChecklistCount}/{checklistCount}
-                    </Tag>
-                    <Tag>
-                      {t('sparkery.inspectionAdmin.labels.requiredPhotos', {
-                        defaultValue: 'Required Photos',
-                      })}
-                      : {requiredPhotoCount}
-                    </Tag>
-                    <Tag>
-                      {t('sparkery.inspectionAdmin.labels.damageReports', {
-                        defaultValue: 'Damage Reports',
-                      })}
-                      : {damageReportCount}
-                    </Tag>
-                    {notePreview ? (
-                      <Text
-                        type='secondary'
-                        className='sparkery-inspection-archive-note-preview'
-                      >
-                        {notePreview.length > 180
-                          ? `${notePreview.slice(0, 180)}...`
-                          : notePreview}
-                      </Text>
-                    ) : null}
+                <div className='sparkery-inspection-board-column-head'>
+                  <Tag color={column.meta.color} icon={column.meta.icon}>
+                    {column.meta.label}
+                  </Tag>
+                  <Text type='secondary'>
+                    {t('sparkery.inspectionAdmin.labels.count', {
+                      defaultValue: '{{count}} items',
+                      count: column.items.length,
+                    })}
+                  </Text>
+                </div>
+                {column.items.length === 0 ? (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={t(
+                      'sparkery.inspectionAdmin.empty.noItemsInColumn',
+                      {
+                        defaultValue: 'No inspections in this status.',
+                      }
+                    )}
+                    className='sparkery-inspection-board-empty'
+                  />
+                ) : (
+                  <div className='sparkery-inspection-board-list'>
+                    {column.items.map(item => renderArchiveCard(item, true))}
                   </div>
-                ) : null}
+                )}
               </Card>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className='sparkery-inspection-archive-list'>
+            {filteredArchives.map(item => renderArchiveCard(item))}
+          </div>
+        )
       ) : (
         <Card className='sparkery-inspection-empty-card'>
           <HomeOutlined className='sparkery-inspection-empty-icon' />
@@ -3679,6 +4105,176 @@ const CleaningInspectionAdmin: React.FC = () => {
           </Space>
         </Card>
       )}
+      <Drawer
+        title={t('sparkery.inspectionAdmin.drawer.title', {
+          defaultValue: 'Inspection Detail',
+        })}
+        width={480}
+        open={Boolean(detailArchive)}
+        onClose={handleCloseArchiveDetailDrawer}
+        destroyOnClose
+      >
+        {detailArchive && detailArchiveSummary ? (
+          <Space
+            direction='vertical'
+            className='sparkery-inspection-full-width'
+            size={12}
+          >
+            <Space wrap>
+              <Tag
+                color={detailArchiveSummary.statusMeta.color}
+                icon={detailArchiveSummary.statusMeta.icon}
+              >
+                {detailArchiveSummary.statusMeta.label}
+              </Tag>
+              {detailArchiveSummary.isOneOff ? (
+                <Tag color='geekblue'>
+                  {t('sparkery.inspectionAdmin.labels.oneOff', {
+                    defaultValue: 'One-off',
+                  })}
+                </Tag>
+              ) : null}
+            </Space>
+
+            <Card size='small' className='sparkery-inspection-drawer-card'>
+              <div className='sparkery-inspection-drawer-meta-grid'>
+                <div className='sparkery-inspection-drawer-meta-item'>
+                  <Text type='secondary'>
+                    {t('sparkery.inspectionAdmin.labels.property', {
+                      defaultValue: 'Property',
+                    })}
+                  </Text>
+                  <Text strong>
+                    {detailArchive.propertyId ||
+                      t('sparkery.inspectionAdmin.labels.unnamed', {
+                        defaultValue: 'Unnamed',
+                      })}
+                  </Text>
+                </div>
+                <div className='sparkery-inspection-drawer-meta-item'>
+                  <Text type='secondary'>
+                    {t('sparkery.inspectionAdmin.labels.checkOutDate', {
+                      defaultValue: 'Check-out',
+                    })}
+                  </Text>
+                  <Text>{detailArchiveSummary.checkOutText}</Text>
+                </div>
+                <div className='sparkery-inspection-drawer-meta-item'>
+                  <Text type='secondary'>
+                    {t('sparkery.inspectionAdmin.labels.submittedAt', {
+                      defaultValue: 'Submitted',
+                    })}
+                  </Text>
+                  <Text>{detailArchiveSummary.submittedText}</Text>
+                </div>
+                <div className='sparkery-inspection-drawer-meta-item'>
+                  <Text type='secondary'>
+                    {t('sparkery.inspectionAdmin.labels.assignedEmployees', {
+                      defaultValue: 'Assigned Employees',
+                    })}
+                  </Text>
+                  <Text>
+                    {detailArchiveSummary.assignedLabel ||
+                      t('sparkery.inspectionAdmin.labels.notSet', {
+                        defaultValue: 'Not set',
+                      })}
+                  </Text>
+                </div>
+                <div className='sparkery-inspection-drawer-meta-item sparkery-inspection-drawer-meta-item-full'>
+                  <Text type='secondary'>
+                    {t('sparkery.inspectionAdmin.labels.inspectionId', {
+                      defaultValue: 'Inspection ID',
+                    })}
+                  </Text>
+                  <Text code>{detailArchive.id}</Text>
+                </div>
+                {(detailArchive as any).propertyAddress ? (
+                  <div className='sparkery-inspection-drawer-meta-item sparkery-inspection-drawer-meta-item-full'>
+                    <Text type='secondary'>
+                      {t('sparkery.inspectionAdmin.labels.address', {
+                        defaultValue: 'Address',
+                      })}
+                    </Text>
+                    <Text>{(detailArchive as any).propertyAddress}</Text>
+                  </div>
+                ) : null}
+              </div>
+            </Card>
+
+            <Card size='small' className='sparkery-inspection-drawer-card'>
+              <Space wrap>
+                <Tag>
+                  {t('sparkery.inspectionAdmin.labels.sections', {
+                    defaultValue: 'Sections',
+                  })}
+                  : {detailArchiveSummary.sectionItems.length}
+                </Tag>
+                <Tag>
+                  {t('sparkery.inspectionAdmin.labels.checklist', {
+                    defaultValue: 'Checklist',
+                  })}
+                  : {detailArchiveSummary.completedChecklistCount}/
+                  {detailArchiveSummary.checklistCount}
+                </Tag>
+                <Tag>
+                  {t('sparkery.inspectionAdmin.labels.requiredPhotos', {
+                    defaultValue: 'Required Photos',
+                  })}
+                  : {detailArchiveSummary.requiredPhotoCount}
+                </Tag>
+                <Tag>
+                  {t('sparkery.inspectionAdmin.labels.damageReports', {
+                    defaultValue: 'Damage Reports',
+                  })}
+                  : {detailArchiveSummary.damageReportCount}
+                </Tag>
+              </Space>
+              {detailArchiveSummary.sectionItems.length > 0 ? (
+                <div className='sparkery-inspection-drawer-section-list'>
+                  {detailArchiveSummary.sectionItems
+                    .slice(0, 12)
+                    .map((section: any, index: number) => {
+                      const sectionName =
+                        section?.name || section?.nameEn || section?.id;
+                      return (
+                        <Tag key={`${sectionName}-${index}`}>
+                          {sectionName || `Section ${index + 1}`}
+                        </Tag>
+                      );
+                    })}
+                </div>
+              ) : null}
+              {detailArchiveSummary.notePreview ? (
+                <>
+                  <Divider className='sparkery-inspection-divider-soft' />
+                  <Paragraph className='sparkery-inspection-note-text-inline'>
+                    {detailArchiveSummary.notePreview}
+                  </Paragraph>
+                </>
+              ) : null}
+            </Card>
+
+            <Space wrap>
+              <Button
+                icon={<EyeOutlined />}
+                onClick={() => handleOpen(detailArchive)}
+              >
+                {t('sparkery.inspectionAdmin.actions.openInspection', {
+                  defaultValue: 'Open inspection',
+                })}
+              </Button>
+              <Button
+                icon={<LinkOutlined />}
+                onClick={() => void handleCopyLink(detailArchive)}
+              >
+                {t('sparkery.inspectionAdmin.actions.copyLink', {
+                  defaultValue: 'Copy link',
+                })}
+              </Button>
+            </Space>
+          </Space>
+        ) : null}
+      </Drawer>
 
       <Card size='small' className='sparkery-inspection-action-log-card'>
         <div className='sparkery-inspection-action-log-head'>

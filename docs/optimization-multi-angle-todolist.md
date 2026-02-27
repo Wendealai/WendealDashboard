@@ -292,6 +292,12 @@ Status keys:
 - [x] Add archived view dirty-state behavior
   - Scope: active view tracking
   - Done when: editing filters/search automatically exits the saved-view locked state
+- [x] Add list/board dual-layout archive view
+  - Scope: archive render pipeline + status swimlane cards
+  - Done when: operators can switch between linear scan and status-column triage without losing filters
+- [x] Add right-side detail drawer for archive cards
+  - Scope: card action cluster + detail drawer content blocks
+  - Done when: key inspection metadata and summary stats are reviewable without leaving page
 
 ### P2 (Robustness and responsive polish)
 
@@ -310,6 +316,9 @@ Status keys:
 - [x] Add responsive layout rules for new view/batch/log modules
   - Scope: `sparkery-legacy.css` mobile breakpoints
   - Done when: filter presets, batch bar, and logs remain usable on mobile widths
+- [x] Harden delete undo mapping to deleted record identity
+  - Scope: archive delete toast + undo handler parameterization
+  - Done when: consecutive deletes still restore the intended record without cross-over
 
 ## Verification (Phase H)
 
