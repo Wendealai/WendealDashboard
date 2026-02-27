@@ -29,6 +29,8 @@ import {
   Switch,
   Progress,
   Drawer,
+  Badge,
+  FloatButton,
 } from 'antd';
 import type { RcFile } from 'antd/es/upload/interface';
 import type { InputRef } from 'antd/es/input';
@@ -73,6 +75,10 @@ import {
   VerticalAlignTopOutlined,
   VerticalAlignBottomOutlined,
   SwapOutlined,
+  ThunderboltOutlined,
+  BellOutlined,
+  PlayCircleOutlined,
+  BulbOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -359,6 +365,12 @@ const INSPECTION_ARCHIVE_LAST_SESSION_STORAGE_KEY =
   'sparkery_inspection_archive_last_session_v1';
 const INSPECTION_ARCHIVE_DRAWER_WIDTH_STORAGE_KEY =
   'sparkery_inspection_archive_drawer_width_v1';
+const INSPECTION_ARCHIVE_FAVORITE_ACTIONS_STORAGE_KEY =
+  'sparkery_inspection_archive_favorite_actions_v1';
+const INSPECTION_ARCHIVE_SEARCH_HISTORY_STORAGE_KEY =
+  'sparkery_inspection_archive_search_history_v1';
+const INSPECTION_ARCHIVE_OPS_INBOX_READ_AT_STORAGE_KEY =
+  'sparkery_inspection_archive_ops_inbox_read_at_v1';
 const INSPECTION_ARCHIVE_VIEWS_STORAGE_KEY =
   'sparkery_inspection_archive_views_v1';
 const INSPECTION_ARCHIVE_ACTION_LOG_STORAGE_KEY =
@@ -367,6 +379,7 @@ const INSPECTION_ARCHIVE_QUERY_PREFIX = 'insp_';
 const MAX_ARCHIVE_VIEWS = 12;
 const MAX_ARCHIVE_ACTION_LOGS = 50;
 const MAX_ARCHIVE_FILTER_HISTORY = 10;
+const MAX_ARCHIVE_SEARCH_HISTORY = 12;
 const ONE_OFF_MAX_SESSION_DRAFTS = 8;
 const ONE_OFF_ADVANCED_ROLE_SET = new Set(['admin', 'owner', 'ops_manager']);
 const ARCHIVE_REFRESH_INTERVAL_OPTIONS = [0, 15, 30, 60] as const;
@@ -377,7 +390,7 @@ type ArchiveSortMode =
   | 'oldest'
   | 'check_out_latest'
   | 'check_out_oldest';
-type ArchiveDensityMode = 'comfortable' | 'compact';
+type ArchiveDensityMode = 'comfortable' | 'compact' | 'dense';
 type ArchiveLayoutMode = 'list' | 'board';
 type ArchiveQuickChip =
   | 'all'
@@ -426,6 +439,33 @@ type ArchiveUiPrefsState = {
   highContrastFocus: boolean;
   fontScale: 'normal' | 'large';
   screenReaderCompact: boolean;
+  reduceMotion: boolean;
+  spacing: 'normal' | 'tight';
+};
+
+type UiQuickActionId =
+  | 'new_one_off'
+  | 'refresh_archive'
+  | 'focus_search'
+  | 'save_snapshot'
+  | 'restore_session'
+  | 'open_shortcuts'
+  | 'open_filters_drawer'
+  | 'open_ops_inbox'
+  | 'open_ui_tour'
+  | 'toggle_filter_collapse'
+  | 'export_filtered_csv'
+  | 'export_logs_csv'
+  | 'copy_selected_links'
+  | 'copy_selected_ids'
+  | 'select_visible'
+  | 'invert_visible_selection';
+
+type UiQuickAction = {
+  id: UiQuickActionId;
+  label: string;
+  hint: string;
+  keywords: string[];
 };
 
 type ArchiveViewPreset = {
@@ -467,7 +507,11 @@ const ARCHIVE_SORT_MODES: ArchiveSortMode[] = [
   'check_out_oldest',
 ];
 
-const ARCHIVE_DENSITY_MODES: ArchiveDensityMode[] = ['comfortable', 'compact'];
+const ARCHIVE_DENSITY_MODES: ArchiveDensityMode[] = [
+  'comfortable',
+  'compact',
+  'dense',
+];
 const ARCHIVE_LAYOUT_MODES: ArchiveLayoutMode[] = ['list', 'board'];
 const ARCHIVE_QUICK_CHIPS: ArchiveQuickChip[] = [
   'all',
@@ -530,6 +574,8 @@ const DEFAULT_ARCHIVE_UI_PREFS_STATE: ArchiveUiPrefsState = {
   highContrastFocus: false,
   fontScale: 'normal',
   screenReaderCompact: false,
+  reduceMotion: false,
+  spacing: 'normal',
 };
 
 const normalizeArchiveFieldVisibility = (
@@ -655,6 +701,14 @@ const normalizeArchiveUiPrefsState = (
     typeof value?.screenReaderCompact === 'boolean'
       ? value.screenReaderCompact
       : DEFAULT_ARCHIVE_UI_PREFS_STATE.screenReaderCompact,
+  reduceMotion:
+    typeof value?.reduceMotion === 'boolean'
+      ? value.reduceMotion
+      : DEFAULT_ARCHIVE_UI_PREFS_STATE.reduceMotion,
+  spacing:
+    value?.spacing && ['normal', 'tight'].includes(value.spacing)
+      ? value.spacing
+      : DEFAULT_ARCHIVE_UI_PREFS_STATE.spacing,
 });
 
 const normalizeArchiveFilterState = (
@@ -1061,6 +1115,31 @@ const CleaningInspectionAdmin: React.FC = () => {
     );
     return Math.max(420, Math.min(860, stored));
   });
+  const [favoriteQuickActionIds, setFavoriteQuickActionIds] = useState<
+    UiQuickActionId[]
+  >(() =>
+    safeReadLocalJson<UiQuickActionId[]>(
+      INSPECTION_ARCHIVE_FAVORITE_ACTIONS_STORAGE_KEY,
+      ['new_one_off', 'refresh_archive', 'focus_search', 'open_filters_drawer']
+    ).filter((item): item is UiQuickActionId => typeof item === 'string')
+  );
+  const [archiveSearchHistory, setArchiveSearchHistory] = useState<string[]>(
+    () =>
+      safeReadLocalJson<string[]>(
+        INSPECTION_ARCHIVE_SEARCH_HISTORY_STORAGE_KEY,
+        []
+      ).filter(item => typeof item === 'string' && item.trim().length > 0)
+  );
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [commandPaletteQuery, setCommandPaletteQuery] = useState('');
+  const [isOpsInboxOpen, setIsOpsInboxOpen] = useState(false);
+  const [opsInboxReadAt, setOpsInboxReadAt] = useState<string>(() =>
+    safeReadLocalJson<string>(
+      INSPECTION_ARCHIVE_OPS_INBOX_READ_AT_STORAGE_KEY,
+      new Date(0).toISOString()
+    )
+  );
+  const [isUiTourOpen, setIsUiTourOpen] = useState(false);
   const [detailArchiveId, setDetailArchiveId] = useState('');
   const [lastDeletedArchive, setLastDeletedArchive] =
     useState<InspectionArchive | null>(null);
@@ -1472,6 +1551,27 @@ const CleaningInspectionAdmin: React.FC = () => {
   }, [archiveDrawerWidth]);
 
   React.useEffect(() => {
+    safeWriteLocalJson(
+      INSPECTION_ARCHIVE_FAVORITE_ACTIONS_STORAGE_KEY,
+      favoriteQuickActionIds
+    );
+  }, [favoriteQuickActionIds]);
+
+  React.useEffect(() => {
+    safeWriteLocalJson(
+      INSPECTION_ARCHIVE_SEARCH_HISTORY_STORAGE_KEY,
+      archiveSearchHistory.slice(0, MAX_ARCHIVE_SEARCH_HISTORY)
+    );
+  }, [archiveSearchHistory]);
+
+  React.useEffect(() => {
+    safeWriteLocalJson(
+      INSPECTION_ARCHIVE_OPS_INBOX_READ_AT_STORAGE_KEY,
+      opsInboxReadAt
+    );
+  }, [opsInboxReadAt]);
+
+  React.useEffect(() => {
     if (typeof window === 'undefined') {
       return;
     }
@@ -1599,6 +1699,13 @@ const CleaningInspectionAdmin: React.FC = () => {
       prev.filter(log => now - parseArchiveDateValue(log.at) <= retentionMs)
     );
   }, [archiveLogRetentionDays]);
+
+  React.useEffect(() => {
+    if (!isOpsInboxOpen) {
+      return;
+    }
+    setOpsInboxReadAt(new Date().toISOString());
+  }, [isOpsInboxOpen]);
 
   React.useEffect(() => {
     const archiveIds = new Set(archives.map(item => item.id));
@@ -3808,6 +3915,25 @@ const CleaningInspectionAdmin: React.FC = () => {
   }, [searchText]);
 
   React.useEffect(() => {
+    const keyword = searchText.trim();
+    if (keyword.length < 2) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setArchiveSearchHistory(prev => {
+        const next = [
+          keyword,
+          ...prev.filter(item => item.toLowerCase() !== keyword.toLowerCase()),
+        ].slice(0, MAX_ARCHIVE_SEARCH_HISTORY);
+        return next;
+      });
+    }, 320);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [searchText]);
+
+  React.useEffect(() => {
     setArchiveListRenderCount(60);
   }, [archiveAdvancedFilters, archiveFilters, searchText]);
 
@@ -3844,6 +3970,13 @@ const CleaningInspectionAdmin: React.FC = () => {
         return;
       }
       const withMeta = event.ctrlKey || event.metaKey;
+      const shortcutKey = event.key.toLowerCase();
+      if (withMeta && !event.shiftKey && shortcutKey === 'k') {
+        event.preventDefault();
+        setCommandPaletteQuery('');
+        setIsCommandPaletteOpen(true);
+        return;
+      }
       if (!withMeta || !event.shiftKey) {
         if (event.key === '?' || (event.shiftKey && event.key === '/')) {
           event.preventDefault();
@@ -3852,7 +3985,6 @@ const CleaningInspectionAdmin: React.FC = () => {
         }
         return;
       }
-      const shortcutKey = event.key.toLowerCase();
       if (shortcutKey === 'n') {
         event.preventDefault();
         handleOpenOneOffGenerator();
@@ -4291,6 +4423,9 @@ const CleaningInspectionAdmin: React.FC = () => {
         targetTag === 'textarea' ||
         target?.isContentEditable;
       if (isTypingTarget) {
+        return;
+      }
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
         return;
       }
       if (event.key.toLowerCase() === 'j') {
@@ -4874,6 +5009,282 @@ const CleaningInspectionAdmin: React.FC = () => {
       );
     });
   }, [archiveViews, pinnedArchiveViewIds]);
+  const recentArchiveViews = React.useMemo(
+    () => sortedArchiveViews.slice(0, 4),
+    [sortedArchiveViews]
+  );
+  const uiQuickActions = React.useMemo<UiQuickAction[]>(
+    () => [
+      {
+        id: 'new_one_off',
+        label: t('sparkery.inspectionAdmin.actions.oneOffTemplateGenerator', {
+          defaultValue: 'One-off Template Generator',
+        }),
+        hint: 'Ctrl/Cmd+Shift+N',
+        keywords: ['oneoff', 'template', 'create', 'new'],
+      },
+      {
+        id: 'refresh_archive',
+        label: t('sparkery.inspectionAdmin.actions.refreshArchives', {
+          defaultValue: 'Refresh Archives',
+        }),
+        hint: 'Ctrl/Cmd+Shift+R',
+        keywords: ['refresh', 'sync', 'reload'],
+      },
+      {
+        id: 'focus_search',
+        label: t('sparkery.inspectionAdmin.actions.focusSearch', {
+          defaultValue: 'Focus Search',
+        }),
+        hint: 'Ctrl/Cmd+Shift+F',
+        keywords: ['search', 'find'],
+      },
+      {
+        id: 'save_snapshot',
+        label: t('sparkery.inspectionAdmin.actions.saveSnapshot', {
+          defaultValue: 'Save Snapshot',
+        }),
+        hint: '',
+        keywords: ['snapshot', 'save', 'memory'],
+      },
+      {
+        id: 'restore_session',
+        label: t('sparkery.inspectionAdmin.actions.restoreSession', {
+          defaultValue: 'Restore Last Session',
+        }),
+        hint: '',
+        keywords: ['restore', 'session', 'memory'],
+      },
+      {
+        id: 'open_shortcuts',
+        label: t('sparkery.inspectionAdmin.actions.shortcuts', {
+          defaultValue: 'Shortcuts',
+        }),
+        hint: '?',
+        keywords: ['shortcut', 'keyboard', 'help'],
+      },
+      {
+        id: 'open_filters_drawer',
+        label: t('sparkery.inspectionAdmin.actions.openMobileFilters', {
+          defaultValue: 'Open Filters Drawer',
+        }),
+        hint: 'Ctrl/Cmd+Shift+M',
+        keywords: ['filter', 'drawer', 'mobile'],
+      },
+      {
+        id: 'open_ops_inbox',
+        label: t('sparkery.inspectionAdmin.logs.title', {
+          defaultValue: 'Operation Center',
+        }),
+        hint: '',
+        keywords: ['ops', 'logs', 'notification', 'error'],
+      },
+      {
+        id: 'open_ui_tour',
+        label: t('sparkery.inspectionAdmin.actions.uiTour', {
+          defaultValue: 'UI Tour',
+        }),
+        hint: '',
+        keywords: ['tour', 'guide', 'onboarding'],
+      },
+      {
+        id: 'toggle_filter_collapse',
+        label: isArchiveFiltersCollapsed
+          ? t('sparkery.inspectionAdmin.actions.expandFilters', {
+              defaultValue: 'Expand Filters',
+            })
+          : t('sparkery.inspectionAdmin.actions.collapseFilters', {
+              defaultValue: 'Collapse Filters',
+            }),
+        hint: '',
+        keywords: ['filter', 'collapse', 'expand'],
+      },
+      {
+        id: 'export_filtered_csv',
+        label: t('sparkery.inspectionAdmin.actions.exportFilteredCsv', {
+          defaultValue: 'Export Filtered CSV',
+        }),
+        hint: '',
+        keywords: ['export', 'csv', 'filtered'],
+      },
+      {
+        id: 'export_logs_csv',
+        label: t('sparkery.inspectionAdmin.actions.exportLogs', {
+          defaultValue: 'Export Logs',
+        }),
+        hint: '',
+        keywords: ['export', 'logs', 'csv'],
+      },
+      {
+        id: 'copy_selected_links',
+        label: t('sparkery.inspectionAdmin.actions.batchCopyLinks', {
+          defaultValue: 'Copy Selected Links',
+        }),
+        hint: 'Ctrl/Cmd+Shift+L',
+        keywords: ['copy', 'links', 'selected'],
+      },
+      {
+        id: 'copy_selected_ids',
+        label: t('sparkery.inspectionAdmin.actions.batchCopyIds', {
+          defaultValue: 'Copy Selected IDs',
+        }),
+        hint: 'Ctrl/Cmd+Shift+D',
+        keywords: ['copy', 'ids', 'selected'],
+      },
+      {
+        id: 'select_visible',
+        label: t('sparkery.inspectionAdmin.actions.selectVisible', {
+          defaultValue: 'Select Visible',
+        }),
+        hint: 'Ctrl/Cmd+Shift+A',
+        keywords: ['selection', 'visible', 'bulk'],
+      },
+      {
+        id: 'invert_visible_selection',
+        label: t('sparkery.inspectionAdmin.actions.invertVisibleSelection', {
+          defaultValue: 'Invert Visible Selection',
+        }),
+        hint: 'Ctrl/Cmd+Shift+I',
+        keywords: ['selection', 'invert', 'visible'],
+      },
+    ],
+    [isArchiveFiltersCollapsed, t]
+  );
+  const quickActionMap = React.useMemo(
+    () =>
+      new Map<UiQuickActionId, UiQuickAction>(
+        uiQuickActions.map(action => [action.id, action])
+      ),
+    [uiQuickActions]
+  );
+  const favoriteQuickActions = React.useMemo(
+    () =>
+      favoriteQuickActionIds
+        .map(actionId => quickActionMap.get(actionId))
+        .filter((action): action is UiQuickAction => Boolean(action)),
+    [favoriteQuickActionIds, quickActionMap]
+  );
+  const executeUiQuickAction = React.useCallback(
+    async (
+      actionId: UiQuickActionId,
+      source: 'panel' | 'command' = 'panel'
+    ) => {
+      if (actionId === 'new_one_off') {
+        handleOpenOneOffGenerator();
+      } else if (actionId === 'refresh_archive') {
+        await handleManualRefreshArchives();
+      } else if (actionId === 'focus_search') {
+        archiveSearchInputRef.current?.focus();
+      } else if (actionId === 'save_snapshot') {
+        handleRememberCurrentFilterContext();
+      } else if (actionId === 'restore_session') {
+        handleRestoreLastSessionFilters();
+      } else if (actionId === 'open_shortcuts') {
+        setIsShortcutHelpOpen(true);
+      } else if (actionId === 'open_filters_drawer') {
+        setIsArchiveFiltersDrawerOpen(true);
+      } else if (actionId === 'open_ops_inbox') {
+        setIsOpsInboxOpen(true);
+      } else if (actionId === 'open_ui_tour') {
+        setIsUiTourOpen(true);
+      } else if (actionId === 'toggle_filter_collapse') {
+        setIsArchiveFiltersCollapsed(prev => !prev);
+      } else if (actionId === 'export_filtered_csv') {
+        handleExportFilteredArchivesCsv();
+      } else if (actionId === 'export_logs_csv') {
+        handleExportActionLogsCsv();
+      } else if (actionId === 'copy_selected_links') {
+        await handleCopySelectedLinks();
+      } else if (actionId === 'copy_selected_ids') {
+        await handleCopySelectedIds();
+      } else if (actionId === 'select_visible') {
+        toggleSelectAllVisible(true);
+      } else if (actionId === 'invert_visible_selection') {
+        handleInvertVisibleSelection();
+      }
+      appendArchiveActionLog(
+        'quick_action.executed',
+        `Executed quick action "${actionId}" from ${source}`
+      );
+    },
+    [
+      appendArchiveActionLog,
+      handleCopySelectedIds,
+      handleCopySelectedLinks,
+      handleExportActionLogsCsv,
+      handleExportFilteredArchivesCsv,
+      handleInvertVisibleSelection,
+      handleManualRefreshArchives,
+      handleOpenOneOffGenerator,
+      handleRememberCurrentFilterContext,
+      handleRestoreLastSessionFilters,
+      toggleSelectAllVisible,
+    ]
+  );
+  const filteredCommandActions = React.useMemo(() => {
+    const query = commandPaletteQuery.trim().toLowerCase();
+    const favoriteSet = new Set(favoriteQuickActionIds);
+    const scored = uiQuickActions
+      .filter(action => {
+        if (!query) {
+          return true;
+        }
+        const haystack = [
+          action.label.toLowerCase(),
+          action.hint.toLowerCase(),
+          ...action.keywords.map(keyword => keyword.toLowerCase()),
+        ];
+        return haystack.some(value => value.includes(query));
+      })
+      .sort((left, right) => {
+        const leftFav = favoriteSet.has(left.id);
+        const rightFav = favoriteSet.has(right.id);
+        if (leftFav !== rightFav) {
+          return leftFav ? -1 : 1;
+        }
+        return left.label.localeCompare(right.label);
+      });
+    return scored.slice(0, 24);
+  }, [commandPaletteQuery, favoriteQuickActionIds, uiQuickActions]);
+  const opsInboxItems = React.useMemo(
+    () =>
+      archiveActionLogs
+        .filter(log =>
+          ['failed', 'error', 'warn', 'warning'].some(keyword =>
+            `${log.type} ${log.detail}`.toLowerCase().includes(keyword)
+          )
+        )
+        .slice(0, 30),
+    [archiveActionLogs]
+  );
+  const opsInboxUnreadCount = React.useMemo(() => {
+    const readAtValue = parseArchiveDateValue(opsInboxReadAt);
+    return opsInboxItems.filter(
+      item => parseArchiveDateValue(item.at) > readAtValue
+    ).length;
+  }, [opsInboxItems, opsInboxReadAt]);
+  const toggleFavoriteQuickAction = React.useCallback(
+    (actionId: UiQuickActionId) => {
+      setFavoriteQuickActionIds(prev =>
+        prev.includes(actionId)
+          ? prev.filter(item => item !== actionId)
+          : [...prev, actionId].slice(-10)
+      );
+    },
+    []
+  );
+  const mapLogTypeToQuickAction = React.useCallback(
+    (logType: string): UiQuickActionId | null => {
+      if (logType.includes('refresh')) return 'refresh_archive';
+      if (logType.includes('view')) return 'save_snapshot';
+      if (logType.includes('export.csv')) return 'export_filtered_csv';
+      if (logType.includes('logs.export.csv')) return 'export_logs_csv';
+      if (logType.includes('selection')) return 'select_visible';
+      if (logType.includes('one_off')) return 'new_one_off';
+      return null;
+    },
+    []
+  );
   const toggleArchiveBoardColumnCollapse = React.useCallback(
     (status: InspectionArchive['status']) => {
       setArchiveBoardCollapse(prev => ({
@@ -5239,9 +5650,11 @@ const CleaningInspectionAdmin: React.FC = () => {
           } ${isPinned ? 'sparkery-inspection-archive-card-pinned' : ''} ${
             isStarred ? 'sparkery-inspection-archive-card-starred' : ''
           } ${
-            archiveFilters.density === 'compact'
-              ? 'sparkery-inspection-archive-card-compact'
-              : 'sparkery-inspection-archive-card-comfortable'
+            archiveFilters.density === 'dense'
+              ? 'sparkery-inspection-archive-card-dense'
+              : archiveFilters.density === 'compact'
+                ? 'sparkery-inspection-archive-card-compact'
+                : 'sparkery-inspection-archive-card-comfortable'
           } ${inBoard ? 'sparkery-inspection-archive-card-board' : ''}`}
           draggable={inBoard}
           onDragStart={() => setDraggingArchiveId(item.id)}
@@ -5743,6 +6156,12 @@ const CleaningInspectionAdmin: React.FC = () => {
         archiveUiPrefs.screenReaderCompact
           ? 'sparkery-inspection-screen-reader-compact'
           : ''
+      } ${
+        archiveUiPrefs.reduceMotion ? 'sparkery-inspection-reduce-motion' : ''
+      } ${
+        archiveUiPrefs.spacing === 'tight'
+          ? 'sparkery-inspection-spacing-tight'
+          : ''
       }`}
     >
       {contextHolder}
@@ -5789,6 +6208,32 @@ const CleaningInspectionAdmin: React.FC = () => {
               defaultValue: 'Migrate Legacy Images',
             })}
           </Button>
+          <Button
+            icon={<ThunderboltOutlined />}
+            onClick={() => {
+              setCommandPaletteQuery('');
+              setIsCommandPaletteOpen(true);
+            }}
+          >
+            {t('sparkery.inspectionAdmin.actions.commandPalette', {
+              defaultValue: 'Command Palette',
+            })}
+          </Button>
+          <Button icon={<BulbOutlined />} onClick={() => setIsUiTourOpen(true)}>
+            {t('sparkery.inspectionAdmin.actions.uiTour', {
+              defaultValue: 'UI Tour',
+            })}
+          </Button>
+          <Badge count={opsInboxUnreadCount} size='small' offset={[0, 4]}>
+            <Button
+              icon={<BellOutlined />}
+              onClick={() => setIsOpsInboxOpen(true)}
+            >
+              {t('sparkery.inspectionAdmin.actions.opsInbox', {
+                defaultValue: 'Ops Inbox',
+              })}
+            </Button>
+          </Badge>
           <Tag color={supabaseTagColor}>{supabaseTagText}</Tag>
           {supabaseStatusMessage ? (
             <Text type='secondary' className='sparkery-inspection-status-note'>
@@ -5811,6 +6256,36 @@ const CleaningInspectionAdmin: React.FC = () => {
           </Text>
         </div>
       </div>
+
+      <Card size='small' className='sparkery-inspection-overview-card'>
+        <Space wrap className='sparkery-inspection-full-width'>
+          <Tag color={supabaseTagColor}>
+            {t('sparkery.inspectionAdmin.labels.systemHealth', {
+              defaultValue: 'System',
+            })}
+            : {supabaseTagText}
+          </Tag>
+          <Tag color={opsInboxUnreadCount > 0 ? 'red' : 'green'}>
+            {t('sparkery.inspectionAdmin.labels.unreadOps', {
+              defaultValue: 'Unread Ops',
+            })}
+            : {opsInboxUnreadCount}
+          </Tag>
+          <Tag color={selectedArchiveIds.length > 0 ? 'blue' : 'default'}>
+            {t('sparkery.inspectionAdmin.batch.selectedCount', {
+              defaultValue: '{{count}} selected',
+              count: selectedArchiveIds.length,
+            })}
+          </Tag>
+          <Tag color='processing'>
+            {t('sparkery.inspectionAdmin.overview.visibleSummary', {
+              defaultValue: 'Showing {{visible}} of {{total}} inspections',
+              visible: filteredArchives.length,
+              total: archiveStats.total,
+            })}
+          </Tag>
+        </Space>
+      </Card>
 
       {/* Quick Start Wizard: select property + date, then start inspection */}
       <Card size='small' className='sparkery-inspection-quick-card'>
@@ -5943,7 +6418,7 @@ const CleaningInspectionAdmin: React.FC = () => {
           <Text type='secondary' className='sparkery-inspection-shortcut-hint'>
             {t('sparkery.inspectionAdmin.hints.oneOffShortcut', {
               defaultValue:
-                'Shortcuts: Ctrl/Cmd+Shift+N (one-off), Ctrl/Cmd+Shift+R (refresh), Ctrl/Cmd+Shift+F (focus search), Ctrl/Cmd+Shift+G/H (next/prev match), Ctrl/Cmd+Shift+M (filters), Ctrl/Cmd+Shift+A (select visible), Ctrl/Cmd+Shift+I (invert), Ctrl/Cmd+Shift+L (copy links), Ctrl/Cmd+Shift+D (copy IDs), Ctrl/Cmd+Shift+E (expand details), Ctrl/Cmd+Shift+W (collapse details)',
+                'Shortcuts: Ctrl/Cmd+K (command palette), Ctrl/Cmd+Shift+N (one-off), Ctrl/Cmd+Shift+R (refresh), Ctrl/Cmd+Shift+F (focus search), Ctrl/Cmd+Shift+G/H (next/prev match), Ctrl/Cmd+Shift+M (filters), Ctrl/Cmd+Shift+A (select visible), Ctrl/Cmd+Shift+I (invert), Ctrl/Cmd+Shift+L (copy links), Ctrl/Cmd+Shift+D (copy IDs), Ctrl/Cmd+Shift+E (expand details), Ctrl/Cmd+Shift+W (collapse details)',
             })}
           </Text>
         </Space>
@@ -6134,6 +6609,20 @@ const CleaningInspectionAdmin: React.FC = () => {
               defaultValue: 'Screen-reader compact',
             })}
           </Text>
+          <Switch
+            checked={archiveUiPrefs.reduceMotion}
+            onChange={checked =>
+              setArchiveUiPrefs(prev => ({
+                ...prev,
+                reduceMotion: checked,
+              }))
+            }
+          />
+          <Text type='secondary'>
+            {t('sparkery.inspectionAdmin.labels.reduceMotion', {
+              defaultValue: 'Reduce Motion',
+            })}
+          </Text>
           <Segmented
             value={archiveUiPrefs.fontScale}
             options={[
@@ -6157,6 +6646,29 @@ const CleaningInspectionAdmin: React.FC = () => {
               }))
             }
           />
+          <Segmented
+            value={archiveUiPrefs.spacing}
+            options={[
+              {
+                value: 'normal',
+                label: t('sparkery.inspectionAdmin.labels.spacingNormal', {
+                  defaultValue: 'Normal Spacing',
+                }),
+              },
+              {
+                value: 'tight',
+                label: t('sparkery.inspectionAdmin.labels.spacingTight', {
+                  defaultValue: 'Tight Spacing',
+                }),
+              },
+            ]}
+            onChange={value =>
+              setArchiveUiPrefs(prev => ({
+                ...prev,
+                spacing: value as ArchiveUiPrefsState['spacing'],
+              }))
+            }
+          />
           <Button
             icon={<FilterOutlined />}
             onClick={() => setIsArchiveFiltersDrawerOpen(true)}
@@ -6165,6 +6677,101 @@ const CleaningInspectionAdmin: React.FC = () => {
               defaultValue: 'Open Filters Drawer',
             })}
           </Button>
+        </Space>
+      </Card>
+
+      <Card size='small' className='sparkery-inspection-overview-card'>
+        <Space direction='vertical' className='sparkery-inspection-full-width'>
+          <Space wrap className='sparkery-inspection-full-width'>
+            <Text strong>
+              {t('sparkery.inspectionAdmin.labels.quickActions', {
+                defaultValue: 'Quick Actions',
+              })}
+            </Text>
+            <Button
+              size='small'
+              icon={<ThunderboltOutlined />}
+              onClick={() => {
+                setCommandPaletteQuery('');
+                setIsCommandPaletteOpen(true);
+              }}
+            >
+              {t('sparkery.inspectionAdmin.actions.commandPalette', {
+                defaultValue: 'Command Palette',
+              })}
+            </Button>
+            <Text type='secondary'>
+              {t('sparkery.inspectionAdmin.labels.commandPaletteHint', {
+                defaultValue: 'Ctrl/Cmd + K',
+              })}
+            </Text>
+          </Space>
+          <Space wrap className='sparkery-inspection-full-width'>
+            {(favoriteQuickActions.length > 0
+              ? favoriteQuickActions
+              : uiQuickActions.slice(0, 6)
+            ).map(action => (
+              <Button
+                key={`fav-action-${action.id}`}
+                size='small'
+                icon={<PlayCircleOutlined />}
+                onClick={() => void executeUiQuickAction(action.id, 'panel')}
+              >
+                {action.label}
+              </Button>
+            ))}
+          </Space>
+          <Space wrap className='sparkery-inspection-full-width'>
+            <Text type='secondary'>
+              {t('sparkery.inspectionAdmin.labels.recentViews', {
+                defaultValue: 'Recent Views',
+              })}
+              :
+            </Text>
+            {recentArchiveViews.length > 0 ? (
+              recentArchiveViews.map(view => (
+                <Button
+                  key={`recent-view-${view.id}`}
+                  size='small'
+                  onClick={() => handleApplyArchiveView(view.id)}
+                >
+                  {view.name}
+                </Button>
+              ))
+            ) : (
+              <Text type='secondary'>
+                {t('sparkery.inspectionAdmin.labels.noneYet', {
+                  defaultValue: 'None yet',
+                })}
+              </Text>
+            )}
+          </Space>
+          <Space wrap className='sparkery-inspection-full-width'>
+            <Text type='secondary'>
+              {t('sparkery.inspectionAdmin.labels.recentOpsReplay', {
+                defaultValue: 'Recent Ops Replay',
+              })}
+              :
+            </Text>
+            {archiveActionLogs.slice(0, 4).map(log => {
+              const mappedAction = mapLogTypeToQuickAction(log.type);
+              return mappedAction ? (
+                <Button
+                  key={`recent-op-${log.id}`}
+                  size='small'
+                  onClick={() =>
+                    void executeUiQuickAction(mappedAction, 'panel')
+                  }
+                >
+                  {log.type}
+                </Button>
+              ) : (
+                <Tag key={`recent-op-${log.id}`} color='blue'>
+                  {log.type}
+                </Tag>
+              );
+            })}
+          </Space>
         </Space>
       </Card>
 
@@ -6267,6 +6874,48 @@ const CleaningInspectionAdmin: React.FC = () => {
               </Button>
             </Space>
           </div>
+          {archiveSearchHistory.length > 0 ? (
+            <div className='sparkery-inspection-risk-strip'>
+              <Text
+                type='secondary'
+                className='sparkery-inspection-filter-item-label'
+              >
+                {t('sparkery.inspectionAdmin.labels.searchHistory', {
+                  defaultValue: 'Search History',
+                })}
+              </Text>
+              <Space wrap>
+                <Select
+                  size='small'
+                  style={{ minWidth: 280 }}
+                  value={null}
+                  placeholder={t(
+                    'sparkery.inspectionAdmin.placeholders.selectSearchHistory',
+                    {
+                      defaultValue: 'Select recent keyword',
+                    }
+                  )}
+                  onChange={(value: string) => {
+                    setSearchText(value);
+                    setActiveArchiveViewId('');
+                    archiveSearchInputRef.current?.focus();
+                  }}
+                  options={archiveSearchHistory.map(item => ({
+                    value: item,
+                    label: item,
+                  }))}
+                />
+                <Button
+                  size='small'
+                  onClick={() => setArchiveSearchHistory([])}
+                >
+                  {t('sparkery.inspectionAdmin.actions.clearSearchHistory', {
+                    defaultValue: 'Clear History',
+                  })}
+                </Button>
+              </Space>
+            </div>
+          ) : null}
 
           <div className='sparkery-inspection-view-row'>
             <Select
@@ -6936,6 +7585,15 @@ const CleaningInspectionAdmin: React.FC = () => {
                         }
                       ),
                     },
+                    {
+                      value: 'dense',
+                      label: t(
+                        'sparkery.inspectionAdmin.filters.densityDense',
+                        {
+                          defaultValue: 'Dense',
+                        }
+                      ),
+                    },
                   ]}
                   onChange={value =>
                     updateArchiveFilter({
@@ -7423,7 +8081,12 @@ const CleaningInspectionAdmin: React.FC = () => {
                 active
                 title={{ width: '52%' }}
                 paragraph={{
-                  rows: archiveFilters.density === 'compact' ? 1 : 2,
+                  rows:
+                    archiveFilters.density === 'comfortable'
+                      ? 2
+                      : archiveFilters.density === 'compact'
+                        ? 1
+                        : 1,
                 }}
               />
             </Card>
@@ -7652,6 +8315,39 @@ const CleaningInspectionAdmin: React.FC = () => {
                 defaultValue: 'Clear Search & Filters',
               })}
             </Button>
+            {searchText.trim() ? (
+              <Button
+                onClick={() => {
+                  setSearchText('');
+                  setActiveArchiveViewId('');
+                }}
+              >
+                {t('sparkery.inspectionAdmin.actions.clearSearchOnly', {
+                  defaultValue: 'Clear Search',
+                })}
+              </Button>
+            ) : null}
+            {archiveFilters.quickChip !== 'all' ? (
+              <Button onClick={() => updateArchiveFilter({ quickChip: 'all' })}>
+                {t('sparkery.inspectionAdmin.actions.clearQuickFilter', {
+                  defaultValue: 'Clear Quick Filter',
+                })}
+              </Button>
+            ) : null}
+            {archiveAdvancedFilters.excludeStatus !== 'none' ? (
+              <Button
+                onClick={() =>
+                  setArchiveAdvancedFilters(prev => ({
+                    ...prev,
+                    excludeStatus: 'none',
+                  }))
+                }
+              >
+                {t('sparkery.inspectionAdmin.actions.clearExcludeStatus', {
+                  defaultValue: 'Clear Exclude Status',
+                })}
+              </Button>
+            ) : null}
             <Button
               icon={<PlusCircleOutlined />}
               onClick={handleOpenOneOffGenerator}
@@ -8219,6 +8915,12 @@ const CleaningInspectionAdmin: React.FC = () => {
       >
         <Space direction='vertical' className='sparkery-inspection-full-width'>
           <Text>
+            <Text code>Ctrl/Cmd + K</Text> -{' '}
+            {t('sparkery.inspectionAdmin.shortcuts.commandPalette', {
+              defaultValue: 'Open command palette',
+            })}
+          </Text>
+          <Text>
             <Text code>Ctrl/Cmd + Shift + N</Text> -{' '}
             {t('sparkery.inspectionAdmin.shortcuts.newOneOff', {
               defaultValue: 'Open one-off generator',
@@ -8302,6 +9004,186 @@ const CleaningInspectionAdmin: React.FC = () => {
               defaultValue: 'Open this shortcuts panel',
             })}
           </Text>
+        </Space>
+      </Modal>
+      <Modal
+        title={t('sparkery.inspectionAdmin.actions.commandPalette', {
+          defaultValue: 'Command Palette',
+        })}
+        open={isCommandPaletteOpen}
+        onCancel={() => setIsCommandPaletteOpen(false)}
+        footer={null}
+      >
+        <Space direction='vertical' className='sparkery-inspection-full-width'>
+          <Input
+            autoFocus
+            value={commandPaletteQuery}
+            onChange={event => setCommandPaletteQuery(event.target.value)}
+            prefix={<SearchOutlined />}
+            placeholder={t(
+              'sparkery.inspectionAdmin.placeholders.searchCommands',
+              {
+                defaultValue: 'Search actions or keywords',
+              }
+            )}
+          />
+          <div className='sparkery-inspection-command-list'>
+            {filteredCommandActions.length > 0 ? (
+              filteredCommandActions.map(action => (
+                <div
+                  key={`command-action-${action.id}`}
+                  className='sparkery-inspection-command-item'
+                >
+                  <Space>
+                    <Button
+                      type='primary'
+                      size='small'
+                      icon={<PlayCircleOutlined />}
+                      onClick={() => {
+                        void executeUiQuickAction(action.id, 'command');
+                        setIsCommandPaletteOpen(false);
+                      }}
+                    >
+                      {action.label}
+                    </Button>
+                    {action.hint ? (
+                      <Tag>{action.hint}</Tag>
+                    ) : (
+                      <Tag color='default'>
+                        {t('sparkery.inspectionAdmin.labels.noShortcut', {
+                          defaultValue: 'No shortcut',
+                        })}
+                      </Tag>
+                    )}
+                  </Space>
+                  <Button
+                    size='small'
+                    type='text'
+                    icon={
+                      favoriteQuickActionIds.includes(action.id) ? (
+                        <StarFilled />
+                      ) : (
+                        <StarOutlined />
+                      )
+                    }
+                    onClick={() => toggleFavoriteQuickAction(action.id)}
+                  />
+                </div>
+              ))
+            ) : (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={t(
+                  'sparkery.inspectionAdmin.messages.noCommandMatches',
+                  {
+                    defaultValue: 'No command matches. Try broader keywords.',
+                  }
+                )}
+              />
+            )}
+          </div>
+        </Space>
+      </Modal>
+      <Modal
+        title={t('sparkery.inspectionAdmin.actions.opsInbox', {
+          defaultValue: 'Ops Inbox',
+        })}
+        open={isOpsInboxOpen}
+        onCancel={() => setIsOpsInboxOpen(false)}
+        footer={null}
+      >
+        <Space direction='vertical' className='sparkery-inspection-full-width'>
+          <Text type='secondary'>
+            {t('sparkery.inspectionAdmin.labels.unreadOps', {
+              defaultValue: 'Unread Ops',
+            })}
+            : {opsInboxUnreadCount}
+          </Text>
+          {opsInboxItems.length > 0 ? (
+            <div className='sparkery-inspection-command-list'>
+              {opsInboxItems.map(item => (
+                <div
+                  key={`ops-inbox-${item.id}`}
+                  className='sparkery-inspection-command-item'
+                >
+                  <Space direction='vertical' size={0}>
+                    <Text strong>{item.type}</Text>
+                    <Text type='secondary'>
+                      {dayjs(item.at).format('YYYY-MM-DD HH:mm:ss')}
+                    </Text>
+                    <Text type='secondary'>{item.detail}</Text>
+                  </Space>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Alert
+              type='success'
+              showIcon
+              message={t('sparkery.inspectionAdmin.messages.opsInboxClear', {
+                defaultValue: 'No warning/error operations currently.',
+              })}
+            />
+          )}
+        </Space>
+      </Modal>
+      <Modal
+        title={t('sparkery.inspectionAdmin.actions.uiTour', {
+          defaultValue: 'UI Tour',
+        })}
+        open={isUiTourOpen}
+        onCancel={() => setIsUiTourOpen(false)}
+        footer={null}
+      >
+        <Space direction='vertical' className='sparkery-inspection-full-width'>
+          <Alert
+            type='info'
+            showIcon
+            message={t('sparkery.inspectionAdmin.tour.summary', {
+              defaultValue:
+                'Use this page as a control tower: quick actions, saved views, and detail drawer navigation.',
+            })}
+          />
+          <Text>
+            1.{' '}
+            {t('sparkery.inspectionAdmin.tour.step1', {
+              defaultValue:
+                'Use Command Palette (Ctrl/Cmd+K) to run high-frequency actions.',
+            })}
+          </Text>
+          <Text>
+            2.{' '}
+            {t('sparkery.inspectionAdmin.tour.step2', {
+              defaultValue:
+                'Pin favorite actions and saved views to reduce repeated clicks.',
+            })}
+          </Text>
+          <Text>
+            3.{' '}
+            {t('sparkery.inspectionAdmin.tour.step3', {
+              defaultValue:
+                'Review errors in Ops Inbox, then retry failed batch subsets.',
+            })}
+          </Text>
+          <Text>
+            4.{' '}
+            {t('sparkery.inspectionAdmin.tour.step4', {
+              defaultValue:
+                'Use drawer next/prev and quality navigators for rapid nightly checks.',
+            })}
+          </Text>
+          <Button
+            type='primary'
+            onClick={() => {
+              setIsUiTourOpen(false);
+              setCommandPaletteQuery('');
+              setIsCommandPaletteOpen(true);
+            }}
+          >
+            {t('sparkery.inspectionAdmin.actions.openCommandPaletteNow', {
+              defaultValue: 'Open Command Palette Now',
+            })}
+          </Button>
         </Space>
       </Modal>
 
@@ -9409,6 +10291,7 @@ const CleaningInspectionAdmin: React.FC = () => {
         employees={employees}
         onSave={saveEmployeesToStorage}
       />
+      <FloatButton.BackTop visibilityHeight={240} />
     </div>
   );
 };

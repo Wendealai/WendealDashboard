@@ -1178,6 +1178,10 @@
   padding: 10px 12px;
 }
 
+.sparkery-inspection-archive-card-dense .ant-card-body {
+  padding: 8px 10px;
+}
+
 .sparkery-inspection-archive-title-row {
   margin-bottom: 4px;
 }
@@ -1355,6 +1359,37 @@
 .sparkery-inspection-screen-reader-compact
   .sparkery-inspection-action-log-time {
   display: none;
+}
+
+.sparkery-inspection-reduce-motion *,
+.sparkery-inspection-reduce-motion *::before,
+.sparkery-inspection-reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.sparkery-inspection-spacing-tight .ant-card-body {
+  padding: 10px 12px !important;
+}
+
+.sparkery-inspection-command-list {
+  display: grid;
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.sparkery-inspection-command-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #dfe9f7;
+  border-radius: 8px;
+  background: #f8fbff;
 }
 
 .sparkery-inspection-thumb-row {

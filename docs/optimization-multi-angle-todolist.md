@@ -518,3 +518,64 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase N: UI Hundred-Challenge Wave 1
+
+### P0 (Command and navigation layer)
+
+- [x] Add command palette modal with action search and execution
+  - Scope: archive admin header + modal interaction layer
+  - Done when: operators can trigger common actions from a single searchable command panel
+- [x] Add `Ctrl/Cmd+K` shortcut to open command palette
+  - Scope: global keyboard shortcut handler
+  - Done when: keyboard-first operators can open command center instantly
+- [x] Add command-level favorite action pinning
+  - Scope: command action metadata + local storage persistence
+  - Done when: favorite quick actions are pinned and persisted across sessions
+- [x] Add quick action execution hub card
+  - Scope: overview action panel
+  - Done when: favorite actions are runnable in one click without opening menus
+- [x] Add recent-view quick apply row
+  - Scope: saved view integration
+  - Done when: latest saved views are accessible as direct buttons
+
+### P1 (Triage and feedback efficiency)
+
+- [x] Add search history persistence and replay selector
+  - Scope: archive search panel + local storage
+  - Done when: recent search terms can be recalled and reused quickly
+- [x] Add no-result smart recovery actions
+  - Scope: empty-state card actions
+  - Done when: users can clear search/quick filters/exclude status directly from empty state
+- [x] Add Ops Inbox modal with unread badge
+  - Scope: operation log derived alert center
+  - Done when: warning/error operations are visible in dedicated inbox with unread count
+- [x] Add unread tracking for Ops Inbox
+  - Scope: local read checkpoint persistence
+  - Done when: unread count reflects new warning/error events since last inbox open
+- [x] Add recent operations replay affordance
+  - Scope: quick action card + action log mapping
+  - Done when: selected recent operation types can be replayed as mapped quick actions
+
+### P2 (Accessibility and density controls)
+
+- [x] Add archive density mode `dense`
+  - Scope: filter model + card render class + CSS
+  - Done when: cards support a denser visual mode for high-volume scans
+- [x] Add UI preference `Reduce Motion`
+  - Scope: UI prefs model + root class + CSS motion overrides
+  - Done when: transitions/animations are effectively minimized for sensitive users
+- [x] Add UI preference `Spacing` (`normal` / `tight`)
+  - Scope: UI prefs model + root class + CSS spacing control
+  - Done when: layout spacing can be compacted globally for information density
+- [x] Add onboarding “UI Tour” modal
+  - Scope: operator guidance entrypoint
+  - Done when: key workflow hints are available in-page for onboarding and refresh
+- [x] Add floating back-to-top affordance
+  - Scope: page-level navigation utility
+  - Done when: long archive sessions can quickly return to top controls
+
+## Verification (Phase N)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
