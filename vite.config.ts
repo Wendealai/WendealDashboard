@@ -242,27 +242,11 @@ export default defineConfig({
         warn(warning);
       },
       output: {
-        // Stable library-group chunking: reduce monolithic vendor blast radius.
+        // Stable and conservative vendor grouping to avoid cross-chunk init cycles.
         manualChunks: id => {
           if (!id.includes('node_modules')) {
             return undefined;
           }
-
-          const toChunkSafe = (value: string): string =>
-            value.replace(/^@/, '').replace(/[\/\\@]/g, '-');
-
-          const packageNameFromId = (): string | undefined => {
-            const marker = 'node_modules/';
-            const index = id.lastIndexOf(marker);
-            if (index < 0) return undefined;
-            const rest = id.slice(index + marker.length);
-            const segments = rest.split(/[\/\\]/).filter(Boolean);
-            if (segments.length === 0) return undefined;
-            if (segments[0]?.startsWith('@') && segments[1]) {
-              return `${segments[0]}/${segments[1]}`;
-            }
-            return segments[0];
-          };
 
           const isAny = (patterns: string[]): boolean =>
             patterns.some(pattern => id.includes(pattern));
@@ -279,50 +263,29 @@ export default defineConfig({
             return 'react-vendor';
           }
 
-          if (isAny(['/@ant-design/icons/'])) {
-            return 'antd-icons-vendor';
-          }
-
-          if (isAny(['/@rc-component/', '/rc-'])) {
-            return 'antd-rc-vendor';
-          }
-
           if (
             isAny([
               '/antd/',
-              '/antd-style/',
+              '/@ant-design/',
+              '/@rc-component/',
+              '/rc-',
+              '/@emotion/',
+              '/stylis/',
+              '/hoist-non-react-statics/',
+              '/react-is/',
             ])
           ) {
-            const antdComponentMatch = id.match(/\/antd\/(?:es|lib)\/([^/\\]+)/);
-            const componentName = antdComponentMatch?.[1];
-            if (componentName) {
-              return `antd-${toChunkSafe(componentName)}-vendor`;
-            }
-            return 'antd-core-vendor';
-          }
-
-          if (isAny(['/@ant-design/charts/'])) {
-            return 'ant-design-charts-vendor';
-          }
-
-          if (isAny(['/@antv/'])) {
-            return 'antv-vendor';
-          }
-
-          if (isAny(['/d3-'])) {
-            return 'd3-vendor';
+            return 'ui-vendor';
           }
 
           if (
             isAny([
-              '/@reduxjs/toolkit/',
-              '/react-redux/',
-              '/redux/',
-              '/reselect/',
-              '/immer/',
+              '/@ant-design/charts/',
+              '/@antv/',
+              '/d3-',
             ])
           ) {
-            return 'state-vendor';
+            return 'charts-vendor';
           }
 
           if (
@@ -361,6 +324,18 @@ export default defineConfig({
 
           if (
             isAny([
+              '/@reduxjs/toolkit/',
+              '/react-redux/',
+              '/redux/',
+              '/reselect/',
+              '/immer/',
+            ])
+          ) {
+            return 'state-vendor';
+          }
+
+          if (
+            isAny([
               '/@tanstack/react-query/',
               '/axios/',
               '/dayjs/',
@@ -386,11 +361,7 @@ export default defineConfig({
             return 'integration-vendor';
           }
 
-          const packageName = packageNameFromId();
-          if (packageName) {
-            return `vendor-${toChunkSafe(packageName)}`;
-          }
-          return 'vendor-misc';
+          return 'vendor';
         },
         // 闂佸搫鍊稿ú锝呪枎閵忋倕宸濋柦妯侯槹閸婂啿霉閸忔祹顏嗏偓?
         chunkFileNames: () => {
