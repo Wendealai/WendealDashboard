@@ -702,3 +702,108 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase R: UI Hundred-Challenge Wave 3 (Execution Batch 2)
+
+### P0 (Filter discoverability and speed)
+
+- [x] Add search preset quick chips
+  - Scope: search module under syntax hint
+  - Done when: operators can inject common triage tokens (`status:pending`, `oneoff:true`, etc.) with one click
+- [x] Add active-filter bar with per-chip clear
+  - Scope: results module toolbar area
+  - Done when: currently applied filters are visible and each can be removed independently without reopening full controls
+
+### P1 (Results operations)
+
+- [x] Add results-toolbar quick risk toggles
+  - Scope: sticky results toolbar
+  - Done when: `Overdue / Due Today / No Assignee / Missing Photos` can be toggled directly from the results top area
+- [x] Add grouped header high-priority count tag
+  - Scope: grouped list section headers
+  - Done when: each group surfaces high-priority item count before opening items
+
+### P2 (Mobile flow)
+
+- [x] Add mobile filter drawer `Clear & Close`
+  - Scope: bottom filter drawer actions
+  - Done when: users can fully reset filter context and dismiss drawer in one action
+- [x] Add mobile filter drawer `Apply & Top`
+  - Scope: bottom filter drawer primary action
+  - Done when: applying filters returns users to top context for faster list scan
+- [x] Add active-filter bar responsive styling
+  - Scope: `sparkery-legacy.css` mobile media rules
+  - Done when: active filter chips remain readable and non-overflowing on narrow screens
+
+## Verification (Phase R)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
+
+## Phase S: UI Hundred-Challenge Wave 3 (Execution Batch 3)
+
+### P0 (Results command density)
+
+- [x] Add results-toolbar quick view controls
+  - Scope: sticky results toolbar
+  - Done when: layout/density/sort can be changed from the results top bar without returning to the full filter grid
+- [x] Add active-filter count indicator
+  - Scope: results toolbar status tags
+  - Done when: operators can read how many filters are currently constraining the result set
+
+### P1 (Grouped execution speed)
+
+- [x] Add grouped header selection controls
+  - Scope: grouped list header actions
+  - Done when: each group supports one-click select/clear for all member inspections
+- [x] Add grouped header `Only This Group` shortcut
+  - Scope: grouped list header actions
+  - Done when: operators can focus the current group context directly into filters/search
+
+### P2 (Mobile touch efficiency)
+
+- [x] Add mobile action-bar selected count badge
+  - Scope: mobile action bar selection control
+  - Done when: current selection volume is visible without opening batch panel
+- [x] Add responsive behavior for results-toolbar selects
+  - Scope: `sparkery-legacy.css` mobile media rules
+  - Done when: toolbar select controls collapse to full width on mobile and avoid overflow
+
+## Verification (Phase S)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
+
+## Phase T: UI Hundred-Challenge Wave 3 (Execution Batch 4)
+
+### P0 (Grouped execution focus)
+
+- [x] Add grouped-list focus state with visual highlight
+  - Scope: grouped list containers
+  - Done when: active group focus is visible and stable while operating on many groups
+- [x] Add grouped-list next/previous focus controls
+  - Scope: results toolbar + keyboard shortcuts
+  - Done when: operators can jump group focus using toolbar buttons and `Ctrl/Cmd+Shift+J/K`
+
+### P1 (Filter-to-view speed path)
+
+- [x] Add active-filter quick-save view action
+  - Scope: active filter bar
+  - Done when: operators can save the current filtered context without typing a name every time
+- [x] Add pinned-view quick apply inside active filter area
+  - Scope: active filter bar secondary row
+  - Done when: pinned saved views are available as one-click shortcuts near current filters
+
+### P2 (No-result recovery UX)
+
+- [x] Add contextual empty-state recovery actions
+  - Scope: empty-state action row
+  - Done when: users can directly recover with targeted actions (`Last 7 Days`, clear advanced filters, ungroup, detach saved view)
+- [x] Add selected-visible summary in results toolbar
+  - Scope: results toolbar status tags
+  - Done when: current visible selection ratio is always readable during triage
+
+## Verification (Phase T)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
