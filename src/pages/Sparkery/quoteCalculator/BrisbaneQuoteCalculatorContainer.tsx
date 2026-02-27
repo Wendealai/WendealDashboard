@@ -556,12 +556,22 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         <body>
           ${renderedHtml}
           <script>
-            window.onload = function() {
-              window.print();
-              window.onafterprint = function() {
-                window.close();
+            (function () {
+              var hasPrinted = false;
+              var triggerPrint = function () {
+                if (hasPrinted) return;
+                hasPrinted = true;
+                window.print();
+                window.onafterprint = function () {
+                  window.close();
+                };
+                setTimeout(function () {
+                  window.close();
+                }, 1000);
               };
-            };
+              window.onload = triggerPrint;
+              setTimeout(triggerPrint, 3500);
+            })();
           </script>
         </body>
         </html>
@@ -720,6 +730,15 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         }
       }
   `;
+  const escapeTemplateHtml = (
+    value: string | number | null | undefined
+  ): string =>
+    String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   const buildReportSummaryStripHtml = (
     cards: Array<{ label: string; value: string }>
   ): string => `
@@ -728,8 +747,8 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         .map(
           card => `
         <div class="report-summary-card">
-          <div class="report-summary-label">${card.label}</div>
-          <div class="report-summary-value">${card.value}</div>
+          <div class="report-summary-label">${escapeTemplateHtml(card.label)}</div>
+          <div class="report-summary-value">${escapeTemplateHtml(card.value)}</div>
         </div>`
         )
         .join('')}
@@ -1352,18 +1371,22 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         // Service package mode - list service items
         serviceItems.forEach(item => {
           // Handle line breaks in description
-          const formattedDescription = (item.description || '-')
-            .replace(/\n/g, '<br>')
-            .replace(/\r\n/g, '<br>');
+          const formattedDescription = escapeTemplateHtml(
+            item.description || '-'
+          ).replace(/\r?\n/g, '<br>');
           const unitLabel = getServiceUnitLabel(item.unit, lang);
+          const safeItemTitle = escapeTemplateHtml(
+            item.title || serviceItemFallback
+          );
+          const safeUnitLabel = escapeTemplateHtml(unitLabel);
 
           serviceItemRows += `
           <tr>
             <td class="col-desc">
-              <span class="item-name">${item.title || serviceItemFallback}</span>
+              <span class="item-name">${safeItemTitle}</span>
               <span class="item-detail">${formattedDescription}</span>
             </td>
-            <td class="col-type">${unitLabel}</td>
+            <td class="col-type">${safeUnitLabel}</td>
             <td class="col-hours">-</td>
             <td class="col-amount">$${item.amount.toFixed(2)}</td>
           </tr>
@@ -1379,11 +1402,13 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           selectedWorkType !== 'construction' &&
           selectedWorkType !== 'commercial'
         ) {
+          const safePropertyTypeName = escapeTemplateHtml(propertyTypeName);
+          const safeShortRoomType = escapeTemplateHtml(shortRoomType);
           baseServiceRow = `
           <tr>
             <td class="col-desc">
               <span class="item-name">${baseServiceNameLabel}</span>
-              <span class="item-detail">${propertyTypeLabel}: ${propertyTypeName} (${shortRoomType})<br>${baseServiceIncludesLabel}</span>
+              <span class="item-detail">${propertyTypeLabel}: ${safePropertyTypeName} (${safeShortRoomType})<br>${baseServiceIncludesLabel}</span>
             </td>
             <td class="col-type">${baseServiceLabel}</td>
             <td class="col-hours">${quote.workHours.base.toFixed(1)} ${hoursUnitLabel}</td>
@@ -1392,11 +1417,14 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         `;
         } else {
           // 平米计价模式
+          const safeWorkTypeName = escapeTemplateHtml(workTypeName);
+          const safeSqmArea = escapeTemplateHtml(String(sqmArea));
+          const safeSqmPrice = escapeTemplateHtml(String(sqmPrice));
           baseServiceRow = `
           <tr>
             <td class="col-desc">
-              <span class="item-name">${workTypeName}</span>
-              <span class="item-detail">${areaLabel}: ${sqmArea} ${sqmUnitLabel} x $${sqmPrice}/${sqmUnitLabel}${sqmMultiplier !== 1 ? `<br>${multiplierLabel}: x${sqmMultiplier}` : ''}</span>
+              <span class="item-name">${safeWorkTypeName}</span>
+              <span class="item-detail">${areaLabel}: ${safeSqmArea} ${sqmUnitLabel} x $${safeSqmPrice}/${sqmUnitLabel}${sqmMultiplier !== 1 ? `<br>${multiplierLabel}: x${sqmMultiplier}` : ''}</span>
             </td>
             <td class="col-type">${sqmPricingLabel}</td>
             <td class="col-hours">-</td>
@@ -1717,12 +1745,41 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           value: includeGST ? `$${quote.gst.toFixed(2)}` : includedLabel,
         },
       ]);
+      const safeQuoteDocumentTitle = escapeTemplateHtml(documentTitle);
+      const safeQuoteForLabel = escapeTemplateHtml(quoteForLabel);
+      const safeCustomerName = escapeTemplateHtml(
+        customerName || customerNamePlaceholder
+      );
+      const safeCustomerAddress = escapeTemplateHtml(
+        customerAddress || addressPlaceholder
+      );
+      const safeQuoteHeadingLabel = escapeTemplateHtml(quoteHeadingLabel);
+      const safeQuoteDateLabel = escapeTemplateHtml(quoteDateLabel);
+      const safeValidUntilLabel = escapeTemplateHtml(validUntilLabel);
+      const safeReferenceLabel = escapeTemplateHtml(referenceLabel);
+      const safeQuoteId = escapeTemplateHtml(quoteId);
+      const safeDescriptionLabel = escapeTemplateHtml(descriptionLabel);
+      const safeUnitLabel = escapeTemplateHtml(unitLabel);
+      const safeHoursLabel = escapeTemplateHtml(hoursLabel);
+      const safeAmountLabel = escapeTemplateHtml(amountLabel);
+      const safeTermsLabel = escapeTemplateHtml(termsLabel);
+      const safeGuaranteeTitleLabel = escapeTemplateHtml(guaranteeTitleLabel);
+      const safeGuaranteeDescLabel = escapeTemplateHtml(guaranteeDescLabel);
+      const safeAccessTitleLabel = escapeTemplateHtml(accessTitleLabel);
+      const safeAccessDescLabel = escapeTemplateHtml(accessDescLabel);
+      const safeBankTransferLabel = escapeTemplateHtml(bankTransferLabel);
+      const safeAccountNameLabel = escapeTemplateHtml(accountNameLabel);
+      const safeAccountLabel = escapeTemplateHtml(accountLabel);
+      const safeThankYouLabel = escapeTemplateHtml(thankYouLabel);
+      const safeGeneratedAtLabel = escapeTemplateHtml(generatedAtLabel);
+      const safeCurrentDate = escapeTemplateHtml(currentDate);
+      const safeValidDate = escapeTemplateHtml(validDate);
 
       return `<!DOCTYPE html>
 <html lang="${lang === 'cn' ? 'zh-CN' : 'en'}">
 <head>
     <meta charset="UTF-8">
-    <title>${documentTitle}</title>
+    <title>${safeQuoteDocumentTitle}</title>
     <style>
         /* 页面基础设置：A4 尺寸 */
         @page {
@@ -1986,34 +2043,34 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     <!-- 客户信息 -->
     <div class="info-grid">
         <div class="recipient-box">
-            <h3>${quoteForLabel}</h3>
-            <div class="client-name">${customerName || customerNamePlaceholder}</div>
-            <div class="client-address">${customerAddress || addressPlaceholder}</div>
+            <h3>${safeQuoteForLabel}</h3>
+            <div class="client-name">${safeCustomerName}</div>
+            <div class="client-address">${safeCustomerAddress}</div>
         </div>
         <div class="quote-meta-box">
-            <div class="quote-title">${quoteHeadingLabel}</div>
+            <div class="quote-title">${safeQuoteHeadingLabel}</div>
             <div class="meta-row">
-                <span class="meta-label">${quoteDateLabel}:</span>
-                <span>${currentDate}</span>
+                <span class="meta-label">${safeQuoteDateLabel}:</span>
+                <span>${safeCurrentDate}</span>
             </div>
             <div class="meta-row">
-                <span class="meta-label">${validUntilLabel}:</span>
-                <span>${validDate}</span>
+                <span class="meta-label">${safeValidUntilLabel}:</span>
+                <span>${safeValidDate}</span>
             </div>
             <div class="meta-row">
-                <span class="meta-label">${referenceLabel}:</span>
-                <span>#${quoteId}</span>
+                <span class="meta-label">${safeReferenceLabel}:</span>
+                <span>#${safeQuoteId}</span>
             </div>
         </div>
     </div>
     ${summaryStripHtml}
-    <table aria-label="${quoteHeadingLabel}">
+    <table aria-label="${safeQuoteHeadingLabel}">
         <thead>
             <tr>
-                <th>${descriptionLabel}</th>
-                <th>${unitLabel}</th>
-                <th class="th-hours">${hoursLabel}</th>
-                <th class="th-amount">${amountLabel}</th>
+                <th>${safeDescriptionLabel}</th>
+                <th>${safeUnitLabel}</th>
+                <th class="th-hours">${safeHoursLabel}</th>
+                <th class="th-amount">${safeAmountLabel}</th>
             </tr>
         </thead>
         <tbody>
@@ -2024,24 +2081,24 @@ const BrisbaneQuoteCalculator: React.FC = () => {
 
     <!-- Footer Notes -->
     <div class="footer-note">
-        <strong>${termsLabel}:</strong>
+        <strong>${safeTermsLabel}:</strong>
         <ul class="terms-list">
-            <li><strong>${guaranteeTitleLabel}:</strong> ${guaranteeDescLabel}</li>
-            <li><strong>${accessTitleLabel}:</strong> ${accessDescLabel}</li>
+            <li><strong>${safeGuaranteeTitleLabel}:</strong> ${safeGuaranteeDescLabel}</li>
+            <li><strong>${safeAccessTitleLabel}:</strong> ${safeAccessDescLabel}</li>
         </ul>
         ${
           includeGST
             ? `<div class="bank-details">
-            ${bankTransferLabel}:<br>
-            ${accountNameLabel}: WENDEAL PTY LTD<br>
-            BSB: 013711  | ${accountLabel}: 332166314
+            ${safeBankTransferLabel}:<br>
+            ${safeAccountNameLabel}: WENDEAL PTY LTD<br>
+            BSB: 013711  | ${safeAccountLabel}: 332166314
         </div>`
             : ''
         }
     </div>
 
     <div class="page-footer">
-        ${thankYouLabel} · ${generatedAtLabel}: ${currentDate}
+        ${safeThankYouLabel} · ${safeGeneratedAtLabel}: ${safeCurrentDate}
     </div>
     </div>
 </body>
@@ -2212,17 +2269,21 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     let serviceItemRows = '';
     if (isServicePackage) {
       serviceItems.forEach(item => {
-        const formattedDescription = (item.description || '-')
-          .replace(/\n/g, '<br>')
-          .replace(/\r\n/g, '<br>');
+        const formattedDescription = escapeTemplateHtml(
+          item.description || '-'
+        ).replace(/\r?\n/g, '<br>');
         const unitLabel = getServiceUnitLabel(item.unit, lang);
+        const safeItemTitle = escapeTemplateHtml(
+          item.title || serviceItemFallback
+        );
+        const safeUnitLabel = escapeTemplateHtml(unitLabel);
         serviceItemRows += `
           <tr>
             <td class="col-desc">
-              <span class="item-name">${item.title || serviceItemFallback}</span>
+              <span class="item-name">${safeItemTitle}</span>
               <span class="item-detail">${formattedDescription}</span>
             </td>
-            <td class="col-type">${unitLabel}</td>
+            <td class="col-type">${safeUnitLabel}</td>
             <td class="col-hours">-</td>
             <td class="col-amount">$${item.amount.toFixed(2)}</td>
           </tr>
@@ -2236,11 +2297,13 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         selectedWorkType !== 'construction' &&
         selectedWorkType !== 'commercial'
       ) {
+        const safePropertyTypeName = escapeTemplateHtml(propertyTypeName);
+        const safeShortRoomType = escapeTemplateHtml(shortRoomType);
         baseServiceRow = `
           <tr>
             <td class="col-desc">
               <span class="item-name">${baseServiceNameLabel}</span>
-              <span class="item-detail">${propertyTypeLabel}: ${propertyTypeName} (${shortRoomType})<br>${baseServiceIncludesLabel}</span>
+              <span class="item-detail">${propertyTypeLabel}: ${safePropertyTypeName} (${safeShortRoomType})<br>${baseServiceIncludesLabel}</span>
             </td>
             <td class="col-type">${baseServiceLabel}</td>
             <td class="col-hours">${quote.workHours.base.toFixed(1)} ${hoursUnitLabel}</td>
@@ -2248,11 +2311,14 @@ const BrisbaneQuoteCalculator: React.FC = () => {
           </tr>
         `;
       } else {
+        const safeWorkTypeName = escapeTemplateHtml(workTypeName);
+        const safeSqmArea = escapeTemplateHtml(String(sqmArea));
+        const safeSqmPrice = escapeTemplateHtml(String(sqmPrice));
         baseServiceRow = `
           <tr>
             <td class="col-desc">
-              <span class="item-name">${workTypeName}</span>
-              <span class="item-detail">${areaLabel}: ${sqmArea} ${sqmUnitLabel} x $${sqmPrice}/${sqmUnitLabel}${sqmMultiplier !== 1 ? `<br>${multiplierLabel}: x${sqmMultiplier}` : ''}</span>
+              <span class="item-name">${safeWorkTypeName}</span>
+              <span class="item-detail">${areaLabel}: ${safeSqmArea} ${sqmUnitLabel} x $${safeSqmPrice}/${sqmUnitLabel}${sqmMultiplier !== 1 ? `<br>${multiplierLabel}: x${sqmMultiplier}` : ''}</span>
             </td>
             <td class="col-type">${sqmPricingLabel}</td>
             <td class="col-hours">-</td>
@@ -2545,6 +2611,51 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         value: includeGST ? `$${quote.gst.toFixed(2)}` : includedLabel,
       },
     ]);
+    const safeCustomDocumentTitle = escapeTemplateHtml(customDocumentTitle);
+    const safeRecipientLabel = escapeTemplateHtml(recipientLabel);
+    const safeCustomerName = escapeTemplateHtml(
+      customerName || customerNamePlaceholder
+    );
+    const safeCustomerAddress = escapeTemplateHtml(
+      customerAddress || addressPlaceholder
+    );
+    const safeDocumentHeadingLabel = escapeTemplateHtml(documentHeadingLabel);
+    const safePrimaryDateLabel = escapeTemplateHtml(primaryDateLabel);
+    const safeSecondaryDateLabel = escapeTemplateHtml(secondaryDateLabel);
+    const safeReferenceLabel = escapeTemplateHtml(referenceLabel);
+    const safeQuoteId = escapeTemplateHtml(quoteId);
+    const safeDescriptionLabel = escapeTemplateHtml(descriptionLabel);
+    const safeUnitLabel = escapeTemplateHtml(unitLabel);
+    const safeHoursLabel = escapeTemplateHtml(hoursLabel);
+    const safeAmountLabel = escapeTemplateHtml(amountLabel);
+    const safePaymentTermsLabel = escapeTemplateHtml(paymentTermsLabel);
+    const safePaymentDueHintLabel = escapeTemplateHtml(paymentDueHintLabel);
+    const safeBankTransferLabel = escapeTemplateHtml(bankTransferLabel);
+    const safeAccountNameLabel = escapeTemplateHtml(accountNameLabel);
+    const safeAccountLabel = escapeTemplateHtml(accountLabel);
+    const safeThankYouLabel = escapeTemplateHtml(thankYouLabel);
+    const safeGeneratedAtLabel = escapeTemplateHtml(generatedAtLabel);
+    const safeInvoiceDateFormatted = escapeTemplateHtml(invoiceDateFormatted);
+    const safeDueDateFormatted = escapeTemplateHtml(dueDateFormatted);
+    const safeCustomHeaderCompanyName = escapeTemplateHtml(
+      customInvoiceHeader.companyName
+    );
+    const safeCustomHeaderAbn = escapeTemplateHtml(customInvoiceHeader.abn);
+    const safeCustomHeaderAddress = escapeTemplateHtml(
+      customInvoiceHeader.address
+    );
+    const safeCustomHeaderEmail = escapeTemplateHtml(customInvoiceHeader.email);
+    const safeCustomHeaderPhone = escapeTemplateHtml(customInvoiceHeader.phone);
+    const safeCustomHeaderWebsite = escapeTemplateHtml(
+      customInvoiceHeader.website
+    );
+    const safeCustomHeaderAccountName = escapeTemplateHtml(
+      customInvoiceHeader.accountName
+    );
+    const safeCustomHeaderBsb = escapeTemplateHtml(customInvoiceHeader.bsb);
+    const safeCustomHeaderAccountNumber = escapeTemplateHtml(
+      customInvoiceHeader.accountNumber
+    );
     const invoiceHeaderHTML =
       invoiceHeaderMode === 'sparkery'
         ? `
@@ -2564,12 +2675,12 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         : `
     <header>
         <div class="company-details company-details-full">
-            ${customInvoiceHeader.companyName ? `<div class="company-name">${customInvoiceHeader.companyName}</div>` : ''}
-            ${customInvoiceHeader.abn ? `<div>ABN: ${customInvoiceHeader.abn}</div>` : ''}
-            ${customInvoiceHeader.address ? `<div>${customInvoiceHeader.address}</div>` : ''}
-            ${customInvoiceHeader.email ? `<div>E: ${customInvoiceHeader.email}</div>` : ''}
-            ${customInvoiceHeader.phone ? `<div>P: ${customInvoiceHeader.phone}</div>` : ''}
-            ${customInvoiceHeader.website ? `<div>W: ${customInvoiceHeader.website}</div>` : ''}
+            ${customInvoiceHeader.companyName ? `<div class="company-name">${safeCustomHeaderCompanyName}</div>` : ''}
+            ${customInvoiceHeader.abn ? `<div>ABN: ${safeCustomHeaderAbn}</div>` : ''}
+            ${customInvoiceHeader.address ? `<div>${safeCustomHeaderAddress}</div>` : ''}
+            ${customInvoiceHeader.email ? `<div>E: ${safeCustomHeaderEmail}</div>` : ''}
+            ${customInvoiceHeader.phone ? `<div>P: ${safeCustomHeaderPhone}</div>` : ''}
+            ${customInvoiceHeader.website ? `<div>W: ${safeCustomHeaderWebsite}</div>` : ''}
         </div>
     </header>`;
 
@@ -2577,7 +2688,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
 <html lang="${lang === 'cn' ? 'zh-CN' : 'en'}">
 <head>
     <meta charset="UTF-8">
-    <title>${customDocumentTitle}</title>
+    <title>${safeCustomDocumentTitle}</title>
     <style>
         @page { size: A4; margin: 0; }
         body {
@@ -2656,34 +2767,34 @@ const BrisbaneQuoteCalculator: React.FC = () => {
 
     <div class="info-grid">
         <div class="recipient-box">
-            <h3>${recipientLabel}</h3>
-            <div class="client-name">${customerName || customerNamePlaceholder}</div>
-            <div class="client-address">${customerAddress || addressPlaceholder}</div>
+            <h3>${safeRecipientLabel}</h3>
+            <div class="client-name">${safeCustomerName}</div>
+            <div class="client-address">${safeCustomerAddress}</div>
         </div>
         <div class="quote-meta-box">
-            <div class="quote-title">${documentHeadingLabel}</div>
+            <div class="quote-title">${safeDocumentHeadingLabel}</div>
             <div class="meta-row">
-                <span class="meta-label">${primaryDateLabel}:</span>
-                <span>${invoiceDateFormatted}</span>
+                <span class="meta-label">${safePrimaryDateLabel}:</span>
+                <span>${safeInvoiceDateFormatted}</span>
             </div>
             <div class="meta-row">
-                <span class="meta-label">${secondaryDateLabel}:</span>
-                <span>${dueDateFormatted}</span>
+                <span class="meta-label">${safeSecondaryDateLabel}:</span>
+                <span>${safeDueDateFormatted}</span>
             </div>
             <div class="meta-row">
-                <span class="meta-label">${referenceLabel}:</span>
-                <span>#${quoteId}</span>
+                <span class="meta-label">${safeReferenceLabel}:</span>
+                <span>#${safeQuoteId}</span>
             </div>
         </div>
     </div>
     ${summaryStripHtml}
-    <table aria-label="${documentHeadingLabel}">
+    <table aria-label="${safeDocumentHeadingLabel}">
         <thead>
             <tr>
-                <th>${descriptionLabel}</th>
-                <th>${unitLabel}</th>
-                <th class="th-hours">${hoursLabel}</th>
-                <th class="th-amount">${amountLabel}</th>
+                <th>${safeDescriptionLabel}</th>
+                <th>${safeUnitLabel}</th>
+                <th class="th-hours">${safeHoursLabel}</th>
+                <th class="th-amount">${safeAmountLabel}</th>
             </tr>
         </thead>
         <tbody>${tableContent}</tbody>
@@ -2691,37 +2802,37 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     ${totalSection}
 
     <div class="footer-note">
-        <strong>${paymentTermsLabel}:</strong>
+        <strong>${safePaymentTermsLabel}:</strong>
         <ul class="terms-list">
-            <li>${paymentDueHintLabel}</li>
+            <li>${safePaymentDueHintLabel}</li>
         </ul>
         ${
           !isCustomQuote && includeGST
             ? `<div class="bank-details">
-            ${bankTransferLabel}:<br>
+            ${safeBankTransferLabel}:<br>
             ${
               invoiceHeaderMode === 'custom' &&
               (customInvoiceHeader.accountName ||
                 customInvoiceHeader.bsb ||
                 customInvoiceHeader.accountNumber)
                 ? (customInvoiceHeader.accountName
-                    ? accountNameLabel +
+                    ? safeAccountNameLabel +
                       ': ' +
-                      customInvoiceHeader.accountName +
+                      safeCustomHeaderAccountName +
                       '<br>'
                     : '') +
                   (customInvoiceHeader.bsb || customInvoiceHeader.accountNumber
                     ? 'BSB: ' +
-                      (customInvoiceHeader.bsb || '-') +
+                      (safeCustomHeaderBsb || '-') +
                       '  | ' +
-                      accountLabel +
+                      safeAccountLabel +
                       ': ' +
-                      (customInvoiceHeader.accountNumber || '-')
+                      (safeCustomHeaderAccountNumber || '-')
                     : '')
-                : accountNameLabel +
+                : safeAccountNameLabel +
                   ': ' +
                   'WENDEAL PTY LTD<br>BSB: 013711  | ' +
-                  accountLabel +
+                  safeAccountLabel +
                   ': ' +
                   '332166314'
             }
@@ -2731,7 +2842,7 @@ const BrisbaneQuoteCalculator: React.FC = () => {
     </div>
 
     <div class="page-footer">
-        ${thankYouLabel} · ${generatedAtLabel}: ${invoiceDateFormatted}
+        ${safeThankYouLabel} · ${safeGeneratedAtLabel}: ${safeInvoiceDateFormatted}
     </div>
 </div>
 </body>
@@ -2816,10 +2927,22 @@ const BrisbaneQuoteCalculator: React.FC = () => {
         <body>
           ${html}
           <script>
-            window.onload = function() {
-              window.print();
-              window.onafterprint = function() { window.close(); };
-            };
+            (function () {
+              var hasPrinted = false;
+              var triggerPrint = function () {
+                if (hasPrinted) return;
+                hasPrinted = true;
+                window.print();
+                window.onafterprint = function () {
+                  window.close();
+                };
+                setTimeout(function () {
+                  window.close();
+                }, 1000);
+              };
+              window.onload = triggerPrint;
+              setTimeout(triggerPrint, 3500);
+            })();
           </script>
         </body>
         </html>

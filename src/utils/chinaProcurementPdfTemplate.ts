@@ -91,6 +91,14 @@ const CATEGORIES: Category[] = [
   { value: 'other', label: 'Other' },
 ];
 
+const escapeHtml = (value: string | number | null | undefined): string =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 /**
  * Sparkery 品牌色板
  * Brand color tokens used throughout the PDF template
@@ -223,12 +231,36 @@ export function generatePdfHtml(
       var imgs = document.querySelectorAll('img');
       var loaded = 0;
       var total = imgs.length;
-      if (total === 0) { setTimeout(function(){ window.print(); }, 300); return; }
+      var hasPrinted = false;
+      var triggerPrint = function () {
+        if (hasPrinted) return;
+        hasPrinted = true;
+        window.print();
+      };
+      var forceTimeout = setTimeout(triggerPrint, 8000);
+      if (total === 0) {
+        setTimeout(function(){
+          clearTimeout(forceTimeout);
+          triggerPrint();
+        }, 300);
+        return;
+      }
       imgs.forEach(function(img) {
         if (img.complete) { loaded++; }
-        else { img.onload = img.onerror = function() { loaded++; if (loaded >= total) setTimeout(function(){ window.print(); }, 200); }; }
+        else {
+          img.onload = img.onerror = function() {
+            loaded++;
+            if (loaded >= total) {
+              clearTimeout(forceTimeout);
+              setTimeout(triggerPrint, 200);
+            }
+          };
+        }
       });
-      if (loaded >= total) setTimeout(function(){ window.print(); }, 300);
+      if (loaded >= total) {
+        clearTimeout(forceTimeout);
+        setTimeout(triggerPrint, 300);
+      }
     };
   </script>
 </body>
@@ -783,6 +815,19 @@ function generateCoverPage(
   purchaseItems: PdfPurchaseItem[]
 ): string {
   const folderStructure = generateFolderStructure(record);
+  const safeRecordId = escapeHtml(record.id);
+  const safeFormattedDate = escapeHtml(formattedDate);
+  const safeSupplierName = escapeHtml(record.supplierName || 'N/A');
+  const safePlatformLabel = escapeHtml(platformLabel);
+  const safeProductName = escapeHtml(record.productName || 'N/A');
+  const safeCategoryLabel = escapeHtml(categoryLabel);
+  const safeDateRef = escapeHtml(`${dateStr}_${dailySeqStr}`);
+  const safeNotesContent = escapeHtml(record.notes || '').replace(
+    /\r?\n/g,
+    '<br>'
+  );
+  const safeFolderStructure = escapeHtml(folderStructure);
+  const safeGeneratedAt = escapeHtml(dayjs().format('YYYY-MM-DD HH:mm'));
 
   // 生成采购明细表 HTML
   const purchaseDetailsHtml =
@@ -792,7 +837,7 @@ function generateCoverPage(
 
   // 备注区域
   const notesHtml = record.notes
-    ? `<div class="notes-box">${record.notes}</div>`
+    ? `<div class="notes-box">${safeNotesContent}</div>`
     : '';
   const sectionsWithImagesCount = record.sections.filter(
     section => section.images.length > 0
@@ -805,7 +850,6 @@ function generateCoverPage(
     (sum, section) => sum + section.images.length,
     0
   );
-  const generatedAt = dayjs().format('YYYY-MM-DD HH:mm');
 
   return `
   <div class="page cover-page">
@@ -813,7 +857,7 @@ function generateCoverPage(
     <div class="cover-banner">
       <div class="cover-brand">Sparkery</div>
       <div class="cover-title">China Procurement Report</div>
-      <div class="cover-subtitle">Purchase Documentation Package &nbsp;·&nbsp; ${formattedDate}</div>
+      <div class="cover-subtitle">Purchase Documentation Package &nbsp;·&nbsp; ${safeFormattedDate}</div>
     </div>
     <div class="cover-accent"></div>
 
@@ -825,27 +869,27 @@ function generateCoverPage(
       <div class="info-grid">
         <div class="info-item">
           <span class="info-label">Document ID</span>
-          <span class="info-value">${record.id}</span>
+          <span class="info-value">${safeRecordId}</span>
         </div>
         <div class="info-item">
           <span class="info-label">Purchase Date</span>
-          <span class="info-value">${formattedDate}</span>
+          <span class="info-value">${safeFormattedDate}</span>
         </div>
         <div class="info-item">
           <span class="info-label">Supplier</span>
-          <span class="info-value">${record.supplierName || 'N/A'}</span>
+          <span class="info-value">${safeSupplierName}</span>
         </div>
         <div class="info-item">
           <span class="info-label">Platform</span>
-          <span class="info-value">${platformLabel}</span>
+          <span class="info-value">${safePlatformLabel}</span>
         </div>
         <div class="info-item">
           <span class="info-label">Product</span>
-          <span class="info-value">${record.productName || 'N/A'}</span>
+          <span class="info-value">${safeProductName}</span>
         </div>
         <div class="info-item">
           <span class="info-label">Category</span>
-          <span class="info-value">${categoryLabel}</span>
+          <span class="info-value">${safeCategoryLabel}</span>
         </div>
         <div class="info-item">
           <span class="info-label">Amount (CNY)</span>
@@ -861,7 +905,7 @@ function generateCoverPage(
         </div>
         <div class="info-item">
           <span class="info-label">File Reference</span>
-          <span class="info-value" style="font-family: Consolas, Monaco, monospace; font-size: 9.5pt;">${dateStr}_${dailySeqStr}</span>
+          <span class="info-value" style="font-family: Consolas, Monaco, monospace; font-size: 9.5pt;">${safeDateRef}</span>
         </div>
       </div>
 
@@ -893,12 +937,12 @@ function generateCoverPage(
 
       <!-- Folder Structure -->
       <div class="folder-section-title">File Structure</div>
-      <div class="folder-structure">${folderStructure}</div>
+      <div class="folder-structure">${safeFolderStructure}</div>
     </div>
 
     <!-- ── Footer ──────────────────────────────── -->
     <div class="cover-footer">
-      Generated for ATO Audit Compliance &nbsp;&middot;&nbsp; Sparkery Business Records &nbsp;&middot;&nbsp; ${generatedAt} &nbsp;&middot;&nbsp; Page ${currentPage} of ${totalPages}
+      Generated for ATO Audit Compliance &nbsp;&middot;&nbsp; Sparkery Business Records &nbsp;&middot;&nbsp; ${safeGeneratedAt} &nbsp;&middot;&nbsp; Page ${currentPage} of ${totalPages}
     </div>
   </div>`;
 }
@@ -924,7 +968,7 @@ function generatePurchaseDetailsTable(
       (item, index) => `
         <tr>
           <td class="col-num">${index + 1}</td>
-          <td class="col-name">${item.productName || '—'}</td>
+          <td class="col-name">${escapeHtml(item.productName || '—')}</td>
           <td class="col-price">¥${item.unitPrice.toFixed(2)}</td>
           <td class="col-qty">${item.quantity}</td>
           <td class="col-sub">¥${(item.unitPrice * item.quantity).toFixed(2)}</td>
@@ -975,15 +1019,23 @@ function generateImagePage(
   currentPage: number,
   totalPages: number
 ): string {
-  const description =
-    img.description || section.description || 'No description provided';
+  const description = escapeHtml(
+    img.description || section.description || 'No description provided'
+  ).replace(/\r?\n/g, '<br>');
+  const safeSectionTitle = escapeHtml(section.title);
+  const safeSectionFolderName = escapeHtml(section.folderName);
+  const safeImageFile = escapeHtml(img.file);
+  const safeImageName = escapeHtml(img.name);
+  const safeImgRef = escapeHtml(imgRef);
+  const safeSectionTag = escapeHtml(section.tag || '');
+  const safeUploadTime = escapeHtml(img.uploadTime);
 
   return `
   <div class="page">
     <div class="page-header">
       <div class="header-left">
-        <div class="header-title">${sectionIndex + 1}. ${section.title}</div>
-        <div class="header-subtitle">${section.folderName}</div>
+        <div class="header-title">${sectionIndex + 1}. ${safeSectionTitle}</div>
+        <div class="header-subtitle">${safeSectionFolderName}</div>
       </div>
       <div class="header-right">
         <div class="page-number">${currentPage}</div>
@@ -992,7 +1044,7 @@ function generateImagePage(
     </div>
 
     <div class="page-content">
-      <img src="${img.file}" alt="${img.name}" />
+      <img src="${safeImageFile}" alt="${safeImageName}" />
     </div>
 
     <div class="page-footer">
@@ -1001,10 +1053,10 @@ function generateImagePage(
         <div class="footer-description">${description}</div>
         <div class="footer-meta">
           <div class="footer-meta-left">
-            <span class="footer-reference">Ref: ${imgRef}</span>
-            ${section.tag ? `<span class="footer-tag">${section.tag}</span>` : ''}
+            <span class="footer-reference">Ref: ${safeImgRef}</span>
+            ${section.tag ? `<span class="footer-tag">${safeSectionTag}</span>` : ''}
           </div>
-          <span class="footer-file-info">${img.name} &middot; ${img.uploadTime}</span>
+          <span class="footer-file-info">${safeImageName} &middot; ${safeUploadTime}</span>
         </div>
       </div>
     </div>

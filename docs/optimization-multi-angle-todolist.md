@@ -895,3 +895,28 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase X: Report Safety & Print Resilience
+
+### P0 (Template safety hardening)
+
+- [x] Add HTML escaping for quote/receipt user-entered fields
+  - Scope: `src/pages/Sparkery/quoteCalculator/BrisbaneQuoteCalculatorContainer.tsx`
+  - Done when: customer identity fields and custom invoice header fields are safely escaped before HTML generation
+- [x] Add HTML escaping for procurement/inspection free-text fields
+  - Scope: `src/utils/chinaProcurementPdfTemplate.ts`, `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: notes, labels, descriptions, and text metadata no longer inject raw HTML into rendered reports
+
+### P1 (Print stability hardening)
+
+- [x] Add quote/receipt print fallback timeout
+  - Scope: `src/pages/Sparkery/quoteCalculator/BrisbaneQuoteCalculatorContainer.tsx`
+  - Done when: report print attempts still proceed if `onload` callback is delayed or blocked
+- [x] Add image-wait timeout fallback for inspection/procurement reports
+  - Scope: `src/utils/chinaProcurementPdfTemplate.ts`, `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: print no longer hangs indefinitely when some image resources fail to resolve events
+
+## Verification (Phase X)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed

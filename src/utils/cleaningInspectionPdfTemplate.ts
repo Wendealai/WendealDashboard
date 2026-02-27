@@ -86,6 +86,15 @@ function toAsciiText(
   return cleaned || fallback;
 }
 
+function escapeHtml(value: string | number | null | undefined): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function toFileToken(
   value: string | null | undefined,
   fallback: string
@@ -390,10 +399,37 @@ export async function generateInspectionPdfHtml(
     window.onload = function() {
       var images = document.querySelectorAll('img');
       var loaded = 0;
-      if (images.length === 0) { setTimeout(function(){ window.print(); }, 300); return; }
+      var hasPrinted = false;
+      var triggerPrint = function () {
+        if (hasPrinted) return;
+        hasPrinted = true;
+        window.print();
+      };
+      var forceTimeout = setTimeout(triggerPrint, 8000);
+      if (images.length === 0) {
+        setTimeout(function(){
+          clearTimeout(forceTimeout);
+          triggerPrint();
+        }, 300);
+        return;
+      }
       images.forEach(function(img) {
-        if (img.complete) { loaded++; if (loaded >= images.length) setTimeout(function(){ window.print(); }, 300); }
-        else { img.onload = img.onerror = function() { loaded++; if (loaded >= images.length) setTimeout(function(){ window.print(); }, 300); }; }
+        if (img.complete) {
+          loaded++;
+          if (loaded >= images.length) {
+            clearTimeout(forceTimeout);
+            setTimeout(triggerPrint, 300);
+          }
+        }
+        else {
+          img.onload = img.onerror = function() {
+            loaded++;
+            if (loaded >= images.length) {
+              clearTimeout(forceTimeout);
+              setTimeout(triggerPrint, 300);
+            }
+          };
+        }
       });
     };
   </script>
@@ -785,24 +821,24 @@ function formatCioBox(data: CheckInOut | null, label: string): string {
   // gpsAddress should now contain the reverse-geocoded street address
   let locationLine = '';
   if (data.gpsAddress) {
-    locationLine = `<div class="cio-detail" style="font-weight:600;">📍 ${data.gpsAddress}</div>`;
+    locationLine = `<div class="cio-detail" style="font-weight:600;">📍 ${escapeHtml(data.gpsAddress)}</div>`;
     if (coordsStr) {
-      locationLine += `<div class="cio-detail" style="font-size:7pt;color:#888;">${coordsStr}</div>`;
+      locationLine += `<div class="cio-detail" style="font-size:7pt;color:#888;">${escapeHtml(coordsStr)}</div>`;
     }
   } else if (hasCoords) {
-    locationLine = `<div class="cio-detail">GPS: ${coordsStr}</div>`;
+    locationLine = `<div class="cio-detail">GPS: ${escapeHtml(coordsStr)}</div>`;
   } else {
     locationLine = `<div class="cio-detail" style="color:#ccc;">GPS: N/A</div>`;
   }
 
   const keyLine = data.keyReturnMethod
-    ? `<div class="cio-detail" style="color:#d46b08;">钥匙归还: ${data.keyReturnMethod}</div>`
+    ? `<div class="cio-detail" style="color:#d46b08;">钥匙归还: ${escapeHtml(data.keyReturnMethod)}</div>`
     : '';
   return `
     <div class="cio-box">
-      <div class="cio-label">${label}</div>
-      <div class="cio-time">${time}</div>
-      <div class="cio-detail">${date}</div>
+      <div class="cio-label">${escapeHtml(label)}</div>
+      <div class="cio-time">${escapeHtml(time)}</div>
+      <div class="cio-detail">${escapeHtml(date)}</div>
       ${locationLine}
       ${keyLine}
     </div>
@@ -859,6 +895,12 @@ function generateCoverPage(
           .map(emp => emp.name || emp.nameEn || 'Cleaner')
           .join(' / ')
       : inspection.submitterName || 'N/A';
+  const safePropertyId = escapeHtml(inspection.propertyId || 'N/A');
+  const safePropertyAddress = escapeHtml(inspection.propertyAddress || 'N/A');
+  const safeFormattedDate = escapeHtml(formattedDate);
+  const safeCleanerName = escapeHtml(cleanerName);
+  const safeSubmittedAt = escapeHtml(submittedAt);
+  const safeInspectionId = escapeHtml(inspection.id || 'N/A');
 
   let durationStr = 'N/A';
   if (inspection.checkIn?.timestamp && inspection.checkOut?.timestamp) {
@@ -871,6 +913,7 @@ function generateCoverPage(
 
   const roomCardsHtml = inspection.sections
     .map((s, idx) => {
+      const safeRoomName = escapeHtml(s.name);
       const photoCount =
         (s.photos || []).length +
         (s.checklist || []).filter(i => i.photo).length;
@@ -878,7 +921,7 @@ function generateCoverPage(
       const total = (s.checklist || []).length;
       return `
         <div class="room-card">
-          <div class="room-card-name">${idx + 1}. ${s.name}</div>
+          <div class="room-card-name">${idx + 1}. ${safeRoomName}</div>
           <div class="room-card-stat">${photoCount} 张照片${total ? ` · ${checked}/${total} 完成` : ''}</div>
         </div>`;
     })
@@ -895,7 +938,7 @@ function generateCoverPage(
   const companyInfoHtml = companyInfoItems
     .map(
       ([label, value]) =>
-        `<div class="company-item"><span class="company-label">${label}</span>${toAsciiText(value, 'N/A')}</div>`
+        `<div class="company-item"><span class="company-label">${escapeHtml(label)}</span>${escapeHtml(toAsciiText(value, 'N/A'))}</div>`
     )
     .join('');
 
@@ -909,13 +952,13 @@ function generateCoverPage(
 
     <div class="cover-body">
       <table class="info-table">
-        <tr><td class="label-cell">房产名称 / Property</td><td class="value-cell">${inspection.propertyId || 'N/A'}</td></tr>
-        <tr><td class="label-cell">地址 / Address</td><td class="value-cell">${inspection.propertyAddress || 'N/A'}</td></tr>
-        <tr><td class="label-cell">退房日期 / Check-out Date</td><td class="value-cell">${formattedDate}</td></tr>
-        <tr><td class="label-cell">清洁人员 / Cleaner</td><td class="value-cell">${cleanerName}</td></tr>
-        <tr><td class="label-cell">清洁时长 / Duration</td><td class="value-cell">${durationStr}</td></tr>
+        <tr><td class="label-cell">房产名称 / Property</td><td class="value-cell">${safePropertyId}</td></tr>
+        <tr><td class="label-cell">地址 / Address</td><td class="value-cell">${safePropertyAddress}</td></tr>
+        <tr><td class="label-cell">退房日期 / Check-out Date</td><td class="value-cell">${safeFormattedDate}</td></tr>
+        <tr><td class="label-cell">清洁人员 / Cleaner</td><td class="value-cell">${safeCleanerName}</td></tr>
+        <tr><td class="label-cell">清洁时长 / Duration</td><td class="value-cell">${escapeHtml(durationStr)}</td></tr>
         <tr><td class="label-cell">房间 / 照片 / 损坏</td><td class="value-cell">${roomCount} 个房间 · ${totalPhotos} 张照片 · ${damageCount} 处损坏</td></tr>
-        <tr><td class="label-cell">提交时间 / Submitted</td><td class="value-cell">${submittedAt}</td></tr>
+        <tr><td class="label-cell">提交时间 / Submitted</td><td class="value-cell">${safeSubmittedAt}</td></tr>
       </table>
 
       <div class="cover-summary-strip">
@@ -956,7 +999,7 @@ function generateCoverPage(
     </div>
 
     <div class="cover-footer-line">
-      Sparkery Cleaning Services · 第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页 · ${inspection.id}
+      Sparkery Cleaning Services · 第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页 · ${safeInspectionId}
     </div>
   </div>
   `;
@@ -970,11 +1013,11 @@ function generateDamageSummaryPage(damages: DamageReport[]): string {
     .map(
       (d, idx) => `
       <div class="dmg-item">
-        <img class="dmg-thumb" src="${d.photo}" alt="损坏 ${idx + 1}" />
+        <img class="dmg-thumb" src="${escapeHtml(d.photo)}" alt="损坏 ${idx + 1}" />
         <div class="dmg-info">
-          <div class="dmg-loc">${d.location || '未知位置'}</div>
-          <div class="dmg-desc">${d.description || '无描述'}</div>
-          <div class="dmg-time">${dayjs(d.timestamp).format('DD/MM/YYYY HH:mm:ss')}</div>
+          <div class="dmg-loc">${escapeHtml(d.location || '未知位置')}</div>
+          <div class="dmg-desc">${escapeHtml(d.description || '无描述')}</div>
+          <div class="dmg-time">${escapeHtml(dayjs(d.timestamp).format('DD/MM/YYYY HH:mm:ss'))}</div>
         </div>
       </div>`
     )
@@ -998,8 +1041,8 @@ function generateDamageSummaryPage(damages: DamageReport[]): string {
  * Damage photo page - one full-page photo per damage
  */
 function generateDamagePhotoPage(damage: DamageReport, index: number): string {
-  const loc = damage.location || '未知位置';
-  const desc = damage.description || '';
+  const loc = escapeHtml(damage.location || '未知位置');
+  const desc = escapeHtml(damage.description || '');
   const caption = `损坏 #${index + 1} — ${loc}${desc ? ': ' + desc : ''}`;
 
   return `
@@ -1010,7 +1053,7 @@ function generateDamagePhotoPage(damage: DamageReport, index: number): string {
       <div class="topline-right">第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页</div>
     </div>
     <div class="photo-area">
-      <img src="${damage.photo}" alt="损坏 ${index + 1}" />
+      <img src="${escapeHtml(damage.photo)}" alt="损坏 ${index + 1}" />
     </div>
     <div class="photo-caption">
       <div class="caption-text">${caption}</div>
@@ -1028,6 +1071,7 @@ function generateRoomChecklistPage(
   sectionIdx: number,
   totalSections: number
 ): string {
+  const safeSectionName = escapeHtml(section.name);
   const passCount = section.checklist.filter(i => i.checked).length;
   const total = section.checklist.length;
 
@@ -1038,7 +1082,7 @@ function generateRoomChecklistPage(
         <div class="cl-icon ${item.checked ? 'cl-pass' : 'cl-fail'}">
           ${item.checked ? '✓' : '✗'}
         </div>
-        <div class="cl-label">${item.label}${item.labelEn ? ` <span style="color:#888;font-size:11px">(${item.labelEn})</span>` : ''}</div>
+        <div class="cl-label">${escapeHtml(item.label)}${item.labelEn ? ` <span style="color:#888;font-size:11px">(${escapeHtml(item.labelEn)})</span>` : ''}</div>
         ${item.photo ? '<span class="cl-badge cl-badge-photo">📷 已拍照</span>' : ''}
         ${item.requiredPhoto && !item.photo ? '<span class="cl-badge cl-badge-missing">⚠ 缺少照片</span>' : ''}
       </div>`
@@ -1054,11 +1098,11 @@ function generateRoomChecklistPage(
     </div>
     <div class="list-body" style="top:16mm;">
       <div class="list-room-title">
-        <span>${sectionIdx + 1}. ${section.name}</span>
+        <span>${sectionIdx + 1}. ${safeSectionName}</span>
         <span class="list-room-stat">${passCount} / ${total} 通过</span>
       </div>
       ${rowsHtml}
-      ${section.notes ? `<div style="margin-top:3mm;padding:2.5mm 3mm;background:#fafafa;border-radius:3px;font-size:8.5pt;color:#555;border:0.5pt solid #e0e0e0;"><strong>备注：</strong>${section.notes}</div>` : ''}
+      ${section.notes ? `<div style="margin-top:3mm;padding:2.5mm 3mm;background:#fafafa;border-radius:3px;font-size:8.5pt;color:#555;border:0.5pt solid #e0e0e0;"><strong>备注：</strong>${escapeHtml(section.notes)}</div>` : ''}
     </div>
   </div>
   `;
@@ -1072,18 +1116,21 @@ function generateChecklistPhotoPage(
   section: RoomSection,
   sectionIdx: number
 ): string {
+  const safeSectionName = escapeHtml(section.name);
+  const safeChecklistLabel = escapeHtml(item.label);
+  const safeChecklistLabelEn = item.labelEn ? escapeHtml(item.labelEn) : '';
   return `
   <div class="page">
     <div class="page-bar"></div>
     <div class="page-topline">
-      <div class="topline-left">${sectionIdx + 1}. ${section.name}</div>
+      <div class="topline-left">${sectionIdx + 1}. ${safeSectionName}</div>
       <div class="topline-right">第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页</div>
     </div>
     <div class="photo-area">
-      <img src="${item.photo}" alt="${item.labelEn || item.label}" />
+      <img src="${escapeHtml(item.photo)}" alt="${safeChecklistLabelEn || safeChecklistLabel}" />
     </div>
     <div class="photo-caption">
-      <div class="caption-text">${item.checked ? '✓' : '✗'} ${item.label}${item.labelEn ? ` (${item.labelEn})` : ''}</div>
+      <div class="caption-text">${item.checked ? '✓' : '✗'} ${safeChecklistLabel}${safeChecklistLabelEn ? ` (${safeChecklistLabelEn})` : ''}</div>
       <div class="caption-page">{PAGE_NUM} / {TOTAL_PAGES}</div>
     </div>
   </div>
@@ -1099,18 +1146,21 @@ function generateRoomPhotoPage(
   sectionIdx: number,
   photoIdx: number
 ): string {
+  const safeSectionName = escapeHtml(section.name);
+  const safePhotoName = escapeHtml(photo.name);
+  const safePhotoUrl = escapeHtml(photo.url);
   return `
   <div class="page">
     <div class="page-bar"></div>
     <div class="page-topline">
-      <div class="topline-left">${sectionIdx + 1}. ${section.name} — 补充照片 #${photoIdx + 1}</div>
+      <div class="topline-left">${sectionIdx + 1}. ${safeSectionName} — 补充照片 #${photoIdx + 1}</div>
       <div class="topline-right">第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页</div>
     </div>
     <div class="photo-area">
-      <img src="${photo.url}" alt="${photo.name}" />
+      <img src="${safePhotoUrl}" alt="${safePhotoName}" />
     </div>
     <div class="photo-caption">
-      <div class="caption-text">${section.name} · 补充照片 ${photoIdx + 1}</div>
+      <div class="caption-text">${safeSectionName} · 补充照片 ${photoIdx + 1}</div>
       <div class="caption-page">{PAGE_NUM} / {TOTAL_PAGES}</div>
     </div>
   </div>
