@@ -377,6 +377,8 @@ export class ReportGenerator {
     _options: ReportOptions
   ): string {
     const generatedAt = new Date().toLocaleString();
+    const issueGroups = Array.from(groupedIssues.entries());
+    const severityStats = this.getSeverityStatistics(groupedIssues);
     const html = `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -435,11 +437,99 @@ export class ReportGenerator {
           background: rgba(255,255,255,0.14);
         }
         .content { padding: 22px 24px 26px; }
+        .toolbar {
+          border: 1px solid var(--report-border);
+          border-radius: 10px;
+          padding: 10px;
+          margin-bottom: 14px;
+          background: #f9fbff;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .toolbar-left,
+        .toolbar-right {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+        }
+        .filter-button {
+          border: 1px solid #bcd1ef;
+          background: #fff;
+          color: #29456f;
+          border-radius: 999px;
+          padding: 4px 10px;
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .filter-button.active {
+          border-color: #1f4aa8;
+          background: #1f4aa8;
+          color: #fff;
+        }
+        .search-input {
+          border: 1px solid #bfd4ef;
+          border-radius: 999px;
+          padding: 5px 12px;
+          min-width: 220px;
+          font-size: 12px;
+          color: #213147;
+          outline: none;
+        }
+        .search-input:focus {
+          border-color: #5f98eb;
+          box-shadow: 0 0 0 3px rgba(15, 91, 219, 0.12);
+        }
+        .visible-count {
+          font-size: 12px;
+          border: 1px solid #cadefa;
+          border-radius: 999px;
+          padding: 3px 8px;
+          color: #365276;
+          background: #f1f7ff;
+        }
         .stats {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
           gap: 12px;
           margin-bottom: 18px;
+        }
+        .issues-layout {
+          display: grid;
+          grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
+          gap: 14px;
+          align-items: start;
+        }
+        .issues-nav {
+          border: 1px solid var(--report-border);
+          border-radius: 10px;
+          background: #fff;
+          position: sticky;
+          top: 10px;
+          padding: 10px;
+        }
+        .issues-nav h3 {
+          margin: 0 0 8px;
+          font-size: 13px;
+          color: #253852;
+        }
+        .issues-nav a {
+          display: block;
+          text-decoration: none;
+          color: #314866;
+          font-size: 12px;
+          border: 1px solid #dce7f5;
+          border-radius: 8px;
+          padding: 6px 8px;
+          margin-bottom: 6px;
+          background: #f9fbff;
+        }
+        .issues-nav a:hover {
+          border-color: #9ec1ef;
+          background: #edf4ff;
         }
         .stat-card {
           background: var(--report-primary-soft);
@@ -523,6 +613,13 @@ export class ReportGenerator {
             max-width: none;
             border-radius: 0;
           }
+          .toolbar,
+          .issues-nav {
+            display: none;
+          }
+          .issues-layout {
+            display: block;
+          }
           .header {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
@@ -533,6 +630,12 @@ export class ReportGenerator {
           .content { padding: 14px; }
           .header { padding: 16px 14px; }
           .header h1 { font-size: 22px; }
+          .issues-layout {
+            grid-template-columns: 1fr;
+          }
+          .issues-nav {
+            position: static;
+          }
         }
     </style>
 </head>
@@ -551,10 +654,100 @@ export class ReportGenerator {
         <div class="content">
             ${this.generateHtmlStatistics(statistics)}
             ${this.fixResult ? this.generateHtmlFixResult(this.fixResult) : ''}
-            ${this.generateHtmlIssues(groupedIssues, _options)}
+            <section class="toolbar">
+              <div class="toolbar-left" role="tablist" aria-label="严重级筛选">
+                <button class="filter-button active" data-severity-filter="all" aria-pressed="true">全部 ${statistics.totalIssues}</button>
+                <button class="filter-button" data-severity-filter="error" aria-pressed="false">错误 ${severityStats.error}</button>
+                <button class="filter-button" data-severity-filter="warning" aria-pressed="false">警告 ${severityStats.warning}</button>
+                <button class="filter-button" data-severity-filter="info" aria-pressed="false">信息 ${severityStats.info}</button>
+              </div>
+              <div class="toolbar-right">
+                <input id="issueSearchInput" class="search-input" type="search" placeholder="按问题/文件/建议搜索..." />
+                <span class="visible-count" id="visibleIssueCount">显示 ${statistics.totalIssues} / ${statistics.totalIssues}</span>
+              </div>
+            </section>
+            <div class="issues-layout">
+              <aside class="issues-nav">
+                <h3>问题分组导航</h3>
+                ${this.generateHtmlGroupNavigation(issueGroups)}
+              </aside>
+              <div class="issues-main">
+                ${this.generateHtmlIssues(groupedIssues, _options)}
+              </div>
+            </div>
             <div class="report-footer">Export Consistency Report</div>
         </div>
     </div>
+    <script>
+      (function () {
+        var groupNodes = Array.prototype.slice.call(document.querySelectorAll('.issue-group'));
+        var issueNodes = Array.prototype.slice.call(document.querySelectorAll('.issue-item'));
+        var filterButtons = Array.prototype.slice.call(document.querySelectorAll('.filter-button'));
+        var searchInput = document.getElementById('issueSearchInput');
+        var visibleCountNode = document.getElementById('visibleIssueCount');
+        var activeSeverity = 'all';
+
+        function updateVisibleCount(visible) {
+          if (visibleCountNode) {
+            visibleCountNode.textContent = '显示 ' + visible + ' / ' + issueNodes.length;
+          }
+        }
+
+        function applyFilters() {
+          var query = '';
+          if (searchInput && typeof searchInput.value === 'string') {
+            query = searchInput.value.trim().toLowerCase();
+          }
+          var visibleIssues = 0;
+
+          issueNodes.forEach(function (issueNode) {
+            var severity = String(issueNode.getAttribute('data-severity') || '').toLowerCase();
+            var searchable = String(issueNode.getAttribute('data-search') || '').toLowerCase();
+            var severityMatch = activeSeverity === 'all' || severity === activeSeverity;
+            var queryMatch = !query || searchable.indexOf(query) !== -1;
+            var show = severityMatch && queryMatch;
+            issueNode.style.display = show ? '' : 'none';
+            if (show) visibleIssues += 1;
+          });
+
+          groupNodes.forEach(function (groupNode) {
+            var visibleChildren = groupNode.querySelectorAll('.issue-item:not([style*="display: none"])').length;
+            groupNode.style.display = visibleChildren > 0 ? '' : 'none';
+          });
+
+          updateVisibleCount(visibleIssues);
+        }
+
+        filterButtons.forEach(function (button) {
+          button.addEventListener('click', function () {
+            activeSeverity = String(button.getAttribute('data-severity-filter') || 'all');
+            filterButtons.forEach(function (btn) {
+              var active = btn === button;
+              btn.classList.toggle('active', active);
+              btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+            applyFilters();
+          });
+        });
+
+        if (searchInput) {
+          searchInput.addEventListener('input', applyFilters);
+        }
+
+        window.addEventListener('beforeprint', function () {
+          issueNodes.forEach(function (issueNode) {
+            issueNode.style.display = '';
+          });
+          groupNodes.forEach(function (groupNode) {
+            groupNode.style.display = '';
+          });
+          updateVisibleCount(issueNodes.length);
+        });
+
+        window.addEventListener('afterprint', applyFilters);
+        applyFilters();
+      })();
+    </script>
 </body>
 </html>`;
 
@@ -793,11 +986,15 @@ export class ReportGenerator {
     }
 
     let html = '';
+    let groupIndex = 0;
     for (const [group, issues] of groupedIssues) {
-      html += `<div class="issue-group"><h3>📁 ${this.escapeHtml(group)}</h3>`;
+      const groupId = this.toGroupAnchorId(group, groupIndex);
+      html += `<div class="issue-group" id="${groupId}" data-group="${this.escapeHtml(group)}"><h3>📁 ${this.escapeHtml(group)}</h3>`;
+      groupIndex += 1;
 
       for (const issue of issues) {
-        const severityClass = `severity-${issue.severity}`;
+        const normalizedSeverity = this.normalizeIssueSeverity(issue.severity);
+        const severityClass = `severity-${normalizedSeverity}`;
         const location = issue.sourceLocation?.startLine
           ? `:${issue.sourceLocation.startLine}`
           : '';
@@ -806,9 +1003,20 @@ export class ReportGenerator {
         const issueMessage = this.escapeHtml(issue.message || '');
         const issueFilePath = this.escapeHtml(issue.filePath || '');
         const issueSuggestion = this.escapeHtml(issue.suggestion || '');
+        const searchableText = this.escapeHtml(
+          [
+            issue.severity,
+            issue.type,
+            issue.message,
+            issue.filePath,
+            issue.suggestion,
+          ]
+            .filter(Boolean)
+            .join(' ')
+        );
 
         html += `
-          <div class="issue-item">
+          <div class="issue-item" data-severity="${normalizedSeverity}" data-search="${searchableText}">
             <div class="issue-title">
               <span class="issue-severity ${severityClass}">${issueSeverity}</span>
               <strong>${issueType}</strong>
@@ -828,6 +1036,55 @@ export class ReportGenerator {
     }
 
     return html;
+  }
+
+  private normalizeIssueSeverity(
+    severity: string | undefined
+  ): 'error' | 'warning' | 'info' {
+    const normalized = (severity || 'info').toLowerCase();
+    if (normalized === 'error') return 'error';
+    if (normalized === 'warning') return 'warning';
+    return 'info';
+  }
+
+  private getSeverityStatistics(
+    groupedIssues: Map<string, ConsistencyIssue[]>
+  ): {
+    error: number;
+    warning: number;
+    info: number;
+  } {
+    const result = { error: 0, warning: 0, info: 0 };
+    groupedIssues.forEach(issues => {
+      issues.forEach(issue => {
+        const severity = this.normalizeIssueSeverity(issue.severity);
+        result[severity] += 1;
+      });
+    });
+    return result;
+  }
+
+  private toGroupAnchorId(group: string, index: number): string {
+    const normalized = group
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return `issue-group-${normalized || 'group'}-${index + 1}`;
+  }
+
+  private generateHtmlGroupNavigation(
+    issueGroups: Array<[string, ConsistencyIssue[]]>
+  ): string {
+    if (issueGroups.length === 0) {
+      return '<span>暂无分组</span>';
+    }
+
+    return issueGroups
+      .map(([group, issues], index) => {
+        const groupId = this.toGroupAnchorId(group, index);
+        return `<a href="#${groupId}">${this.escapeHtml(group)} (${issues.length})</a>`;
+      })
+      .join('');
   }
 
   private escapeHtml(input: string): string {

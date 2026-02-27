@@ -836,3 +836,34 @@ Status keys:
 - [x] Harden report print window open strategy
   - Scope: `src/pages/Sparkery/quoteCalculator/BrisbaneQuoteCalculatorContainer.tsx`, `src/utils/chinaProcurementPdfTemplate.ts`, `src/utils/cleaningInspectionPdfTemplate.ts`
   - Done when: print windows open with safer flags and report wrappers include stronger document metadata
+
+## Phase V: Report HTML Operator Experience Upgrade
+
+### P0 (Diagnostic report triage speed)
+
+- [x] Add interactive severity filtering and keyword search in CLI diagnostic HTML
+  - Scope: `src/cli/diagnostic.ts`
+  - Done when: users can filter `error/warning/info`, search issues by text, and read visible-count feedback in-page
+- [x] Add visible-issue export action for focused troubleshooting handoff
+  - Scope: `src/cli/diagnostic.ts`
+  - Done when: filtered issue set can be exported as plain text without re-running scan
+
+### P1 (Report generator navigation and discoverability)
+
+- [x] Add grouped issue navigation sidebar for generated HTML reports
+  - Scope: `src/utils/reportGenerator.ts`
+  - Done when: issue groups are directly reachable via anchor navigation
+- [x] Add generated-report toolbar with severity filters + keyword search
+  - Scope: `src/utils/reportGenerator.ts`
+  - Done when: large reports can be narrowed without losing grouped structure
+
+### P2 (Print behavior consistency)
+
+- [x] Add print fallback behavior for filtered views
+  - Scope: `src/cli/diagnostic.ts`, `src/utils/reportGenerator.ts`
+  - Done when: print action renders all issues even if page is currently filtered
+
+## Verification (Phase V)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed

@@ -393,12 +393,40 @@ function formatAsHtml(report: any): string {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
+  const issues = Array.isArray(report.issues) ? report.issues : [];
+  const severityCounts = issues.reduce(
+    (acc: Record<string, number>, issue: any) => {
+      const severity = String(issue?.severity || 'info').toLowerCase();
+      acc[severity] = (acc[severity] || 0) + 1;
+      return acc;
+    },
+    { error: 0, warning: 0, info: 0 } as Record<string, number>
+  );
+
   const issueRows =
-    report.issues && report.issues.length > 0
-      ? report.issues
+    issues.length > 0
+      ? issues
           .map(
             (issue: any, index: number) => `
-      <article class="issue issue-${String(issue.severity || 'info').toLowerCase()}">
+      <article
+        class="issue issue-${String(issue.severity || 'info').toLowerCase()}"
+        data-severity="${escapeHtml(String(issue.severity || 'info').toLowerCase())}"
+        data-index="${index + 1}"
+        data-description="${escapeHtml(issue.description || '未知问题')}"
+        data-file="${escapeHtml(issue.location?.filePath || '')}"
+        data-line="${escapeHtml(issue.location?.line || '')}"
+        data-search="${escapeHtml(
+          [
+            issue.severity,
+            issue.description,
+            issue.location?.filePath,
+            issue.location?.line,
+            issue.location?.codeSnippet,
+          ]
+            .filter(Boolean)
+            .join(' ')
+        )}"
+      >
         <div class="issue-head">
           <span class="issue-index">#${index + 1}</span>
           <span class="issue-level">${escapeHtml(issue.severity || 'INFO')}</span>
@@ -489,6 +517,66 @@ function formatAsHtml(report: any): string {
     .issues {
       padding: 18px 20px 22px;
     }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--line);
+      background: #fdfefe;
+    }
+    .toolbar-left,
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .filter-btn,
+    .export-btn {
+      border: 1px solid #b8c8dd;
+      background: #fff;
+      color: #30445f;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .filter-btn:hover,
+    .export-btn:hover {
+      background: #f3f8ff;
+      border-color: #8eb4ec;
+    }
+    .filter-btn.active {
+      color: #fff;
+      border-color: #1f4aa8;
+      background: #1f4aa8;
+    }
+    .search-input {
+      border: 1px solid #c4d3e7;
+      border-radius: 999px;
+      padding: 6px 12px;
+      min-width: 220px;
+      font-size: 12px;
+      color: #28405f;
+      background: #fff;
+      outline: none;
+    }
+    .search-input:focus {
+      border-color: #5890ea;
+      box-shadow: 0 0 0 3px rgba(15, 91, 219, 0.12);
+    }
+    .visible-count {
+      font-size: 12px;
+      color: #39557a;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #cadefa;
+      background: #f2f7ff;
+    }
     .issues h2 {
       margin: 0 0 12px;
       font-size: 18px;
@@ -571,6 +659,7 @@ function formatAsHtml(report: any): string {
     @media print {
       body { padding: 0; background: #fff; }
       .container { border: none; box-shadow: none; border-radius: 0; max-width: none; }
+      .toolbar { display: none; }
       .hero {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
@@ -589,7 +678,20 @@ function formatAsHtml(report: any): string {
       <div class="summary-card"><div class="num">${report.totalExports || 0}</div><div class="label">发现导出</div></div>
       <div class="summary-card"><div class="num">${report.usedExports || 0}</div><div class="label">已使用导出</div></div>
       <div class="summary-card"><div class="num">${report.unusedExports || 0}</div><div class="label">未使用导出</div></div>
-      <div class="summary-card"><div class="num">${report.issues?.length || 0}</div><div class="label">发现问题</div></div>
+      <div class="summary-card"><div class="num">${issues.length}</div><div class="label">发现问题</div></div>
+    </section>
+    <section class="toolbar">
+      <div class="toolbar-left" role="tablist" aria-label="问题严重级过滤">
+        <button class="filter-btn active" data-filter="all" aria-pressed="true">全部 ${issues.length}</button>
+        <button class="filter-btn" data-filter="error" aria-pressed="false">错误 ${severityCounts.error || 0}</button>
+        <button class="filter-btn" data-filter="warning" aria-pressed="false">警告 ${severityCounts.warning || 0}</button>
+        <button class="filter-btn" data-filter="info" aria-pressed="false">信息 ${severityCounts.info || 0}</button>
+      </div>
+      <div class="toolbar-right">
+        <input class="search-input" id="issueSearchInput" type="search" placeholder="按描述/文件/代码片段搜索..." />
+        <button class="export-btn" id="exportVisibleIssuesBtn" type="button">导出可见问题</button>
+        <span class="visible-count" id="visibleIssueCount">显示 ${issues.length} / ${issues.length}</span>
+      </div>
     </section>
     <section class="issues">
       <h2>问题列表</h2>
@@ -598,6 +700,98 @@ function formatAsHtml(report: any): string {
       }
     </section>
   </div>
+  <script>
+    (function () {
+      var issueNodes = Array.prototype.slice.call(document.querySelectorAll('.issue'));
+      var filterButtons = Array.prototype.slice.call(document.querySelectorAll('.filter-btn'));
+      var searchInput = document.getElementById('issueSearchInput');
+      var visibleCounter = document.getElementById('visibleIssueCount');
+      var exportButton = document.getElementById('exportVisibleIssuesBtn');
+      var activeFilter = 'all';
+
+      function setVisibleCount(value) {
+        if (visibleCounter) {
+          visibleCounter.textContent = '显示 ' + value + ' / ' + issueNodes.length;
+        }
+      }
+
+      function applyFilters() {
+        var query = '';
+        if (searchInput && typeof searchInput.value === 'string') {
+          query = searchInput.value.trim().toLowerCase();
+        }
+        var visible = 0;
+
+        issueNodes.forEach(function (node) {
+          var severity = String(node.getAttribute('data-severity') || '').toLowerCase();
+          var searchable = String(node.getAttribute('data-search') || '').toLowerCase();
+          var passSeverity = activeFilter === 'all' || severity === activeFilter;
+          var passQuery = !query || searchable.indexOf(query) !== -1;
+          var show = passSeverity && passQuery;
+          node.style.display = show ? '' : 'none';
+          if (show) visible += 1;
+        });
+
+        setVisibleCount(visible);
+      }
+
+      filterButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          activeFilter = String(button.getAttribute('data-filter') || 'all');
+          filterButtons.forEach(function (btn) {
+            var isActive = btn === button;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+          });
+          applyFilters();
+        });
+      });
+
+      if (searchInput) {
+        searchInput.addEventListener('input', applyFilters);
+      }
+
+      if (exportButton) {
+        exportButton.addEventListener('click', function () {
+          var visibleIssues = issueNodes
+            .filter(function (node) {
+              return node.style.display !== 'none';
+            })
+            .map(function (node) {
+              var index = node.getAttribute('data-index') || '?';
+              var severity = String(node.getAttribute('data-severity') || 'info').toUpperCase();
+              var description = node.getAttribute('data-description') || '';
+              var file = node.getAttribute('data-file') || '';
+              var line = node.getAttribute('data-line') || '';
+              return '#' + index + ' [' + severity + '] ' + description + ' @ ' + file + (line ? ':' + line : '');
+            });
+
+          var exportText = visibleIssues.length > 0
+            ? visibleIssues.join('\\n')
+            : '当前筛选条件下没有可导出的可见问题。';
+          var blob = new Blob([exportText], { type: 'text/plain;charset=utf-8' });
+          var href = URL.createObjectURL(blob);
+          var anchor = document.createElement('a');
+          anchor.href = href;
+          anchor.download = 'diagnostic-visible-issues.txt';
+          document.body.appendChild(anchor);
+          anchor.click();
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(href);
+        });
+      }
+
+      window.addEventListener('beforeprint', function () {
+        issueNodes.forEach(function (node) {
+          node.style.display = '';
+        });
+        setVisibleCount(issueNodes.length);
+      });
+
+      window.addEventListener('afterprint', applyFilters);
+      applyFilters();
+    })();
+  </script>
 </body>
 </html>
   `.trim();
