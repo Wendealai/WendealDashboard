@@ -24,6 +24,19 @@ import { getSectionTypeId } from '@/pages/CleaningInspection/types';
 import { reverseGeocode } from '@/pages/CleaningInspection/utils';
 
 export type InspectionReportLang = 'zh' | 'en';
+export type InspectionReportStylePreset = 'residential' | 'moveout' | 'office';
+
+export interface InspectionReportRenderOptions {
+  preset?: InspectionReportStylePreset;
+}
+
+type InspectionTheme = {
+  accent: string;
+  accentDark: string;
+  accentSoft: string;
+  badgePassBg: string;
+  badgePassText: string;
+};
 
 const SECTION_NAME_EN_BY_ID: Record<string, string> = {
   kitchen: 'Kitchen',
@@ -67,6 +80,60 @@ const SPARKERY_COMPANY_PROFILE = {
   website: 'sparkery.com.au',
   serviceArea: 'Brisbane, QLD',
 } as const;
+
+function getInspectionTheme(
+  preset: InspectionReportStylePreset
+): InspectionTheme {
+  switch (preset) {
+    case 'moveout':
+      return {
+        accent: '#2563eb',
+        accentDark: '#1e40af',
+        accentSoft: '#eff6ff',
+        badgePassBg: '#e8f5ff',
+        badgePassText: '#1d4ed8',
+      };
+    case 'office':
+      return {
+        accent: '#0f766e',
+        accentDark: '#134e4a',
+        accentSoft: '#ecfeff',
+        badgePassBg: '#e6fffb',
+        badgePassText: '#0f766e',
+      };
+    case 'residential':
+    default:
+      return {
+        accent: '#389e0d',
+        accentDark: '#166534',
+        accentSoft: '#f0fdf4',
+        badgePassBg: '#f6ffed',
+        badgePassText: '#389e0d',
+      };
+  }
+}
+
+function inferInspectionPreset(
+  inspection: CleaningInspection
+): InspectionReportStylePreset {
+  const hint =
+    `${inspection.templateName || ''} ${inspection.propertyNotes || ''}`.toLowerCase();
+  if (
+    hint.includes('move') ||
+    hint.includes('bond') ||
+    hint.includes('lease')
+  ) {
+    return 'moveout';
+  }
+  if (
+    hint.includes('office') ||
+    hint.includes('commercial') ||
+    hint.includes('workspace')
+  ) {
+    return 'office';
+  }
+  return 'residential';
+}
 
 function extractTrailingEnglish(value: string): string {
   const match = value.match(/[A-Za-z][A-Za-z0-9 /&().,'-]*$/);
@@ -314,7 +381,8 @@ async function ensureGpsAddress(
  */
 export async function generateInspectionPdfHtml(
   inspection: CleaningInspection,
-  lang: InspectionReportLang = 'zh'
+  lang: InspectionReportLang = 'zh',
+  options: InspectionReportRenderOptions = {}
 ): Promise<string> {
   const sourceInspection =
     lang === 'en' ? buildEnglishInspection(inspection) : inspection;
@@ -334,11 +402,29 @@ export async function generateInspectionPdfHtml(
   const submittedAt = enriched.submittedAt
     ? dayjs(enriched.submittedAt).format('DD/MM/YYYY HH:mm')
     : 'N/A';
+  const preset = options.preset || inferInspectionPreset(enriched);
+  const validationWarnings = collectInspectionValidationWarnings(enriched);
 
   const pages: string[] = [];
 
   // Page 1: Cover
-  pages.push(generateCoverPage(enriched, formattedDate, submittedAt));
+  pages.push(
+    generateCoverPage(
+      enriched,
+      formattedDate,
+      submittedAt,
+      preset,
+      validationWarnings
+    )
+  );
+
+  // Page 2: simple contents
+  pages.push(
+    generateContentsPage(enriched, preset, {
+      hasDamageSection:
+        (enriched.damageReports || []).filter(d => d.photo).length > 0,
+    })
+  );
 
   // Damage report pages (one photo per page)
   const damagesWithPhotos = (enriched.damageReports || []).filter(d => d.photo);
@@ -370,6 +456,9 @@ export async function generateInspectionPdfHtml(
     });
   });
 
+  // Closing page for client-facing handoff
+  pages.push(generateClosingPage(enriched, preset));
+
   // Add page numbers
   const totalPages = pages.length;
   const numberedPages = pages.map((html, idx) =>
@@ -390,7 +479,7 @@ export async function generateInspectionPdfHtml(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${reportTitle}</title>
   <style>
-    ${generatePrintStyles()}
+    ${generatePrintStyles(preset)}
   </style>
 </head>
 <body>
@@ -443,8 +532,20 @@ export async function generateInspectionPdfHtml(
 /**
  * Print-optimized CSS - clean, high-contrast, professional
  */
-function generatePrintStyles(): string {
+function generatePrintStyles(preset: InspectionReportStylePreset): string {
+  const theme = getInspectionTheme(preset);
   return `
+    :root {
+      --report-accent: ${theme.accent};
+      --report-accent-dark: ${theme.accentDark};
+      --report-accent-soft: ${theme.accentSoft};
+      --report-badge-pass-bg: ${theme.badgePassBg};
+      --report-badge-pass-text: ${theme.badgePassText};
+      --report-badge-fail-bg: #fff2f0;
+      --report-badge-fail-text: #cf1322;
+      --report-badge-missing-bg: #fff7e6;
+      --report-badge-missing-text: #ad6800;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
@@ -475,7 +576,7 @@ function generatePrintStyles(): string {
       position: absolute;
       top: 0; left: 0; right: 0;
       height: 3mm;
-      background: #389e0d;
+      background: var(--report-accent);
     }
 
     /* ── Compact page header for photo pages ── */
@@ -542,7 +643,7 @@ function generatePrintStyles(): string {
       position: absolute;
       top: 0; left: 0; right: 0;
       height: 52mm;
-      background: #389e0d;
+      background: linear-gradient(135deg, var(--report-accent) 0%, var(--report-accent-dark) 100%);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -596,6 +697,10 @@ function generatePrintStyles(): string {
       font-weight: 600;
       border-bottom: 0.5pt solid #f0f0f0;
     }
+    .info-table tr:nth-child(odd) .label-cell,
+    .info-table tr:nth-child(odd) .value-cell {
+      background: #fbfdfb;
+    }
 
     .cover-summary-strip {
       display: grid;
@@ -604,9 +709,9 @@ function generatePrintStyles(): string {
       margin-bottom: 4mm;
     }
     .cover-summary-card {
-      border: 0.5pt solid #cfe8c3;
+      border: 0.5pt solid #dbe9d7;
       border-radius: 3px;
-      background: #f5fff0;
+      background: var(--report-accent-soft);
       padding: 2mm 2.5mm;
     }
     .cover-summary-label {
@@ -620,7 +725,28 @@ function generatePrintStyles(): string {
       font-size: 11pt;
       font-weight: 700;
       line-height: 1.1;
-      color: #26670d;
+      color: var(--report-accent-dark);
+    }
+    .validation-warning-box {
+      border: 0.7pt solid #ffd591;
+      background: #fffbe6;
+      border-radius: 3px;
+      padding: 2.3mm 2.8mm;
+      margin-bottom: 4mm;
+    }
+    .validation-warning-title {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: #ad6800;
+      margin-bottom: 1mm;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .validation-warning-item {
+      font-size: 8pt;
+      color: #874d00;
+      line-height: 1.45;
+      margin-top: 0.5mm;
     }
 
     .company-card {
@@ -663,7 +789,7 @@ function generatePrintStyles(): string {
       color: #222;
       margin: 5mm 0 3mm;
       padding-bottom: 1.5mm;
-      border-bottom: 1.5pt solid #389e0d;
+      border-bottom: 1.5pt solid var(--report-accent);
       display: inline-block;
     }
 
@@ -680,7 +806,7 @@ function generatePrintStyles(): string {
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #389e0d;
+      color: var(--report-accent);
       margin-bottom: 1.5mm;
     }
     .cio-time { font-size: 11pt; font-weight: 700; color: #222; }
@@ -692,9 +818,17 @@ function generatePrintStyles(): string {
       border: 1pt solid #e0e0e0;
       border-radius: 3px;
       padding: 2.5mm 3mm;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
     }
     .room-card-name { font-size: 9pt; font-weight: 700; color: #333; }
     .room-card-stat { font-size: 7.5pt; color: #888; margin-top: 0.5mm; }
+    .room-card-summary {
+      margin-top: 1mm;
+      font-size: 7.5pt;
+      color: #334155;
+      font-weight: 600;
+    }
 
     .cover-footer-line {
       position: absolute;
@@ -715,11 +849,21 @@ function generatePrintStyles(): string {
       font-weight: 700;
       color: #222;
       padding: 3mm 0 2mm;
-      border-bottom: 1.5pt solid #389e0d;
+      border-bottom: 1.5pt solid var(--report-accent);
       margin-bottom: 2mm;
       display: flex;
       justify-content: space-between;
       align-items: baseline;
+    }
+    .room-missing-alert {
+      margin-bottom: 2mm;
+      padding: 1.6mm 2.2mm;
+      border-radius: 3px;
+      border: 0.6pt solid #ffd591;
+      background: #fff7e6;
+      color: #ad6800;
+      font-size: 8pt;
+      font-weight: 600;
     }
     .list-room-stat {
       font-size: 9pt;
@@ -748,17 +892,112 @@ function generatePrintStyles(): string {
       font-weight: 700;
       flex-shrink: 0;
     }
-    .cl-pass { background: #f6ffed; color: #389e0d; border: 0.5pt solid #b7eb8f; }
+    .cl-pass { background: var(--report-badge-pass-bg); color: var(--report-badge-pass-text); border: 0.5pt solid #b7eb8f; }
     .cl-fail { background: #fff2f0; color: #cf1322; border: 0.5pt solid #ffa39e; }
     .cl-label { flex: 1; color: #333; }
+    .cl-status-label {
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      border-radius: 999px;
+      padding: 0.4mm 1.5mm;
+      min-width: 11mm;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .cl-status-pass {
+      background: var(--report-badge-pass-bg);
+      color: var(--report-badge-pass-text);
+      border: 0.5pt solid #b7eb8f;
+    }
+    .cl-status-fail {
+      background: var(--report-badge-fail-bg);
+      color: var(--report-badge-fail-text);
+      border: 0.5pt solid #ffa39e;
+    }
+    .cl-status-missing {
+      background: var(--report-badge-missing-bg);
+      color: var(--report-badge-missing-text);
+      border: 0.5pt solid #ffd591;
+    }
     .cl-badge {
       font-size: 7pt;
       padding: 0.5mm 2mm;
       border-radius: 2px;
       flex-shrink: 0;
     }
-    .cl-badge-photo { background: #f0f9eb; color: #389e0d; }
+    .cl-badge-photo { background: var(--report-accent-soft); color: var(--report-accent-dark); }
     .cl-badge-missing { background: #fff2f0; color: #cf1322; }
+
+    /* ════════════════════ CONTENTS / CLOSING ════════════════════ */
+    .toc-body,
+    .closing-body {
+      position: absolute;
+      top: 16mm;
+      left: 15mm;
+      right: 15mm;
+      bottom: 16mm;
+    }
+    .toc-title,
+    .closing-title {
+      font-size: 20pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 2mm;
+    }
+    .toc-subtitle,
+    .closing-subtitle {
+      font-size: 9pt;
+      color: #64748b;
+      margin-bottom: 4mm;
+    }
+    .toc-section-title {
+      display: inline-block;
+      margin-bottom: 2mm;
+      font-size: 10pt;
+      font-weight: 700;
+      color: #334155;
+      border-bottom: 1.3pt solid var(--report-accent);
+      padding-bottom: 0.8mm;
+    }
+    .toc-list {
+      list-style: none;
+      border: 1pt solid #e2e8f0;
+      border-radius: 4px;
+      padding: 1.5mm 2mm;
+      background: #fff;
+    }
+    .toc-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 3mm;
+      padding: 1.6mm 0.8mm;
+      border-bottom: 0.5pt solid #edf2f7;
+      font-size: 8.8pt;
+      color: #1f2937;
+    }
+    .toc-list li:last-child {
+      border-bottom: none;
+    }
+    .toc-note,
+    .closing-note {
+      margin-top: 4mm;
+      font-size: 8.6pt;
+      color: #475569;
+      line-height: 1.5;
+    }
+    .closing-card {
+      margin-top: 4mm;
+      border: 1pt solid #dbe7dc;
+      background: #f8fffa;
+      border-radius: 4px;
+      padding: 3mm;
+    }
+    .closing-line {
+      font-size: 9pt;
+      color: #1f2937;
+      margin-bottom: 1.2mm;
+    }
 
     /* ════════════════════ DAMAGE SUMMARY ════════════════════ */
     .damage-body {
@@ -791,6 +1030,14 @@ function generatePrintStyles(): string {
       body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       .page { margin: 0; box-shadow: none; }
       html, body { height: auto; overflow: visible; }
+      .cl-row,
+      .dmg-item,
+      .room-card,
+      .company-card,
+      .cover-summary-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
     }
     @media screen {
       body { background: #e8e8e8; padding: 10mm; }
@@ -845,13 +1092,106 @@ function formatCioBox(data: CheckInOut | null, label: string): string {
   `;
 }
 
+function collectInspectionValidationWarnings(
+  inspection: CleaningInspection
+): string[] {
+  const warnings: string[] = [];
+  const roomCount = inspection.sections.length;
+  const totalPhotos = inspection.sections.reduce(
+    (sum, s) =>
+      sum +
+      (s.photos || []).length +
+      (s.checklist || []).filter(i => Boolean(i.photo)).length,
+    0
+  );
+
+  if (!inspection.propertyId?.trim()) {
+    warnings.push('Property name is missing.');
+  }
+  if (roomCount === 0) {
+    warnings.push('No rooms found in this report.');
+  }
+  if (totalPhotos === 0) {
+    warnings.push('No photos attached yet.');
+  }
+
+  return warnings;
+}
+
+function generateContentsPage(
+  inspection: CleaningInspection,
+  preset: InspectionReportStylePreset,
+  options: { hasDamageSection: boolean }
+): string {
+  const safeReportId = escapeHtml(inspection.id || 'N/A');
+  const safePreset = escapeHtml(preset.toUpperCase());
+  const roomLines = inspection.sections
+    .map(
+      (section, index) =>
+        `<li><span>${index + 1}. ${escapeHtml(section.name)}</span><span>${(section.checklist || []).length} items</span></li>`
+    )
+    .join('');
+
+  return `
+  <div class="page">
+    <div class="page-bar"></div>
+    <div class="toc-body">
+      <div class="toc-title">目录 / Contents</div>
+      <div class="toc-subtitle">Report ID: ${safeReportId} · Style: ${safePreset}</div>
+      <div class="toc-section-title">Sections</div>
+      <ul class="toc-list">
+        <li><span>1. Cover</span><span>Overview</span></li>
+        <li><span>2. Contents</span><span>Index</span></li>
+        ${options.hasDamageSection ? '<li><span>3. Damage Summary</span><span>Photos</span></li>' : ''}
+        ${roomLines}
+      </ul>
+      <div class="toc-note">This report is designed for client-facing review and presentation.</div>
+    </div>
+    <div class="cover-footer-line">
+      Sparkery Cleaning Services · 第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页 · ${safeReportId}
+    </div>
+  </div>
+  `;
+}
+
+function generateClosingPage(
+  inspection: CleaningInspection,
+  _preset: InspectionReportStylePreset
+): string {
+  const safeReportId = escapeHtml(inspection.id || 'N/A');
+  const safeProperty = escapeHtml(inspection.propertyId || 'N/A');
+  return `
+  <div class="page">
+    <div class="page-bar"></div>
+    <div class="closing-body">
+      <div class="closing-title">Thank You</div>
+      <div class="closing-subtitle">感谢您的信任 · Professional Cleaning Inspection Completed</div>
+      <div class="closing-card">
+        <div class="closing-line"><strong>Property:</strong> ${safeProperty}</div>
+        <div class="closing-line"><strong>Report ID:</strong> ${safeReportId}</div>
+        <div class="closing-line"><strong>Company:</strong> ${escapeHtml(SPARKERY_COMPANY_PROFILE.name)}</div>
+        <div class="closing-line"><strong>Phone:</strong> ${escapeHtml(SPARKERY_COMPANY_PROFILE.phone)}</div>
+        <div class="closing-line"><strong>Email:</strong> ${escapeHtml(SPARKERY_COMPANY_PROFILE.email)}</div>
+        <div class="closing-line"><strong>Website:</strong> ${escapeHtml(SPARKERY_COMPANY_PROFILE.website)}</div>
+      </div>
+      <div class="closing-note">If you need any follow-up service, please contact us and reference this report ID.</div>
+    </div>
+    <div class="cover-footer-line">
+      Sparkery Cleaning Services · 第 {PAGE_NUM} 页 / 共 {TOTAL_PAGES} 页 · ${safeReportId}
+    </div>
+  </div>
+  `;
+}
+
 /**
  * Cover page: property info, check-in/out, room overview
  */
 function generateCoverPage(
   inspection: CleaningInspection,
   formattedDate: string,
-  submittedAt: string
+  submittedAt: string,
+  preset: InspectionReportStylePreset,
+  validationWarnings: string[]
 ): string {
   const roomCount = inspection.sections.length;
   const checklistTotal = inspection.sections.reduce(
@@ -874,14 +1214,6 @@ function generateCoverPage(
       (s.checklist || []).filter(i => i.photo).length,
     0
   );
-  const requiredPhotoMissing = inspection.sections.reduce(
-    (sum, section) =>
-      sum +
-      (section.checklist || []).filter(
-        item => item.requiredPhoto && !item.photo
-      ).length,
-    0
-  );
   const damageCount = (inspection.damageReports || []).length;
   const assignedEmployees =
     inspection.assignedEmployees && inspection.assignedEmployees.length > 0
@@ -901,6 +1233,12 @@ function generateCoverPage(
   const safeCleanerName = escapeHtml(cleanerName);
   const safeSubmittedAt = escapeHtml(submittedAt);
   const safeInspectionId = escapeHtml(inspection.id || 'N/A');
+  const presetLabelMap: Record<InspectionReportStylePreset, string> = {
+    residential: 'Residential',
+    moveout: 'Move-out',
+    office: 'Office',
+  };
+  const safePresetLabel = escapeHtml(presetLabelMap[preset]);
 
   let durationStr = 'N/A';
   if (inspection.checkIn?.timestamp && inspection.checkOut?.timestamp) {
@@ -919,13 +1257,30 @@ function generateCoverPage(
         (s.checklist || []).filter(i => i.photo).length;
       const checked = (s.checklist || []).filter(i => i.checked).length;
       const total = (s.checklist || []).length;
+      const missingRequiredCount = (s.checklist || []).filter(
+        item => item.requiredPhoto && !item.photo
+      ).length;
+      const roomStatus =
+        missingRequiredCount > 0 || checked < total
+          ? 'Needs Attention'
+          : 'Good';
       return `
         <div class="room-card">
           <div class="room-card-name">${idx + 1}. ${safeRoomName}</div>
           <div class="room-card-stat">${photoCount} 张照片${total ? ` · ${checked}/${total} 完成` : ''}</div>
+          <div class="room-card-summary">${roomStatus}${missingRequiredCount > 0 ? ` · Missing ${missingRequiredCount}` : ''}</div>
         </div>`;
     })
     .join('');
+  const validationWarningsHtml =
+    validationWarnings.length > 0
+      ? `<div class="validation-warning-box"><div class="validation-warning-title">Pre-export Checks</div>${validationWarnings
+          .map(
+            warning =>
+              `<div class="validation-warning-item">• ${escapeHtml(warning)}</div>`
+          )
+          .join('')}</div>`
+      : '';
 
   const companyInfoItems = [
     ['Company', SPARKERY_COMPANY_PROFILE.name],
@@ -947,7 +1302,7 @@ function generateCoverPage(
     <div class="cover-banner">
       <div class="cover-brand">Sparkery</div>
       <div class="cover-title">清洁检查报告</div>
-      <div class="cover-subtitle">Cleaning Inspection Report</div>
+      <div class="cover-subtitle">Cleaning Inspection Report · ${safeFormattedDate} · ${safePresetLabel}</div>
     </div>
 
     <div class="cover-body">
@@ -963,22 +1318,23 @@ function generateCoverPage(
 
       <div class="cover-summary-strip">
         <div class="cover-summary-card">
-          <div class="cover-summary-label">Checklist Completion</div>
-          <div class="cover-summary-value">${checklistPassed}/${checklistTotal}</div>
+          <div class="cover-summary-label">Rooms</div>
+          <div class="cover-summary-value">${roomCount}</div>
         </div>
         <div class="cover-summary-card">
-          <div class="cover-summary-label">Completion Rate</div>
+          <div class="cover-summary-label">Checklist Items</div>
+          <div class="cover-summary-value">${checklistTotal}</div>
+        </div>
+        <div class="cover-summary-card">
+          <div class="cover-summary-label">Pass Rate</div>
           <div class="cover-summary-value">${checklistCompletionRate}%</div>
-        </div>
-        <div class="cover-summary-card">
-          <div class="cover-summary-label">Missing Required Photos</div>
-          <div class="cover-summary-value">${requiredPhotoMissing}</div>
         </div>
         <div class="cover-summary-card">
           <div class="cover-summary-label">Damage Reports</div>
           <div class="cover-summary-value">${damageCount}</div>
         </div>
       </div>
+      ${validationWarningsHtml}
       <div class="company-card">
         <div class="company-title">Company Information</div>
         <div class="company-grid">
@@ -1074,19 +1430,29 @@ function generateRoomChecklistPage(
   const safeSectionName = escapeHtml(section.name);
   const passCount = section.checklist.filter(i => i.checked).length;
   const total = section.checklist.length;
+  const missingRequiredCount = section.checklist.filter(
+    item => item.requiredPhoto && !item.photo
+  ).length;
 
   const rowsHtml = section.checklist
-    .map(
-      item => `
+    .map(item => {
+      const statusLabel =
+        item.requiredPhoto && !item.photo
+          ? '<span class="cl-status-label cl-status-missing">MISSING</span>'
+          : item.checked
+            ? '<span class="cl-status-label cl-status-pass">PASS</span>'
+            : '<span class="cl-status-label cl-status-fail">FAIL</span>';
+      return `
       <div class="cl-row">
         <div class="cl-icon ${item.checked ? 'cl-pass' : 'cl-fail'}">
           ${item.checked ? '✓' : '✗'}
         </div>
+        ${statusLabel}
         <div class="cl-label">${escapeHtml(item.label)}${item.labelEn ? ` <span style="color:#888;font-size:11px">(${escapeHtml(item.labelEn)})</span>` : ''}</div>
         ${item.photo ? '<span class="cl-badge cl-badge-photo">📷 已拍照</span>' : ''}
         ${item.requiredPhoto && !item.photo ? '<span class="cl-badge cl-badge-missing">⚠ 缺少照片</span>' : ''}
-      </div>`
-    )
+      </div>`;
+    })
     .join('');
 
   return `
@@ -1101,6 +1467,11 @@ function generateRoomChecklistPage(
         <span>${sectionIdx + 1}. ${safeSectionName}</span>
         <span class="list-room-stat">${passCount} / ${total} 通过</span>
       </div>
+      ${
+        missingRequiredCount > 0
+          ? `<div class="room-missing-alert">Missing required photos: ${missingRequiredCount}</div>`
+          : ''
+      }
       ${rowsHtml}
       ${section.notes ? `<div style="margin-top:3mm;padding:2.5mm 3mm;background:#fafafa;border-radius:3px;font-size:8.5pt;color:#555;border:0.5pt solid #e0e0e0;"><strong>备注：</strong>${escapeHtml(section.notes)}</div>` : ''}
     </div>

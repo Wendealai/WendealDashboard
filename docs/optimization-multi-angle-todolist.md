@@ -920,3 +920,37 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase Y: Inspection Client Report Light Polish
+
+### P0 (Client-facing structure and style)
+
+- [x] Add inspection report style presets with lightweight auto-inference
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: report supports `residential / moveout / office` style tokens and defaults intelligently from inspection context
+- [x] Add contents page and closing page for presentation flow
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: report has a clear index and professional ending page for client handoff
+
+### P1 (Trust and readability)
+
+- [x] Add pre-export validation warning block on cover
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: missing property/room/photo basics are surfaced before PDF export
+- [x] Enhance cover room cards with concise room-level status summary
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: each room card shows quick-read completion/attention signal
+
+### P2 (Checklist clarity and print quality)
+
+- [x] Add checklist status chips and required-photo missing alerts
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: each checklist row shows `PASS/FAIL/MISSING` and room section highlights missing required evidence
+- [x] Apply preset-driven visual tokens and print-break hardening
+  - Scope: `src/utils/cleaningInspectionPdfTemplate.ts`
+  - Done when: colors/accents are preset-aware and critical blocks avoid awkward print page breaks
+
+## Verification (Phase Y)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
