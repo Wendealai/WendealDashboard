@@ -470,6 +470,19 @@ export class ReportGenerator {
           background: #1f4aa8;
           color: #fff;
         }
+        .toolbar-action {
+          border: 1px solid #b8c9e2;
+          background: #fff;
+          color: #304767;
+          border-radius: 999px;
+          padding: 4px 10px;
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .toolbar-action:hover {
+          border-color: #8eb4ec;
+          background: #eef5ff;
+        }
         .search-input {
           border: 1px solid #bfd4ef;
           border-radius: 999px;
@@ -557,6 +570,16 @@ export class ReportGenerator {
           margin: 0 0 10px;
           padding-bottom: 7px;
           font-size: 16px;
+        }
+        .group-collapsed-hint {
+          display: none;
+          border: 1px dashed #bfd4ef;
+          border-radius: 8px;
+          padding: 8px 10px;
+          margin-bottom: 10px;
+          color: #33537b;
+          background: #f4f9ff;
+          font-size: 12px;
         }
         .issue-item {
           background: #fff;
@@ -663,6 +686,9 @@ export class ReportGenerator {
               </div>
               <div class="toolbar-right">
                 <input id="issueSearchInput" class="search-input" type="search" placeholder="按问题/文件/建议搜索..." />
+                <button id="collapseAllGroupsBtn" class="toolbar-action" type="button">折叠分组</button>
+                <button id="expandAllGroupsBtn" class="toolbar-action" type="button">展开分组</button>
+                <button id="exportVisibleIssuesBtn" class="toolbar-action" type="button">导出可见问题</button>
                 <span class="visible-count" id="visibleIssueCount">显示 ${statistics.totalIssues} / ${statistics.totalIssues}</span>
               </div>
             </section>
@@ -685,7 +711,12 @@ export class ReportGenerator {
         var filterButtons = Array.prototype.slice.call(document.querySelectorAll('.filter-button'));
         var searchInput = document.getElementById('issueSearchInput');
         var visibleCountNode = document.getElementById('visibleIssueCount');
+        var collapseAllGroupsButton = document.getElementById('collapseAllGroupsBtn');
+        var expandAllGroupsButton = document.getElementById('expandAllGroupsBtn');
+        var exportVisibleIssuesButton = document.getElementById('exportVisibleIssuesBtn');
         var activeSeverity = 'all';
+        var collapsedAllGroups = false;
+        var collapsedStateBeforePrint = null;
 
         function updateVisibleCount(visible) {
           if (visibleCountNode) {
@@ -705,14 +736,20 @@ export class ReportGenerator {
             var searchable = String(issueNode.getAttribute('data-search') || '').toLowerCase();
             var severityMatch = activeSeverity === 'all' || severity === activeSeverity;
             var queryMatch = !query || searchable.indexOf(query) !== -1;
-            var show = severityMatch && queryMatch;
+            var pass = severityMatch && queryMatch;
+            issueNode.setAttribute('data-pass-filter', pass ? '1' : '0');
+            var show = pass && !collapsedAllGroups;
             issueNode.style.display = show ? '' : 'none';
-            if (show) visibleIssues += 1;
+            if (pass) visibleIssues += 1;
           });
 
           groupNodes.forEach(function (groupNode) {
-            var visibleChildren = groupNode.querySelectorAll('.issue-item:not([style*="display: none"])').length;
+            var visibleChildren = groupNode.querySelectorAll('.issue-item[data-pass-filter="1"]').length;
+            var collapsedHint = groupNode.querySelector('.group-collapsed-hint');
             groupNode.style.display = visibleChildren > 0 ? '' : 'none';
+            if (collapsedHint) {
+              collapsedHint.style.display = visibleChildren > 0 && collapsedAllGroups ? '' : 'none';
+            }
           });
 
           updateVisibleCount(visibleIssues);
@@ -734,17 +771,85 @@ export class ReportGenerator {
           searchInput.addEventListener('input', applyFilters);
         }
 
+        if (collapseAllGroupsButton) {
+          collapseAllGroupsButton.addEventListener('click', function () {
+            collapsedAllGroups = true;
+            applyFilters();
+          });
+        }
+
+        if (expandAllGroupsButton) {
+          expandAllGroupsButton.addEventListener('click', function () {
+            collapsedAllGroups = false;
+            applyFilters();
+          });
+        }
+
+        if (exportVisibleIssuesButton) {
+          exportVisibleIssuesButton.addEventListener('click', function () {
+            var visibleIssues = issueNodes
+              .filter(function (issueNode) {
+                return issueNode.getAttribute('data-pass-filter') === '1';
+              })
+              .map(function (issueNode, index) {
+                var severity = String(issueNode.getAttribute('data-severity') || 'info').toUpperCase();
+                var issueType = issueNode.getAttribute('data-issue-type') || '';
+                var message = issueNode.getAttribute('data-issue-message') || '';
+                var file = issueNode.getAttribute('data-file-path') || '';
+                var line = issueNode.getAttribute('data-line') || '';
+                var location = file ? file + (line ? ':' + line : '') : 'N/A';
+                return (
+                  (index + 1) +
+                  '. [' +
+                  severity +
+                  '] ' +
+                  issueType +
+                  ' - ' +
+                  message +
+                  ' @ ' +
+                  location
+                );
+              });
+
+            var exportText =
+              visibleIssues.length > 0
+                ? visibleIssues.join('\n')
+                : '当前筛选条件下没有可导出的可见问题。';
+            var blob = new Blob([exportText], { type: 'text/plain;charset=utf-8' });
+            var href = URL.createObjectURL(blob);
+            var anchor = document.createElement('a');
+            anchor.href = href;
+            anchor.download = 'export-consistency-visible-issues.txt';
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+            URL.revokeObjectURL(href);
+          });
+        }
+
         window.addEventListener('beforeprint', function () {
+          collapsedStateBeforePrint = collapsedAllGroups;
+          collapsedAllGroups = false;
           issueNodes.forEach(function (issueNode) {
             issueNode.style.display = '';
           });
           groupNodes.forEach(function (groupNode) {
             groupNode.style.display = '';
+            var collapsedHint = groupNode.querySelector('.group-collapsed-hint');
+            if (collapsedHint) {
+              collapsedHint.style.display = 'none';
+            }
           });
           updateVisibleCount(issueNodes.length);
         });
 
-        window.addEventListener('afterprint', applyFilters);
+        window.addEventListener('afterprint', function () {
+          if (collapsedStateBeforePrint !== null) {
+            collapsedAllGroups = collapsedStateBeforePrint;
+            collapsedStateBeforePrint = null;
+          }
+          applyFilters();
+        });
         applyFilters();
       })();
     </script>
@@ -989,7 +1094,7 @@ export class ReportGenerator {
     let groupIndex = 0;
     for (const [group, issues] of groupedIssues) {
       const groupId = this.toGroupAnchorId(group, groupIndex);
-      html += `<div class="issue-group" id="${groupId}" data-group="${this.escapeHtml(group)}"><h3>📁 ${this.escapeHtml(group)}</h3>`;
+      html += `<div class="issue-group" id="${groupId}" data-group="${this.escapeHtml(group)}"><h3>📁 ${this.escapeHtml(group)}</h3><div class="group-collapsed-hint">该分组已折叠，点击“展开分组”恢复查看。</div>`;
       groupIndex += 1;
 
       for (const issue of issues) {
@@ -998,6 +1103,9 @@ export class ReportGenerator {
         const location = issue.sourceLocation?.startLine
           ? `:${issue.sourceLocation.startLine}`
           : '';
+        const issueLine = this.escapeHtml(
+          issue.sourceLocation?.startLine?.toString() || ''
+        );
         const issueSeverity = this.escapeHtml(issue.severity || '');
         const issueType = this.escapeHtml(issue.type || '');
         const issueMessage = this.escapeHtml(issue.message || '');
@@ -1016,7 +1124,15 @@ export class ReportGenerator {
         );
 
         html += `
-          <div class="issue-item" data-severity="${normalizedSeverity}" data-search="${searchableText}">
+          <div
+            class="issue-item"
+            data-severity="${normalizedSeverity}"
+            data-search="${searchableText}"
+            data-issue-type="${issueType}"
+            data-issue-message="${issueMessage}"
+            data-file-path="${issueFilePath}"
+            data-line="${issueLine}"
+          >
             <div class="issue-title">
               <span class="issue-severity ${severityClass}">${issueSeverity}</span>
               <strong>${issueType}</strong>

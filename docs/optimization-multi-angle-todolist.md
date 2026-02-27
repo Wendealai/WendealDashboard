@@ -867,3 +867,31 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase W: Report HTML Operator Controls Wave 2
+
+### P0 (Bulk navigation controls)
+
+- [x] Add grouped issue bulk collapse/expand controls
+  - Scope: `src/utils/reportGenerator.ts`
+  - Done when: users can compress large issue groups and restore in one click
+
+### P1 (Filtered handoff export)
+
+- [x] Add generated-report visible issue export action
+  - Scope: `src/utils/reportGenerator.ts`
+  - Done when: current filter result can be exported as plain text for developer handoff
+
+### P2 (Collapsed-state UX and print safety)
+
+- [x] Add collapsed-group hint rendering and filter-aware visibility handling
+  - Scope: `src/utils/reportGenerator.ts`
+  - Done when: collapsed mode stays understandable and hidden groups follow filter results correctly
+- [x] Preserve/restore collapse state around print lifecycle
+  - Scope: `src/utils/reportGenerator.ts`
+  - Done when: print output always includes full visible content and UI state returns after print
+
+## Verification (Phase W)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
