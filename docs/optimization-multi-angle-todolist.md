@@ -451,3 +451,70 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase M: Inspection Ops Control Tower (UI)
+
+### P0 (Control and triage depth)
+
+- [x] Add advanced archive filters (`mine-only`, `exclude status`, `missing-field` flags, `searchMode`)
+  - Scope: archive filter model + URL sync + evaluation pipeline
+  - Done when: operators can compose richer triage predicates without leaving page
+- [x] Add search-result cycling (`Prev/Next`) with active match count
+  - Scope: search navigation controls + focused drawer sync
+  - Done when: text matches can be traversed quickly across filtered records
+- [x] Add pinned saved views and keep pinned-first ordering
+  - Scope: saved-view state + view menu rendering
+  - Done when: frequently used operational views stay at top across sessions
+- [x] Add board status-column controls (move left/right, hide/show, collapse persistence)
+  - Scope: board preference state + column header controls
+  - Done when: board layout can be tuned per operator workflow and remembered
+- [x] Add board drag-to-status mutation
+  - Scope: card drag events + status update handler
+  - Done when: status transitions can be completed by drop interaction
+
+### P1 (Review throughput and resilience)
+
+- [x] Add card meta controls (pin/star/review tags + custom tags)
+  - Scope: archive card state + detail actions + local persistence
+  - Done when: operators can mark priority/review state and annotate ad-hoc tags
+- [x] Add card SLA indicator with countdown and progress signal
+  - Scope: card risk panel
+  - Done when: urgency is visible directly on cards without opening detail
+- [x] Add inline detail edits for key text fields (property name/notes)
+  - Scope: expanded card detail editor
+  - Done when: lightweight corrections can be completed in place
+- [x] Add batch action preview + scheduled execution + progress tracking
+  - Scope: batch mutation pipeline, preview modal, scheduled-at option
+  - Done when: bulk updates provide explicit confirmation and progress/failure visibility
+- [x] Add batch failed-item retry preparation flow
+  - Scope: batch progress state and failed-id handoff
+  - Done when: failed subset can be retried without rebuilding selection
+
+### P2 (Session ergonomics and observability)
+
+- [x] Add filter memory snapshots and session restore
+  - Scope: local snapshot history + restore controls
+  - Done when: operators can recover previous triage context quickly
+- [x] Add detail drawer width slider with persistence
+  - Scope: drawer layout controls
+  - Done when: review density can be adjusted to monitor size and retained
+- [x] Add detail navigator shortcuts (`next unchecked`, `next missing photo`)
+  - Scope: drawer navigation actions
+  - Done when: quality gaps are reviewable as a dedicated sequence
+- [x] Add action-log center controls (type filter/search/retention/collapse/CSV export)
+  - Scope: operation log panel and export handler
+  - Done when: recent actions can be filtered, summarized, and exported for audit
+- [x] Add mobile filter drawer + bottom action bar for archive workflows
+  - Scope: responsive controls and mobile UX shell
+  - Done when: triage actions remain reachable on narrow screens
+- [x] Add accessibility preference toggles (color-blind mode, focus contrast, font scale, SR compact)
+  - Scope: UI preference state + root class application
+  - Done when: accessibility display preferences are user-configurable and persisted
+- [x] Add incremental archive list rendering with explicit load-more
+  - Scope: list rendering pipeline
+  - Done when: large filtered lists remain responsive while preserving full access
+
+## Verification (Phase M)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
