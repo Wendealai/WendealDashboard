@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b tsconfig.build.json && cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build",
+    "dev:sparkery": "vite --config apps/sparkery/vite.config.ts",
+    "build:sparkery": "tsc -b apps/sparkery/tsconfig.build.json && cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build --config apps/sparkery/vite.config.ts",
+    "typecheck:sparkery": "tsc -b apps/sparkery/tsconfig.build.json",
+    "preview:sparkery": "vite preview --config apps/sparkery/vite.config.ts --host 0.0.0.0 --port 5174",
     "verify:artifact": "node scripts/verify-build-artifact.mjs",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "typecheck": "tsc -b tsconfig.build.json",
