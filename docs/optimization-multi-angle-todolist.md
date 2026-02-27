@@ -616,3 +616,89 @@ Status keys:
 
 - `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
 - `npm run build --silent` passed
+
+## Phase P: UI Hundred-Challenge Wave 3 (Kickoff)
+
+### P0 (Navigation and control context)
+
+- [x] Add header breadcrumb for context hierarchy
+  - Scope: `CleaningInspectionAdminContainer` header shell
+  - Done when: operators can see current page hierarchy (`Sparkery / Inspection Admin`) at a glance
+- [x] Add keyboard-accessible skip link to main content
+  - Scope: inspection admin root + main module container anchor
+  - Done when: keyboard/screen-reader users can jump directly to main content area
+- [x] Add module directory quick-nav row
+  - Scope: header module directory
+  - Done when: visible modules can be jumped to from one compact directory bar
+- [x] Add quick playbook/docs entry in header
+  - Scope: header action cluster
+  - Done when: operators can open docs in one click without leaving workflow context
+
+### P1 (Operational signal refinement)
+
+- [x] Add refresh-source labeling (`Initial` / `Manual` / `Auto Focus` / `Auto Interval`)
+  - Scope: archive refresh lifecycle + cloud meta strip
+  - Done when: last refresh provenance is visible for troubleshooting stale/lagging data
+- [x] Add dedicated `Today Focus` module
+  - Scope: archive module stack and module controls
+  - Done when: high-priority records (overdue/due today/no-assignee/missing photos) are surfaced in a dedicated action panel
+- [x] Extend filter conflict hints
+  - Scope: filter hint engine
+  - Done when: date-range reversal and search/filter token conflicts are explicitly warned in UI
+
+### P2 (Results readability and grouping)
+
+- [x] Add results grouping control (`none/status/assignee/date`)
+  - Scope: search/filter panel + local persistence
+  - Done when: list-mode results can be grouped by operational dimension without losing existing filters
+- [x] Add grouped list rendering with section headers and counts
+  - Scope: list render path
+  - Done when: grouped results show clear headers and local item counts before cards
+
+## Verification (Phase P)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed
+
+## Phase Q: UI Hundred-Challenge Wave 3 (Execution Batch 1)
+
+### P0 (Prioritization and flow control)
+
+- [x] Add `Today Priority` ranking mode (`Off / Soft / Hard`)
+  - Scope: archive filter panel + mobile filter drawer + sort pipeline
+  - Done when: operators can switch urgency-aware ordering without breaking pinned/starred/reviewed behavior
+- [x] Persist `Today Priority` mode and URL query state
+  - Scope: local storage key + storage sync + URL parameter sync
+  - Done when: priority mode survives refresh and can be shared/recovered from query state
+
+### P1 (Results ergonomics)
+
+- [x] Add sticky results toolbar with operational quick actions
+  - Scope: results module top strip
+  - Done when: visible/total/group/collapsed/prioritization context and quick actions are always reachable while scrolling
+- [x] Add grouped list collapse/expand interactions
+  - Scope: grouped list headers + group state controls
+  - Done when: each group can be collapsed independently and all groups can be collapsed/expanded in one click
+- [x] Add grouped collapsed-state hint rendering
+  - Scope: grouped list card body fallback
+  - Done when: collapsed groups display explicit hint instead of disappearing silently
+- [x] Add mobile sticky group headers for grouped lists
+  - Scope: `sparkery-legacy.css` mobile media query
+  - Done when: grouped list headers remain visible while scrolling long mobile groups
+
+### P2 (Diagnosis and accessibility)
+
+- [x] Add empty-state diagnostic signal tags
+  - Scope: no-match empty state card
+  - Done when: users can see why results are empty (search/filter/advanced conflicts) and recover faster
+- [x] Add one-click priority reset in empty state
+  - Scope: no-match empty state actions
+  - Done when: urgency ranking can be cleared immediately when it contributes to confusion
+- [x] Add missing aria-label coverage for icon-only archive actions
+  - Scope: pin/star/review/delete icon buttons
+  - Done when: screen-reader users receive actionable labels for all key icon-only controls
+
+## Verification (Phase Q)
+
+- `npx tsc -p tsconfig.app.json --noEmit --incremental false` passed
+- `npm run build --silent` passed

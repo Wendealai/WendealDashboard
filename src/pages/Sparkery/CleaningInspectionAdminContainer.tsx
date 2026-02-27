@@ -8,6 +8,7 @@ import {
   Typography,
   Button,
   Space,
+  Breadcrumb,
   Tag,
   Popconfirm,
   Row,
@@ -79,6 +80,7 @@ import {
   BellOutlined,
   PlayCircleOutlined,
   BulbOutlined,
+  ReadOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -385,6 +387,10 @@ const INSPECTION_ARCHIVE_NIGHT_REVIEW_MODE_STORAGE_KEY =
   'sparkery_inspection_archive_night_review_mode_v1';
 const INSPECTION_ARCHIVE_RECENT_OPENED_STORAGE_KEY =
   'sparkery_inspection_archive_recent_opened_v1';
+const INSPECTION_ARCHIVE_RESULTS_GROUP_BY_STORAGE_KEY =
+  'sparkery_inspection_archive_results_group_by_v1';
+const INSPECTION_ARCHIVE_PRIORITY_MODE_STORAGE_KEY =
+  'sparkery_inspection_archive_priority_mode_v1';
 const INSPECTION_ARCHIVE_VIEWS_STORAGE_KEY =
   'sparkery_inspection_archive_views_v1';
 const INSPECTION_ARCHIVE_ACTION_LOG_STORAGE_KEY =
@@ -408,6 +414,7 @@ type ArchiveSortMode =
   | 'check_out_oldest';
 type ArchiveDensityMode = 'comfortable' | 'compact' | 'dense';
 type ArchiveLayoutMode = 'list' | 'board';
+type ArchiveResultsGroupBy = 'none' | 'status' | 'assignee' | 'date';
 type ArchiveQuickChip =
   | 'all'
   | 'needs_attention'
@@ -417,6 +424,7 @@ type ArchiveQuickChip =
   | 'overdue'
   | 'missing_required_photos';
 type ArchiveSearchMode = 'smart' | 'and' | 'or';
+type ArchivePriorityMode = 'off' | 'soft' | 'hard';
 
 type ArchiveFilterState = {
   status: ArchiveStatusFilter;
@@ -462,6 +470,7 @@ const ARCHIVE_MODULE_IDS = [
   'workspace',
   'system_health',
   'quick_start',
+  'today_focus',
   'overview',
   'ui_preferences',
   'quick_actions',
@@ -492,6 +501,12 @@ type ParsedArchiveSearch = {
     oneOff: boolean | null;
   };
 };
+
+type ArchiveRefreshSource =
+  | 'initial'
+  | 'manual'
+  | 'auto_focus'
+  | 'auto_interval';
 
 type UiQuickActionId =
   | 'new_one_off'
@@ -563,6 +578,13 @@ const ARCHIVE_DENSITY_MODES: ArchiveDensityMode[] = [
   'dense',
 ];
 const ARCHIVE_LAYOUT_MODES: ArchiveLayoutMode[] = ['list', 'board'];
+const ARCHIVE_RESULTS_GROUP_BY_OPTIONS: ArchiveResultsGroupBy[] = [
+  'none',
+  'status',
+  'assignee',
+  'date',
+];
+const ARCHIVE_PRIORITY_MODES: ArchivePriorityMode[] = ['off', 'soft', 'hard'];
 const ARCHIVE_QUICK_CHIPS: ArchiveQuickChip[] = [
   'all',
   'needs_attention',
@@ -935,16 +957,26 @@ const readArchiveFilterQueryState = (): {
   searchText: string;
   filters: Partial<ArchiveFilterState>;
   advancedFilters: Partial<ArchiveAdvancedFilterState>;
+  priorityMode: ArchivePriorityMode | null;
 } => {
   if (typeof window === 'undefined') {
     return {
       searchText: '',
       filters: {},
       advancedFilters: {},
+      priorityMode: null,
     };
   }
   const params = new URLSearchParams(window.location.search);
   const rawOneOff = params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}oneoff`);
+  const rawPriorityMode = params.get(
+    `${INSPECTION_ARCHIVE_QUERY_PREFIX}priority`
+  );
+  const priorityMode =
+    rawPriorityMode &&
+    ARCHIVE_PRIORITY_MODES.includes(rawPriorityMode as ArchivePriorityMode)
+      ? (rawPriorityMode as ArchivePriorityMode)
+      : null;
   return {
     searchText: params.get(`${INSPECTION_ARCHIVE_QUERY_PREFIX}search`) || '',
     filters: {
@@ -1039,6 +1071,7 @@ const readArchiveFilterQueryState = (): {
           }
         : {}),
     },
+    priorityMode,
   };
 };
 
@@ -1243,6 +1276,33 @@ const CleaningInspectionAdmin: React.FC = () => {
         ? stored
         : 15;
     });
+  const [archiveResultsGroupBy, setArchiveResultsGroupBy] =
+    useState<ArchiveResultsGroupBy>(() => {
+      const stored = safeReadLocalJson<ArchiveResultsGroupBy>(
+        INSPECTION_ARCHIVE_RESULTS_GROUP_BY_STORAGE_KEY,
+        'none'
+      );
+      return ARCHIVE_RESULTS_GROUP_BY_OPTIONS.includes(stored)
+        ? stored
+        : 'none';
+    });
+  const [archivePriorityMode, setArchivePriorityMode] =
+    useState<ArchivePriorityMode>(() => {
+      const queryState = readArchiveFilterQueryState();
+      if (queryState.priorityMode) {
+        return queryState.priorityMode;
+      }
+      const stored = safeReadLocalJson<ArchivePriorityMode>(
+        INSPECTION_ARCHIVE_PRIORITY_MODE_STORAGE_KEY,
+        'off'
+      );
+      return ARCHIVE_PRIORITY_MODES.includes(stored) ? stored : 'off';
+    });
+  const [collapsedArchiveGroupKeys, setCollapsedArchiveGroupKeys] = useState<
+    string[]
+  >([]);
+  const [lastArchiveRefreshSource, setLastArchiveRefreshSource] =
+    useState<ArchiveRefreshSource>('initial');
   const [archiveCardMeta, setArchiveCardMeta] = useState<ArchiveCardMetaState>(
     () =>
       normalizeArchiveCardMetaState(
@@ -1608,6 +1668,7 @@ const CleaningInspectionAdmin: React.FC = () => {
       if (archivesResult.status === 'fulfilled') {
         setArchives(archivesResult.value as InspectionArchive[]);
         setLastArchiveRefreshAt(new Date().toISOString());
+        setLastArchiveRefreshSource('initial');
       }
 
       if (employeesResult.status === 'fulfilled') {
@@ -1649,6 +1710,7 @@ const CleaningInspectionAdmin: React.FC = () => {
       setArchives(latest as InspectionArchive[]);
       const refreshedAt = new Date().toISOString();
       setLastArchiveRefreshAt(refreshedAt);
+      setLastArchiveRefreshSource('manual');
       appendArchiveActionLog(
         'refresh.success',
         `Archive refreshed (${latest.length} records)`
@@ -1677,12 +1739,15 @@ const CleaningInspectionAdmin: React.FC = () => {
   React.useEffect(() => {
     let disposed = false;
 
-    const refreshArchives = async () => {
+    const refreshArchives = async (
+      source: Exclude<ArchiveRefreshSource, 'initial'>
+    ) => {
       try {
         const latest = await loadAllInspections();
         if (!disposed) {
           setArchives(latest as InspectionArchive[]);
           setLastArchiveRefreshAt(new Date().toISOString());
+          setLastArchiveRefreshSource(source);
         }
       } catch {
         // Keep current data when refresh fails.
@@ -1690,15 +1755,14 @@ const CleaningInspectionAdmin: React.FC = () => {
     };
 
     const onFocus = () => {
-      refreshArchives();
+      void refreshArchives('auto_focus');
     };
 
     const timer =
       archiveRefreshIntervalSeconds > 0
-        ? window.setInterval(
-            refreshArchives,
-            archiveRefreshIntervalSeconds * 1000
-          )
+        ? window.setInterval(() => {
+            void refreshArchives('auto_interval');
+          }, archiveRefreshIntervalSeconds * 1000)
         : null;
     window.addEventListener('focus', onFocus);
 
@@ -1756,6 +1820,20 @@ const CleaningInspectionAdmin: React.FC = () => {
       archiveRefreshIntervalSeconds
     );
   }, [archiveRefreshIntervalSeconds]);
+
+  React.useEffect(() => {
+    safeWriteLocalJson(
+      INSPECTION_ARCHIVE_RESULTS_GROUP_BY_STORAGE_KEY,
+      archiveResultsGroupBy
+    );
+  }, [archiveResultsGroupBy]);
+
+  React.useEffect(() => {
+    safeWriteLocalJson(
+      INSPECTION_ARCHIVE_PRIORITY_MODE_STORAGE_KEY,
+      archivePriorityMode
+    );
+  }, [archivePriorityMode]);
 
   React.useEffect(() => {
     safeWriteLocalJson(
@@ -1899,6 +1977,10 @@ const CleaningInspectionAdmin: React.FC = () => {
         : null
     );
     setParam(
+      'priority',
+      archivePriorityMode !== 'off' ? archivePriorityMode : null
+    );
+    setParam(
       'search_mode',
       archiveAdvancedFilters.searchMode !== 'smart'
         ? archiveAdvancedFilters.searchMode
@@ -1936,7 +2018,7 @@ const CleaningInspectionAdmin: React.FC = () => {
       }${currentUrl.hash}`;
       window.history.replaceState({}, '', nextUrl);
     }
-  }, [archiveAdvancedFilters, archiveFilters, searchText]);
+  }, [archiveAdvancedFilters, archiveFilters, archivePriorityMode, searchText]);
 
   React.useEffect(() => {
     safeWriteLocalJson(INSPECTION_ARCHIVE_VIEWS_STORAGE_KEY, archiveViews);
@@ -2037,6 +2119,24 @@ const CleaningInspectionAdmin: React.FC = () => {
             INSPECTION_ARCHIVE_NIGHT_REVIEW_MODE_STORAGE_KEY,
             false
           )
+        );
+      }
+      if (event.key === INSPECTION_ARCHIVE_RESULTS_GROUP_BY_STORAGE_KEY) {
+        const stored = safeReadLocalJson<ArchiveResultsGroupBy>(
+          INSPECTION_ARCHIVE_RESULTS_GROUP_BY_STORAGE_KEY,
+          'none'
+        );
+        setArchiveResultsGroupBy(
+          ARCHIVE_RESULTS_GROUP_BY_OPTIONS.includes(stored) ? stored : 'none'
+        );
+      }
+      if (event.key === INSPECTION_ARCHIVE_PRIORITY_MODE_STORAGE_KEY) {
+        const stored = safeReadLocalJson<ArchivePriorityMode>(
+          INSPECTION_ARCHIVE_PRIORITY_MODE_STORAGE_KEY,
+          'off'
+        );
+        setArchivePriorityMode(
+          ARCHIVE_PRIORITY_MODES.includes(stored) ? stored : 'off'
         );
       }
     };
@@ -3877,6 +3977,7 @@ const CleaningInspectionAdmin: React.FC = () => {
   const resetArchiveFilters = React.useCallback(() => {
     setArchiveFilters({ ...DEFAULT_ARCHIVE_FILTER_STATE });
     setArchiveAdvancedFilters({ ...DEFAULT_ARCHIVE_ADVANCED_FILTER_STATE });
+    setArchivePriorityMode('off');
     setSearchText('');
     setActiveArchiveViewId('');
     appendArchiveActionLog('filter.reset', 'Search and filters reset');
@@ -4016,6 +4117,7 @@ const CleaningInspectionAdmin: React.FC = () => {
     const nowValue = dayjs().valueOf();
     const todayStart = dayjs().startOf('day').valueOf();
     const todayEnd = dayjs().endOf('day').valueOf();
+    const priorityScoreMap = new Map<string, number>();
     const sorted = archives.filter(item => {
       const assignedEmployees = (item as any).assignedEmployees as
         | Employee[]
@@ -4036,6 +4138,24 @@ const CleaningInspectionAdmin: React.FC = () => {
       const primaryArchiveDate =
         parseArchiveDateValue((item as any).checkOutDate) ||
         parseArchiveDateValue((item as any).submittedAt);
+      const sectionItems = Array.isArray((item as any).sections)
+        ? ((item as any).sections as any[])
+        : [];
+      const missingRequiredPhotoCount = sectionItems.reduce(
+        (total, section) => {
+          const checklist = Array.isArray(section?.checklist)
+            ? section.checklist
+            : [];
+          return (
+            total +
+            checklist.filter(
+              (checklistItem: any) =>
+                checklistItem?.requiredPhoto === true && !checklistItem?.photo
+            ).length
+          );
+        },
+        0
+      );
       const searchableFields = [
         item.propertyId,
         item.id,
@@ -4211,24 +4331,6 @@ const CleaningInspectionAdmin: React.FC = () => {
         }
       }
       if (archiveFilters.quickChip === 'missing_required_photos') {
-        const sectionItems = Array.isArray((item as any).sections)
-          ? ((item as any).sections as any[])
-          : [];
-        const missingRequiredPhotoCount = sectionItems.reduce(
-          (total, section) => {
-            const checklist = Array.isArray(section?.checklist)
-              ? section.checklist
-              : [];
-            return (
-              total +
-              checklist.filter(
-                (checklistItem: any) =>
-                  checklistItem?.requiredPhoto === true && !checklistItem?.photo
-              ).length
-            );
-          },
-          0
-        );
         if (missingRequiredPhotoCount <= 0) {
           return false;
         }
@@ -4256,12 +4358,44 @@ const CleaningInspectionAdmin: React.FC = () => {
           return false;
         }
       }
+      if (archivePriorityMode !== 'off') {
+        const isOverdue =
+          item.status !== 'submitted' &&
+          checkOutDateValue > 0 &&
+          checkOutDateValue < todayStart;
+        const isDueToday =
+          item.status !== 'submitted' &&
+          checkOutDateValue >= todayStart &&
+          checkOutDateValue <= todayEnd;
+        const isStale48h =
+          item.status !== 'submitted' &&
+          primaryArchiveDate > 0 &&
+          (nowValue - primaryArchiveDate) / (1000 * 60 * 60) >= 48;
+        const score =
+          (isOverdue ? 5 : 0) +
+          (isDueToday ? 3 : 0) +
+          (!hasAssignee ? 2 : 0) +
+          (missingRequiredPhotoCount > 0 ? 2 : 0) +
+          (isStale48h ? 1 : 0);
+        priorityScoreMap.set(item.id, score);
+      }
       return true;
     });
 
     const isAscending =
       archiveFilters.sortMode === 'oldest' ||
       archiveFilters.sortMode === 'check_out_oldest';
+    const compareByPriority = (
+      left: InspectionArchive,
+      right: InspectionArchive
+    ) => {
+      const leftScore = priorityScoreMap.get(left.id) || 0;
+      const rightScore = priorityScoreMap.get(right.id) || 0;
+      if (leftScore === rightScore) {
+        return 0;
+      }
+      return rightScore - leftScore;
+    };
     sorted.sort((left, right) => {
       const leftPinned = pinnedSet.has(left.id);
       const rightPinned = pinnedSet.has(right.id);
@@ -4273,10 +4407,22 @@ const CleaningInspectionAdmin: React.FC = () => {
       if (leftStarred !== rightStarred) {
         return leftStarred ? -1 : 1;
       }
+      if (archivePriorityMode === 'hard') {
+        const priorityDiff = compareByPriority(left, right);
+        if (priorityDiff !== 0) {
+          return priorityDiff;
+        }
+      }
       const leftReviewed = reviewedSet.has(left.id);
       const rightReviewed = reviewedSet.has(right.id);
       if (leftReviewed !== rightReviewed) {
         return leftReviewed ? 1 : -1;
+      }
+      if (archivePriorityMode === 'soft') {
+        const priorityDiff = compareByPriority(left, right);
+        if (priorityDiff !== 0) {
+          return priorityDiff;
+        }
       }
       const leftValue = getSortValueByMode(left, archiveFilters.sortMode);
       const rightValue = getSortValueByMode(right, archiveFilters.sortMode);
@@ -4290,6 +4436,7 @@ const CleaningInspectionAdmin: React.FC = () => {
     archiveAdvancedFilters,
     archiveCardMeta,
     archiveFilters,
+    archivePriorityMode,
     archives,
     getSortValueByMode,
     parseArchiveSearchQuery,
@@ -4448,6 +4595,139 @@ const CleaningInspectionAdmin: React.FC = () => {
     () => filteredArchives.slice(0, archiveListRenderCount),
     [archiveListRenderCount, filteredArchives]
   );
+  const groupedRenderedListArchives = React.useMemo(() => {
+    if (archiveResultsGroupBy === 'none') {
+      return [] as Array<{
+        key: string;
+        label: string;
+        items: InspectionArchive[];
+      }>;
+    }
+    const getStatusLabel = (status: InspectionArchive['status']) => {
+      if (status === 'pending') {
+        return t('sparkery.inspectionAdmin.filters.statusPendingShort', {
+          defaultValue: 'Pending',
+        });
+      }
+      if (status === 'in_progress') {
+        return t('sparkery.inspectionAdmin.filters.statusInProgressShort', {
+          defaultValue: 'In Progress',
+        });
+      }
+      return t('sparkery.inspectionAdmin.filters.statusSubmittedShort', {
+        defaultValue: 'Submitted',
+      });
+    };
+    const groups = new Map<string, InspectionArchive[]>();
+    renderedListArchives.forEach(item => {
+      let key = '';
+      let label = '';
+      if (archiveResultsGroupBy === 'status') {
+        key = item.status;
+        label = getStatusLabel(item.status);
+      } else if (archiveResultsGroupBy === 'assignee') {
+        const assignedEmployees = (item as any).assignedEmployees as
+          | Employee[]
+          | undefined;
+        const assignedEmployee = (item as any).assignedEmployee as
+          | Employee
+          | undefined;
+        const text =
+          assignedEmployees && assignedEmployees.length > 0
+            ? assignedEmployees
+                .map(emp => emp?.name || emp?.nameEn || emp?.id || '')
+                .filter(Boolean)
+                .join(', ')
+            : assignedEmployee?.name ||
+              assignedEmployee?.nameEn ||
+              assignedEmployee?.id ||
+              t('sparkery.inspectionAdmin.labels.unassigned', {
+                defaultValue: 'Unassigned',
+              });
+        key = text.toLowerCase();
+        label = text;
+      } else {
+        const checkOut = parseArchiveDateValue((item as any).checkOutDate);
+        if (checkOut > 0) {
+          label = dayjs(checkOut).format('YYYY-MM-DD');
+        } else {
+          label = t('sparkery.inspectionAdmin.labels.noDate', {
+            defaultValue: 'No date',
+          });
+        }
+        key = label;
+      }
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)?.push(item);
+    });
+    return Array.from(groups.entries()).map(([key, items]) => ({
+      key,
+      label:
+        archiveResultsGroupBy === 'status'
+          ? getStatusLabel(key as InspectionArchive['status'])
+          : items.length > 0
+            ? (() => {
+                if (archiveResultsGroupBy === 'assignee') {
+                  const assignedEmployees = (items[0] as any)
+                    .assignedEmployees as Employee[] | undefined;
+                  const assignedEmployee = (items[0] as any)
+                    .assignedEmployee as Employee | undefined;
+                  return (
+                    (assignedEmployees && assignedEmployees.length > 0
+                      ? assignedEmployees
+                          .map(emp => emp?.name || emp?.nameEn || emp?.id || '')
+                          .filter(Boolean)
+                          .join(', ')
+                      : assignedEmployee?.name ||
+                        assignedEmployee?.nameEn ||
+                        assignedEmployee?.id) ||
+                    t('sparkery.inspectionAdmin.labels.unassigned', {
+                      defaultValue: 'Unassigned',
+                    })
+                  );
+                }
+                const checkOut = parseArchiveDateValue(
+                  (items[0] as any).checkOutDate
+                );
+                return checkOut > 0
+                  ? dayjs(checkOut).format('YYYY-MM-DD')
+                  : t('sparkery.inspectionAdmin.labels.noDate', {
+                      defaultValue: 'No date',
+                    });
+              })()
+            : key,
+      items,
+    }));
+  }, [archiveResultsGroupBy, renderedListArchives, t]);
+  React.useEffect(() => {
+    if (archiveResultsGroupBy === 'none') {
+      setCollapsedArchiveGroupKeys([]);
+      return;
+    }
+    const validKeys = new Set(
+      groupedRenderedListArchives.map(group => group.key)
+    );
+    setCollapsedArchiveGroupKeys(prev =>
+      prev.filter(groupKey => validKeys.has(groupKey))
+    );
+  }, [archiveResultsGroupBy, groupedRenderedListArchives]);
+  const toggleArchiveGroupCollapse = React.useCallback((groupKey: string) => {
+    setCollapsedArchiveGroupKeys(prev =>
+      prev.includes(groupKey)
+        ? prev.filter(item => item !== groupKey)
+        : [...prev, groupKey]
+    );
+  }, []);
+  const collapseAllArchiveGroups = React.useCallback(() => {
+    setCollapsedArchiveGroupKeys(
+      groupedRenderedListArchives.map(group => group.key)
+    );
+  }, [groupedRenderedListArchives]);
+  const expandAllArchiveGroups = React.useCallback(() => {
+    setCollapsedArchiveGroupKeys([]);
+  }, []);
 
   const archiveDatePresetState = React.useMemo(() => {
     const today = dayjs();
@@ -4466,6 +4746,7 @@ const CleaningInspectionAdmin: React.FC = () => {
 
   const archiveFilterHints = React.useMemo(() => {
     const hints: string[] = [];
+    const parsedSearch = parseArchiveSearchQuery(searchText);
     if (
       archiveAdvancedFilters.myAssignmentsOnly &&
       !archiveAdvancedFilters.myAssignmentKeyword.trim()
@@ -4488,12 +4769,52 @@ const CleaningInspectionAdmin: React.FC = () => {
         })
       );
     }
+    if (
+      archiveFilters.dateFrom &&
+      archiveFilters.dateTo &&
+      archiveFilters.dateFrom > archiveFilters.dateTo
+    ) {
+      hints.push(
+        t('sparkery.inspectionAdmin.hints.dateRangeReversed', {
+          defaultValue: 'Date range is reversed; From is after To.',
+        })
+      );
+    }
+    if (
+      archiveFilters.oneOffOnly &&
+      parsedSearch.fieldTokens.oneOff === false
+    ) {
+      hints.push(
+        t('sparkery.inspectionAdmin.hints.oneOffConflict', {
+          defaultValue:
+            'One-off only is enabled while search uses oneoff:false; results may be empty.',
+        })
+      );
+    }
+    if (
+      archiveFilters.status !== 'all' &&
+      parsedSearch.fieldTokens.status &&
+      parsedSearch.fieldTokens.status !== 'all' &&
+      parsedSearch.fieldTokens.status !== archiveFilters.status
+    ) {
+      hints.push(
+        t('sparkery.inspectionAdmin.hints.searchStatusConflict', {
+          defaultValue:
+            'Status filter and search status token are different; result set is heavily narrowed.',
+        })
+      );
+    }
     return hints;
   }, [
     archiveAdvancedFilters.excludeStatus,
     archiveAdvancedFilters.myAssignmentKeyword,
     archiveAdvancedFilters.myAssignmentsOnly,
+    archiveFilters.dateFrom,
+    archiveFilters.dateTo,
+    archiveFilters.oneOffOnly,
     archiveFilters.status,
+    parseArchiveSearchQuery,
+    searchText,
     t,
   ]);
 
@@ -4575,6 +4896,85 @@ const CleaningInspectionAdmin: React.FC = () => {
       }
     );
   }, [filteredArchives]);
+  const archiveEmptyStateSignals = React.useMemo(() => {
+    if (archives.length === 0 || filteredArchives.length > 0) {
+      return [] as string[];
+    }
+    const signals: string[] = [];
+    if (searchText.trim()) {
+      signals.push(
+        t('sparkery.inspectionAdmin.empty.signalSearch', {
+          defaultValue: 'Search keyword is narrowing results.',
+        })
+      );
+    }
+    if (archiveFilters.status !== 'all') {
+      signals.push(
+        t('sparkery.inspectionAdmin.empty.signalStatusFilter', {
+          defaultValue: 'Status filter is active.',
+        })
+      );
+    }
+    if (archiveFilters.quickChip !== 'all') {
+      signals.push(
+        t('sparkery.inspectionAdmin.empty.signalQuickFilter', {
+          defaultValue: 'Quick filter is active.',
+        })
+      );
+    }
+    if (archiveFilters.dateFrom || archiveFilters.dateTo) {
+      signals.push(
+        t('sparkery.inspectionAdmin.empty.signalDateRange', {
+          defaultValue: 'Date range is limiting records.',
+        })
+      );
+    }
+    if (archiveFilters.oneOffOnly) {
+      signals.push(
+        t('sparkery.inspectionAdmin.empty.signalOneOffOnly', {
+          defaultValue: 'One-off only scope is enabled.',
+        })
+      );
+    }
+    if (
+      archiveAdvancedFilters.excludeStatus !== 'none' ||
+      archiveAdvancedFilters.myAssignmentsOnly ||
+      archiveAdvancedFilters.missingAddressOnly ||
+      archiveAdvancedFilters.missingDateOnly ||
+      archiveAdvancedFilters.missingAssigneeOnly
+    ) {
+      signals.push(
+        t('sparkery.inspectionAdmin.empty.signalAdvancedFilter', {
+          defaultValue: 'Advanced filters are enabled.',
+        })
+      );
+    }
+    if (archiveFilterHints.length > 0) {
+      signals.push(
+        t('sparkery.inspectionAdmin.empty.signalFilterConflict', {
+          defaultValue:
+            'One or more filter/search combinations may conflict with each other.',
+        })
+      );
+    }
+    return signals.slice(0, 6);
+  }, [
+    archiveAdvancedFilters.excludeStatus,
+    archiveAdvancedFilters.missingAddressOnly,
+    archiveAdvancedFilters.missingAssigneeOnly,
+    archiveAdvancedFilters.missingDateOnly,
+    archiveAdvancedFilters.myAssignmentsOnly,
+    archiveFilterHints.length,
+    archiveFilters.dateFrom,
+    archiveFilters.dateTo,
+    archiveFilters.oneOffOnly,
+    archiveFilters.quickChip,
+    archiveFilters.status,
+    archives.length,
+    filteredArchives.length,
+    searchText,
+    t,
+  ]);
 
   const filteredArchiveActionLogs = React.useMemo(() => {
     const search = archiveLogSearchText.trim().toLowerCase();
@@ -5401,6 +5801,38 @@ const CleaningInspectionAdmin: React.FC = () => {
       ? dayjs(lastCloudWriteAt).format('YYYY-MM-DD HH:mm:ss')
       : lastCloudWriteAt
     : t('sparkery.inspectionAdmin.labels.never', { defaultValue: 'Never' });
+  const archiveRefreshSourceMeta = React.useMemo(() => {
+    if (lastArchiveRefreshSource === 'manual') {
+      return {
+        color: 'blue',
+        text: t('sparkery.inspectionAdmin.labels.refreshManual', {
+          defaultValue: 'Manual',
+        }),
+      };
+    }
+    if (lastArchiveRefreshSource === 'auto_focus') {
+      return {
+        color: 'purple',
+        text: t('sparkery.inspectionAdmin.labels.refreshOnFocus', {
+          defaultValue: 'Auto (Focus)',
+        }),
+      };
+    }
+    if (lastArchiveRefreshSource === 'auto_interval') {
+      return {
+        color: 'geekblue',
+        text: t('sparkery.inspectionAdmin.labels.refreshByInterval', {
+          defaultValue: 'Auto (Interval)',
+        }),
+      };
+    }
+    return {
+      color: 'default',
+      text: t('sparkery.inspectionAdmin.labels.refreshInitial', {
+        defaultValue: 'Initial',
+      }),
+    };
+  }, [lastArchiveRefreshSource, t]);
   const oneOffSections = getAllSections(oneOffSectionIds);
   const oneOffSectionAddOptions = React.useMemo(
     () => buildOneOffSectionAddOptions(),
@@ -5743,6 +6175,9 @@ const CleaningInspectionAdmin: React.FC = () => {
       quick_start: t('sparkery.inspectionAdmin.quick.title', {
         defaultValue: 'Quick Inspection Link',
       }),
+      today_focus: t('sparkery.inspectionAdmin.labels.todayFocus', {
+        defaultValue: 'Today Focus',
+      }),
       overview: t('sparkery.inspectionAdmin.overview.title', {
         defaultValue: 'Inspection Overview',
       }),
@@ -5776,6 +6211,7 @@ const CleaningInspectionAdmin: React.FC = () => {
       workspace: ARCHIVE_MODULE_IDS.length,
       system_health: ARCHIVE_MODULE_IDS.length,
       quick_start: ARCHIVE_MODULE_IDS.length,
+      today_focus: ARCHIVE_MODULE_IDS.length,
       overview: ARCHIVE_MODULE_IDS.length,
       ui_preferences: ARCHIVE_MODULE_IDS.length,
       quick_actions: ARCHIVE_MODULE_IDS.length,
@@ -5996,6 +6432,66 @@ const CleaningInspectionAdmin: React.FC = () => {
       ),
       avgAgingHours: Number((agingSum / filteredArchives.length).toFixed(1)),
     };
+  }, [filteredArchives]);
+  const visibleArchiveModules = React.useMemo(
+    () =>
+      archiveModuleOrder.filter(moduleId => isArchiveModuleVisible(moduleId)),
+    [archiveModuleOrder, isArchiveModuleVisible]
+  );
+  const todayFocusArchives = React.useMemo(() => {
+    const now = dayjs().valueOf();
+    const todayStart = dayjs().startOf('day').valueOf();
+    return filteredArchives
+      .filter(item => item.status !== 'submitted')
+      .map(item => {
+        const checkOutDateValue = parseArchiveDateValue(
+          (item as any).checkOutDate
+        );
+        const sections = Array.isArray((item as any).sections)
+          ? ((item as any).sections as any[])
+          : [];
+        const missingRequiredPhotoCount = sections.reduce((sum, section) => {
+          const checklist = Array.isArray(section?.checklist)
+            ? section.checklist
+            : [];
+          return (
+            sum +
+            checklist.filter(
+              (checkItem: any) =>
+                checkItem?.requiredPhoto === true && !checkItem?.photo
+            ).length
+          );
+        }, 0);
+        const assignedEmployees = (item as any).assignedEmployees as
+          | Employee[]
+          | undefined;
+        const assignedEmployee = (item as any).assignedEmployee as
+          | Employee
+          | undefined;
+        const noAssignee =
+          !assignedEmployee &&
+          (!assignedEmployees || assignedEmployees.length === 0);
+        const isOverdue =
+          checkOutDateValue > 0 && checkOutDateValue < todayStart;
+        const isDueToday =
+          checkOutDateValue >= todayStart && checkOutDateValue <= now;
+        const score =
+          (isOverdue ? 5 : 0) +
+          (isDueToday ? 3 : 0) +
+          (noAssignee ? 2 : 0) +
+          (missingRequiredPhotoCount > 0 ? 2 : 0);
+        return {
+          item,
+          score,
+          isOverdue,
+          isDueToday,
+          noAssignee,
+          missingRequiredPhotoCount,
+        };
+      })
+      .filter(entry => entry.score > 0)
+      .sort((left, right) => right.score - left.score)
+      .slice(0, 6);
   }, [filteredArchives]);
   const toggleArchiveBoardColumnCollapse = React.useCallback(
     (status: InspectionArchive['status']) => {
@@ -6655,6 +7151,10 @@ const CleaningInspectionAdmin: React.FC = () => {
                     onClick={() =>
                       toggleArchiveMetaId(item.id, 'pinnedIds', 'pin.toggled')
                     }
+                    aria-label={t('sparkery.inspectionAdmin.aria.togglePin', {
+                      defaultValue: 'Pin or unpin inspection {{id}}',
+                      id: item.id,
+                    })}
                   />
                 </Tooltip>
                 <Tooltip
@@ -6668,6 +7168,10 @@ const CleaningInspectionAdmin: React.FC = () => {
                     onClick={() =>
                       toggleArchiveMetaId(item.id, 'starredIds', 'star.toggled')
                     }
+                    aria-label={t('sparkery.inspectionAdmin.aria.toggleStar', {
+                      defaultValue: 'Star or unstar inspection {{id}}',
+                      id: item.id,
+                    })}
                   />
                 </Tooltip>
                 <Tooltip
@@ -6685,6 +7189,14 @@ const CleaningInspectionAdmin: React.FC = () => {
                         'reviewed.toggled'
                       )
                     }
+                    aria-label={t(
+                      'sparkery.inspectionAdmin.aria.toggleReviewed',
+                      {
+                        defaultValue:
+                          'Mark inspection {{id}} reviewed or unreviewed',
+                        id: item.id,
+                      }
+                    )}
                   />
                 </Tooltip>
                 <Popconfirm
@@ -6696,7 +7208,18 @@ const CleaningInspectionAdmin: React.FC = () => {
                   )}
                   onConfirm={() => void handleDelete(item.id)}
                 >
-                  <Button type='text' danger icon={<DeleteOutlined />} />
+                  <Button
+                    type='text'
+                    danger
+                    icon={<DeleteOutlined />}
+                    aria-label={t(
+                      'sparkery.inspectionAdmin.aria.deleteInspection',
+                      {
+                        defaultValue: 'Delete inspection {{id}}',
+                        id: item.id,
+                      }
+                    )}
+                  />
                 </Popconfirm>
               </Space>
             </Col>
@@ -6882,8 +7405,31 @@ const CleaningInspectionAdmin: React.FC = () => {
           : ''
       } ${isNightReviewMode ? 'sparkery-inspection-night-review' : ''}`}
     >
+      <a
+        href='#inspection-main-content'
+        className='sparkery-inspection-skip-link'
+      >
+        {t('sparkery.inspectionAdmin.actions.skipToMainContent', {
+          defaultValue: 'Skip to main content',
+        })}
+      </a>
       {contextHolder}
       <div className='sparkery-inspection-header'>
+        <Breadcrumb
+          className='sparkery-inspection-breadcrumb'
+          items={[
+            {
+              title: t('sparkery.inspectionAdmin.breadcrumb.sparkery', {
+                defaultValue: 'Sparkery',
+              }),
+            },
+            {
+              title: t('sparkery.inspectionAdmin.breadcrumb.inspectionAdmin', {
+                defaultValue: 'Inspection Admin',
+              }),
+            },
+          ]}
+        />
         <Title level={3} className='sparkery-tool-page-title'>
           <HomeOutlined className='sparkery-inspection-icon-8' />
           {t('sparkery.inspectionAdmin.title', {
@@ -6942,6 +7488,20 @@ const CleaningInspectionAdmin: React.FC = () => {
               defaultValue: 'UI Tour',
             })}
           </Button>
+          <Button
+            icon={<ReadOutlined />}
+            onClick={() =>
+              window.open(
+                'https://github.com/Wendealai/WendealDashboard/tree/master/docs',
+                '_blank',
+                'noopener,noreferrer'
+              )
+            }
+          >
+            {t('sparkery.inspectionAdmin.actions.openPlaybook', {
+              defaultValue: 'Playbook',
+            })}
+          </Button>
           <Badge count={opsInboxUnreadCount} size='small' offset={[0, 4]}>
             <Button
               icon={<BellOutlined />}
@@ -6993,10 +7553,43 @@ const CleaningInspectionAdmin: React.FC = () => {
             })}
             : {formattedLastCloudWriteAt}
           </Text>
+          <Text type='secondary' className='sparkery-inspection-status-note'>
+            {t('sparkery.inspectionAdmin.labels.lastRefreshSource', {
+              defaultValue: 'Refresh source',
+            })}
+            :{' '}
+            <Tag color={archiveRefreshSourceMeta.color}>
+              {archiveRefreshSourceMeta.text}
+            </Tag>
+          </Text>
+        </div>
+        <div className='sparkery-inspection-module-directory'>
+          <Text type='secondary'>
+            {t('sparkery.inspectionAdmin.labels.moduleDirectory', {
+              defaultValue: 'Module Directory',
+            })}
+            :
+          </Text>
+          <Space wrap>
+            {visibleArchiveModules.map(moduleId => (
+              <Button
+                key={`module-dir-${moduleId}`}
+                size='small'
+                type='text'
+                onClick={() => jumpToArchiveModule(moduleId)}
+              >
+                {archiveModuleLabelMap[moduleId]}
+              </Button>
+            ))}
+          </Space>
         </div>
       </div>
 
-      <div className='sparkery-inspection-module-stack'>
+      <div
+        id='inspection-main-content'
+        className='sparkery-inspection-module-stack'
+        tabIndex={-1}
+      >
         {isArchiveModuleVisible('workspace') ? (
           <Card
             id='inspection-module-workspace'
@@ -7358,6 +7951,171 @@ const CleaningInspectionAdmin: React.FC = () => {
                     'Shortcuts: Ctrl/Cmd+K (command palette), Ctrl/Cmd+Shift+N (one-off), Ctrl/Cmd+Shift+R (refresh), Ctrl/Cmd+Shift+F (focus search), Ctrl/Cmd+Shift+G/H (next/prev match), Ctrl/Cmd+Shift+M (filters), Ctrl/Cmd+Shift+A (select visible), Ctrl/Cmd+Shift+I (invert), Ctrl/Cmd+Shift+L (copy links), Ctrl/Cmd+Shift+D (copy IDs), Ctrl/Cmd+Shift+E (expand details), Ctrl/Cmd+Shift+W (collapse details)',
                 })}
               </Text>
+            </Space>
+          </Card>
+        ) : null}
+
+        {isArchiveModuleVisible('today_focus') ? (
+          <Card
+            id='inspection-module-today_focus'
+            size='small'
+            className='sparkery-inspection-overview-card'
+            style={getArchiveModuleOrderStyle('today_focus')}
+          >
+            <Space
+              direction='vertical'
+              className='sparkery-inspection-full-width'
+            >
+              <div className='sparkery-inspection-overview-head'>
+                <Text strong>
+                  {t('sparkery.inspectionAdmin.labels.todayFocus', {
+                    defaultValue: 'Today Focus',
+                  })}
+                </Text>
+                <Space wrap>
+                  <Tag color='volcano'>
+                    {t('sparkery.inspectionAdmin.labels.overdue', {
+                      defaultValue: 'Overdue',
+                    })}
+                    : {filteredArchiveRiskStats.overdue}
+                  </Tag>
+                  <Tag color='orange'>
+                    {t('sparkery.inspectionAdmin.labels.dueToday', {
+                      defaultValue: 'Due Today',
+                    })}
+                    : {filteredArchiveRiskStats.dueToday}
+                  </Tag>
+                  <Tag color='gold'>
+                    {t('sparkery.inspectionAdmin.labels.noAssigneeShort', {
+                      defaultValue: 'No Assignee',
+                    })}
+                    : {filteredArchiveRiskStats.noAssignee}
+                  </Tag>
+                </Space>
+              </div>
+              <Space wrap>
+                <Button
+                  size='small'
+                  onClick={() => updateArchiveFilter({ quickChip: 'overdue' })}
+                >
+                  {t('sparkery.inspectionAdmin.actions.focusOverdue', {
+                    defaultValue: 'Focus Overdue',
+                  })}
+                </Button>
+                <Button
+                  size='small'
+                  onClick={() =>
+                    updateArchiveFilter({ quickChip: 'due_today' })
+                  }
+                >
+                  {t('sparkery.inspectionAdmin.actions.focusDueToday', {
+                    defaultValue: 'Focus Due Today',
+                  })}
+                </Button>
+                <Button
+                  size='small'
+                  onClick={() =>
+                    updateArchiveFilter({
+                      quickChip: 'missing_required_photos',
+                    })
+                  }
+                >
+                  {t('sparkery.inspectionAdmin.actions.focusMissingPhotos', {
+                    defaultValue: 'Focus Missing Photos',
+                  })}
+                </Button>
+              </Space>
+              {todayFocusArchives.length > 0 ? (
+                <div className='sparkery-inspection-focus-list'>
+                  {todayFocusArchives.map(entry => (
+                    <div
+                      key={`focus-archive-${entry.item.id}`}
+                      className='sparkery-inspection-focus-item'
+                    >
+                      <Space direction='vertical' size={2}>
+                        <Text strong>
+                          {renderHighlightedText(
+                            (entry.item as any).propertyName ||
+                              entry.item.propertyId ||
+                              t('sparkery.inspectionAdmin.labels.unnamed', {
+                                defaultValue: 'Unnamed',
+                              }),
+                            searchText
+                          )}
+                        </Text>
+                        <Text type='secondary'>{entry.item.id}</Text>
+                        <Space wrap size={4}>
+                          {entry.isOverdue ? (
+                            <Tag color='volcano'>
+                              {t('sparkery.inspectionAdmin.labels.overdue', {
+                                defaultValue: 'Overdue',
+                              })}
+                            </Tag>
+                          ) : null}
+                          {entry.isDueToday ? (
+                            <Tag color='orange'>
+                              {t('sparkery.inspectionAdmin.labels.dueToday', {
+                                defaultValue: 'Due Today',
+                              })}
+                            </Tag>
+                          ) : null}
+                          {entry.noAssignee ? (
+                            <Tag color='gold'>
+                              {t(
+                                'sparkery.inspectionAdmin.labels.noAssigneeShort',
+                                {
+                                  defaultValue: 'No Assignee',
+                                }
+                              )}
+                            </Tag>
+                          ) : null}
+                          {entry.missingRequiredPhotoCount > 0 ? (
+                            <Tag color='red'>
+                              {t(
+                                'sparkery.inspectionAdmin.labels.missingRequiredPhotos',
+                                {
+                                  defaultValue: 'Missing Required Photos',
+                                }
+                              )}
+                              : {entry.missingRequiredPhotoCount}
+                            </Tag>
+                          ) : null}
+                        </Space>
+                      </Space>
+                      <Space wrap size={6}>
+                        <Button
+                          size='small'
+                          onClick={() =>
+                            handleOpenArchiveDetailDrawer(entry.item.id)
+                          }
+                        >
+                          {t('sparkery.inspectionAdmin.actions.details', {
+                            defaultValue: 'Details',
+                          })}
+                        </Button>
+                        <Button
+                          size='small'
+                          onClick={() => handleOpen(entry.item)}
+                        >
+                          {t(
+                            'sparkery.inspectionAdmin.actions.openInspection',
+                            {
+                              defaultValue: 'Open inspection',
+                            }
+                          )}
+                        </Button>
+                      </Space>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Text type='secondary'>
+                  {t('sparkery.inspectionAdmin.labels.noFocusItems', {
+                    defaultValue:
+                      'No high-priority items in the current filtered scope.',
+                  })}
+                </Text>
+              )}
             </Space>
           </Card>
         ) : null}
@@ -8041,6 +8799,60 @@ const CleaningInspectionAdmin: React.FC = () => {
                       type='secondary'
                       className='sparkery-inspection-filter-item-label'
                     >
+                      {t('sparkery.inspectionAdmin.filters.resultsGrouping', {
+                        defaultValue: 'Results Grouping',
+                      })}
+                    </Text>
+                    <Segmented
+                      value={archiveResultsGroupBy}
+                      options={[
+                        {
+                          value: 'none',
+                          label: t(
+                            'sparkery.inspectionAdmin.filters.groupNone',
+                            {
+                              defaultValue: 'None',
+                            }
+                          ),
+                        },
+                        {
+                          value: 'status',
+                          label: t(
+                            'sparkery.inspectionAdmin.filters.groupStatus',
+                            {
+                              defaultValue: 'Status',
+                            }
+                          ),
+                        },
+                        {
+                          value: 'assignee',
+                          label: t(
+                            'sparkery.inspectionAdmin.filters.groupAssignee',
+                            {
+                              defaultValue: 'Assignee',
+                            }
+                          ),
+                        },
+                        {
+                          value: 'date',
+                          label: t(
+                            'sparkery.inspectionAdmin.filters.groupDate',
+                            {
+                              defaultValue: 'Date',
+                            }
+                          ),
+                        },
+                      ]}
+                      onChange={value =>
+                        setArchiveResultsGroupBy(value as ArchiveResultsGroupBy)
+                      }
+                    />
+                  </div>
+                  <div className='sparkery-inspection-filter-item'>
+                    <Text
+                      type='secondary'
+                      className='sparkery-inspection-filter-item-label'
+                    >
                       {t('sparkery.inspectionAdmin.filters.searchMode', {
                         defaultValue: 'Search Mode',
                       })}
@@ -8262,6 +9074,51 @@ const CleaningInspectionAdmin: React.FC = () => {
                           ),
                         },
                       ]}
+                    />
+                  </div>
+                  <div className='sparkery-inspection-filter-item'>
+                    <Text
+                      type='secondary'
+                      className='sparkery-inspection-filter-item-label'
+                    >
+                      {t('sparkery.inspectionAdmin.filters.todayPriorityMode', {
+                        defaultValue: 'Today Priority',
+                      })}
+                    </Text>
+                    <Segmented
+                      value={archivePriorityMode}
+                      options={[
+                        {
+                          value: 'off',
+                          label: t(
+                            'sparkery.inspectionAdmin.filters.priorityOff',
+                            {
+                              defaultValue: 'Off',
+                            }
+                          ),
+                        },
+                        {
+                          value: 'soft',
+                          label: t(
+                            'sparkery.inspectionAdmin.filters.prioritySoft',
+                            {
+                              defaultValue: 'Soft',
+                            }
+                          ),
+                        },
+                        {
+                          value: 'hard',
+                          label: t(
+                            'sparkery.inspectionAdmin.filters.priorityHard',
+                            {
+                              defaultValue: 'Hard',
+                            }
+                          ),
+                        },
+                      ]}
+                      onChange={value =>
+                        setArchivePriorityMode(value as ArchivePriorityMode)
+                      }
                     />
                   </div>
                   <div className='sparkery-inspection-filter-item'>
@@ -9150,6 +10007,106 @@ const CleaningInspectionAdmin: React.FC = () => {
             id='inspection-module-results'
             style={getArchiveModuleOrderStyle('results')}
           >
+            <div className='sparkery-inspection-results-toolbar'>
+              <Space wrap>
+                <Tag color='blue'>
+                  {t('sparkery.inspectionAdmin.labels.visibleCount', {
+                    defaultValue: 'Visible {{count}}',
+                    count: filteredArchives.length,
+                  })}
+                </Tag>
+                <Tag>
+                  {t('sparkery.inspectionAdmin.labels.totalCount', {
+                    defaultValue: 'Total {{count}}',
+                    count: archives.length,
+                  })}
+                </Tag>
+                {archiveResultsGroupBy !== 'none' ? (
+                  <Tag color='purple'>
+                    {t('sparkery.inspectionAdmin.labels.groupCount', {
+                      defaultValue: 'Groups {{count}}',
+                      count: groupedRenderedListArchives.length,
+                    })}
+                  </Tag>
+                ) : null}
+                {collapsedArchiveGroupKeys.length > 0 ? (
+                  <Tag color='gold'>
+                    {t('sparkery.inspectionAdmin.labels.collapsedGroups', {
+                      defaultValue: 'Collapsed {{count}}',
+                      count: collapsedArchiveGroupKeys.length,
+                    })}
+                  </Tag>
+                ) : null}
+                {archivePriorityMode !== 'off' ? (
+                  <Tag color='volcano'>
+                    {t('sparkery.inspectionAdmin.labels.todayPriorityModeTag', {
+                      defaultValue: 'Today Priority: {{mode}}',
+                      mode:
+                        archivePriorityMode === 'hard'
+                          ? t('sparkery.inspectionAdmin.filters.priorityHard', {
+                              defaultValue: 'Hard',
+                            })
+                          : t('sparkery.inspectionAdmin.filters.prioritySoft', {
+                              defaultValue: 'Soft',
+                            }),
+                    })}
+                  </Tag>
+                ) : null}
+              </Space>
+              <Space wrap>
+                {archiveResultsGroupBy !== 'none' ? (
+                  <>
+                    <Button
+                      size='small'
+                      onClick={collapseAllArchiveGroups}
+                      disabled={groupedRenderedListArchives.length === 0}
+                    >
+                      {t('sparkery.inspectionAdmin.actions.collapseGroups', {
+                        defaultValue: 'Collapse Groups',
+                      })}
+                    </Button>
+                    <Button
+                      size='small'
+                      onClick={expandAllArchiveGroups}
+                      disabled={collapsedArchiveGroupKeys.length === 0}
+                    >
+                      {t('sparkery.inspectionAdmin.actions.expandGroups', {
+                        defaultValue: 'Expand Groups',
+                      })}
+                    </Button>
+                  </>
+                ) : null}
+                <Button
+                  size='small'
+                  onClick={() => jumpToArchiveModule('search')}
+                >
+                  {t('sparkery.inspectionAdmin.actions.goToFilters', {
+                    defaultValue: 'Go to Filters',
+                  })}
+                </Button>
+                <Button
+                  size='small'
+                  loading={isArchiveRefreshing}
+                  onClick={() => void handleManualRefreshArchives()}
+                >
+                  {t('sparkery.inspectionAdmin.actions.refresh', {
+                    defaultValue: 'Refresh',
+                  })}
+                </Button>
+                <Button
+                  size='small'
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
+                >
+                  {t('sparkery.inspectionAdmin.actions.backToTop', {
+                    defaultValue: 'Back to Top',
+                  })}
+                </Button>
+              </Space>
+            </div>
             {isInitialLoading ? (
               <div className='sparkery-inspection-archive-list'>
                 {[0, 1, 2].map(index => (
@@ -9380,9 +10337,80 @@ const CleaningInspectionAdmin: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <div className='sparkery-inspection-archive-list'>
-                    {renderedListArchives.map(item => renderArchiveCard(item))}
-                  </div>
+                  {archiveResultsGroupBy === 'none' ? (
+                    <div className='sparkery-inspection-archive-list'>
+                      {renderedListArchives.map(item =>
+                        renderArchiveCard(item)
+                      )}
+                    </div>
+                  ) : (
+                    <div className='sparkery-inspection-archive-grouped-list'>
+                      {groupedRenderedListArchives.map(group => {
+                        const isCollapsed = collapsedArchiveGroupKeys.includes(
+                          group.key
+                        );
+                        return (
+                          <div
+                            key={`archive-group-${group.key}`}
+                            className='sparkery-inspection-archive-group'
+                          >
+                            <div className='sparkery-inspection-archive-group-head'>
+                              <Space wrap size={[8, 6]}>
+                                <Text strong>{group.label}</Text>
+                                <Tag>
+                                  {t('sparkery.inspectionAdmin.labels.count', {
+                                    defaultValue: '{{count}} items',
+                                    count: group.items.length,
+                                  })}
+                                </Tag>
+                              </Space>
+                              <Button
+                                size='small'
+                                type='text'
+                                onClick={() =>
+                                  toggleArchiveGroupCollapse(group.key)
+                                }
+                              >
+                                {isCollapsed
+                                  ? t(
+                                      'sparkery.inspectionAdmin.actions.expand',
+                                      {
+                                        defaultValue: 'Expand',
+                                      }
+                                    )
+                                  : t(
+                                      'sparkery.inspectionAdmin.actions.collapse',
+                                      {
+                                        defaultValue: 'Collapse',
+                                      }
+                                    )}
+                              </Button>
+                            </div>
+                            {isCollapsed ? (
+                              <Text
+                                type='secondary'
+                                className='sparkery-inspection-archive-group-collapsed-note'
+                              >
+                                {t(
+                                  'sparkery.inspectionAdmin.labels.groupCollapsedHint',
+                                  {
+                                    defaultValue:
+                                      'Group collapsed. Click expand to view items.',
+                                  }
+                                )}
+                              </Text>
+                            ) : (
+                              <div className='sparkery-inspection-archive-list'>
+                                {group.items.map(item =>
+                                  renderArchiveCard(item)
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   {renderedListArchives.length < filteredArchives.length ? (
                     <div className='sparkery-inspection-risk-strip'>
                       <Button
@@ -9427,6 +10455,19 @@ const CleaningInspectionAdmin: React.FC = () => {
                         }
                       )}
                 </Text>
+                {archives.length > 0 && archiveEmptyStateSignals.length > 0 ? (
+                  <Space
+                    wrap
+                    className='sparkery-inspection-empty-signal-list'
+                    size={[6, 6]}
+                  >
+                    {archiveEmptyStateSignals.map((signal, index) => (
+                      <Tag key={`empty-signal-${index}`} color='orange'>
+                        {signal}
+                      </Tag>
+                    ))}
+                  </Space>
+                ) : null}
                 <Space wrap className='sparkery-inspection-empty-actions'>
                   <Button onClick={resetArchiveFilters}>
                     {t(
@@ -9470,6 +10511,16 @@ const CleaningInspectionAdmin: React.FC = () => {
                         'sparkery.inspectionAdmin.actions.clearExcludeStatus',
                         {
                           defaultValue: 'Clear Exclude Status',
+                        }
+                      )}
+                    </Button>
+                  ) : null}
+                  {archivePriorityMode !== 'off' ? (
+                    <Button onClick={() => setArchivePriorityMode('off')}>
+                      {t(
+                        'sparkery.inspectionAdmin.actions.disableTodayPriority',
+                        {
+                          defaultValue: 'Disable Today Priority',
                         }
                       )}
                     </Button>
@@ -9616,6 +10667,33 @@ const CleaningInspectionAdmin: React.FC = () => {
             ]}
             onChange={value =>
               updateArchiveFilter({ quickChip: value as ArchiveQuickChip })
+            }
+          />
+          <Segmented
+            block
+            value={archivePriorityMode}
+            options={[
+              {
+                value: 'off',
+                label: t('sparkery.inspectionAdmin.filters.priorityOff', {
+                  defaultValue: 'Priority Off',
+                }),
+              },
+              {
+                value: 'soft',
+                label: t('sparkery.inspectionAdmin.filters.prioritySoft', {
+                  defaultValue: 'Priority Soft',
+                }),
+              },
+              {
+                value: 'hard',
+                label: t('sparkery.inspectionAdmin.filters.priorityHard', {
+                  defaultValue: 'Priority Hard',
+                }),
+              },
+            ]}
+            onChange={value =>
+              setArchivePriorityMode(value as ArchivePriorityMode)
             }
           />
           <Space wrap>

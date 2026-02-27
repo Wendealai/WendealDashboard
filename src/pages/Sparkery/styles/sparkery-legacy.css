@@ -827,8 +827,38 @@
   margin-bottom: 16px;
 }
 
+.sparkery-inspection-breadcrumb {
+  margin-bottom: 8px;
+}
+
+.sparkery-inspection-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 8px;
+  z-index: 1000;
+  background: #1677ff;
+  color: #fff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.sparkery-inspection-skip-link:focus {
+  left: 12px;
+  outline: none;
+}
+
 .sparkery-inspection-status-note {
   font-size: 12px;
+}
+
+.sparkery-inspection-module-directory {
+  margin-top: 8px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .sparkery-inspection-gap-16 {
@@ -900,6 +930,11 @@
 
 .sparkery-inspection-empty-actions {
   margin-top: 14px;
+}
+
+.sparkery-inspection-empty-signal-list {
+  margin-top: 10px;
+  justify-content: center;
 }
 
 .sparkery-inspection-cloud-meta {
@@ -1107,6 +1142,40 @@
   padding-top: 4px;
 }
 
+.sparkery-inspection-results-toolbar {
+  position: sticky;
+  top: 10px;
+  z-index: 4;
+  margin-bottom: 10px;
+  border: 1px solid #d8e7fb;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(245, 250, 255, 0.92);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sparkery-inspection-focus-list {
+  display: grid;
+  gap: 8px;
+}
+
+.sparkery-inspection-focus-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid #e3edf9;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
 .sparkery-inspection-batch-card {
   margin-bottom: 12px;
   border-color: #cce2ff;
@@ -1132,6 +1201,31 @@
 .sparkery-inspection-archive-list {
   display: grid;
   gap: 12px;
+}
+
+.sparkery-inspection-archive-grouped-list {
+  display: grid;
+  gap: 12px;
+}
+
+.sparkery-inspection-archive-group {
+  border: 1px solid #dbe8f7;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f9fbff;
+}
+
+.sparkery-inspection-archive-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.sparkery-inspection-archive-group-collapsed-note {
+  display: block;
+  padding: 2px 2px 4px;
 }
 
 .sparkery-inspection-board {
@@ -2350,6 +2444,11 @@
     align-items: flex-start;
   }
 
+  .sparkery-inspection-module-directory {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .sparkery-inspection-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2381,6 +2480,22 @@
   .sparkery-inspection-risk-strip {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .sparkery-inspection-results-toolbar {
+    position: static;
+    backdrop-filter: none;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sparkery-inspection-archive-group-head {
+    align-items: flex-start;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f9fbff;
+    padding-bottom: 6px;
   }
 
   .sparkery-inspection-mobile-action-bar {
