@@ -16,6 +16,14 @@ const hasLocalEnvFiles =
   fs.existsSync(path.join(localEnvDir, '.env')) ||
   fs.existsSync(path.join(localEnvDir, '.env.local'));
 const envDir = hasLocalEnvFiles ? localEnvDir : monorepoEnvDir;
+const allowedHosts = Array.from(
+  new Set(
+    ['oa.wendealai.com', ...(process.env.VITE_ALLOWED_HOSTS || '').split(',')]
+      .map(host => host.trim())
+      .filter(Boolean)
+  )
+);
+const previewPort = Number(process.env.PORT || '5174');
 
 export default defineConfig({
   root: __dirname,
@@ -37,9 +45,20 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5174,
+    allowedHosts,
   },
   preview: {
     host: '0.0.0.0',
-    port: 5174,
+    port: Number.isFinite(previewPort) ? previewPort : 5174,
+    strictPort: true,
+    allowedHosts,
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Keep third-party deps in one chunk to avoid cross-vendor init cycles.
+        manualChunks: id => (id.includes('node_modules') ? 'vendor' : undefined),
+      },
+    },
   },
 });
