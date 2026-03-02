@@ -17,17 +17,24 @@ const LanguageSwitcher: React.FC = () => {
   return (
     <Tooltip title={t('language.switch', '切换语言')}>
       <Space size='small'>
-        <GlobalOutlined style={{ fontSize: '16px' }} />
+        <GlobalOutlined
+          style={{ fontSize: '16px', color: 'var(--color-text-secondary)' }}
+        />
         <Switch
+          className='theme-language-switch'
           size='small'
           checked={isEnglish}
           onChange={handleLanguageChange}
-          checkedChildren={<span style={{ color: '#000000' }}>En</span>}
-          unCheckedChildren={<span style={{ color: '#000000' }}>中</span>}
+          checkedChildren={
+            <span style={{ color: 'var(--color-text)' }}>En</span>
+          }
+          unCheckedChildren={
+            <span style={{ color: 'var(--color-text)' }}>中</span>
+          }
           style={{
             minWidth: '44px',
-            backgroundColor: isEnglish ? '#ffffff' : '#ffffff',
-            borderColor: '#d9d9d9',
+            backgroundColor: 'var(--color-bg-container)',
+            borderColor: 'var(--color-border)',
           }}
         />
       </Space>

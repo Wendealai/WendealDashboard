@@ -69,7 +69,7 @@ const MainLayout: React.FC = () => {
 
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [mobileDrawerVisible, setMobileDrawerVisible] = useState(false);
-  const menuTheme = isMobile ? 'light' : theme === 'dark' ? 'dark' : 'light';
+  const menuTheme = theme === 'dark' ? 'dark' : 'light';
 
   // Handle sidebar toggle
   const handleSidebarToggle = () => {
@@ -223,12 +223,6 @@ const MainLayout: React.FC = () => {
           borderRight: 0,
           flex: 1,
           fontSize: '14px',
-          ...(isMobile
-            ? {
-                backgroundColor: '#ffffff',
-                color: '#1f2937',
-              }
-            : {}),
         }}
         className={`navigation-menu${isMobile ? ' mobile-navigation-menu' : ''}`}
       />
@@ -270,12 +264,14 @@ const MainLayout: React.FC = () => {
           open={mobileDrawerVisible}
           styles={{ body: { padding: 0 } }}
           headerStyle={{
-            backgroundColor: '#ffffff',
-            color: '#1f2937',
-            borderBottom: '1px solid #e5e7eb',
+            backgroundColor: 'var(--card-color)',
+            color: 'var(--text-color)',
+            borderBottom: '1px solid var(--border-color)',
           }}
         >
-          <div style={{ backgroundColor: '#ffffff', height: '100%' }}>
+          <div
+            style={{ backgroundColor: 'var(--sidebar-color)', height: '100%' }}
+          >
             {sidebarContent}
           </div>
         </Drawer>
@@ -350,17 +346,11 @@ const MainLayout: React.FC = () => {
                 <Text
                   className='user-display-name'
                   style={{
-                    color: 'var(--text-color)',
+                    color: 'var(--text-color, #212529)',
                     fontFamily:
                       "'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                     fontWeight: 600,
                     fontSize: '14px',
-                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-                    background:
-                      'linear-gradient(135deg, var(--text-color) 0%, rgba(255, 255, 255, 0.8) 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
                     letterSpacing: '0.025em',
                     userSelect: 'none',
                     cursor: 'default',
@@ -382,9 +372,9 @@ const MainLayout: React.FC = () => {
                     style={{
                       backgroundColor:
                         user.role === 'admin'
-                          ? 'var(--color-text-secondary, #666666)'
-                          : 'var(--color-border, #999999)',
-                      color: 'var(--color-white, #ffffff)',
+                          ? 'var(--color-primary, #17a2b8)'
+                          : 'var(--color-text-secondary, #6c757d)',
+                      color: 'var(--color-bg-base, #ffffff)',
                       fontSize: '10px',
                       height: '16px',
                       lineHeight: '16px',

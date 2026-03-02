@@ -1,6 +1,4 @@
-/* 主题CSS变量定义 */
 :root {
-  /* Colors - CRM System Light Theme */
   --color-primary: #17a2b8;
   --color-primary-hover: #138496;
   --color-primary-active: #0f6674;
@@ -9,102 +7,132 @@
   --color-error: #dc3545;
   --color-info: #17a2b8;
 
-  /* Background Colors - Light Theme */
   --color-bg-base: #ffffff;
   --color-bg-container: #ffffff;
   --color-bg-layout: #f8f9fa;
   --color-bg-elevated: #ffffff;
+  --color-bg-muted: #f3f4f6;
+  --color-bg-success-soft: #f0fdf4;
+  --color-bg-success-subtle: #dcfce7;
+  --color-bg-info-soft: #f0f9ff;
+  --color-bg-info-subtle: #dbeafe;
+  --color-bg-warning-soft: #fff7ed;
+  --color-bg-warning-subtle: #fef3c7;
+  --color-bg-danger-soft: #fff7f7;
+  --color-bg-danger-subtle: #fef2f2;
+  --color-bg-purple-soft: #fef7ff;
+  --color-bg-purple-subtle: #f3e8ff;
+  --color-bg-magenta-soft: #fdf4ff;
+  --color-bg-slate-soft: #f8fafc;
+  --color-bg-slate-subtle: #e2e8f0;
 
-  /* Text Colors - Professional */
   --color-text: #212529;
   --color-text-secondary: #6c757d;
   --color-text-tertiary: #adb5bd;
   --color-text-quaternary: #dee2e6;
 
-  /* Border Colors - Clean */
   --color-border: #dee2e6;
   --color-border-secondary: #e9ecef;
+  --color-border-warning: #f59e0b;
+  --color-border-subtle: #e5e7eb;
+  --color-white: #ffffff;
 
-  /* Legacy variables for backward compatibility */
-  --primary-color: #17a2b8;
-  --background-color: #f8f9fa;
-  --text-color: #212529;
-  --border-color: #e9ecef;
-  --header-color: #ffffff;
-  --sidebar-color: #ffffff;
-  --card-color: #ffffff;
+  --primary-color: var(--color-primary);
+  --background-color: var(--color-bg-layout);
+  --text-color: var(--color-text);
+  --border-color: var(--color-border);
+  --header-color: var(--color-bg-container);
+  --sidebar-color: var(--color-bg-container);
+  --card-color: var(--color-bg-container);
 
-  /* 字体大小变量 */
   --font-size-small: 12px;
   --font-size-medium: 14px;
   --font-size-large: 16px;
-  --font-family: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  --font-family:
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  /* 圆角变量 - 更现代的圆角 */
   --border-radius: 8px;
   --border-radius-lg: 12px;
   --border-radius-sm: 6px;
 
-  /* 间距变量 - 更好的间距系统 */
   --spacing-xs: 4px;
   --spacing-small: 8px;
   --spacing-medium: 16px;
   --spacing-large: 24px;
   --spacing-xl: 32px;
 
-  /* 阴影变量 - 更柔和的阴影 */
-  --shadow-small: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-medium: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
-  --shadow-large: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
+  --shadow-small: 0 1px 3px rgb(0 0 0 / 10%), 0 1px 2px rgb(0 0 0 / 6%);
+  --shadow-medium: 0 4px 6px rgb(0 0 0 / 7%), 0 2px 4px rgb(0 0 0 / 6%);
+  --shadow-large: 0 10px 15px rgb(0 0 0 / 10%), 0 4px 6px rgb(0 0 0 / 5%);
+  --shadow-xl: 0 20px 25px rgb(0 0 0 / 10%), 0 10px 10px rgb(0 0 0 / 4%);
 
-  /* 过渡动画变量 */
   --transition-fast: 0.2s ease;
   --transition-normal: 0.3s ease;
   --transition-slow: 0.5s ease;
 }
 
-/* 浅色主题 */
-body.theme-light {
-  background-color: var(--background-color);
-  color: var(--text-color);
-  transition:
-    background-color var(--transition-normal),
-    color var(--transition-normal);
+body.theme-light,
+html[data-theme='light'] body {
+  color-scheme: light;
+  --background-color: #f8f9fa;
+  --text-color: #212529;
+  --border-color: #dee2e6;
+  --header-color: #ffffff;
+  --sidebar-color: #ffffff;
+  --card-color: #ffffff;
 }
 
-/* 深色主题 */
-body.theme-dark {
-  /* Dark theme - Deep charcoal/black financial dashboard */
+body.theme-dark,
+html[data-theme='dark'] body {
+  color-scheme: dark;
   --color-primary: #ffb800;
   --color-primary-hover: #e6a600;
   --color-primary-active: #cc9500;
-  --color-success: #4caf50;
-  --color-warning: #ffa500;
-  --color-error: #ff4444;
+  --color-success: #58c277;
+  --color-warning: #f3b343;
+  --color-error: #f87171;
   --color-info: #ffb800;
 
-  --color-bg-base: #1a1a1a;
-  --color-bg-container: #2d2d2d;
-  --color-bg-layout: #1a1a1a;
-  --color-bg-elevated: #2d2d2d;
+  --color-bg-base: #141414;
+  --color-bg-container: #1f1f1f;
+  --color-bg-layout: #121212;
+  --color-bg-elevated: #262626;
+  --color-bg-muted: #2a2a2a;
+  --color-bg-success-soft: #13261a;
+  --color-bg-success-subtle: #1d3624;
+  --color-bg-info-soft: #112432;
+  --color-bg-info-subtle: #17364b;
+  --color-bg-warning-soft: #31220f;
+  --color-bg-warning-subtle: #443116;
+  --color-bg-danger-soft: #301b1b;
+  --color-bg-danger-subtle: #422222;
+  --color-bg-purple-soft: #251b30;
+  --color-bg-purple-subtle: #312243;
+  --color-bg-magenta-soft: #2b1d2d;
+  --color-bg-slate-soft: #1b2129;
+  --color-bg-slate-subtle: #25303d;
 
-  --color-text: #ffffff;
-  --color-text-secondary: #b0b0b0;
-  --color-text-tertiary: #808080;
-  --color-text-quaternary: #606060;
+  --color-text: #f5f5f5;
+  --color-text-secondary: #c2c2c2;
+  --color-text-tertiary: #9a9a9a;
+  --color-text-quaternary: #757575;
 
-  --color-border: #434343;
-  --color-border-secondary: #525252;
+  --color-border: #3c3c3c;
+  --color-border-secondary: #474747;
+  --color-border-warning: #d69e2e;
+  --color-border-subtle: #4b5563;
 
-  /* Legacy variables for backward compatibility */
-  --background-color: #1a1a1a;
-  --text-color: #ffffff;
-  --border-color: #434343;
-  --header-color: #1a1a1a;
-  --sidebar-color: #1a1a1a;
-  --card-color: #2d2d2d;
+  --background-color: var(--color-bg-layout);
+  --text-color: var(--color-text);
+  --border-color: var(--color-border);
+  --header-color: var(--color-bg-container);
+  --sidebar-color: #171717;
+  --card-color: var(--color-bg-container);
+}
 
+html,
+body,
+#root {
   background-color: var(--background-color);
   color: var(--text-color);
   transition:
@@ -112,40 +140,24 @@ body.theme-dark {
     color var(--transition-normal);
 }
 
-/* Reddit Workflow Title - enhanced readability in dark theme */
-body.theme-dark .reddit-workflow-title {
-  color: #ffffff !important;
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.65),
-    0 0 10px rgba(255, 255, 255, 0.06);
+a {
+  color: var(--color-primary);
+}
+
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+.reddit-workflow-title {
+  color: var(--color-text);
   letter-spacing: 0.2px;
 }
 
-/* Light theme default behavior for Reddit Workflow Title */
-body.theme-light .reddit-workflow-title {
-  color: var(--color-text, #212529);
-}
-
-/* Support AntD/data-theme dark mode toggling */
-[data-theme='dark'] .reddit-workflow-title,
-html[data-theme='dark'] .reddit-workflow-title {
-  color: #ffffff !important;
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.65),
-    0 0 10px rgba(255, 255, 255, 0.06);
+#reddit-result-panel .ant-card-head-title {
+  color: var(--color-text);
   letter-spacing: 0.2px;
 }
 
-/* Force AntD Card section titles to pure white within Reddit result panel in dark mode */
-[data-theme='dark'] #reddit-result-panel .ant-card-head-title,
-html[data-theme='dark'] #reddit-result-panel .ant-card-head-title,
-body.theme-dark #reddit-result-panel .ant-card-head-title {
-  color: #ffffff !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-  letter-spacing: 0.3px;
-}
-
-/* 主题相关的通用样式 */
 .theme-card {
   background-color: var(--card-color);
   border: 1px solid var(--border-color);
@@ -157,13 +169,12 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
 .theme-card:hover {
   box-shadow: var(--shadow-medium);
   transform: translateY(-2px);
-  border-color: var(--color-primary, var(--primary-color));
+  border-color: var(--color-primary);
 }
 
-/* Metric Cards */
 .metric-card {
-  background: var(--color-bg-container, var(--card-color));
-  border: 1px solid var(--color-border, var(--border-color));
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
   border-radius: var(--border-radius-lg);
   padding: var(--spacing-xl);
   text-align: center;
@@ -171,20 +182,20 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
 }
 
 .metric-card:hover {
-  border-color: var(--color-primary, var(--primary-color));
-  box-shadow: 0 4px 12px rgba(23, 162, 184, 0.15);
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgb(23 162 184 / 15%);
 }
 
 .metric-value {
   font-size: 2.5rem;
   font-weight: 700;
-  color: var(--color-text, var(--text-color));
+  color: var(--color-text);
   margin-bottom: 0.5rem;
 }
 
 .metric-label {
   font-size: 0.875rem;
-  color: var(--color-text-secondary, var(--text-color));
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -200,11 +211,11 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
 }
 
 .metric-change.positive {
-  color: var(--color-success, #4caf50);
+  color: var(--color-success);
 }
 
 .metric-change.negative {
-  color: var(--color-error, #ff4444);
+  color: var(--color-error);
 }
 
 .theme-button {
@@ -212,10 +223,10 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
   align-items: center;
   justify-content: center;
   padding: var(--spacing-small) var(--spacing-large);
-  border: 1px solid var(--color-border, var(--border-color));
+  border: 1px solid var(--color-border);
   border-radius: var(--border-radius);
-  background: var(--color-bg-container, var(--card-color));
-  color: var(--color-text, var(--text-color));
+  background: var(--color-bg-container);
+  color: var(--color-text);
   font-size: var(--font-size-medium);
   font-weight: 500;
   text-decoration: none;
@@ -225,37 +236,37 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
 }
 
 .theme-button:hover {
-  background: var(--color-primary, var(--primary-color));
-  color: #ffffff;
-  border-color: var(--color-primary, var(--primary-color));
+  background: var(--color-primary);
+  color: var(--color-white);
+  border-color: var(--color-primary);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(23, 162, 184, 0.2);
+  box-shadow: 0 4px 8px rgb(23 162 184 / 20%);
 }
 
 .theme-button-primary {
-  background: var(--color-primary, var(--primary-color));
-  color: #ffffff;
-  border-color: var(--color-primary, var(--primary-color));
+  background: var(--color-primary);
+  color: var(--color-white);
+  border-color: var(--color-primary);
   font-weight: 600;
 }
 
 .theme-button-primary:hover {
-  background: var(--color-primary-hover, #138496);
-  border-color: var(--color-primary-hover, #138496);
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+  box-shadow: 0 4px 12px rgb(23 162 184 / 30%);
 }
 
 .theme-button-success {
-  background: var(--color-success, #4caf50);
-  color: white;
-  border-color: var(--color-success, #4caf50);
+  background: var(--color-success);
+  color: var(--color-white);
+  border-color: var(--color-success);
 }
 
 .theme-button-error {
-  background: var(--color-error, #ff4444);
-  color: white;
-  border-color: var(--color-error, #ff4444);
+  background: var(--color-error);
+  color: var(--color-white);
+  border-color: var(--color-error);
 }
 
 .theme-input {
@@ -275,7 +286,6 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
   background-color: var(--sidebar-color);
 }
 
-/* 响应式字体大小 */
 .text-small {
   font-size: var(--font-size-small);
 }
@@ -288,7 +298,6 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
   font-size: var(--font-size-large);
 }
 
-/* 响应式间距 */
 .spacing-small {
   padding: var(--spacing-small);
 }
@@ -313,12 +322,10 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
   margin: var(--spacing-large);
 }
 
-/* 主题切换动画 */
 .theme-transition {
   transition: all var(--transition-normal);
 }
 
-/* 自定义滚动条样式 */
 .theme-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -336,10 +343,9 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
 }
 
 .theme-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--color-primary, var(--primary-color));
+  background: var(--color-primary);
 }
 
-/* 主题预览样式 */
 .theme-preview {
   position: relative;
   overflow: hidden;
@@ -349,7 +355,7 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
 }
 
 .theme-preview:hover {
-  border-color: var(--color-primary, var(--primary-color));
+  border-color: var(--color-primary);
 }
 
 .theme-preview-header {
@@ -423,7 +429,6 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
   width: 60%;
 }
 
-/* 主题切换按钮样式 */
 .theme-toggle-button {
   border-radius: var(--border-radius);
   transition: all var(--transition-fast);
@@ -433,137 +438,80 @@ body.theme-dark #reddit-result-panel .ant-card-head-title {
   transform: scale(1.05);
 }
 
-/* 深色模式下的特殊样式调整 */
-body.theme-dark .ant-layout {
+body.theme-light .ant-layout,
+body.theme-dark .ant-layout,
+html[data-theme='light'] body .ant-layout,
+html[data-theme='dark'] body .ant-layout {
   background: var(--background-color);
 }
 
-body.theme-dark .ant-layout-header {
+body.theme-light .ant-layout-header,
+body.theme-dark .ant-layout-header,
+html[data-theme='light'] body .ant-layout-header,
+html[data-theme='dark'] body .ant-layout-header {
   background: var(--header-color);
   border-bottom: 1px solid var(--border-color);
 }
 
-body.theme-light .ant-layout-sider {
-  background: #ffffff !important;
-}
-
-body.theme-light .ant-layout {
-  background: var(--background-color);
-}
-
-body.theme-light .ant-layout-header {
-  background: var(--header-color);
-  border-bottom: 1px solid var(--border-color);
-}
-
-body.theme-light .ant-menu {
-  background: transparent;
-  color: var(--text-color);
-}
-
-body.theme-light .ant-card {
-  background: var(--card-color);
-  border-color: var(--border-color);
-}
-
-body.theme-light .ant-table {
-  background: var(--card-color);
-}
-
-body.theme-light .ant-table-thead > tr > th {
-  background: var(--background-color);
-  border-color: var(--border-color);
-  color: var(--text-color);
-}
-
-body.theme-light .ant-table-tbody > tr > td {
-  border-color: var(--border-color);
-  color: var(--text-color);
-}
-
-body.theme-dark .ant-layout-sider {
+body.theme-light .ant-layout-sider,
+body.theme-dark .ant-layout-sider,
+html[data-theme='light'] body .ant-layout-sider,
+html[data-theme='dark'] body .ant-layout-sider {
   background: var(--sidebar-color);
 }
 
-body.theme-dark .ant-menu {
+body.theme-light .ant-menu,
+body.theme-dark .ant-menu,
+html[data-theme='light'] body .ant-menu,
+html[data-theme='dark'] body .ant-menu {
   background: transparent;
   color: var(--text-color);
 }
 
-body.theme-dark .ant-card {
+body.theme-light .ant-card,
+body.theme-dark .ant-card,
+html[data-theme='light'] body .ant-card,
+html[data-theme='dark'] body .ant-card {
   background: var(--card-color);
   border-color: var(--border-color);
 }
 
-body.theme-dark .ant-table {
+body.theme-light .ant-table,
+body.theme-dark .ant-table,
+html[data-theme='light'] body .ant-table,
+html[data-theme='dark'] body .ant-table {
   background: var(--card-color);
 }
 
-body.theme-dark .ant-table-thead > tr > th {
+body.theme-light .ant-table-thead > tr > th,
+body.theme-dark .ant-table-thead > tr > th,
+html[data-theme='light'] body .ant-table-thead > tr > th,
+html[data-theme='dark'] body .ant-table-thead > tr > th {
   background: var(--background-color);
   border-color: var(--border-color);
   color: var(--text-color);
 }
 
-body.theme-dark .ant-table-tbody > tr > td {
+body.theme-light .ant-table-tbody > tr > td,
+body.theme-dark .ant-table-tbody > tr > td,
+html[data-theme='light'] body .ant-table-tbody > tr > td,
+html[data-theme='dark'] body .ant-table-tbody > tr > td {
   border-color: var(--border-color);
   color: var(--text-color);
 }
 
-/* 暗色主题Typography组件样式 - 使用最高优先级 */
-html[data-theme='dark'] .ant-typography {
-  color: #ffffff !important;
+body.theme-light .ant-drawer-header,
+body.theme-dark .ant-drawer-header,
+body.theme-light .ant-drawer-body,
+body.theme-dark .ant-drawer-body,
+body.theme-light .ant-modal-content,
+body.theme-dark .ant-modal-content,
+body.theme-light .ant-popover-inner,
+body.theme-dark .ant-popover-inner {
+  background: var(--card-color);
+  color: var(--text-color);
 }
 
-html[data-theme='dark'] .ant-typography strong {
-  color: #ffffff !important;
-  font-weight: bold !important;
-}
-
-html[data-theme='dark'] .ant-typography-secondary {
-  color: #e6f7ff !important;
-}
-
-html[data-theme='dark'] .ant-typography .ant-typography-secondary {
-  color: #e6f7ff !important;
-}
-
-/* 使用更高特异性的选择器覆盖Ant Design的CSS-in-JS样式 */
-html[data-theme='dark'] .ant-typography,
-html[data-theme='dark'] .ant-typography *,
-html[data-theme='dark'] .ant-typography span,
-html[data-theme='dark'] .ant-typography div,
-html[data-theme='dark'] .ant-typography strong,
-html[data-theme='dark'] .ant-typography b {
-  color: #ffffff !important;
-}
-
-/* 特殊处理secondary类型文字 */
-html[data-theme='dark'] .ant-typography-secondary,
-html[data-theme='dark'] .ant-typography .ant-typography-secondary {
-  color: #e6f7ff !important;
-}
-
-/* 覆盖所有可能的Typography变体 */
-html[data-theme='dark'] .ant-typography.ant-typography-secondary {
-  color: #e6f7ff !important;
-}
-
-/* 使用ID选择器获得最高优先级 - 针对Reddit结果面板 */
-#reddit-result-panel .ant-typography,
-#reddit-result-panel .ant-typography *,
-#reddit-result-panel .ant-typography strong,
-#reddit-result-panel .ant-typography b {
-  color: #ffffff !important;
-  font-weight: bold !important;
-}
-
-#reddit-result-panel .ant-typography-secondary,
-#reddit-result-panel .ant-typography .ant-typography-secondary {
-  color: #e6f7ff !important;
-}
-
-/* 主题过渡动画 */
 @keyframes themeTransition {
   0% {
     opacity: 0.8;
@@ -580,7 +528,6 @@ html[data-theme='dark'] .ant-typography.ant-typography-secondary {
   animation: themeTransition var(--transition-normal) ease-in-out;
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
   .theme-toggle-button {
     padding: 4px 8px;

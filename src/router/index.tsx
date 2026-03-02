@@ -72,7 +72,9 @@ const ErrorBoundary: React.FC = () => {
     >
       <h1>{title}</h1>
       <p>{subtitle}</p>
-      <p style={{ color: '#666' }}>{getErrorMessage(error)}</p>
+      <p style={{ color: 'var(--color-text-secondary, #6c757d)' }}>
+        {getErrorMessage(error)}
+      </p>
     </div>
   );
 };

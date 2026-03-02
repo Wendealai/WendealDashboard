@@ -27,6 +27,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Dark mode audit (warning gate)
+        run: npm run audit:dark-mode || true
+
       - name: Sparkery ownership note
         run: echo "Sparkery UI quality gates now run in Wendealai/Sparkery."
 
