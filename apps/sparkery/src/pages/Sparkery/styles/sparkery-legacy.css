@@ -8,14 +8,34 @@
     rgba(247, 250, 255, 1) 0%,
     rgba(241, 246, 255, 1) 100%
   );
-  --sparkery-panel: #ffffff;
-  --sparkery-border: #d8e4f3;
+  --sparkery-panel: var(--color-white);
+  --sparkery-border: var(--color-border);
   --sparkery-border-strong: #c4d5ea;
   --sparkery-text: #1b2a3d;
   --sparkery-muted: #5f7088;
-  --sparkery-soft: #f3f8ff;
+  --sparkery-soft: var(--color-bg-info-soft);
   --sparkery-shadow: 0 8px 20px rgba(15, 44, 77, 0.07);
   color: var(--sparkery-text);
+}
+
+html[data-theme='dark'] .sparkery-page,
+html[data-theme='dark'] .sparkery-tool-page,
+html[data-theme='dark'] .sparkery-quote-form-page,
+html[data-theme='dark'] .sparkery-reimbursement-page,
+html[data-theme='dark'] .sparkery-submissions-page,
+body.theme-dark .sparkery-page,
+body.theme-dark .sparkery-tool-page,
+body.theme-dark .sparkery-quote-form-page,
+body.theme-dark .sparkery-reimbursement-page,
+body.theme-dark .sparkery-submissions-page {
+  --sparkery-bg: var(--color-bg-layout);
+  --sparkery-panel: var(--color-bg-container);
+  --sparkery-border: var(--color-border);
+  --sparkery-border-strong: var(--color-border-secondary);
+  --sparkery-text: var(--color-text);
+  --sparkery-muted: var(--color-text-secondary);
+  --sparkery-soft: var(--color-bg-muted);
+  --sparkery-shadow: 0 8px 20px rgb(0 0 0 / 35%);
 }
 
 .sparkery-page {
@@ -89,7 +109,7 @@
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid #d9e6f5;
-  background: #f8fbff;
+  background: var(--color-bg-info-soft);
 }
 
 .sparkery-reimbursement-notes-title {
@@ -98,7 +118,7 @@
 }
 
 .sparkery-reimbursement-note-item {
-  color: #5f728d !important;
+  color: var(--color-text-secondary) !important;
   line-height: 1.4;
 }
 
@@ -134,13 +154,13 @@
 }
 
 .sparkery-page .sparkery-tabs .ant-tabs-tab-active {
-  background: #ffffff;
+  background: var(--color-white);
   border-color: var(--sparkery-border);
   box-shadow: 0 4px 10px rgba(15, 44, 77, 0.08);
 }
 
 .sparkery-page .sparkery-tabs .ant-tabs-tab .ant-tabs-tab-btn {
-  color: #2a3a50;
+  color: var(--color-text);
   font-weight: 500;
 }
 
@@ -173,7 +193,7 @@
 }
 
 .sparkery-page .ant-card-head {
-  border-bottom: 1px solid #e7eef8;
+  border-bottom: 1px solid var(--color-border-secondary);
 }
 
 .sparkery-page .ant-input,
@@ -189,7 +209,7 @@
 }
 
 .sparkery-page .ant-table-wrapper .ant-table {
-  border: 1px solid #e6eef9;
+  border: 1px solid var(--color-border-secondary);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -200,9 +220,9 @@
 
 .sparkery-page .ant-table-wrapper .ant-table-thead > tr > th {
   background: var(--sparkery-soft);
-  color: #2a3a50;
+  color: var(--color-text);
   font-weight: 600;
-  border-bottom: 1px solid #dce8f6;
+  border-bottom: 1px solid var(--color-border-secondary);
 }
 
 .sparkery-tool-page,
@@ -229,7 +249,7 @@
 }
 
 .sparkery-tool-page .ant-card-head {
-  border-bottom: 1px solid #e7eef8;
+  border-bottom: 1px solid var(--color-border-secondary);
 }
 
 .sparkery-tool-page .ant-input,
@@ -245,16 +265,16 @@
 }
 
 .sparkery-tool-page .ant-table-wrapper .ant-table {
-  border: 1px solid #e6eef9;
+  border: 1px solid var(--color-border-secondary);
   border-radius: 10px;
   overflow: hidden;
 }
 
 .sparkery-tool-page .ant-table-wrapper .ant-table-thead > tr > th {
   background: var(--sparkery-soft);
-  color: #2a3a50;
+  color: var(--color-text);
   font-weight: 600;
-  border-bottom: 1px solid #dce8f6;
+  border-bottom: 1px solid var(--color-border-secondary);
 }
 
 .sparkery-tool-page .ant-table-wrapper .ant-table-tbody > tr:hover > td {
@@ -313,7 +333,7 @@
   padding: 8px 10px;
   border: 1px solid #e3ebf7;
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-white);
   line-height: 1.35;
 }
 
@@ -466,9 +486,9 @@
 .sparkery-quote-calc-service-total {
   margin-top: 16px;
   padding: 16px;
-  background: #f6ffed;
+  background: var(--color-bg-success-soft);
   border-radius: 8px;
-  border: 1px solid #b7eb8f;
+  border: 1px solid var(--color-success);
 }
 
 .sparkery-quote-calc-service-total-label {
@@ -477,7 +497,7 @@
 
 .sparkery-quote-calc-service-total-value {
   font-size: 24px;
-  color: #52c41a !important;
+  color: var(--color-success) !important;
 }
 
 .sparkery-quote-calc-addon-grid {
@@ -492,21 +512,21 @@
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--color-border-secondary);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-white);
   transition: all 0.2s ease;
 }
 
 .sparkery-quote-calc-checkbox-tight:hover {
-  border-color: #b7eb8f;
+  border-color: var(--color-success);
   background: #fcfff5;
 }
 
 .sparkery-quote-calc-addon-grid
   .sparkery-quote-calc-checkbox-tight.ant-checkbox-wrapper-checked {
-  border-color: #52c41a;
-  background: #f6ffed;
+  border-color: var(--color-success);
+  background: var(--color-bg-success-soft);
 }
 
 .sparkery-quote-calc-checkbox-tight .ant-checkbox {
@@ -544,7 +564,7 @@
 
 .sparkery-quote-calc-addon-meta {
   font-size: 12px;
-  color: #8c8c8c !important;
+  color: var(--color-text-tertiary) !important;
 }
 
 .sparkery-quote-calc-measurement-grid {
@@ -561,7 +581,7 @@
   padding: 10px;
   border: 1px solid #eef3fa;
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-white);
 }
 
 .sparkery-quote-calc-addon-item .ant-checkbox-wrapper {
@@ -599,7 +619,7 @@
 .sparkery-quote-calc-manual-addon-card {
   margin-top: 8px;
   border-radius: 8px;
-  background: #fafafa;
+  background: var(--color-bg-muted);
 }
 
 .sparkery-quote-calc-text-right {
@@ -652,12 +672,12 @@
 }
 
 .sparkery-quote-calc-discount-text {
-  color: #52c41a !important;
+  color: var(--color-success) !important;
 }
 
 .sparkery-quote-calc-total-title {
   margin: 0 !important;
-  color: #1890ff !important;
+  color: var(--color-primary) !important;
 }
 
 .sparkery-quote-calc-label-compact {
@@ -690,7 +710,7 @@
 .sparkery-quote-calc-panel-soft {
   margin-top: 8px;
   padding: 8px;
-  background: #fafafa;
+  background: var(--color-bg-muted);
   border-radius: 4px;
 }
 
@@ -728,7 +748,7 @@
 .sparkery-quote-calc-share-panel .ant-input:focus,
 .sparkery-quote-calc-share-panel .ant-select-focused .ant-select-selector,
 .sparkery-quote-calc-client-preview-frame-shell:focus-within {
-  outline: 2px solid #1677ff;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -749,7 +769,7 @@
   width: 100%;
   min-height: 70vh;
   border: 0;
-  background: #fff;
+  background: var(--color-white);
 }
 
 .sparkery-quote-calc-preview-section {
@@ -760,7 +780,7 @@
   width: min(210mm, 100%);
   min-height: 297mm;
   margin: 0 auto;
-  background: #fff;
+  background: var(--color-white);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   overflow: auto;
   border-radius: 10px;
@@ -903,8 +923,8 @@
   left: -9999px;
   top: 8px;
   z-index: 1000;
-  background: #1677ff;
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-white);
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 12px;
@@ -912,7 +932,7 @@
 
 .sparkery-inspection-skip-link:focus {
   left: 12px;
-  outline: 2px solid #ffffff;
+  outline: 2px solid var(--color-white);
   outline-offset: 2px;
   box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.3);
 }
@@ -994,7 +1014,7 @@
 
 .sparkery-inspection-empty-icon {
   font-size: 48px;
-  color: #bfbfbf;
+  color: var(--color-text-tertiary);
 }
 
 .sparkery-inspection-empty-actions {
@@ -1015,7 +1035,11 @@
 
 .sparkery-inspection-quick-card {
   margin-bottom: 16px;
-  background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-success) 0%,
+    var(--color-success) 100%
+  );
   border: none;
   border-radius: 12px;
 }
@@ -1029,7 +1053,7 @@
 }
 
 .sparkery-inspection-quick-title {
-  color: #fff !important;
+  color: var(--color-white) !important;
   font-size: 18px;
   display: flex;
   align-items: center;
@@ -1070,8 +1094,8 @@
   font-weight: 600;
   height: 44px;
   border-radius: 8px;
-  background: #fff !important;
-  color: #389e0d !important;
+  background: var(--color-white) !important;
+  color: var(--color-success) !important;
   border: none !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
@@ -1103,7 +1127,7 @@
   padding: 8px 10px;
   border: 1px solid #e3edf8;
   border-radius: 8px;
-  background: #f8fbff;
+  background: var(--color-bg-info-soft);
   flex-wrap: wrap;
 }
 
@@ -1137,7 +1161,11 @@
 
 .sparkery-inspection-metric-card {
   border: 1px solid #dbe8f8;
-  background: linear-gradient(135deg, #f8fbff 0%, #f1f7ff 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-bg-info-soft) 0%,
+    #f1f7ff 100%
+  );
 }
 
 .sparkery-inspection-metric-card .ant-card-body {
@@ -1146,13 +1174,13 @@
 
 .sparkery-inspection-metric-card .ant-statistic-title {
   font-size: 12px;
-  color: #5f728d;
+  color: var(--color-text-secondary);
 }
 
 .sparkery-inspection-metric-card .ant-statistic-content {
   font-size: 22px;
   line-height: 1.2;
-  color: #1f3652;
+  color: var(--color-text);
 }
 
 .sparkery-inspection-filter-row {
@@ -1230,7 +1258,7 @@
 
 .sparkery-inspection-active-filters {
   margin-bottom: 10px;
-  border: 1px solid #dfe9f7;
+  border: 1px solid var(--color-border-secondary);
   border-radius: 10px;
   padding: 8px 10px;
   background: #fcfeff;
@@ -1264,7 +1292,7 @@
   gap: 8px;
   flex-wrap: wrap;
   padding: 8px 10px;
-  border: 1px solid #e3edf9;
+  border: 1px solid var(--color-border-secondary);
   border-radius: 8px;
   background: #fbfdff;
 }
@@ -1272,7 +1300,7 @@
 .sparkery-inspection-batch-card {
   margin-bottom: 12px;
   border-color: #cce2ff;
-  background: #f3f8ff;
+  background: var(--color-bg-info-soft);
   position: sticky;
   top: 12px;
   z-index: 3;
@@ -1305,11 +1333,11 @@
   border: 1px solid #dbe8f7;
   border-radius: 10px;
   padding: 10px;
-  background: #f9fbff;
+  background: var(--color-bg-container);
 }
 
 .sparkery-inspection-archive-group-focused {
-  border-color: #91caff;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 1px rgba(22, 119, 255, 0.16);
 }
 
@@ -1338,7 +1366,7 @@
 }
 
 .sparkery-inspection-board-column {
-  border: 1px solid #d8e4f3;
+  border: 1px solid var(--color-border);
   background: #f7fbff;
 }
 
@@ -1370,7 +1398,7 @@
 }
 
 .sparkery-inspection-archive-card {
-  border: 1px solid #d8e4f3;
+  border: 1px solid var(--color-border);
 }
 
 .sparkery-inspection-archive-card-board {
@@ -1378,12 +1406,12 @@
 }
 
 .sparkery-inspection-archive-card-selected {
-  border-color: #91caff;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 1px rgba(22, 119, 255, 0.12);
 }
 
 .sparkery-inspection-archive-card-pinned {
-  border-left: 4px solid #1677ff;
+  border-left: 4px solid var(--color-primary);
 }
 
 .sparkery-inspection-archive-card-starred {
@@ -1427,7 +1455,7 @@
 
 .sparkery-inspection-archive-detail-grid {
   margin-top: 10px;
-  border-top: 1px dashed #d8e4f3;
+  border-top: 1px dashed var(--color-border);
   padding-top: 10px;
   display: flex;
   gap: 8px;
@@ -1447,7 +1475,7 @@
 }
 
 .sparkery-inspection-search-mark {
-  background: #fff2a8;
+  background: var(--color-white) 2a8;
   padding: 0 2px;
   border-radius: 2px;
 }
@@ -1458,7 +1486,7 @@
 }
 
 .sparkery-inspection-drawer-card {
-  border-color: #d8e4f3;
+  border-color: var(--color-border);
 }
 
 .sparkery-inspection-drawer-meta-grid {
@@ -1508,9 +1536,9 @@
 
 .sparkery-inspection-action-log-item {
   padding: 8px 10px;
-  border: 1px solid #e3edf9;
+  border: 1px solid var(--color-border-secondary);
   border-radius: 8px;
-  background: #f9fbff;
+  background: var(--color-bg-container);
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
@@ -1520,7 +1548,7 @@
 .sparkery-inspection-action-log-type {
   font-family: monospace;
   font-size: 12px;
-  color: #1f3652;
+  color: var(--color-text);
 }
 
 .sparkery-inspection-action-log-time {
@@ -1563,7 +1591,7 @@
 .sparkery-inspection-focus-strong .ant-input:focus,
 .sparkery-inspection-focus-strong .ant-select-focused .ant-select-selector,
 .sparkery-inspection-focus-strong .ant-checkbox-wrapper:focus-within {
-  outline: 3px solid #1677ff;
+  outline: 3px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -1625,9 +1653,9 @@
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
-  border: 1px solid #dfe9f7;
+  border: 1px solid var(--color-border-secondary);
   border-radius: 8px;
-  background: #f8fbff;
+  background: var(--color-bg-info-soft);
 }
 
 .sparkery-inspection-thumb-row {
@@ -1643,7 +1671,7 @@
   object-fit: cover;
   border-radius: 4px;
   cursor: pointer;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--color-border);
 }
 
 .sparkery-inspection-section-tag-gap {
@@ -1652,15 +1680,15 @@
 
 .sparkery-inspection-divider-soft {
   height: 1px;
-  background: #f0f0f0;
+  background: var(--color-border-secondary);
   margin: 12px 0;
 }
 
 .sparkery-inspection-ref-card {
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--color-border);
   padding: 10px;
   text-align: center;
-  background: #fafafa;
+  background: var(--color-bg-muted);
   border-radius: 8px;
 }
 
@@ -1687,7 +1715,7 @@
   object-fit: cover;
   border-radius: 4px;
   cursor: pointer;
-  border: 2px solid #52c41a;
+  border: 2px solid var(--color-success);
 }
 
 .sparkery-inspection-thumb-delete {
@@ -1695,7 +1723,7 @@
   top: -8px;
   right: -8px;
   padding: 2px;
-  background: #fff;
+  background: var(--color-white);
   border-radius: 50%;
 }
 
@@ -1737,7 +1765,7 @@
   object-fit: cover;
   border-radius: 6px;
   cursor: pointer;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--color-border);
 }
 
 .sparkery-inspection-note-image-delete {
@@ -1745,13 +1773,13 @@
   top: -6px;
   right: -6px;
   padding: 2px;
-  background: #fff;
+  background: var(--color-white);
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .sparkery-inspection-card-soft {
-  background: #fafafa;
+  background: var(--color-bg-muted);
   border-radius: 8px;
 }
 
@@ -1767,7 +1795,7 @@
   object-fit: cover;
   border-radius: 6px;
   cursor: pointer;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--color-border);
 }
 
 .sparkery-inspection-divider {
@@ -1798,7 +1826,7 @@
 }
 
 .sparkery-inspection-draggable-chip-over {
-  outline: 1px dashed #1677ff;
+  outline: 1px dashed var(--color-primary);
 }
 
 .sparkery-inspection-section-tag {
@@ -1808,7 +1836,7 @@
 
 .sparkery-inspection-drag-icon {
   margin-right: 6px;
-  color: #8c8c8c;
+  color: var(--color-text-tertiary);
 }
 
 .sparkery-inspection-optional-tag {
@@ -1829,7 +1857,7 @@
   align-items: center;
   margin-bottom: 6px;
   padding: 6px 8px;
-  background: #fafafa;
+  background: var(--color-bg-muted);
   border-radius: 4px;
 }
 
@@ -1845,7 +1873,7 @@
 }
 
 .sparkery-inspection-preview-close {
-  color: #fff;
+  color: var(--color-white);
   font-size: 20px;
 }
 
@@ -1866,7 +1894,7 @@
 }
 
 .sparkery-inspection-preview-desc {
-  color: #fff !important;
+  color: var(--color-white) !important;
   margin-top: 12px;
   max-width: 600px;
   text-align: center;
@@ -1881,8 +1909,8 @@
 }
 
 .sparkery-procurement-draft-toolbar-active {
-  background: #f6ffed;
-  border-color: #b7eb8f;
+  background: var(--color-bg-success-soft);
+  border-color: var(--color-success);
 }
 
 .sparkery-procurement-toolbar-row {
@@ -1913,8 +1941,8 @@
 }
 
 .sparkery-procurement-save-btn-active {
-  background: #52c41a !important;
-  border-color: #52c41a !important;
+  background: var(--color-success) !important;
+  border-color: var(--color-success) !important;
 }
 
 .sparkery-procurement-drawer-title {
@@ -1945,13 +1973,13 @@
 
 .sparkery-procurement-draft-card {
   cursor: pointer;
-  border-color: #d9d9d9;
-  background: #fff;
+  border-color: var(--color-border);
+  background: var(--color-white);
 }
 
 .sparkery-procurement-draft-card-current {
-  border-color: #52c41a !important;
-  background: #f6ffed !important;
+  border-color: var(--color-success) !important;
+  background: var(--color-bg-success-soft) !important;
 }
 
 .sparkery-procurement-draft-card .ant-card-body {
@@ -2036,8 +2064,8 @@
 }
 
 .sparkery-procurement-draft-open-btn {
-  background: #52c41a !important;
-  border-color: #52c41a !important;
+  background: var(--color-success) !important;
+  border-color: var(--color-success) !important;
 }
 
 .sparkery-procurement-main {
@@ -2101,7 +2129,7 @@
 
 .sparkery-procurement-th {
   padding: 8px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--color-border);
   font-weight: 600;
 }
 
@@ -2137,7 +2165,7 @@
 
 .sparkery-procurement-td {
   padding: 8px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--color-border);
 }
 
 .sparkery-procurement-td-right {
@@ -2175,7 +2203,7 @@
 .sparkery-procurement-total-value {
   margin-left: 8px;
   font-size: 18px;
-  color: #1890ff;
+  color: var(--color-primary);
 }
 
 .sparkery-procurement-section-title-row {
@@ -2201,7 +2229,7 @@
 }
 
 .sparkery-procurement-image-card {
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 4px;
 }
@@ -2225,8 +2253,8 @@
 .sparkery-procurement-recognize-btn {
   margin-top: 12px;
   width: 100%;
-  background: #52c41a !important;
-  border-color: #52c41a !important;
+  background: var(--color-success) !important;
+  border-color: var(--color-success) !important;
 }
 
 .sparkery-procurement-actions-card {
@@ -2234,8 +2262,8 @@
 }
 
 .sparkery-procurement-primary-action {
-  background: #52c41a !important;
-  border-color: #52c41a !important;
+  background: var(--color-success) !important;
+  border-color: var(--color-success) !important;
 }
 
 .sparkery-procurement-instruction-alert {
@@ -2290,7 +2318,7 @@
 
 .sparkery-quote-form-header-contact {
   text-align: right;
-  color: #fff;
+  color: var(--color-white);
   font-size: 12px;
 }
 
@@ -2401,12 +2429,12 @@
 
 .sparkery-quote-form-success-text {
   font-size: 16px;
-  color: #666 !important;
+  color: var(--color-text-secondary) !important;
 }
 
 .sparkery-quote-form-success-help {
   font-size: 14px;
-  color: #888 !important;
+  color: var(--color-text-tertiary) !important;
 }
 
 .sparkery-quote-form-center-header {
@@ -2462,7 +2490,7 @@
 
 .sparkery-quote-form-tooltip-icon {
   margin-left: 8px;
-  color: #888;
+  color: var(--color-text-tertiary);
 }
 
 .sparkery-quote-form-submit-wrap {
@@ -2490,7 +2518,7 @@
 .sparkery-quote-form-footer {
   text-align: center;
   padding: 24px 0;
-  color: #666;
+  color: var(--color-text-secondary);
   border-top: 1px solid rgba(11, 100, 40, 0.16);
 }
 
@@ -2610,7 +2638,7 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    background: #f9fbff;
+    background: var(--color-bg-container);
     padding-bottom: 6px;
   }
 

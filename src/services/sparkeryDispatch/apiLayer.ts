@@ -181,6 +181,7 @@ export const supabaseFetch = async <T>(
   } = options;
 
   const requestUrl = `${config.url.replace(/\/$/, '')}${path}`;
+  const requestCache = requestInit.cache || 'no-store';
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt += 1) {
@@ -190,6 +191,7 @@ export const supabaseFetch = async <T>(
     try {
       const response = await fetch(requestUrl, {
         ...requestInit,
+        cache: requestCache,
         signal: controller.signal,
         headers: mergeHeaders(config.anonKey, headers),
       });

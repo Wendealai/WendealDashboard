@@ -156,43 +156,94 @@ const DispatchFinanceDashboard: React.FC = () => {
     dispatch(fetchDispatchCustomerProfiles());
   }, [dispatch]);
 
-  const loadAgingJobs = React.useCallback(async () => {
-    setAgingLoading(true);
-    try {
-      const rows = await sparkeryDispatchService.getJobs();
-      setAgingJobs(rows);
-    } catch {
-      message.error(
-        t('sparkery.dispatch.financeDashboard.messages.loadAgingFailed')
-      );
-    } finally {
-      setAgingLoading(false);
-    }
-  }, [t]);
+  const loadAgingJobs = React.useCallback(
+    async (options?: { silent?: boolean }) => {
+      setAgingLoading(true);
+      try {
+        const rows = await sparkeryDispatchService.getJobs();
+        setAgingJobs(rows);
+      } catch {
+        if (!options?.silent) {
+          message.error(
+            t('sparkery.dispatch.financeDashboard.messages.loadAgingFailed')
+          );
+        }
+      } finally {
+        setAgingLoading(false);
+      }
+    },
+    [t]
+  );
+
+  const refreshFinanceData = React.useCallback(
+    async (options?: { silent?: boolean }) => {
+      await Promise.all([
+        dispatch(
+          fetchDispatchJobs({
+            weekStart: periodRange.periodStart,
+            weekEnd: periodRange.periodEnd,
+          })
+        ),
+        loadAgingJobs(options?.silent ? { silent: true } : undefined),
+      ]);
+    },
+    [dispatch, loadAgingJobs, periodRange.periodEnd, periodRange.periodStart]
+  );
 
   React.useEffect(() => {
-    loadAgingJobs().catch(() => {
-      // handled in loadAgingJobs
+    refreshFinanceData({ silent: true }).catch(() => {
+      // handled by downstream actions
     });
-  }, [loadAgingJobs]);
+  }, [refreshFinanceData]);
 
   React.useEffect(() => {
-    dispatch(
-      fetchDispatchJobs({
-        weekStart: periodRange.periodStart,
-        weekEnd: periodRange.periodEnd,
-      })
-    );
-  }, [dispatch, periodRange.periodEnd, periodRange.periodStart]);
+    const handleWindowFocus = () => {
+      refreshFinanceData({ silent: true }).catch(() => {
+        // handled by downstream actions
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+      refreshFinanceData({ silent: true }).catch(() => {
+        // handled by downstream actions
+      });
+    };
+
+    const handleStorageSync = (event: StorageEvent) => {
+      if (event.key !== 'sparkery_dispatch_storage_v1') {
+        return;
+      }
+      refreshFinanceData({ silent: true }).catch(() => {
+        // handled by downstream actions
+      });
+    };
+
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+      refreshFinanceData({ silent: true }).catch(() => {
+        // handled by downstream actions
+      });
+    }, 15000);
+
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('storage', handleStorageSync);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('storage', handleStorageSync);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshFinanceData]);
 
   const handleRefresh = async () => {
-    await dispatch(
-      fetchDispatchJobs({
-        weekStart: periodRange.periodStart,
-        weekEnd: periodRange.periodEnd,
-      })
-    );
-    await loadAgingJobs();
+    await refreshFinanceData();
     message.success(
       t('sparkery.dispatch.financeDashboard.messages.jobsRefreshed')
     );

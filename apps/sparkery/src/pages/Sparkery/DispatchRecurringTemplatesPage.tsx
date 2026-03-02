@@ -17,7 +17,7 @@ import {
   message,
   type TableColumnsType,
 } from 'antd';
-import { useBlocker, useNavigate } from 'react-router-dom';
+import { UNSAFE_NavigationContext, useNavigate } from 'react-router-dom';
 import {
   clearDispatchError,
   fetchDispatchCustomerProfiles,
@@ -64,6 +64,50 @@ type TemplateReviewCheck = {
   score: number;
   reason?: string | undefined;
   suggestionId?: TemplateReviewSuggestionId | undefined;
+};
+
+type NavigationTransition = {
+  retry: () => void;
+};
+
+type BlockableNavigator = {
+  block?: (blocker: (transition: NavigationTransition) => void) => () => void;
+};
+
+const useBrowserRouterBlocker = (
+  enabled: boolean,
+  onBlock: (transition: NavigationTransition) => void
+) => {
+  const navigationContext = React.useContext(UNSAFE_NavigationContext) as
+    | { navigator?: BlockableNavigator }
+    | null;
+  const onBlockRef = React.useRef(onBlock);
+
+  React.useEffect(() => {
+    onBlockRef.current = onBlock;
+  }, [onBlock]);
+
+  React.useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    const navigator = navigationContext?.navigator;
+    if (!navigator || typeof navigator.block !== 'function') {
+      return;
+    }
+
+    const unblock = navigator.block(transition => {
+      const autoUnblockingTransition: NavigationTransition = {
+        retry() {
+          unblock();
+          transition.retry();
+        },
+      };
+      onBlockRef.current(autoUnblockingTransition);
+    });
+
+    return unblock;
+  }, [enabled, navigationContext]);
 };
 
 const toTemplateDraftKey = (templateId: string): string =>
@@ -538,26 +582,21 @@ const DispatchRecurringTemplatesPage: React.FC = () => {
     [clearDraftTimer, editingTemplate, form, hasUnsavedChanges, t]
   );
 
-  const navigationBlocker = useBlocker(
-    Boolean(editingTemplate && hasUnsavedChanges)
-  );
-
-  React.useEffect(() => {
-    if (navigationBlocker.state !== 'blocked') {
-      return;
-    }
-    const shouldDiscard = window.confirm(
-      t('sparkery.dispatch.recurringTemplates.workflow.confirmLeave', {
-        defaultValue: 'You have unsaved changes. Leave this page anyway?',
-      })
-    );
-    if (shouldDiscard) {
+  useBrowserRouterBlocker(
+    Boolean(editingTemplate && hasUnsavedChanges),
+    transition => {
+      const shouldDiscard = window.confirm(
+        t('sparkery.dispatch.recurringTemplates.workflow.confirmLeave', {
+          defaultValue: 'You have unsaved changes. Leave this page anyway?',
+        })
+      );
+      if (!shouldDiscard) {
+        return;
+      }
       closeEdit(true);
-      navigationBlocker.proceed();
-      return;
+      transition.retry();
     }
-    navigationBlocker.reset();
-  }, [closeEdit, navigationBlocker, t]);
+  );
 
   const handleFormValuesChange = React.useCallback(
     (_: unknown, allValues: UpsertDispatchCustomerProfilePayload) => {

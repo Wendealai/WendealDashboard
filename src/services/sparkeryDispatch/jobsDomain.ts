@@ -995,7 +995,7 @@ export const createDispatchJobsDomainService = (
 
       if (deps.getSupabaseConfig()) {
         const encodedId = encodeURIComponent(id);
-        await deps.supabaseFetch<SupabaseDispatchJobRow[]>(
+        const deletedRowsRaw = await deps.supabaseFetch<unknown[]>(
           `/rest/v1/dispatch_jobs?id=eq.${encodedId}`,
           {
             method: 'DELETE',
@@ -1004,6 +1004,28 @@ export const createDispatchJobsDomainService = (
             },
           }
         );
+        const deletedRows = ensureSupabaseRows(
+          deletedRowsRaw,
+          isSupabaseDispatchJobRowValue,
+          'dispatch_jobs'
+        );
+        const deletedOnServer = deletedRows.some(row => row.id === id);
+
+        if (!deletedOnServer) {
+          const verifyParams = job?.scheduledDate
+            ? {
+                weekStart: job.scheduledDate,
+                weekEnd: job.scheduledDate,
+              }
+            : undefined;
+          const remainingJobs = await service.getJobs(verifyParams);
+          const stillExists = remainingJobs.some(item => item.id === id);
+          if (stillExists) {
+            throw new Error(
+              'Delete did not persist to cloud storage. Please check Supabase delete permissions (RLS).'
+            );
+          }
+        }
         return;
       }
 

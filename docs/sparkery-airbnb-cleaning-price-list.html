@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sparkery Cleaning Services - Price List</title>
+    <style>
+      :root {
+        --brand: #2e7d32;
+        --brand-dark: #1b5e20;
+        --brand-soft: #e8f5e9;
+        --surface: #f4fbf5;
+        --surface-strong: #edf7ee;
+        --line: #d3e5d5;
+        --line-strong: #bfd7c2;
+        --ink: #1f2a21;
+        --ink-muted: #4d5d50;
+        --white: #ffffff;
+        --shadow: 0 16px 38px rgba(17, 58, 30, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 28px 14px;
+        background:
+          radial-gradient(
+            circle at 8% 6%,
+            rgba(46, 125, 50, 0.15),
+            rgba(46, 125, 50, 0) 34%
+          ),
+          radial-gradient(
+            circle at 100% 100%,
+            rgba(27, 94, 32, 0.12),
+            rgba(27, 94, 32, 0) 38%
+          ),
+          #edf4ee;
+        color: var(--ink);
+        font-family: "Segoe UI", Arial, sans-serif;
+        line-height: 1.4;
+      }
+
+      .sheet {
+        width: min(1080px, 100%);
+        margin: 0 auto;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        overflow: hidden;
+        background: var(--white);
+        box-shadow: var(--shadow);
+      }
+
+      .topband {
+        padding: 28px 34px 24px;
+        background: linear-gradient(135deg, var(--brand-dark), var(--brand));
+        color: #f6fcf7;
+      }
+
+      .eyebrow {
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.24em;
+        font-size: 11px;
+        opacity: 0.9;
+      }
+
+      h1 {
+        margin: 10px 0 0;
+        font-size: clamp(28px, 4.8vw, 46px);
+        line-height: 1.08;
+        font-family: Georgia, "Times New Roman", serif;
+      }
+
+      .sub {
+        margin: 12px 0 0;
+        font-size: 14px;
+        opacity: 0.96;
+      }
+
+      .body {
+        padding: 24px;
+        background: linear-gradient(180deg, #ffffff, #fbfdfb);
+      }
+
+      .section {
+        border: 1px solid var(--line);
+        background: var(--white);
+        border-radius: 14px;
+        margin-bottom: 14px;
+        overflow: hidden;
+      }
+
+      .section-title {
+        margin: 0;
+        padding: 12px 16px;
+        background: var(--surface);
+        color: var(--brand-dark);
+        font-size: 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .table th,
+      .table td {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line);
+        font-size: 14px;
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      .table thead th {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+        background: var(--surface-strong);
+      }
+
+      .table tbody tr:nth-child(even) {
+        background: #fcfefc;
+      }
+
+      .table tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .price {
+        font-weight: 700;
+        color: var(--brand-dark);
+        white-space: nowrap;
+      }
+
+      .time {
+        color: var(--ink-muted);
+        white-space: nowrap;
+      }
+
+      .dual-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .dual-grid .cell {
+        padding: 11px 14px;
+        border-bottom: 1px solid var(--line);
+        font-size: 14px;
+      }
+
+      .dual-grid .cell:nth-child(4n + 1),
+      .dual-grid .cell:nth-child(4n + 2) {
+        background: #fcfefc;
+      }
+
+      .dual-grid .cell:nth-last-child(-n + 2) {
+        border-bottom: 0;
+      }
+
+      .included {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 20px;
+        padding: 14px 16px 16px;
+      }
+
+      .included-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        font-size: 14px;
+      }
+
+      .tick {
+        color: var(--brand);
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .contact {
+        margin-top: 8px;
+        border: 1px solid var(--line-strong);
+        background: linear-gradient(130deg, var(--brand-soft), var(--surface));
+        border-radius: 12px;
+        padding: 12px 14px;
+      }
+
+      .contact-row {
+        margin: 0;
+        font-size: 14px;
+        color: var(--ink);
+      }
+
+      .contact-row + .contact-row {
+        margin-top: 5px;
+      }
+
+      @media (max-width: 860px) {
+        .body {
+          padding: 14px;
+        }
+
+        .dual-grid,
+        .included {
+          grid-template-columns: 1fr;
+        }
+
+        .dual-grid .cell:nth-last-child(-n + 2) {
+          border-bottom: 1px solid var(--line);
+        }
+
+        .dual-grid .cell:last-child {
+          border-bottom: 0;
+        }
+      }
+
+      @media print {
+        html,
+        body {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
+        body {
+          padding: 0;
+          background: #ffffff;
+        }
+
+        .sheet {
+          width: 100%;
+          border-radius: 0;
+          border: 0;
+          box-shadow: none;
+        }
+
+        .topband {
+          background: #1b5e20 !important;
+          color: #f6fcf7 !important;
+        }
+
+        .section {
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="sheet">
+      <header class="topband">
+        <p class="eyebrow">Sparkery Cleaning Services</p>
+        <h1>Price List</h1>
+        <p class="sub">
+          Airbnb Turnover Cleaning | Professional, Reliable, Guest-Ready
+          Standard
+        </p>
+      </header>
+
+      <section class="body">
+        <article class="section">
+          <h2 class="section-title">Standard Rates</h2>
+          <table class="table" aria-label="Standard rates">
+            <thead>
+              <tr>
+                <th scope="col">Property Type</th>
+                <th scope="col">Rate</th>
+                <th scope="col">Estimated Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Studio / 1B1B</td><td class="price">$120</td><td class="time">2-2.5 hours</td></tr>
+              <tr><td>2B1B</td><td class="price">$150</td><td class="time">2.5-3 hours</td></tr>
+              <tr><td>2B2B</td><td class="price">$165</td><td class="time">3-3.5 hours</td></tr>
+              <tr><td>3B1B</td><td class="price">$190</td><td class="time">3.5-4 hours</td></tr>
+              <tr><td>3B2B</td><td class="price">$220</td><td class="time">4-4.5 hours</td></tr>
+              <tr><td>3B3B</td><td class="price">$255</td><td class="time">4.5-5 hours</td></tr>
+              <tr><td>4B2B</td><td class="price">$265</td><td class="time">5-5.5 hours</td></tr>
+              <tr><td>4B3B</td><td class="price">$305</td><td class="time">5.5-6 hours</td></tr>
+              <tr><td>5B2B</td><td class="price">$345</td><td class="time">6-7 hours</td></tr>
+              <tr><td>5B3B</td><td class="price">$365</td><td class="time">6.5-7 hours</td></tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="section">
+          <h2 class="section-title">Volume Discounts</h2>
+          <table class="table" aria-label="Volume discounts">
+            <tbody>
+              <tr>
+                <td>4-7 cleans/month (Single Property)</td>
+                <td class="price">5% off</td>
+              </tr>
+              <tr>
+                <td>2-3 properties (Regular bookings)</td>
+                <td class="price">8% off</td>
+              </tr>
+              <tr>
+                <td>4+ properties (Portfolio)</td>
+                <td class="price">10% off</td>
+              </tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="section">
+          <h2 class="section-title">Additional Charges</h2>
+          <div class="dual-grid" aria-label="Additional charges">
+            <div class="cell">Same-Day Booking <span class="price">+$50</span></div>
+            <div class="cell">Laundry Service <span class="price">$30</span></div>
+            <div class="cell">Emergency (&lt; 4hrs) <span class="price">+$80</span></div>
+            <div class="cell">Window Cleaning <span class="price">$30+</span></div>
+            <div class="cell">Public Holiday <span class="price">+50%</span></div>
+            <div class="cell">Oven Clean <span class="price">$60+</span></div>
+            <div class="cell">Extra Dirty <span class="price">+$30-150</span></div>
+            <div class="cell">Carpet Steam Clean <span class="price">$80+</span></div>
+            <div class="cell">Balcony/Patio <span class="price">$30+</span></div>
+            <div class="cell"></div>
+          </div>
+        </article>
+
+        <article class="section">
+          <h2 class="section-title">Included in Every Clean</h2>
+          <div class="included">
+            <div class="included-item"><span class="tick">&#10003;</span><span>Vacuum &amp; mop all floors</span></div>
+            <div class="included-item"><span class="tick">&#10003;</span><span>All surfaces cleaned</span></div>
+            <div class="included-item"><span class="tick">&#10003;</span><span>Kitchen deep clean</span></div>
+            <div class="included-item"><span class="tick">&#10003;</span><span>Bathrooms sanitized</span></div>
+            <div class="included-item"><span class="tick">&#10003;</span><span>Linen change &amp; bed making</span></div>
+            <div class="included-item"><span class="tick">&#10003;</span><span>Quality check photos</span></div>
+            <div class="included-item"><span class="tick">&#10003;</span><span>All cleaning products</span></div>
+            <div class="included-item"><span class="tick">&#10003;</span><span>GST included</span></div>
+            <div class="included-item"><span class="tick">&#10003;</span><span>Insured team</span></div>
+            <div class="included-item"><span class="tick">&#10003;</span><span>100% guarantee</span></div>
+          </div>
+        </article>
+
+        <section class="contact">
+          <p class="contact-row"><strong>Contact:</strong> info@sparkery.com.au | 0478540915</p>
+          <p class="contact-row"><strong>Available:</strong> Mon-Sun, 7 AM - 7 PM | Brisbane</p>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

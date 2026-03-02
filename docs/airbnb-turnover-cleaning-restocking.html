@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sparkery | Airbnb Turnover Cleaning + Restocking</title>
+    <style>
+      :root {
+        --brand: #2e7d32;
+        --brand-dark: #1b5e20;
+        --brand-soft: #e8f5e9;
+        --surface: #f4fbf5;
+        --surface-raise: #f0f8f1;
+        --ink: #1f2a21;
+        --ink-muted: #4d5d50;
+        --ink-subtle: #6f7f72;
+        --line: #d3e5d5;
+        --line-strong: #bfd7c2;
+        --white: #ffffff;
+        --shadow-soft: 0 14px 34px rgba(27, 94, 32, 0.12);
+        --shadow-float: 0 20px 48px rgba(18, 48, 26, 0.16);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: "Segoe UI", Arial, sans-serif;
+        line-height: 1.55;
+        background:
+          radial-gradient(
+            circle at 0% 0%,
+            rgba(46, 125, 50, 0.14),
+            rgba(46, 125, 50, 0) 28%
+          ),
+          radial-gradient(
+            circle at 100% 100%,
+            rgba(27, 94, 32, 0.12),
+            rgba(27, 94, 32, 0) 34%
+          ),
+          #edf4ee;
+        padding: 34px 18px;
+      }
+
+      .document {
+        width: min(1100px, 100%);
+        margin: 0 auto;
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        overflow: hidden;
+        box-shadow: var(--shadow-float);
+      }
+
+      .hero {
+        padding: 40px 48px 34px;
+        background:
+          linear-gradient(
+            135deg,
+            rgba(27, 94, 32, 0.96),
+            rgba(46, 125, 50, 0.96)
+          ),
+          var(--brand-dark);
+        color: #f5fbf5;
+        position: relative;
+      }
+
+      .hero:after {
+        content: "";
+        position: absolute;
+        right: 26px;
+        top: 24px;
+        width: 130px;
+        height: 130px;
+        border-radius: 999px;
+        background: radial-gradient(
+          rgba(255, 255, 255, 0.32),
+          rgba(255, 255, 255, 0) 70%
+        );
+        pointer-events: none;
+      }
+
+      .brand {
+        font-size: 12px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        opacity: 0.9;
+        margin: 0 0 14px;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(28px, 4.2vw, 44px);
+        line-height: 1.12;
+        max-width: 900px;
+      }
+
+      .hero p {
+        margin: 18px 0 0;
+        font-size: 15px;
+        color: rgba(243, 252, 245, 0.94);
+        max-width: 920px;
+      }
+
+      .body {
+        padding: 34px 36px 44px;
+        background: linear-gradient(180deg, #ffffff, #fbfdfb);
+      }
+
+      .section {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 22px 22px 18px;
+        box-shadow: var(--shadow-soft);
+        margin-bottom: 16px;
+      }
+
+      .section h2 {
+        margin: 0 0 12px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 23px;
+        line-height: 1.2;
+        color: var(--brand-dark);
+      }
+
+      .section h3 {
+        margin: 14px 0 8px;
+        font-size: 15px;
+        color: var(--ink);
+      }
+
+      .section p {
+        margin: 0 0 10px;
+        color: var(--ink-muted);
+      }
+
+      .rule {
+        margin: 12px 0 14px;
+        border: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      li {
+        margin: 7px 0;
+        color: var(--ink-muted);
+      }
+
+      strong {
+        color: var(--ink);
+      }
+
+      .highlight {
+        background: linear-gradient(
+          140deg,
+          var(--brand-soft),
+          var(--surface-raise) 84%
+        );
+        border: 1px solid var(--line-strong);
+        border-radius: 14px;
+        padding: 12px 14px;
+        margin-top: 12px;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .chip {
+        border: 1px solid var(--line-strong);
+        background: var(--surface);
+        color: var(--brand-dark);
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .footer-note {
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--ink-subtle);
+      }
+
+      @media (max-width: 860px) {
+        .hero,
+        .body {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+      }
+
+      @media print {
+        html,
+        body {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
+        body {
+          background: #ffffff;
+          padding: 0;
+        }
+
+        .document {
+          width: 100%;
+          border-radius: 0;
+          border: 0;
+          box-shadow: none;
+        }
+
+        .hero {
+          background: #1b5e20 !important;
+          color: #f4fbf5 !important;
+          break-inside: avoid;
+        }
+
+        .hero:after {
+          display: none;
+        }
+
+        .hero .brand {
+          color: #d8efdc !important;
+        }
+
+        .hero h1,
+        .hero p {
+          color: #f4fbf5 !important;
+        }
+
+        .section {
+          break-inside: avoid;
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="document">
+      <header class="hero">
+        <p class="brand">Sparkery Professional Standard</p>
+        <h1>
+          Airbnb Turnover Cleaning + All-Inclusive Restocking
+          <br />
+          (What We Refill by Default)
+        </h1>
+        <p>
+          Sparkery provides a true end-to-end Airbnb turnover service: cleaning,
+          linen changeover, and restocking of the everyday essentials guests
+          expect. We reset and present your home to a consistent guest-ready
+          standard after every stay, so you do not need to manage supplies,
+          last-minute runs, or awkward "missing item" messages.
+        </p>
+      </header>
+
+      <section class="body">
+        <article class="section">
+          <h2>Included: Linen &amp; Towels</h2>
+          <p>We supply, change, and manage linen as part of the service.</p>
+          <ul>
+            <li>
+              <strong>Bed linen sets (per bed):</strong> fitted sheet + flat
+              sheet + doona cover (or quilt cover) + pillowcases
+            </li>
+            <li>
+              <strong>Mattress protector:</strong> waterproof / stain-resistant
+            </li>
+            <li><strong>Pillow protectors:</strong> supplied per pillow</li>
+            <li><strong>Bath towels:</strong> 2 sets per bedroom</li>
+            <li><strong>Hand towels:</strong> 2 sets per bedroom</li>
+            <li><strong>Bath mats</strong></li>
+            <li>
+              <strong>Kitchen tea towel / dish cloth:</strong> dedicated kitchen
+              cloths (kept separate from bathroom cloths to avoid cross-use)
+            </li>
+          </ul>
+          <div class="highlight">
+            <h3>Spare Linen Stock Policy (Reliability Standard)</h3>
+            <p>
+              We maintain <strong>2-3 full linen set rotations per bed</strong>
+              (minimum) so you are covered for same-day turnarounds and busy
+              periods.
+            </p>
+          </div>
+        </article>
+
+        <article class="section">
+          <h2>Included: Bathroom Essentials</h2>
+          <ul>
+            <li>
+              <strong>Toilet paper:</strong> minimum 2 rolls per toilet set out
+              + restock to threshold
+            </li>
+            <li><strong>Hand wash liquid</strong></li>
+            <li><strong>Body wash, shampoo &amp; conditioner</strong></li>
+          </ul>
+        </article>
+
+        <article class="section">
+          <h2>Included: Kitchen Essentials</h2>
+          <ul>
+            <li>
+              <strong>Dishwashing:</strong> dishwashing liquid or dishwasher
+              tablets/pods (depending on your setup)
+            </li>
+            <li><strong>Sponge + scrub pad</strong></li>
+            <li>
+              <strong>Bin liners:</strong> kitchen bin bags + smaller bathroom
+              liners
+            </li>
+            <li>
+              <strong>Tea / coffee / sugar</strong> (optional add-on: salt
+              &amp; pepper)
+            </li>
+            <li>
+              <strong>Cooking basics</strong> (optional add-on): oil
+            </li>
+          </ul>
+        </article>
+
+        <article class="section">
+          <h2>Laundry</h2>
+          <p>
+            Depending on what you want to offer guests, we can include or add
+            on:
+          </p>
+          <ul>
+            <li><strong>Laundry detergent</strong> (liquid or powder)</li>
+            <li><strong>Fabric softener</strong> (optional)</li>
+          </ul>
+        </article>
+
+        <article class="section">
+          <h2>Guest-Ready Touch-Ups (Reducing Common Complaints)</h2>
+          <p>
+            We focus on the small details that drive reviews and reduce guest
+            messages without creating unrealistic expectations.
+          </p>
+          <div class="highlight">
+            <p style="margin: 0; color: var(--ink);">
+              "Between turnovers, we reset and present the home to a guest-ready
+              standard."
+            </p>
+          </div>
+          <p class="footer-note">
+            This helps guests understand it is a professional turnover service
+            (not unlimited replenishment on demand), while still ensuring the
+            essentials are there for check-in.
+          </p>
+        </article>
+
+        <article class="section">
+          <h2>Consumables Governance (How Restocking Works)</h2>
+          <p>
+            To keep your costs predictable and standards consistent, we operate
+            a simple restock system:
+          </p>
+          <ul>
+            <li>
+              <strong>Restock rule:</strong> if an item falls below a practical
+              threshold (for example, below 1/3 full or not enough for the next
+              stay), we top it up.
+            </li>
+            <li>
+              <strong>Stock control:</strong> we handle purchasing, storage, and
+              replenishment, and it is bundled into your cleaning fee
+              (all-inclusive).
+            </li>
+            <li>
+              <strong>Transparency:</strong> we track usage patterns and can
+              recommend optimized stocking levels per property.
+            </li>
+            <li>
+              <strong>Exceptions:</strong> unusual consumption, party groups,
+              missing items, or excessive waste are documented and reported so
+              you can follow up if needed.
+            </li>
+          </ul>
+          <div class="chips">
+            <span class="chip">Predictable Cost</span>
+            <span class="chip">Consistent Quality</span>
+            <span class="chip">Operational Transparency</span>
+            <span class="chip">Owner Peace of Mind</span>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
