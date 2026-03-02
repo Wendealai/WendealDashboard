@@ -1678,7 +1678,7 @@ const SparkerySaasLayout: React.FC = () => {
 
       <Layout className='sparkery-saas-main'>
         <Header className='sparkery-saas-header'>
-          <Space size={12} className='sparkery-saas-header-left'>
+          <Space size={12} className='sparkery-saas-header-left' wrap>
             <Button
               type='text'
               icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
@@ -1797,7 +1797,7 @@ const SparkerySaasLayout: React.FC = () => {
             </Button>
           </Space>
 
-          <Space size={12}>
+          <Space size={12} className='sparkery-saas-header-right' wrap>
             <Badge count={unreadAlertCount} size='small' overflowCount={99}>
               <Button
                 icon={<AlertOutlined />}

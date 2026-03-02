@@ -8,7 +8,7 @@
     rgba(247, 250, 255, 1) 0%,
     rgba(241, 246, 255, 1) 100%
   );
-  --sparkery-panel: var(--color-white) fff;
+  --sparkery-panel: #fff;
   --sparkery-border: #d8e4f3;
   --sparkery-border-strong: #c4d5ea;
   --sparkery-text: #1b2a3d;
@@ -30,10 +30,10 @@
   --sparkery-success-bg: #ebf9f0;
   --sparkery-success-text: #246b45;
   --sparkery-warning-border: #f2c191;
-  --sparkery-warning-bg: var(--color-white) 2e3;
+  --sparkery-warning-bg: #fff2e3;
   --sparkery-warning-text: #8a460d;
   --sparkery-danger-border: #e8b8b8;
-  --sparkery-danger-bg: var(--color-white) 2f2;
+  --sparkery-danger-bg: #fff2f2;
   --sparkery-danger-text: #9c2f2f;
   --sparkery-neutral-border: #d4dce9;
   --sparkery-neutral-bg: #f5f7fb;
@@ -1257,7 +1257,7 @@ body.theme-dark .dispatch-employee-tasks-page {
 }
 
 .dispatch-weekly-header-cell-today {
-  background: var(--color-white) 7e6;
+  background: #fff7e6;
   color: #ad6800;
   box-shadow: inset 0 -2px 0 #fa8c16;
 }
@@ -1292,7 +1292,7 @@ body.theme-dark .dispatch-employee-tasks-page {
 }
 
 .dispatch-weekly-day-column-today {
-  background: var(--color-white) df5;
+  background: #fffdf5;
 }
 
 .dispatch-weekly-slot-line {
@@ -1484,7 +1484,7 @@ body.theme-dark .dispatch-employee-tasks-page {
 .dispatch-weekly-option-btn-danger:not(:disabled):hover {
   color: #c0392b !important;
   border-color: #e6b3ad !important;
-  background: var(--color-white) 3f1 !important;
+  background: #fff3f1 !important;
 }
 
 .dispatch-weekly-options-button {

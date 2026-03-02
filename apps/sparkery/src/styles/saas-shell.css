@@ -306,15 +306,23 @@ body {
   height: auto !important;
   line-height: normal !important;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 14px;
 }
 
 .sparkery-saas-header-left {
-  flex: 1;
+  flex: 1 1 720px;
   min-width: 0;
-  flex-wrap: wrap;
-  row-gap: 8px;
+  max-width: 100%;
+}
+
+.sparkery-saas-header-right {
+  flex: 0 1 auto;
+  margin-left: auto;
+  max-width: 100%;
+  justify-content: flex-end;
 }
 
 .sparkery-saas-title-wrap {
@@ -848,7 +856,7 @@ body {
 
 @media (max-width: 960px) {
   .sparkery-saas-header {
-    padding: 0 12px !important;
+    padding: 8px 12px !important;
   }
 
   .sparkery-saas-module-switch {
@@ -873,5 +881,13 @@ body {
 
   .sparkery-saas-content {
     padding: 12px;
+  }
+}
+
+@media (max-width: 1360px) {
+  .sparkery-saas-header-right {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
   }
 }

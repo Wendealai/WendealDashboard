@@ -1475,7 +1475,7 @@ body.theme-dark .sparkery-submissions-page {
 }
 
 .sparkery-inspection-search-mark {
-  background: var(--color-white) 2a8;
+  background: #fff2a8;
   padding: 0 2px;
   border-radius: 2px;
 }
