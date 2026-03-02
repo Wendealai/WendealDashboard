@@ -301,9 +301,10 @@ body {
 .sparkery-saas-header {
   background: #fff !important;
   border-bottom: 1px solid var(--sparkery-saas-border);
-  padding: 0 20px !important;
-  height: 72px !important;
-  line-height: 1 !important;
+  padding: 8px 20px !important;
+  min-height: 72px !important;
+  height: auto !important;
+  line-height: normal !important;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -313,6 +314,7 @@ body {
   flex: 1;
   min-width: 0;
   flex-wrap: wrap;
+  row-gap: 8px;
 }
 
 .sparkery-saas-title-wrap {
