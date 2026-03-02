@@ -21,8 +21,8 @@ import {
   Statistic,
   Tabs,
   Select,
+  type TabsProps,
 } from 'antd';
-import type { TabsProps } from 'antd';
 import {
   EditOutlined,
   SendOutlined,
@@ -1948,7 +1948,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
           <Card
             size='small'
             title='Generated Content Result'
-            style={{ backgroundColor: '#f6ffed' }}
+            style={{ backgroundColor: 'var(--color-bg-success-soft)' }}
           >
             <Space direction='vertical' style={{ width: '100%' }} size='small'>
               {/* 检查是否为图片提示词数据格式 */}
@@ -1962,15 +1962,18 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                   {(contentResponse as ContentGenerationResponse).发布内容
                     ?.标题 && (
                     <div>
-                      <Text strong style={{ fontSize: 16, color: '#52c41a' }}>
+                      <Text
+                        strong
+                        style={{ fontSize: 16, color: 'var(--color-success)' }}
+                      >
                         🎯 标题：
                       </Text>
                       <Card
                         size='small'
                         style={{
                           marginTop: 8,
-                          backgroundColor: '#fff',
-                          borderLeft: '3px solid #52c41a',
+                          backgroundColor: 'var(--color-white)',
+                          borderLeft: '3px solid var(--color-success)',
                         }}
                       >
                         <Text strong style={{ fontSize: 15 }}>
@@ -1992,7 +1995,10 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                       </Text>
                       <Card
                         size='small'
-                        style={{ marginTop: 8, backgroundColor: '#fff' }}
+                        style={{
+                          marginTop: 8,
+                          backgroundColor: 'var(--color-white)',
+                        }}
                       >
                         <Paragraph
                           style={{
@@ -2046,7 +2052,10 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                       <Card
                         size='small'
                         title='📄 完整AI生成报告'
-                        style={{ marginTop: 8, backgroundColor: '#fafafa' }}
+                        style={{
+                          marginTop: 8,
+                          backgroundColor: 'var(--color-bg-muted)',
+                        }}
                         extra={
                           <Button
                             size='small'
@@ -2139,7 +2148,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
             <Card
               size='small'
               title='📊 生成统计'
-              style={{ backgroundColor: '#e6f7ff' }}
+              style={{ backgroundColor: 'var(--color-bg-info-soft)' }}
             >
               <Space
                 direction='vertical'
@@ -2185,7 +2194,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                             key={index}
                             style={{
                               backgroundColor: color,
-                              color: '#fff',
+                              color: 'var(--color-white)',
                               borderColor: color,
                             }}
                           >
@@ -2202,7 +2211,10 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                         (color: string, index: number) => (
                           <Tag
                             key={index}
-                            style={{ backgroundColor: color, color: '#333' }}
+                            style={{
+                              backgroundColor: color,
+                              color: 'var(--color-text)',
+                            }}
                           >
                             {color}
                           </Tag>
@@ -2267,7 +2279,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                         marginTop: 8,
                         maxHeight: 150,
                         overflowY: 'auto',
-                        backgroundColor: '#f5f5f5',
+                        backgroundColor: 'var(--color-bg-muted)',
                         padding: 8,
                         borderRadius: 4,
                         fontSize: 12,
@@ -2415,29 +2427,29 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                                   style={{
                                     backgroundColor:
                                       colors.主色调 === '薄荷绿'
-                                        ? '#7dd3b3'
+                                        ? 'var(--color-success)'
                                         : colors.主色调 === '暖黄色'
-                                          ? '#ffd666'
+                                          ? 'var(--color-warning)'
                                           : colors.主色调 === '米白'
-                                            ? '#f5f5f5'
+                                            ? 'var(--color-bg-muted)'
                                             : colors.主色调 === '深灰'
-                                              ? '#666666'
-                                              : '#7dd3b3',
+                                              ? 'var(--color-text-secondary)'
+                                              : 'var(--color-success)',
                                     color:
                                       colors.主色调 === '米白' ||
                                       colors.主色调 === '暖黄色'
-                                        ? '#333'
-                                        : '#fff',
+                                        ? 'var(--color-text)'
+                                        : 'var(--color-white)',
                                     borderColor:
                                       colors.主色调 === '薄荷绿'
-                                        ? '#7dd3b3'
+                                        ? 'var(--color-success)'
                                         : colors.主色调 === '暖黄色'
-                                          ? '#ffd666'
+                                          ? 'var(--color-warning)'
                                           : colors.主色调 === '米白'
-                                            ? '#f5f5f5'
+                                            ? 'var(--color-bg-muted)'
                                             : colors.主色调 === '深灰'
-                                              ? '#666666'
-                                              : '#7dd3b3',
+                                              ? 'var(--color-text-secondary)'
+                                              : 'var(--color-success)',
                                   }}
                                 >
                                   主色: {colors.主色调}
@@ -2448,19 +2460,19 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                                   style={{
                                     backgroundColor:
                                       colors.辅助色 === '薄荷绿'
-                                        ? '#7dd3b3'
+                                        ? 'var(--color-success)'
                                         : colors.辅助色 === '暖黄色'
-                                          ? '#ffd666'
+                                          ? 'var(--color-warning)'
                                           : colors.辅助色 === '米白'
-                                            ? '#f5f5f5'
+                                            ? 'var(--color-bg-muted)'
                                             : colors.辅助色 === '深灰'
-                                              ? '#666666'
-                                              : '#ffd666',
+                                              ? 'var(--color-text-secondary)'
+                                              : 'var(--color-warning)',
                                     color:
                                       colors.辅助色 === '米白' ||
                                       colors.辅助色 === '暖黄色'
-                                        ? '#333'
-                                        : '#fff',
+                                        ? 'var(--color-text)'
+                                        : 'var(--color-white)',
                                   }}
                                 >
                                   辅助: {colors.辅助色}
@@ -2471,19 +2483,19 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                                   style={{
                                     backgroundColor:
                                       colors.背景色 === '薄荷绿'
-                                        ? '#7dd3b3'
+                                        ? 'var(--color-success)'
                                         : colors.背景色 === '暖黄色'
-                                          ? '#ffd666'
+                                          ? 'var(--color-warning)'
                                           : colors.背景色 === '米白'
-                                            ? '#f5f5f5'
+                                            ? 'var(--color-bg-muted)'
                                             : colors.背景色 === '深灰'
-                                              ? '#666666'
-                                              : '#f5f5f5',
+                                              ? 'var(--color-text-secondary)'
+                                              : 'var(--color-bg-muted)',
                                     color:
                                       colors.背景色 === '米白' ||
                                       colors.背景色 === '暖黄色'
-                                        ? '#333'
-                                        : '#fff',
+                                        ? 'var(--color-text)'
+                                        : 'var(--color-white)',
                                   }}
                                 >
                                   背景: {colors.背景色}
@@ -2535,7 +2547,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                             marginTop: 8,
                             maxHeight: 200,
                             overflowY: 'auto',
-                            backgroundColor: '#f5f5f5',
+                            backgroundColor: 'var(--color-bg-muted)',
                             padding: 8,
                             borderRadius: 4,
                             fontSize: 12,
@@ -2571,10 +2583,10 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                                       style={{
                                         fontSize: 12,
                                         color: tip.includes('✅')
-                                          ? '#52c41a'
+                                          ? 'var(--color-success)'
                                           : tip.includes('⚠️')
-                                            ? '#faad14'
-                                            : '#666',
+                                            ? 'var(--color-warning)'
+                                            : 'var(--color-text-secondary)',
                                       }}
                                     >
                                       {tip}
@@ -2588,7 +2600,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                                   style={{
                                     fontSize: 12,
                                     whiteSpace: 'pre-wrap',
-                                    color: '#666',
+                                    color: 'var(--color-text-secondary)',
                                   }}
                                 >
                                   {designData.设计要点提示}
@@ -2688,7 +2700,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                                 <Tag
                                   style={{
                                     backgroundColor: item.mainColor,
-                                    color: '#fff',
+                                    color: 'var(--color-white)',
                                     borderColor: item.mainColor,
                                   }}
                                 >
@@ -2699,7 +2711,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                                 <Tag
                                   style={{
                                     backgroundColor: item.accentColor,
-                                    color: '#333',
+                                    color: 'var(--color-text)',
                                   }}
                                 >
                                   辅助: {item.accentColor}
@@ -2709,7 +2721,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                                 <Tag
                                   style={{
                                     backgroundColor: item.backgroundColor,
-                                    color: '#333',
+                                    color: 'var(--color-text)',
                                   }}
                                 >
                                   背景: {item.backgroundColor}
@@ -2729,7 +2741,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                             marginTop: 8,
                             maxHeight: 200,
                             overflowY: 'auto',
-                            backgroundColor: '#f5f5f5',
+                            backgroundColor: 'var(--color-bg-muted)',
                             padding: 8,
                             borderRadius: 4,
                             fontSize: 12,
@@ -2758,10 +2770,10 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                                       style={{
                                         fontSize: 12,
                                         color: tip.includes('✅')
-                                          ? '#52c41a'
+                                          ? 'var(--color-success)'
                                           : tip.includes('⚠️')
-                                            ? '#faad14'
-                                            : '#666',
+                                            ? 'var(--color-warning)'
+                                            : 'var(--color-text-secondary)',
                                       }}
                                     >
                                       {tip}
@@ -2775,7 +2787,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                                   style={{
                                     fontSize: 12,
                                     whiteSpace: 'pre-wrap',
-                                    color: '#666',
+                                    color: 'var(--color-text-secondary)',
                                   }}
                                 >
                                   {item.designTips}
@@ -2930,7 +2942,11 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
       >
         {!titleResponse && !titleLoading && !titleError && (
           <div
-            style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}
+            style={{
+              textAlign: 'center',
+              padding: '60px 20px',
+              color: 'var(--color-text-tertiary)',
+            }}
           >
             <FileTextOutlined
               style={{ fontSize: '64px', marginBottom: '16px' }}
@@ -2955,7 +2971,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
             <Card
               size='small'
               title='Generated Title'
-              style={{ backgroundColor: '#f6ffed' }}
+              style={{ backgroundColor: 'var(--color-bg-success-soft)' }}
             >
               <Space
                 direction='vertical'
@@ -2965,15 +2981,18 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                 {/* 显示标题 */}
                 {titleResponse.title && (
                   <div>
-                    <Text strong style={{ fontSize: 16, color: '#52c41a' }}>
+                    <Text
+                      strong
+                      style={{ fontSize: 16, color: 'var(--color-success)' }}
+                    >
                       🎯 Generated Title：
                     </Text>
                     <Card
                       size='small'
                       style={{
                         marginTop: 8,
-                        backgroundColor: '#fff',
-                        borderLeft: '3px solid #52c41a',
+                        backgroundColor: 'var(--color-white)',
+                        borderLeft: '3px solid var(--color-success)',
                       }}
                     >
                       <Text strong style={{ fontSize: 15 }}>
@@ -2998,7 +3017,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                               size='small'
                               style={{
                                 marginBottom: 8,
-                                backgroundColor: '#fff',
+                                backgroundColor: 'var(--color-white)',
                               }}
                             >
                               <Text>
@@ -3046,7 +3065,10 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                           📄 Full AI Report
                         </span>
                       }
-                      style={{ marginTop: 8, backgroundColor: '#fafafa' }}
+                      style={{
+                        marginTop: 8,
+                        backgroundColor: 'var(--color-bg-muted)',
+                      }}
                       extra={
                         <Button
                           size='small'
@@ -3110,7 +3132,10 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                   <div>
                     <Text
                       type='secondary'
-                      style={{ fontSize: 12, color: '#666' }}
+                      style={{
+                        fontSize: 12,
+                        color: 'var(--color-text-secondary)',
+                      }}
                     >
                       ⏰ Generated at:{' '}
                       {new Date(titleResponse.generatedAt).toLocaleString()} |
@@ -3133,7 +3158,10 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                           📝 Generated Content
                         </span>
                       }
-                      style={{ marginTop: 8, backgroundColor: '#f0f0f0' }}
+                      style={{
+                        marginTop: 8,
+                        backgroundColor: 'var(--color-border-secondary)',
+                      }}
                       extra={
                         <Button
                           size='small'
@@ -3274,7 +3302,11 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
       >
         {!contentResponse && !contentLoading && !contentError && (
           <div
-            style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}
+            style={{
+              textAlign: 'center',
+              padding: '60px 20px',
+              color: 'var(--color-text-tertiary)',
+            }}
           >
             <FileTextOutlined
               style={{ fontSize: '64px', marginBottom: '16px' }}
@@ -3372,7 +3404,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
             <Card
               size='small'
               title='Generated Image Prompt Result'
-              style={{ backgroundColor: '#f6ffed' }}
+              style={{ backgroundColor: 'var(--color-bg-success-soft)' }}
             >
               <Space
                 direction='vertical'
@@ -3423,7 +3455,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                             margin: 0,
                             maxHeight: 200,
                             overflowY: 'auto',
-                            backgroundColor: '#f5f5f5',
+                            backgroundColor: 'var(--color-bg-muted)',
                             padding: 8,
                             borderRadius: 4,
                             fontSize: 12,
@@ -3525,7 +3557,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
               <Card
                 size='small'
                 title='Generated Cover Image Result'
-                style={{ backgroundColor: '#f6ffed' }}
+                style={{ backgroundColor: 'var(--color-bg-success-soft)' }}
               >
                 <Space
                   direction='vertical'
@@ -3542,7 +3574,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                           marginTop: 8,
                           maxHeight: 200,
                           overflowY: 'auto',
-                          backgroundColor: '#f5f5f5',
+                          backgroundColor: 'var(--color-bg-muted)',
                           padding: 8,
                           borderRadius: 4,
                           fontSize: 12,
@@ -3656,7 +3688,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                   <Card
                     size='small'
                     title='Generated Image'
-                    style={{ backgroundColor: '#f6ffed' }}
+                    style={{ backgroundColor: 'var(--color-bg-success-soft)' }}
                   >
                     <div style={{ textAlign: 'center' }}>
                       <img
@@ -3776,7 +3808,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                   <Card
                     size='small'
                     title={`Generated Image Group (${textToImageGroupResponse?.images?.length || 0} images)`}
-                    style={{ backgroundColor: '#f6ffed' }}
+                    style={{ backgroundColor: 'var(--color-bg-success-soft)' }}
                   >
                     <Row gutter={[16, 16]}>
                       {textToImageGroupResponse.images?.map(
@@ -3825,7 +3857,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                                 style={{
                                   marginTop: 4,
                                   fontSize: 12,
-                                  color: '#666',
+                                  color: 'var(--color-text-secondary)',
                                 }}
                               >
                                 Size: {item.size}
@@ -3912,7 +3944,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                   <Card
                     size='small'
                     title='Generated Image'
-                    style={{ backgroundColor: '#f6ffed' }}
+                    style={{ backgroundColor: 'var(--color-bg-success-soft)' }}
                   >
                     <div style={{ textAlign: 'center' }}>
                       <img
@@ -4017,7 +4049,7 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                   <Card
                     size='small'
                     title='Generated Image Group'
-                    style={{ backgroundColor: '#f6ffed' }}
+                    style={{ backgroundColor: 'var(--color-bg-success-soft)' }}
                   >
                     <Row gutter={[16, 16]}>
                       {imageToImageGroupResponse.data?.map(
@@ -4145,7 +4177,9 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                     <Card
                       size='small'
                       title='Generated Image'
-                      style={{ backgroundColor: '#f6ffed' }}
+                      style={{
+                        backgroundColor: 'var(--color-bg-success-soft)',
+                      }}
                     >
                       <div style={{ textAlign: 'center' }}>
                         <img
@@ -4270,7 +4304,9 @@ const RedNoteContentGenerator: React.FC<RedNoteContentGeneratorProps> = ({
                     <Card
                       size='small'
                       title='Generated Image Group'
-                      style={{ backgroundColor: '#f6ffed' }}
+                      style={{
+                        backgroundColor: 'var(--color-bg-success-soft)',
+                      }}
                     >
                       <Row gutter={[16, 16]}>
                         {multiImageToImageGroupResponse.data?.map(

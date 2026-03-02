@@ -1193,7 +1193,9 @@ const InternationalSocialMediaGenerator: React.FC<
                           <Card
                             size='small'
                             title={`📱 ${config.name} 发布内容`}
-                            style={{ backgroundColor: '#fff7ed' }}
+                            style={{
+                              backgroundColor: 'var(--color-bg-warning-soft)',
+                            }}
                           >
                             <div style={{ marginBottom: '16px' }}>
                               <div
@@ -1204,7 +1206,10 @@ const InternationalSocialMediaGenerator: React.FC<
                                   marginBottom: 8,
                                 }}
                               >
-                                <Text strong style={{ color: '#ea580c' }}>
+                                <Text
+                                  strong
+                                  style={{ color: 'var(--color-warning)' }}
+                                >
                                   Publish Version:
                                 </Text>
                                 {activeTab === 'twitter' &&
@@ -1243,7 +1248,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                 size='small'
                                 style={{
                                   marginTop: 8,
-                                  backgroundColor: '#fef3c7',
+                                  backgroundColor:
+                                    'var(--color-bg-warning-subtle)',
                                 }}
                                 styles={{ body: { padding: '12px' } }}
                               >
@@ -1473,7 +1479,10 @@ const InternationalSocialMediaGenerator: React.FC<
                             {activeTab === 'twitter' &&
                               webhookResponse.quick_publish?.thread_ready && (
                                 <div style={{ marginTop: '16px' }}>
-                                  <Text strong style={{ color: '#ea580c' }}>
+                                  <Text
+                                    strong
+                                    style={{ color: 'var(--color-warning)' }}
+                                  >
                                     Twitter 线程：
                                   </Text>
                                   <div style={{ marginTop: 8 }}>
@@ -1489,12 +1498,12 @@ const InternationalSocialMediaGenerator: React.FC<
                                               marginBottom: 8,
                                               backgroundColor:
                                                 index === 0
-                                                  ? '#fef3c7'
-                                                  : '#f9fafb',
+                                                  ? 'var(--color-bg-warning-subtle)'
+                                                  : 'var(--color-bg-muted)',
                                               border:
                                                 index === 0
-                                                  ? '2px solid #f59e0b'
-                                                  : '1px solid #e5e7eb',
+                                                  ? '2px solid var(--color-border-warning)'
+                                                  : '1px solid var(--color-border-subtle)',
                                             }}
                                             styles={{
                                               body: { padding: '8px 12px' },
@@ -1509,7 +1518,7 @@ const InternationalSocialMediaGenerator: React.FC<
                                               <Text
                                                 strong
                                                 style={{
-                                                  color: '#059669',
+                                                  color: 'var(--color-success)',
                                                   marginRight: 8,
                                                   minWidth: '20px',
                                                 }}
@@ -1542,7 +1551,9 @@ const InternationalSocialMediaGenerator: React.FC<
                             <Card
                               size='small'
                               title='🏷️ Hashtag Strategy'
-                              style={{ backgroundColor: '#f0f9ff' }}
+                              style={{
+                                backgroundColor: 'var(--color-bg-info-soft)',
+                              }}
                             >
                               <Row gutter={[8, 8]}>
                                 {/* 标签策略 */}
@@ -1704,7 +1715,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='📊 Performance Metrics'
-                                style={{ backgroundColor: '#f0fdf4' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-success-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   <Col span={12}>
@@ -1712,7 +1726,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dcfce7',
+                                        backgroundColor:
+                                          'var(--color-bg-success-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -1766,7 +1781,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dbeafe',
+                                        backgroundColor:
+                                          'var(--color-bg-info-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -1789,7 +1805,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#fef3c7',
+                                        backgroundColor:
+                                          'var(--color-bg-warning-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -1811,7 +1828,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#f3e8ff',
+                                        backgroundColor:
+                                          'var(--color-bg-purple-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -1840,7 +1858,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='🔍 Content Analysis'
-                                style={{ backgroundColor: '#fef7ff' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-purple-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   <Col span={24}>
@@ -1868,7 +1889,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#f0fdf4',
+                                        backgroundColor:
+                                          'var(--color-bg-success-soft)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -1890,7 +1912,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#fdf4ff',
+                                        backgroundColor:
+                                          'var(--color-bg-magenta-soft)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -1917,7 +1940,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='⚡ Quick Publish Info'
-                                style={{ backgroundColor: '#fff7ed' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-warning-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   <Col span={24}>
@@ -1971,7 +1997,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <Card
                                       size='small'
                                       style={{
-                                        backgroundColor: '#fef3c7',
+                                        backgroundColor:
+                                          'var(--color-bg-warning-subtle)',
                                         marginBottom: 8,
                                       }}
                                       styles={{ body: { padding: '12px' } }}
@@ -2026,7 +2053,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dcfce7',
+                                        backgroundColor:
+                                          'var(--color-bg-success-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -2045,7 +2073,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dbeafe',
+                                        backgroundColor:
+                                          'var(--color-bg-info-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -2069,7 +2098,9 @@ const InternationalSocialMediaGenerator: React.FC<
                             <Card
                               size='small'
                               title='💬 Engagement Optimization'
-                              style={{ backgroundColor: '#fff7ed' }}
+                              style={{
+                                backgroundColor: 'var(--color-bg-warning-soft)',
+                              }}
                             >
                               {(() => {
                                 const engagementData =
@@ -2107,7 +2138,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                         <div
                                           style={{
                                             padding: '6px 10px',
-                                            backgroundColor: '#fef3c7',
+                                            backgroundColor:
+                                              'var(--color-bg-warning-subtle)',
                                             borderRadius: '6px',
                                             marginTop: '4px',
                                             fontSize: '13px',
@@ -2172,7 +2204,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                                   key={index}
                                                   style={{
                                                     padding: '6px 10px',
-                                                    backgroundColor: '#dbeafe',
+                                                    backgroundColor:
+                                                      'var(--color-bg-info-subtle)',
                                                     borderRadius: '6px',
                                                     marginBottom: '6px',
                                                     fontSize: '12px',
@@ -2232,7 +2265,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                                   key={index}
                                                   style={{
                                                     padding: '6px 10px',
-                                                    backgroundColor: '#f3e8ff',
+                                                    backgroundColor:
+                                                      'var(--color-bg-purple-subtle)',
                                                     borderRadius: '6px',
                                                     marginBottom: '6px',
                                                     fontSize: '12px',
@@ -2297,7 +2331,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                                   key={index}
                                                   style={{
                                                     padding: '6px 10px',
-                                                    backgroundColor: '#fef3c7',
+                                                    backgroundColor:
+                                                      'var(--color-bg-warning-subtle)',
                                                     borderRadius: '6px',
                                                     marginBottom: '6px',
                                                     fontSize: '12px',
@@ -2319,7 +2354,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                         <div
                                           style={{
                                             padding: '8px 12px',
-                                            backgroundColor: '#dbeafe',
+                                            backgroundColor:
+                                              'var(--color-bg-info-subtle)',
                                             borderRadius: '6px',
                                             marginTop: '4px',
                                             fontSize: '12px',
@@ -2367,7 +2403,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='📊 Performance Metrics'
-                                style={{ backgroundColor: '#f0fdf4' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-success-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   <Col span={12}>
@@ -2375,7 +2414,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dcfce7',
+                                        backgroundColor:
+                                          'var(--color-bg-success-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -2429,7 +2469,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dbeafe',
+                                        backgroundColor:
+                                          'var(--color-bg-info-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -2452,7 +2493,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#fef3c7',
+                                        backgroundColor:
+                                          'var(--color-bg-warning-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -2474,7 +2516,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#f3e8ff',
+                                        backgroundColor:
+                                          'var(--color-bg-purple-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -2503,7 +2546,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='🔍 Content Analysis'
-                                style={{ backgroundColor: '#fef7ff' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-purple-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   <Col span={24}>
@@ -2531,7 +2577,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#f0fdf4',
+                                        backgroundColor:
+                                          'var(--color-bg-success-soft)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -2553,7 +2600,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#fdf4ff',
+                                        backgroundColor:
+                                          'var(--color-bg-magenta-soft)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -2582,7 +2630,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='🎨 Visual Strategy'
-                                style={{ backgroundColor: '#fff7f7' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-danger-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   {/* 格式推荐 */}
@@ -2594,7 +2645,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                       <div
                                         style={{
                                           padding: '8px 12px',
-                                          backgroundColor: '#fef2f2',
+                                          backgroundColor:
+                                            'var(--color-bg-danger-subtle)',
                                           borderRadius: '6px',
                                           marginTop: '4px',
                                           fontSize: '12px',
@@ -2651,7 +2703,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                                 key={index}
                                                 style={{
                                                   padding: '6px 10px',
-                                                  backgroundColor: '#fdf4ff',
+                                                  backgroundColor:
+                                                    'var(--color-bg-magenta-soft)',
                                                   borderRadius: '6px',
                                                   marginBottom: '6px',
                                                   fontSize: '12px',
@@ -2690,7 +2743,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                       <div
                                         style={{
                                           padding: '8px 12px',
-                                          backgroundColor: '#f0fdf4',
+                                          backgroundColor:
+                                            'var(--color-bg-success-soft)',
                                           borderRadius: '6px',
                                           marginTop: '4px',
                                           fontSize: '12px',
@@ -2736,7 +2790,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='🔬 Industry Insights'
-                                style={{ backgroundColor: '#fef7ff' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-purple-soft)',
+                                }}
                               >
                                 {(() => {
                                   const researchData =
@@ -2816,7 +2873,7 @@ const InternationalSocialMediaGenerator: React.FC<
                                                     style={{
                                                       padding: '6px 10px',
                                                       backgroundColor:
-                                                        '#f3e8ff',
+                                                        'var(--color-bg-purple-subtle)',
                                                       borderRadius: '6px',
                                                       marginBottom: '6px',
                                                       fontSize: '12px',
@@ -2850,7 +2907,7 @@ const InternationalSocialMediaGenerator: React.FC<
                                                     style={{
                                                       padding: '6px 10px',
                                                       backgroundColor:
-                                                        '#ede9fe',
+                                                        'var(--color-bg-purple-subtle)',
                                                       borderRadius: '6px',
                                                       marginBottom: '6px',
                                                       fontSize: '12px',
@@ -2884,7 +2941,7 @@ const InternationalSocialMediaGenerator: React.FC<
                                                     style={{
                                                       padding: '6px 10px',
                                                       backgroundColor:
-                                                        '#faf5ff',
+                                                        'var(--color-bg-purple-soft)',
                                                       borderRadius: '6px',
                                                       marginBottom: '6px',
                                                       fontSize: '12px',
@@ -2926,7 +2983,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='⚡ Quick Publish Info'
-                                style={{ backgroundColor: '#fff7ed' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-warning-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   <Col span={24}>
@@ -2960,7 +3020,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <Card
                                       size='small'
                                       style={{
-                                        backgroundColor: '#fef3c7',
+                                        backgroundColor:
+                                          'var(--color-bg-warning-subtle)',
                                         marginBottom: 8,
                                       }}
                                       styles={{ body: { padding: '12px' } }}
@@ -3003,7 +3064,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dcfce7',
+                                        backgroundColor:
+                                          'var(--color-bg-success-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -3022,7 +3084,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dbeafe',
+                                        backgroundColor:
+                                          'var(--color-bg-info-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -3049,7 +3112,9 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='🔄 Alternative Versions'
-                                style={{ backgroundColor: '#f8fafc' }}
+                                style={{
+                                  backgroundColor: 'var(--color-bg-slate-soft)',
+                                }}
                               >
                                 <div style={{ marginBottom: '12px' }}>
                                   <Text strong>Alternative Versions:</Text>
@@ -3065,7 +3130,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                       <div
                                         style={{
                                           padding: '8px 12px',
-                                          backgroundColor: '#e2e8f0',
+                                          backgroundColor:
+                                            'var(--color-bg-slate-subtle)',
                                           borderRadius: '6px',
                                           marginBottom: '8px',
                                           fontSize: '12px',
@@ -3100,7 +3166,10 @@ const InternationalSocialMediaGenerator: React.FC<
                                       </div>
                                       <Card
                                         size='small'
-                                        style={{ backgroundColor: '#f9fafb' }}
+                                        style={{
+                                          backgroundColor:
+                                            'var(--color-bg-muted)',
+                                        }}
                                         styles={{
                                           body: { padding: '8px 12px' },
                                         }}
@@ -3131,7 +3200,9 @@ const InternationalSocialMediaGenerator: React.FC<
                             <Card
                               size='small'
                               title='📍 Location & Mentions'
-                              style={{ backgroundColor: '#f0f9ff' }}
+                              style={{
+                                backgroundColor: 'var(--color-bg-info-soft)',
+                              }}
                             >
                               <Row gutter={[8, 8]}>
                                 {(webhookResponse as any).location_tag && (
@@ -3140,7 +3211,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dbeafe',
+                                        backgroundColor:
+                                          'var(--color-bg-info-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -3229,7 +3301,9 @@ const InternationalSocialMediaGenerator: React.FC<
                             <Card
                               size='small'
                               title='🔍 Search Enhanced Data'
-                              style={{ backgroundColor: '#fef7ff' }}
+                              style={{
+                                backgroundColor: 'var(--color-bg-purple-soft)',
+                              }}
                             >
                               <div
                                 style={{
@@ -3301,7 +3375,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                             key={index}
                                             style={{
                                               padding: '6px 10px',
-                                              backgroundColor: '#f3e8ff',
+                                              backgroundColor:
+                                                'var(--color-bg-purple-subtle)',
                                               borderRadius: '6px',
                                               marginBottom: '6px',
                                               fontSize: '12px',
@@ -3333,7 +3408,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                             key={index}
                                             style={{
                                               padding: '6px 10px',
-                                              backgroundColor: '#ede9fe',
+                                              backgroundColor:
+                                                'var(--color-bg-purple-subtle)',
                                               borderRadius: '6px',
                                               marginBottom: '6px',
                                               fontSize: '12px',
@@ -3365,7 +3441,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                             key={index}
                                             style={{
                                               padding: '6px 10px',
-                                              backgroundColor: '#faf5ff',
+                                              backgroundColor:
+                                                'var(--color-bg-purple-soft)',
                                               borderRadius: '6px',
                                               marginBottom: '6px',
                                               fontSize: '12px',
@@ -3407,7 +3484,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='📊 Performance Metrics'
-                                style={{ backgroundColor: '#f0fdf4' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-success-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   <Col span={12}>
@@ -3415,7 +3495,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dcfce7',
+                                        backgroundColor:
+                                          'var(--color-bg-success-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -3469,7 +3550,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dbeafe',
+                                        backgroundColor:
+                                          'var(--color-bg-info-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -3492,7 +3574,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#fef3c7',
+                                        backgroundColor:
+                                          'var(--color-bg-warning-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -3514,7 +3597,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#f3e8ff',
+                                        backgroundColor:
+                                          'var(--color-bg-purple-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -3543,7 +3627,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='🔍 Content Analysis'
-                                style={{ backgroundColor: '#fef7ff' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-purple-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   <Col span={24}>
@@ -3571,7 +3658,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#f0fdf4',
+                                        backgroundColor:
+                                          'var(--color-bg-success-soft)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -3593,7 +3681,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#fdf4ff',
+                                        backgroundColor:
+                                          'var(--color-bg-magenta-soft)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -3622,7 +3711,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='🎨 Visual Strategy'
-                                style={{ backgroundColor: '#fff7f7' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-danger-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   {/* 格式推荐 */}
@@ -3634,7 +3726,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                       <div
                                         style={{
                                           padding: '8px 12px',
-                                          backgroundColor: '#fef2f2',
+                                          backgroundColor:
+                                            'var(--color-bg-danger-subtle)',
                                           borderRadius: '6px',
                                           marginTop: '4px',
                                           fontSize: '12px',
@@ -3691,7 +3784,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                                 key={index}
                                                 style={{
                                                   padding: '6px 10px',
-                                                  backgroundColor: '#fdf4ff',
+                                                  backgroundColor:
+                                                    'var(--color-bg-magenta-soft)',
                                                   borderRadius: '6px',
                                                   marginBottom: '6px',
                                                   fontSize: '12px',
@@ -3730,7 +3824,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                       <div
                                         style={{
                                           padding: '8px 12px',
-                                          backgroundColor: '#f0fdf4',
+                                          backgroundColor:
+                                            'var(--color-bg-success-soft)',
                                           borderRadius: '6px',
                                           marginTop: '4px',
                                           fontSize: '12px',
@@ -3773,7 +3868,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                       <div
                                         style={{
                                           padding: '8px 12px',
-                                          backgroundColor: '#fef2f2',
+                                          backgroundColor:
+                                            'var(--color-bg-danger-subtle)',
                                           borderRadius: '6px',
                                           marginTop: '4px',
                                           fontSize: '12px',
@@ -3816,7 +3912,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                       <div
                                         style={{
                                           padding: '8px 12px',
-                                          backgroundColor: '#fdf4ff',
+                                          backgroundColor:
+                                            'var(--color-bg-magenta-soft)',
                                           borderRadius: '6px',
                                           marginTop: '4px',
                                           fontSize: '12px',
@@ -3859,7 +3956,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                       <div
                                         style={{
                                           padding: '8px 12px',
-                                          backgroundColor: '#f0fdf4',
+                                          backgroundColor:
+                                            'var(--color-bg-success-soft)',
                                           borderRadius: '6px',
                                           marginTop: '4px',
                                           fontSize: '12px',
@@ -3905,7 +4003,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='🔬 Industry Insights'
-                                style={{ backgroundColor: '#fef7ff' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-purple-soft)',
+                                }}
                               >
                                 {(() => {
                                   const researchData =
@@ -3985,7 +4086,7 @@ const InternationalSocialMediaGenerator: React.FC<
                                                     style={{
                                                       padding: '6px 10px',
                                                       backgroundColor:
-                                                        '#f3e8ff',
+                                                        'var(--color-bg-purple-subtle)',
                                                       borderRadius: '6px',
                                                       marginBottom: '6px',
                                                       fontSize: '12px',
@@ -4019,7 +4120,7 @@ const InternationalSocialMediaGenerator: React.FC<
                                                     style={{
                                                       padding: '6px 10px',
                                                       backgroundColor:
-                                                        '#ede9fe',
+                                                        'var(--color-bg-purple-subtle)',
                                                       borderRadius: '6px',
                                                       marginBottom: '6px',
                                                       fontSize: '12px',
@@ -4053,7 +4154,7 @@ const InternationalSocialMediaGenerator: React.FC<
                                                     style={{
                                                       padding: '6px 10px',
                                                       backgroundColor:
-                                                        '#faf5ff',
+                                                        'var(--color-bg-purple-soft)',
                                                       borderRadius: '6px',
                                                       marginBottom: '6px',
                                                       fontSize: '12px',
@@ -4095,7 +4196,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='⚡ Quick Publish Info'
-                                style={{ backgroundColor: '#fff7ed' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-warning-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   <Col span={24}>
@@ -4129,7 +4233,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <Card
                                       size='small'
                                       style={{
-                                        backgroundColor: '#fef3c7',
+                                        backgroundColor:
+                                          'var(--color-bg-warning-subtle)',
                                         marginBottom: 8,
                                       }}
                                       styles={{ body: { padding: '12px' } }}
@@ -4172,7 +4277,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dcfce7',
+                                        backgroundColor:
+                                          'var(--color-bg-success-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -4191,7 +4297,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dbeafe',
+                                        backgroundColor:
+                                          'var(--color-bg-info-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -4218,7 +4325,9 @@ const InternationalSocialMediaGenerator: React.FC<
                             <Card
                               size='small'
                               title='🎨 Visual Suggestions'
-                              style={{ backgroundColor: '#fff7f7' }}
+                              style={{
+                                backgroundColor: 'var(--color-bg-danger-soft)',
+                              }}
                             >
                               <Row gutter={[8, 8]}>
                                 <Col span={24}>
@@ -4226,7 +4335,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                   <div
                                     style={{
                                       padding: '6px 10px',
-                                      backgroundColor: '#fef2f2',
+                                      backgroundColor:
+                                        'var(--color-bg-danger-subtle)',
                                       borderRadius: '6px',
                                       marginTop: '4px',
                                       fontSize: '12px',
@@ -4243,7 +4353,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                   <div
                                     style={{
                                       padding: '6px 10px',
-                                      backgroundColor: '#fdf4ff',
+                                      backgroundColor:
+                                        'var(--color-bg-magenta-soft)',
                                       borderRadius: '6px',
                                       marginTop: '4px',
                                       fontSize: '12px',
@@ -4260,7 +4371,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                   <div
                                     style={{
                                       padding: '6px 10px',
-                                      backgroundColor: '#f0fdf4',
+                                      backgroundColor:
+                                        'var(--color-bg-success-soft)',
                                       borderRadius: '6px',
                                       marginTop: '4px',
                                       fontSize: '12px',
@@ -4282,7 +4394,10 @@ const InternationalSocialMediaGenerator: React.FC<
                               <Card
                                 size='small'
                                 title='⚡ Quick Publish Info'
-                                style={{ backgroundColor: '#fff7ed' }}
+                                style={{
+                                  backgroundColor:
+                                    'var(--color-bg-warning-soft)',
+                                }}
                               >
                                 <Row gutter={[8, 8]}>
                                   <Col span={24}>
@@ -4316,7 +4431,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <Card
                                       size='small'
                                       style={{
-                                        backgroundColor: '#fef3c7',
+                                        backgroundColor:
+                                          'var(--color-bg-warning-subtle)',
                                         marginBottom: 8,
                                       }}
                                       styles={{ body: { padding: '12px' } }}
@@ -4359,7 +4475,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dcfce7',
+                                        backgroundColor:
+                                          'var(--color-bg-success-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -4378,7 +4495,8 @@ const InternationalSocialMediaGenerator: React.FC<
                                     <div
                                       style={{
                                         padding: '6px 10px',
-                                        backgroundColor: '#dbeafe',
+                                        backgroundColor:
+                                          'var(--color-bg-info-subtle)',
                                         borderRadius: '6px',
                                         marginTop: '4px',
                                         fontSize: '12px',
@@ -4432,7 +4550,7 @@ const InternationalSocialMediaGenerator: React.FC<
                               size='small'
                               style={{
                                 marginTop: 8,
-                                backgroundColor: '#fafafa',
+                                backgroundColor: 'var(--color-bg-muted)',
                               }}
                             >
                               <Paragraph
@@ -4504,7 +4622,7 @@ const InternationalSocialMediaGenerator: React.FC<
                             style={{
                               textAlign: 'center',
                               padding: '40px',
-                              color: '#999',
+                              color: 'var(--color-text-tertiary)',
                             }}
                           >
                             <EditOutlined

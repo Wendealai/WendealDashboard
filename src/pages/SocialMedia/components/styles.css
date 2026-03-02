@@ -297,12 +297,10 @@
   margin-bottom: 8px;
 }
 
-/* 强制覆盖暗色主题文字颜色 */
-.dark-theme-text {
-  color: #ffffff !important;
-  font-weight: bold !important;
-}
-
-.dark-theme-text * {
-  color: #ffffff !important;
+/* Result panel theme alignment */
+.result-panel,
+.result-panel .ant-typography,
+.result-panel .ant-list-item-meta-title,
+.result-panel .ant-list-item-meta-description {
+  color: var(--color-text);
 }
