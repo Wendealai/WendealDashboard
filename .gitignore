@@ -34,3 +34,7 @@ dist-ssr
 
 # Supabase CLI local temp metadata
 supabase/.temp/
+
+# Local test artifacts
+test-results/
+tmp/
