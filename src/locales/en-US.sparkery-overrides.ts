@@ -1096,6 +1096,7 @@ export default {
         supabaseStatus: 'Supabase: {{status}}',
         googleCalendarStatus: 'Google Calendar: {{status}}',
         syncWeekToGoogleCalendar: 'Sync Week to Google Calendar',
+        reauthorizeGoogleCalendar: 'Reconnect Google Calendar',
         editEmployeesCustomers: 'Edit Employees & Customers',
         recurringTemplates: 'Recurring Templates',
         openFinancePanel: 'Open Finance Panel',
@@ -1123,6 +1124,10 @@ export default {
           calendarSynced:
             'Calendar synced: +{{created}} / ~{{updated}} / -{{deleted}}',
           calendarSyncFailed: 'Failed to sync Google Calendar',
+          googleAuthorizationRequired:
+            'Google Calendar authorization expired. Please reconnect authorization and try again.',
+          googleAuthorizationReconnected:
+            'Google Calendar authorization reconnected.',
           updateTaskFailed: 'Failed to update task in Supabase',
           jobUpdated: 'Job updated',
           createTaskFailed: 'Failed to create task in Supabase',

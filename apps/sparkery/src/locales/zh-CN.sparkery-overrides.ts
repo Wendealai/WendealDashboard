@@ -1053,6 +1053,7 @@ const zhCNSparkeryOverrides = {
         supabaseStatus: 'Supabase: {{status}}',
         googleCalendarStatus: 'Google 日历: {{status}}',
         syncWeekToGoogleCalendar: '同步本周到 Google 日历',
+        reauthorizeGoogleCalendar: '重新授权 Google 日历',
         editEmployeesCustomers: '编辑员工与客户',
         recurringTemplates: '周期模板',
         openFinancePanel: '打开财务面板',
@@ -1079,6 +1080,9 @@ const zhCNSparkeryOverrides = {
           calendarSynced:
             '日历同步完成: +{{created}} / ~{{updated}} / -{{deleted}}',
           calendarSyncFailed: 'Google 日历同步失败',
+          googleAuthorizationRequired:
+            'Google 日历授权已失效，请先重新授权后再同步。',
+          googleAuthorizationReconnected: 'Google 日历授权已重新连接。',
           updateTaskFailed: '更新 Supabase 任务失败',
           jobUpdated: '任务已更新',
           createTaskFailed: '创建 Supabase 任务失败',

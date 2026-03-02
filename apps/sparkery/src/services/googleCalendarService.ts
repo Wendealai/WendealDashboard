@@ -40,6 +40,21 @@ export interface GoogleCalendarSyncResult {
   calendarId: string;
 }
 
+class GoogleCalendarRequestError extends Error {
+  status: number;
+
+  details: string;
+
+  constructor(status: number, details: string) {
+    super(
+      `Google Calendar request failed (${status}): ${details || 'No details'}`
+    );
+    this.name = 'GoogleCalendarRequestError';
+    this.status = status;
+    this.details = details;
+  }
+}
+
 type GoogleIdentityRuntime = typeof globalThis & {
   __WENDEAL_GOOGLE_CALENDAR_CONFIG__?: GoogleCalendarRuntimeConfig;
   google?: {
@@ -211,7 +226,17 @@ const ensureGisLoaded = async (): Promise<void> => {
   return gisLoadPromise;
 };
 
-const requestGoogleAccessToken = async (clientId: string): Promise<string> => {
+const requestGoogleAccessToken = async (
+  clientId: string,
+  options?: { forceConsent?: boolean }
+): Promise<string> => {
+  const forceConsent = Boolean(options?.forceConsent);
+
+  if (forceConsent) {
+    accessToken = null;
+    accessTokenExpiresAt = 0;
+  }
+
   await ensureGisLoaded();
   const runtime = globalThis as GoogleIdentityRuntime;
   const initTokenClient = runtime.google?.accounts?.oauth2?.initTokenClient;
@@ -246,7 +271,7 @@ const requestGoogleAccessToken = async (clientId: string): Promise<string> => {
     });
 
     tokenClient.requestAccessToken({
-      prompt: accessToken ? '' : 'consent',
+      prompt: forceConsent ? 'consent' : accessToken ? '' : 'consent',
     });
   });
 };
@@ -273,8 +298,9 @@ const googleCalendarFetch = async <T>(
 
   if (!response.ok) {
     const details = await response.text();
-    throw new Error(
-      `Google Calendar request failed (${response.status}): ${details || 'No details'}`
+    throw new GoogleCalendarRequestError(
+      response.status,
+      details || 'No details'
     );
   }
 
@@ -371,6 +397,35 @@ const buildEventPayload = (job: DispatchJob): Record<string, unknown> => {
 export const isGoogleCalendarConfigured = (): boolean =>
   Boolean(getGoogleCalendarConfig());
 
+export const isGoogleCalendarAuthorizationError = (error: unknown): boolean => {
+  if (error instanceof GoogleCalendarRequestError) {
+    return error.status === 401 || error.status === 403;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('invalid_grant') ||
+      message.includes('token has been expired') ||
+      message.includes('unauthorized') ||
+      message.includes('insufficient authentication scopes')
+    );
+  }
+
+  return false;
+};
+
+export const reauthorizeGoogleCalendar = async (): Promise<void> => {
+  const config = getGoogleCalendarConfig();
+  if (!config) {
+    throw new Error(
+      'Google Calendar is not configured. Set VITE_GOOGLE_CALENDAR_CLIENT_ID first.'
+    );
+  }
+
+  await requestGoogleAccessToken(config.clientId, { forceConsent: true });
+};
+
 export const syncDispatchWeekToGoogleCalendar = async (
   input: GoogleCalendarSyncInput
 ): Promise<GoogleCalendarSyncResult> => {
@@ -381,77 +436,90 @@ export const syncDispatchWeekToGoogleCalendar = async (
     );
   }
 
-  const token = await requestGoogleAccessToken(config.clientId);
-  const existingEvents = await listDispatchManagedEvents(
-    token,
-    config.calendarId,
-    input.weekStart,
-    input.weekEnd
-  );
+  const runSync = async (options?: {
+    forceConsent?: boolean;
+  }): Promise<GoogleCalendarSyncResult> => {
+    const token = await requestGoogleAccessToken(config.clientId, options);
+    const existingEvents = await listDispatchManagedEvents(
+      token,
+      config.calendarId,
+      input.weekStart,
+      input.weekEnd
+    );
 
-  const existingByJobId = new Map<
-    string,
-    {
-      eventId: string;
+    const existingByJobId = new Map<
+      string,
+      {
+        eventId: string;
+      }
+    >();
+
+    existingEvents.forEach(event => {
+      const dispatchJobId = event.extendedProperties?.private?.dispatchJobId;
+      if (!dispatchJobId || !event.id) {
+        return;
+      }
+      existingByJobId.set(dispatchJobId, { eventId: event.id });
+    });
+
+    const syncJobs = input.jobs.filter(job => job.status !== 'cancelled');
+    const syncJobIds = new Set(syncJobs.map(job => job.id));
+
+    let created = 0;
+    let updated = 0;
+    let deleted = 0;
+
+    for (const job of syncJobs) {
+      const existing = existingByJobId.get(job.id);
+      const payload = buildEventPayload(job);
+
+      if (existing?.eventId) {
+        await googleCalendarFetch(
+          token,
+          `/calendars/${encodeURIComponent(config.calendarId)}/events/${encodeURIComponent(existing.eventId)}`,
+          'PATCH',
+          payload
+        );
+        updated += 1;
+        continue;
+      }
+
+      await googleCalendarFetch(
+        token,
+        `/calendars/${encodeURIComponent(config.calendarId)}/events`,
+        'POST',
+        payload
+      );
+      created += 1;
     }
-  >();
 
-  existingEvents.forEach(event => {
-    const dispatchJobId = event.extendedProperties?.private?.dispatchJobId;
-    if (!dispatchJobId || !event.id) {
-      return;
-    }
-    existingByJobId.set(dispatchJobId, { eventId: event.id });
-  });
-
-  const syncJobs = input.jobs.filter(job => job.status !== 'cancelled');
-  const syncJobIds = new Set(syncJobs.map(job => job.id));
-
-  let created = 0;
-  let updated = 0;
-  let deleted = 0;
-
-  for (const job of syncJobs) {
-    const existing = existingByJobId.get(job.id);
-    const payload = buildEventPayload(job);
-
-    if (existing?.eventId) {
+    for (const [dispatchJobId, existing] of existingByJobId.entries()) {
+      if (syncJobIds.has(dispatchJobId)) {
+        continue;
+      }
       await googleCalendarFetch(
         token,
         `/calendars/${encodeURIComponent(config.calendarId)}/events/${encodeURIComponent(existing.eventId)}`,
-        'PATCH',
-        payload
+        'DELETE'
       );
-      updated += 1;
-      continue;
+      deleted += 1;
     }
 
-    await googleCalendarFetch(
-      token,
-      `/calendars/${encodeURIComponent(config.calendarId)}/events`,
-      'POST',
-      payload
-    );
-    created += 1;
-  }
-
-  for (const [dispatchJobId, existing] of existingByJobId.entries()) {
-    if (syncJobIds.has(dispatchJobId)) {
-      continue;
-    }
-    await googleCalendarFetch(
-      token,
-      `/calendars/${encodeURIComponent(config.calendarId)}/events/${encodeURIComponent(existing.eventId)}`,
-      'DELETE'
-    );
-    deleted += 1;
-  }
-
-  return {
-    created,
-    updated,
-    deleted,
-    syncedJobs: syncJobs.length,
-    calendarId: config.calendarId,
+    return {
+      created,
+      updated,
+      deleted,
+      syncedJobs: syncJobs.length,
+      calendarId: config.calendarId,
+    };
   };
+
+  try {
+    return await runSync();
+  } catch (error) {
+    if (!isGoogleCalendarAuthorizationError(error)) {
+      throw error;
+    }
+    return runSync({ forceConsent: true });
+  }
 };

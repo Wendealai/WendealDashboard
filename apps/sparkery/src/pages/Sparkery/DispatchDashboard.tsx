@@ -58,6 +58,8 @@ import DispatchMapPlanner from './components/dispatch/DispatchMapPlanner';
 import WeeklyFinanceBoard from './components/dispatch/WeeklyFinanceBoard';
 import {
   isGoogleCalendarConfigured,
+  isGoogleCalendarAuthorizationError,
+  reauthorizeGoogleCalendar,
   syncDispatchWeekToGoogleCalendar,
 } from '@/services/googleCalendarService';
 import { useNavigate } from 'react-router-dom';
@@ -136,6 +138,8 @@ const DispatchDashboard: React.FC = () => {
   const [editingJob, setEditingJob] = useState<DispatchJob | null>(null);
   const [adminSetupOpen, setAdminSetupOpen] = useState(false);
   const [syncingGoogleCalendar, setSyncingGoogleCalendar] = useState(false);
+  const [reauthorizingGoogleCalendar, setReauthorizingGoogleCalendar] =
+    useState(false);
   const supabaseConfigured = React.useMemo(() => {
     const runtime = globalThis as typeof globalThis & {
       __WENDEAL_SUPABASE_CONFIG__?: {
@@ -276,6 +280,12 @@ const DispatchDashboard: React.FC = () => {
         })
       );
     } catch (error) {
+      if (isGoogleCalendarAuthorizationError(error)) {
+        message.error(
+          t('sparkery.dispatch.dashboard.messages.googleAuthorizationRequired')
+        );
+        return;
+      }
       message.error(
         error instanceof Error
           ? error.message
@@ -283,6 +293,31 @@ const DispatchDashboard: React.FC = () => {
       );
     } finally {
       setSyncingGoogleCalendar(false);
+    }
+  };
+
+  const handleReauthorizeGoogleCalendar = async () => {
+    if (!googleCalendarConfigured) {
+      message.warning(
+        t('sparkery.dispatch.dashboard.messages.googleNotConfigured')
+      );
+      return;
+    }
+
+    setReauthorizingGoogleCalendar(true);
+    try {
+      await reauthorizeGoogleCalendar();
+      message.success(
+        t('sparkery.dispatch.dashboard.messages.googleAuthorizationReconnected')
+      );
+    } catch (error) {
+      message.error(
+        error instanceof Error
+          ? error.message
+          : t('sparkery.dispatch.dashboard.messages.calendarSyncFailed')
+      );
+    } finally {
+      setReauthorizingGoogleCalendar(false);
     }
   };
 
@@ -849,9 +884,17 @@ const DispatchDashboard: React.FC = () => {
             className='dispatch-dashboard-action-btn dispatch-dashboard-action-btn-sync'
             onClick={handleSyncGoogleCalendar}
             loading={syncingGoogleCalendar}
-            disabled={!googleCalendarConfigured}
+            disabled={!googleCalendarConfigured || reauthorizingGoogleCalendar}
           >
             {t('sparkery.dispatch.dashboard.syncWeekToGoogleCalendar')}
+          </Button>
+          <Button
+            className='dispatch-dashboard-action-btn'
+            onClick={handleReauthorizeGoogleCalendar}
+            loading={reauthorizingGoogleCalendar}
+            disabled={!googleCalendarConfigured || syncingGoogleCalendar}
+          >
+            {t('sparkery.dispatch.dashboard.reauthorizeGoogleCalendar')}
           </Button>
           <Button
             className='dispatch-dashboard-action-btn'
