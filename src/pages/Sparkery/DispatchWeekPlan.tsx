@@ -1617,7 +1617,7 @@ const DispatchWeekPlan: React.FC = () => {
                   </Tag>
                 )}
               </Space>
-              <Space wrap>
+              <Space wrap className='dispatch-week-plan-header-actions'>
                 <Button onClick={handleCopyCurrentPlanLink}>
                   {t('sparkery.dispatch.weekPlan.actions.copyPlanLink')}
                 </Button>

@@ -3010,3 +3010,119 @@ body.theme-dark .dispatch-employee-tasks-page {
   font-size: 12px;
   color: var(--sparkery-muted);
 }
+
+@media (max-width: 768px) {
+  .dispatch-week-plan-shell {
+    padding: 8px;
+  }
+
+  .dispatch-week-plan-container {
+    max-width: none;
+  }
+
+  .dispatch-week-plan-root-space {
+    gap: 10px !important;
+  }
+
+  .dispatch-week-plan-header-card .ant-card-body {
+    padding: 10px;
+  }
+
+  .dispatch-week-plan-header-actions {
+    width: 100%;
+    gap: 8px !important;
+  }
+
+  .dispatch-week-plan-header-actions .ant-btn {
+    width: 100%;
+    min-height: 34px;
+  }
+
+  .dispatch-week-plan-day-card .ant-card-head {
+    padding: 8px 10px;
+  }
+
+  .dispatch-week-plan-day-card .ant-card-head-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .dispatch-week-plan-day-card .ant-card-extra {
+    width: 100%;
+    margin-inline-start: 0;
+    padding: 0;
+  }
+
+  .dispatch-week-plan-day-card .ant-card-extra .ant-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .dispatch-week-plan-day-card .ant-list-item {
+    display: block;
+    padding: 10px;
+    border: 1px solid var(--sparkery-table-divider);
+    border-radius: 10px;
+    background: var(--sparkery-surface-soft);
+    margin-bottom: 8px;
+  }
+
+  .dispatch-week-plan-day-card .ant-list-split .ant-list-item {
+    border-bottom: 1px solid var(--sparkery-table-divider);
+  }
+
+  .dispatch-week-plan-day-card
+    .dispatch-week-plan-job-item
+    .ant-list-item-meta {
+    margin-bottom: 8px;
+  }
+
+  .dispatch-week-plan-job-title-row {
+    flex-wrap: wrap;
+  }
+
+  .dispatch-week-plan-job-title-text {
+    width: 100%;
+  }
+
+  .dispatch-week-plan-job-item .ant-list-item-action {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    margin: 10px 0 0;
+  }
+
+  .dispatch-week-plan-job-item .ant-list-item-action > li {
+    margin: 0 !important;
+    padding-inline: 0;
+  }
+
+  .dispatch-week-plan-job-item .ant-list-item-action > li .ant-btn {
+    width: 100%;
+    min-height: 32px;
+    height: auto;
+    white-space: normal;
+  }
+
+  .dispatch-week-plan-action-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--sparkery-button-border);
+    background: var(--sparkery-button-bg);
+    border-radius: 8px;
+    min-height: 32px;
+    padding-inline: 10px !important;
+  }
+
+  .dispatch-week-plan-summary-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dispatch-week-plan-summary-jobs-tag {
+    align-self: flex-start;
+  }
+}
