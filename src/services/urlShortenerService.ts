@@ -4,8 +4,13 @@ type UrlShortenerRuntimeConfig = {
   domain?: string;
 };
 
+type SupabaseRuntimeConfig = {
+  url?: string;
+};
+
 type RuntimeWithShortener = typeof globalThis & {
   __WENDEAL_URL_SHORTENER_CONFIG__?: UrlShortenerRuntimeConfig;
+  __WENDEAL_SUPABASE_CONFIG__?: SupabaseRuntimeConfig;
 };
 
 type KuttCreateResponse = {
@@ -66,9 +71,28 @@ const getShortenerConfig = (): {
   };
 };
 
+const getSparkeryApiBaseUrl = (): string | null => {
+  const runtime = globalThis as RuntimeWithShortener;
+  const supabaseUrl = runtime.__WENDEAL_SUPABASE_CONFIG__?.url?.trim();
+  if (!supabaseUrl) {
+    return null;
+  }
+  return `${supabaseUrl.replace(/\/$/, '')}/functions/v1/sparkery-api`;
+};
+
+const getPreferredShortDomain = (): string | undefined => {
+  const runtime = globalThis as RuntimeWithShortener;
+  const runtimeConfig = runtime.__WENDEAL_URL_SHORTENER_CONFIG__;
+  return pickNonEmpty(
+    runtimeConfig?.domain,
+    import.meta.env.VITE_URL_SHORTENER_DOMAIN,
+    import.meta.env.VITE_KUTT_DOMAIN
+  );
+};
+
 const resolveShortUrl = (
   response: KuttCreateResponse,
-  baseUrl: string
+  baseUrl?: string
 ): string | null => {
   if (typeof response.link === 'string' && response.link.trim()) {
     return response.link.trim();
@@ -79,10 +103,61 @@ const resolveShortUrl = (
   if (typeof response.shortUrl === 'string' && response.shortUrl.trim()) {
     return response.shortUrl.trim();
   }
-  if (typeof response.address === 'string' && response.address.trim()) {
+  if (
+    baseUrl &&
+    typeof response.address === 'string' &&
+    response.address.trim()
+  ) {
     return `${baseUrl}/${response.address.trim()}`;
   }
   return null;
+};
+
+const createSparkeryProxyShortLink = async (
+  longUrl: string,
+  options?: { description?: string }
+): Promise<string> => {
+  const apiBaseUrl = getSparkeryApiBaseUrl();
+  if (!apiBaseUrl) {
+    throw new Error('Sparkery API base URL is not configured');
+  }
+
+  const preferredDomain = getPreferredShortDomain();
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    SHORTENER_TIMEOUT_MS
+  );
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/sparkery/v1/short-links`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        target: longUrl,
+        ...(preferredDomain ? { domain: preferredDomain } : {}),
+        ...(options?.description ? { description: options.description } : {}),
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Sparkery short-link proxy failed with status ${response.status}`
+      );
+    }
+
+    const payload = (await response.json()) as KuttCreateResponse;
+    const shortUrl = resolveShortUrl(payload);
+    if (!shortUrl) {
+      throw new Error('Sparkery short-link proxy returned no short URL');
+    }
+    return shortUrl;
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
 };
 
 const createKuttShortLink = async (
@@ -152,6 +227,12 @@ export const shortenUrlIfConfigured = async (
   longUrl: string,
   options?: { description?: string }
 ): Promise<string> => {
+  try {
+    return await createSparkeryProxyShortLink(longUrl, options);
+  } catch {
+    // Fall through to client-side direct mode.
+  }
+
   try {
     return await createKuttShortLink(longUrl, options);
   } catch {

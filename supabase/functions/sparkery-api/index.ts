@@ -21,6 +21,13 @@ type OneOffSectionBundleId =
   | 'move_out_pack'
   | 'office_hygiene_pack';
 
+type KuttCreateResponse = {
+  link?: string;
+  shortLink?: string;
+  shortUrl?: string;
+  address?: string;
+};
+
 type DispatchEmployeeRow = {
   id: string;
   name: string;
@@ -99,6 +106,7 @@ const ONE_OFF_TEMPLATE_BUNDLES: Record<OneOffSectionBundleId, string[]> = {
 
 const IDEMPOTENCY_TABLE = 'sparkery_api_idempotency';
 const AUDIT_TABLE = 'sparkery_api_audit_logs';
+const URL_SHORTENER_TIMEOUT_MS = 6000;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -248,8 +256,142 @@ const parseBody = async (req: Request): Promise<JsonObject> => {
       error instanceof Error
         ? `Invalid JSON body: ${error.message}`
         : 'Invalid JSON body'
-    );
+      );
   }
+};
+
+const readHttpUrl = (value: unknown): string | null => {
+  const text = readString(value);
+  if (!text) {
+    return null;
+  }
+  try {
+    const parsed = new URL(text);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+};
+
+const urlShortenerConfigFromEnv = (): {
+  baseUrl: string;
+  apiKey: string;
+  domain?: string;
+} | null => {
+  const baseUrl = readString(
+    Deno.env.get('SPARKERY_URL_SHORTENER_BASE_URL') ||
+      Deno.env.get('URL_SHORTENER_BASE_URL') ||
+      Deno.env.get('KUTT_BASE_URL')
+  );
+  const apiKey = readString(
+    Deno.env.get('SPARKERY_URL_SHORTENER_API_KEY') ||
+      Deno.env.get('URL_SHORTENER_API_KEY') ||
+      Deno.env.get('KUTT_API_KEY')
+  );
+  const domain = readString(
+    Deno.env.get('SPARKERY_URL_SHORTENER_DOMAIN') ||
+      Deno.env.get('URL_SHORTENER_DOMAIN') ||
+      Deno.env.get('KUTT_DOMAIN')
+  );
+
+  if (!baseUrl || !apiKey) {
+    return null;
+  }
+
+  return {
+    baseUrl: baseUrl.replace(/\/+$/, ''),
+    apiKey,
+    ...(domain ? { domain } : {}),
+  };
+};
+
+const resolveKuttShortUrl = (
+  response: KuttCreateResponse,
+  baseUrl: string
+): string | null => {
+  if (typeof response.link === 'string' && response.link.trim()) {
+    return response.link.trim();
+  }
+  if (typeof response.shortLink === 'string' && response.shortLink.trim()) {
+    return response.shortLink.trim();
+  }
+  if (typeof response.shortUrl === 'string' && response.shortUrl.trim()) {
+    return response.shortUrl.trim();
+  }
+  if (typeof response.address === 'string' && response.address.trim()) {
+    return `${baseUrl}/${response.address.trim()}`;
+  }
+  return null;
+};
+
+const createKuttShortLink = async (
+  target: string,
+  options: {
+    description?: string;
+    domain?: string;
+    config: {
+      baseUrl: string;
+      apiKey: string;
+      domain?: string;
+    };
+  }
+): Promise<string> => {
+  const config = options.config;
+  const preferredDomain = options.domain || config.domain;
+  const attemptDomains = preferredDomain
+    ? [preferredDomain, undefined]
+    : [undefined];
+  let lastError: Error | null = null;
+
+  for (const domain of attemptDomains) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), URL_SHORTENER_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${config.baseUrl}/api/v2/links`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': config.apiKey,
+        },
+        body: JSON.stringify({
+          target,
+          reuse: true,
+          ...(domain ? { domain } : {}),
+          ...(options.description ? { description: options.description } : {}),
+        }),
+        signal: controller.signal,
+      });
+
+      const rawBody = await response.text();
+      if (!response.ok) {
+        throw new Error(
+          `Kutt responded ${response.status}: ${rawBody.slice(0, 240)}`
+        );
+      }
+
+      let payload: KuttCreateResponse = {};
+      if (rawBody.trim()) {
+        payload = JSON.parse(rawBody) as KuttCreateResponse;
+      }
+      const shortUrl = resolveKuttShortUrl(payload, config.baseUrl);
+      if (!shortUrl) {
+        throw new Error('Kutt response did not include a short URL');
+      }
+      return shortUrl;
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error
+          : new Error('Kutt shorten request failed');
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw lastError || new Error('Kutt shorten request failed');
 };
 
 const assertDate = (v: string, name: string): void => {
@@ -1666,6 +1808,58 @@ const handleOneOffTemplateRecommendations = async (
   return json(responsePayload);
 };
 
+const handleCreateShortLink = async (req: Request): Promise<Response> => {
+  const endpoint = '/sparkery/v1/short-links';
+  let body: JsonObject;
+  try {
+    body = await parseBody(req);
+  } catch (error) {
+    return fail(
+      400,
+      error instanceof Error ? error.message : 'Invalid request body'
+    );
+  }
+
+  const target = readHttpUrl(body.target || body.url || body.longUrl);
+  if (!target) {
+    return fail(
+      400,
+      'target must be an absolute URL with http:// or https://'
+    );
+  }
+  const description = readString(body.description);
+  const domain = readString(body.domain);
+
+  const shortenerConfig = urlShortenerConfigFromEnv();
+  if (!shortenerConfig) {
+    return fail(
+      503,
+      'URL shortener is not configured on sparkery-api. Set KUTT_BASE_URL and KUTT_API_KEY.'
+    );
+  }
+
+  try {
+    const shortUrl = await createKuttShortLink(target, {
+      config: shortenerConfig,
+      ...(description ? { description } : {}),
+      ...(domain ? { domain } : {}),
+    });
+    return json({
+      ok: true,
+      endpoint,
+      target,
+      shortUrl,
+      provider: 'kutt',
+    });
+  } catch (error) {
+    return fail(
+      502,
+      'Failed to shorten URL',
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+};
+
 const handleGenerateWeeklyPlanLink = async (
   req: Request,
   supabase: ReturnType<typeof createClient>
@@ -2290,6 +2484,7 @@ Deno.serve(async req => {
         'POST /sparkery/v1/dispatch/jobs/delete',
         'POST /sparkery/v1/inspection-links',
         'POST /sparkery/v1/inspection/one-off-recommendations',
+        'POST /sparkery/v1/short-links',
         'POST /sparkery/v1/dispatch/weekly-plan-links',
         'POST /sparkery/v1/dispatch/recurring/import',
       ],
@@ -2299,6 +2494,8 @@ Deno.serve(async req => {
     route === '/sparkery/v1/inspection/one-off-recommendations'
   ) {
     response = await handleOneOffTemplateRecommendations(req);
+  } else if (req.method === 'POST' && route === '/sparkery/v1/short-links') {
+    response = await handleCreateShortLink(req);
   } else if (!authorized(req)) {
     response = fail(
       401,

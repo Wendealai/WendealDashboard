@@ -8,6 +8,7 @@ This document describes the first API gateway for Sparkery:
 - `POST /sparkery/v1/dispatch/jobs/batch`
 - `POST /sparkery/v1/dispatch/jobs/delete`
 - `POST /sparkery/v1/inspection-links`
+- `POST /sparkery/v1/short-links`
 - `POST /sparkery/v1/dispatch/weekly-plan-links`
 - `POST /sparkery/v1/dispatch/recurring/import`
 
@@ -30,12 +31,18 @@ Set function secrets:
 ```bash
 supabase secrets set SPARKERY_API_TOKEN=your_long_token
 supabase secrets set SPARKERY_APP_ORIGIN=https://your-app-domain.com
+supabase secrets set KUTT_BASE_URL=https://kutt.wendealai.com
+supabase secrets set KUTT_API_KEY=your-kutt-api-key
+# Optional:
+supabase secrets set KUTT_DOMAIN=kutt.wendealai.com
 ```
 
 Notes:
 
 - `SPARKERY_API_TOKEN` is the single shared auth token.
 - `SPARKERY_APP_ORIGIN` is used to build full inspection share URLs.
+- `KUTT_BASE_URL` + `KUTT_API_KEY` are used by `/sparkery/v1/short-links`.
+- `KUTT_DOMAIN` is optional. Keep empty if you are unsure.
 - Function uses `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from runtime.
 
 ## 3. Auth
@@ -187,6 +194,36 @@ Template matching order:
 1. `propertyTemplateId` / `templateId`
 2. Address core (`Number + Street Name`, case-insensitive)
 3. Property name exact normalized match
+
+### 4.6 Create Short Link (Kutt Proxy)
+
+`POST /functions/v1/sparkery-api/sparkery/v1/short-links`
+
+This endpoint is intentionally public (no `SPARKERY_API_TOKEN`) for Sparkery frontend usage.
+
+Example:
+
+```bash
+curl -X POST "https://<project-ref>.supabase.co/functions/v1/sparkery-api/sparkery/v1/short-links" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "https://oa.wendealai.com/dispatch-week-plan?employeeId=emp-1&weekStart=2026-03-02",
+    "description": "Dispatch Weekly Plan",
+    "domain": "kutt.wendealai.com"
+  }'
+```
+
+Response example:
+
+```json
+{
+  "ok": true,
+  "endpoint": "/sparkery/v1/short-links",
+  "target": "https://oa.wendealai.com/dispatch-week-plan?employeeId=emp-1&weekStart=2026-03-02",
+  "shortUrl": "https://kutt.wendealai.com/AbC123",
+  "provider": "kutt"
+}
+```
 
 ### 4.5 Batch Create Dispatch Jobs
 
