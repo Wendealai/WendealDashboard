@@ -18,6 +18,12 @@ type GoogleCalendarRuntimeConfig = {
   calendarId?: string;
 };
 
+type UrlShortenerRuntimeConfig = {
+  baseUrl?: string;
+  apiKey?: string;
+  domain?: string;
+};
+
 type InvoiceOcrRuntimeConfig = {
   webhookUrl?: string;
   workflowId?: string;
@@ -37,6 +43,7 @@ type AppRuntimeConfig = {
   supabase?: SupabaseRuntimeConfig;
   googleMaps?: GoogleMapsRuntimeConfig;
   googleCalendar?: GoogleCalendarRuntimeConfig;
+  urlShortener?: UrlShortenerRuntimeConfig;
   invoiceOCR?: InvoiceOcrRuntimeConfig;
   appVersion?: string;
   appCommit?: string;
@@ -48,6 +55,7 @@ const runtime = globalThis as typeof globalThis & {
   __WENDEAL_SUPABASE_CONFIG__?: SupabaseRuntimeConfig;
   __WENDEAL_GOOGLE_MAPS_CONFIG__?: GoogleMapsRuntimeConfig;
   __WENDEAL_GOOGLE_CALENDAR_CONFIG__?: GoogleCalendarRuntimeConfig;
+  __WENDEAL_URL_SHORTENER_CONFIG__?: UrlShortenerRuntimeConfig;
   __WENDEAL_INVOICE_OCR_CONFIG__?: InvoiceOcrRuntimeConfig;
   __WENDEAL_APP_VERSION__?: string;
 };
@@ -127,6 +135,30 @@ runtime.__WENDEAL_GOOGLE_CALENDAR_CONFIG__ = {
     ? { clientId: resolvedGoogleCalendarClientId }
     : {}),
   ...(resolvedGoogleCalendarId ? { calendarId: resolvedGoogleCalendarId } : {}),
+};
+
+const resolvedUrlShortenerBaseUrl = pickNonEmpty(
+  runtimeConfig.urlShortener?.baseUrl,
+  import.meta.env.VITE_URL_SHORTENER_BASE_URL,
+  import.meta.env.VITE_KUTT_BASE_URL
+);
+const resolvedUrlShortenerApiKey = pickNonEmpty(
+  runtimeConfig.urlShortener?.apiKey,
+  import.meta.env.VITE_URL_SHORTENER_API_KEY,
+  import.meta.env.VITE_KUTT_API_KEY
+);
+const resolvedUrlShortenerDomain = pickNonEmpty(
+  runtimeConfig.urlShortener?.domain,
+  import.meta.env.VITE_URL_SHORTENER_DOMAIN,
+  import.meta.env.VITE_KUTT_DOMAIN
+);
+
+runtime.__WENDEAL_URL_SHORTENER_CONFIG__ = {
+  ...(resolvedUrlShortenerBaseUrl
+    ? { baseUrl: resolvedUrlShortenerBaseUrl }
+    : {}),
+  ...(resolvedUrlShortenerApiKey ? { apiKey: resolvedUrlShortenerApiKey } : {}),
+  ...(resolvedUrlShortenerDomain ? { domain: resolvedUrlShortenerDomain } : {}),
 };
 
 const invoiceOcrPollingIntervalEnv = import.meta.env

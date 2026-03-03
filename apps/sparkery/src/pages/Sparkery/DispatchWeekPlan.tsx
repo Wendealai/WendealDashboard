@@ -46,6 +46,7 @@ import {
   loadPropertyTemplates,
   submitInspection,
 } from '@/services/inspectionService';
+import { shortenUrlIfConfigured } from '@/services/urlShortenerService';
 import { trackSparkeryEvent } from '@/services/sparkeryTelemetry';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -1510,13 +1511,16 @@ const DispatchWeekPlan: React.FC = () => {
 
         await submitInspection(inspectionDraft);
 
-        const link = buildInspectionShareUrl(window.location.origin, {
+        const rawLink = buildInspectionShareUrl(window.location.origin, {
           id: inspectionId,
           propertyName: template.name,
           propertyAddress: template.address || job.customerAddress || '',
           checkOutDate: job.scheduledDate,
           employeeIds: [employee.id],
           templateId: template.id,
+        });
+        const link = await shortenUrlIfConfigured(rawLink, {
+          description: `Inspection ${inspectionId}`,
         });
 
         setInspectionLinks(prev => ({

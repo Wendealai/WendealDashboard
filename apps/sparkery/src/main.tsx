@@ -21,10 +21,17 @@ type GoogleCalendarRuntimeConfig = {
   calendarId?: string;
 };
 
+type UrlShortenerRuntimeConfig = {
+  baseUrl?: string;
+  apiKey?: string;
+  domain?: string;
+};
+
 type SparkeryRuntimeConfig = {
   supabase?: SupabaseRuntimeConfig;
   googleMaps?: GoogleMapsRuntimeConfig;
   googleCalendar?: GoogleCalendarRuntimeConfig;
+  urlShortener?: UrlShortenerRuntimeConfig;
   appVersion?: string;
   appCommit?: string;
   appBuildTime?: string;
@@ -42,10 +49,13 @@ const runtime = globalThis as typeof globalThis & {
   __WENDEAL_SUPABASE_CONFIG__?: SupabaseRuntimeConfig;
   __WENDEAL_GOOGLE_MAPS_CONFIG__?: GoogleMapsRuntimeConfig;
   __WENDEAL_GOOGLE_CALENDAR_CONFIG__?: GoogleCalendarRuntimeConfig;
+  __WENDEAL_URL_SHORTENER_CONFIG__?: UrlShortenerRuntimeConfig;
   __WENDEAL_APP_VERSION__?: string;
 };
 
-const pickNonEmpty = (...values: Array<string | undefined>): string | undefined => {
+const pickNonEmpty = (
+  ...values: Array<string | undefined>
+): string | undefined => {
   for (const value of values) {
     if (!value) {
       continue;
@@ -58,7 +68,10 @@ const pickNonEmpty = (...values: Array<string | undefined>): string | undefined 
   return undefined;
 };
 
-const externalRuntime = runtime.__SPARKERY_RUNTIME_CONFIG__ || runtime.__WENDEAL_RUNTIME_CONFIG__ || {};
+const externalRuntime =
+  runtime.__SPARKERY_RUNTIME_CONFIG__ ||
+  runtime.__WENDEAL_RUNTIME_CONFIG__ ||
+  {};
 const buildMeta = __WENDEAL_BUILD_META__ as BuildMeta;
 
 const resolvedAppVersion =
@@ -99,6 +112,21 @@ const resolvedGoogleCalendarId = pickNonEmpty(
   externalRuntime.googleCalendar?.calendarId,
   import.meta.env.VITE_GOOGLE_CALENDAR_ID
 );
+const resolvedUrlShortenerBaseUrl = pickNonEmpty(
+  externalRuntime.urlShortener?.baseUrl,
+  import.meta.env.VITE_URL_SHORTENER_BASE_URL,
+  import.meta.env.VITE_KUTT_BASE_URL
+);
+const resolvedUrlShortenerApiKey = pickNonEmpty(
+  externalRuntime.urlShortener?.apiKey,
+  import.meta.env.VITE_URL_SHORTENER_API_KEY,
+  import.meta.env.VITE_KUTT_API_KEY
+);
+const resolvedUrlShortenerDomain = pickNonEmpty(
+  externalRuntime.urlShortener?.domain,
+  import.meta.env.VITE_URL_SHORTENER_DOMAIN,
+  import.meta.env.VITE_KUTT_DOMAIN
+);
 
 runtime.__WENDEAL_APP_VERSION__ = resolvedAppVersion;
 runtime.__WENDEAL_RUNTIME_CONFIG__ = {
@@ -122,6 +150,14 @@ runtime.__WENDEAL_GOOGLE_CALENDAR_CONFIG__ = {
     ? { clientId: resolvedGoogleCalendarClientId }
     : {}),
   ...(resolvedGoogleCalendarId ? { calendarId: resolvedGoogleCalendarId } : {}),
+};
+
+runtime.__WENDEAL_URL_SHORTENER_CONFIG__ = {
+  ...(resolvedUrlShortenerBaseUrl
+    ? { baseUrl: resolvedUrlShortenerBaseUrl }
+    : {}),
+  ...(resolvedUrlShortenerApiKey ? { apiKey: resolvedUrlShortenerApiKey } : {}),
+  ...(resolvedUrlShortenerDomain ? { domain: resolvedUrlShortenerDomain } : {}),
 };
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

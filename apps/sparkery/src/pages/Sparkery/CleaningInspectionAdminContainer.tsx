@@ -116,6 +116,7 @@ import {
 } from '@/services/inspectionService';
 import { compressImage } from '@/pages/CleaningInspection/utils';
 import { buildInspectionShareUrl } from '@/pages/CleaningInspection/shareLink';
+import { shortenUrlIfConfigured } from '@/services/urlShortenerService';
 import {
   applySectionBundleToSectionIds,
   buildOneOffChecklistDraftForSection,
@@ -2485,7 +2486,10 @@ const CleaningInspectionAdmin: React.FC = () => {
     ]);
 
     const syncResult = await submitInspection(newInspection);
-    const url = buildShareUrl(newInspection);
+    const longUrl = buildShareUrl(newInspection);
+    const url = await shortenUrlIfConfigured(longUrl, {
+      description: `Inspection ${newInspection.id}`,
+    });
     navigator.clipboard.writeText(url);
     const linkWindow = window.open(url, '_blank');
     const linkOpened = Boolean(linkWindow);
