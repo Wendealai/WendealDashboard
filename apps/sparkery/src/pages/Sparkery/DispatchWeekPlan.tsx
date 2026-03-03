@@ -1408,7 +1408,10 @@ const DispatchWeekPlan: React.FC = () => {
         );
         return;
       }
-      await navigator.clipboard.writeText(currentUrl);
+      const shortUrl = await shortenUrlIfConfigured(currentUrl, {
+        description: 'Dispatch Weekly Plan',
+      });
+      await navigator.clipboard.writeText(shortUrl);
       messageApi.success(
         t('sparkery.dispatch.weekPlan.messages.weeklyPlanLinkCopied')
       );
@@ -1431,7 +1434,10 @@ const DispatchWeekPlan: React.FC = () => {
     }
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(rebuiltUrl);
+        const shortUrl = await shortenUrlIfConfigured(rebuiltUrl, {
+          description: 'Dispatch Weekly Plan',
+        });
+        await navigator.clipboard.writeText(shortUrl);
       }
       messageApi.success(
         t('sparkery.dispatch.weekPlan.messages.planLinkRebuilt')
