@@ -41,6 +41,7 @@ import {
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { useQuoteDraft } from '../quoteDraftContext';
+import { shortenUrlIfConfigured } from '@/services/urlShortenerService';
 import {
   getSparkeryTelemetryUserId,
   trackSparkeryEvent,
@@ -3276,13 +3277,16 @@ const BrisbaneQuoteCalculator: React.FC = () => {
       );
       return;
     }
-    await navigator.clipboard.writeText(shareDraftLink);
+    const shortUrl = await shortenUrlIfConfigured(shareDraftLink, {
+      description: `Quote ${quoteId} Share Link`,
+    });
+    await navigator.clipboard.writeText(shortUrl);
     message.success(
       t('sparkery.quoteCalculator.messages.shareLinkCopied', {
         defaultValue: 'Share link copied to clipboard.',
       })
     );
-  }, [shareDraftLink, t]);
+  }, [quoteId, shareDraftLink, t]);
 
   // 生成实时HTML预览
   useEffect(() => {

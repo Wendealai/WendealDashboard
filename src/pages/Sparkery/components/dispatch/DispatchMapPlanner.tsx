@@ -26,6 +26,7 @@ import {
   loadGoogleMapsSdk,
   type GeoPoint,
 } from '@/services/googleMapsService';
+import { shortenUrlIfConfigured } from '@/services/urlShortenerService';
 import { useTranslation } from 'react-i18next';
 import { buildDispatchJobLinkUrl } from '../../dispatch/weeklyPlanLink';
 
@@ -643,7 +644,10 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
         );
         return;
       }
-      await navigator.clipboard.writeText(url);
+      const shortUrl = await shortenUrlIfConfigured(url, {
+        description: 'Dispatch Location Report',
+      });
+      await navigator.clipboard.writeText(shortUrl);
       messageApi.success(
         t('sparkery.dispatch.mapPlanner.messages.locationLinkCopied')
       );
@@ -992,14 +996,17 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
       weekEnd,
       jobIds: orderedJobIds,
     });
+    const shortUrl = await shortenUrlIfConfigured(url, {
+      description: 'Dispatch Weekly Plan',
+    });
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(shortUrl);
       }
     } catch {
       // Ignore clipboard failures; still open link.
     }
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.open(shortUrl, '_blank', 'noopener,noreferrer');
     messageApi.success(
       t('sparkery.dispatch.mapPlanner.messages.weeklyPlanLinkGenerated')
     );
@@ -1029,14 +1036,17 @@ const DispatchMapPlanner: React.FC<DispatchMapPlannerProps> = ({
       weekEnd,
       jobIds: orderedJobIds,
     });
+    const shortUrl = await shortenUrlIfConfigured(url, {
+      description: 'Dispatch Employee Tasks',
+    });
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(shortUrl);
       }
     } catch {
       // Ignore clipboard failures; still open link.
     }
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.open(shortUrl, '_blank', 'noopener,noreferrer');
     messageApi.success(
       t('sparkery.dispatch.mapPlanner.messages.employeeTasksLinkGenerated')
     );

@@ -3454,8 +3454,11 @@ const CleaningInspectionAdmin: React.FC = () => {
 
   const handleCopyLink = React.useCallback(
     async (archive: InspectionArchive) => {
-      const url = buildShareUrl(archive);
+      const longUrl = buildShareUrl(archive);
       try {
+        const url = await shortenUrlIfConfigured(longUrl, {
+          description: `Inspection ${archive.id}`,
+        });
         await navigator.clipboard.writeText(url);
         appendArchiveActionLog('copy.success', `Copied link (${archive.id})`);
         messageApi.success(
@@ -3513,7 +3516,14 @@ const CleaningInspectionAdmin: React.FC = () => {
     const selectedItems = archives.filter(item =>
       selectedArchiveIds.includes(item.id)
     );
-    const allLinks = selectedItems.map(item => buildShareUrl(item)).join('\n');
+    const links = await Promise.all(
+      selectedItems.map(item =>
+        shortenUrlIfConfigured(buildShareUrl(item), {
+          description: `Inspection ${item.id}`,
+        })
+      )
+    );
+    const allLinks = links.join('\n');
     try {
       await navigator.clipboard.writeText(allLinks);
       appendArchiveActionLog(

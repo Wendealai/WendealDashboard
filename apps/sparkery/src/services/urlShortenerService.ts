@@ -94,41 +94,58 @@ const createKuttShortLink = async (
     return longUrl;
   }
 
-  const controller = new AbortController();
-  const timeout = globalThis.setTimeout(
-    () => controller.abort(),
-    SHORTENER_TIMEOUT_MS
-  );
+  const attemptShorten = async (domain?: string): Promise<string> => {
+    const controller = new AbortController();
+    const timeout = globalThis.setTimeout(
+      () => controller.abort(),
+      SHORTENER_TIMEOUT_MS
+    );
 
-  try {
-    const response = await fetch(`${config.baseUrl}/api/v2/links`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': config.apiKey,
-      },
-      body: JSON.stringify({
-        target: longUrl,
-        reuse: true,
-        ...(config.domain ? { domain: config.domain } : {}),
-        ...(options?.description ? { description: options.description } : {}),
-      }),
-      signal: controller.signal,
-    });
+    try {
+      const response = await fetch(`${config.baseUrl}/api/v2/links`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': config.apiKey,
+        },
+        body: JSON.stringify({
+          target: longUrl,
+          reuse: true,
+          ...(domain ? { domain } : {}),
+          ...(options?.description ? { description: options.description } : {}),
+        }),
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      throw new Error(`Kutt shorten failed with status ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`Kutt shorten failed with status ${response.status}`);
+      }
+
+      const payload = (await response.json()) as KuttCreateResponse;
+      const shortUrl = resolveShortUrl(payload, config.baseUrl);
+      if (!shortUrl) {
+        throw new Error('Kutt shorten succeeded but no short URL returned');
+      }
+      return shortUrl;
+    } finally {
+      globalThis.clearTimeout(timeout);
     }
+  };
 
-    const payload = (await response.json()) as KuttCreateResponse;
-    const shortUrl = resolveShortUrl(payload, config.baseUrl);
-    if (!shortUrl) {
-      throw new Error('Kutt shorten succeeded but no short URL returned');
+  const attemptDomains = config.domain
+    ? [config.domain, undefined]
+    : [undefined];
+  let lastError: Error | null = null;
+  for (const domain of attemptDomains) {
+    try {
+      return await attemptShorten(domain);
+    } catch (error) {
+      lastError =
+        error instanceof Error ? error : new Error('Kutt shorten failed');
     }
-    return shortUrl;
-  } finally {
-    globalThis.clearTimeout(timeout);
   }
+
+  throw lastError || new Error('Kutt shorten failed');
 };
 
 export const shortenUrlIfConfigured = async (

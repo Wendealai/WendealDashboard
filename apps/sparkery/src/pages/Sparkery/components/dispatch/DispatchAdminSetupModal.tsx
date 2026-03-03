@@ -24,6 +24,7 @@ import {
   geocodeAddress,
   isGoogleMapsConfigured,
 } from '@/services/googleMapsService';
+import { shortenUrlIfConfigured } from '@/services/urlShortenerService';
 import { useTranslation } from 'react-i18next';
 
 const { Text } = Typography;
@@ -105,7 +106,10 @@ const DispatchAdminSetupModal: React.FC<DispatchAdminSetupModalProps> = ({
         );
         return;
       }
-      await navigator.clipboard.writeText(url);
+      const shortUrl = await shortenUrlIfConfigured(url, {
+        description: 'Dispatch Location Report',
+      });
+      await navigator.clipboard.writeText(shortUrl);
       message.success(
         t('sparkery.dispatch.adminSetup.messages.locationReportLinkCopied')
       );
