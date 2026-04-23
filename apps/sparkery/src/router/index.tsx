@@ -45,6 +45,9 @@ const BondCleanQuoteFormCN = lazy(
 const BondCleanQuoteSubmissions = lazy(
   () => import('@/pages/Sparkery/BondCleanQuoteSubmissions')
 );
+const ContentCreatorPage = lazy(
+  () => import('@/pages/Sparkery/ContentCreatorPage')
+);
 const CleaningInspectionPage = lazy(() => import('@/pages/CleaningInspection'));
 const LoginPage = lazy(() => import('@/pages/Auth/LoginPage'));
 
@@ -182,6 +185,10 @@ const AppRouter = () => {
               <Route
                 path='/sparkery/users'
                 element={<UserManagementPage />}
+              />
+              <Route
+                path='/sparkery/content-creator'
+                element={<ContentCreatorPage />}
               />
             </Route>
           </Route>

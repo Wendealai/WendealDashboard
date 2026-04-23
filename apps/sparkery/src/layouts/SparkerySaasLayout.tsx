@@ -29,6 +29,7 @@ import {
   StarOutlined,
   TeamOutlined,
   ThunderboltOutlined,
+  ToolOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
 import {
@@ -169,6 +170,7 @@ const MODULE_SLA_BY_KEY: Record<string, 'P1' | 'P2' | 'P3'> = {
   '/sparkery/finance': 'P1',
   '/sparkery/cleaning-inspection': 'P1',
   '/sparkery/quote-submissions': 'P2',
+  '/sparkery/content-creator': 'P2',
   '/sparkery/users': 'P2',
   '/sparkery/quote-calculator': 'P3',
   '/sparkery/quote-form-en': 'P3',
@@ -214,6 +216,7 @@ const MODULE_FRESHNESS_MINUTES_BY_KEY: Record<string, number> = {
   '/sparkery/quote-calculator': 18,
   '/sparkery/china-procurement': 20,
   '/sparkery/recurring': 10,
+  '/sparkery/content-creator': 9,
   '/sparkery/users': 14,
 };
 const MODULE_KPI_BY_KEY: Record<string, ModuleKpiItem[]> = {
@@ -233,6 +236,10 @@ const MODULE_KPI_BY_KEY: Record<string, ModuleKpiItem[]> = {
     { id: 'quote-new', label: 'New Leads', value: '18', delta: 12.2 },
     { id: 'quote-conversion', label: 'Conversion', value: '39%', delta: 2.4 },
   ],
+  '/sparkery/content-creator': [
+    { id: 'creator-runs', label: 'Runs (24h)', value: '14', delta: 16.1 },
+    { id: 'creator-published', label: 'Published', value: '9', delta: 11.3 },
+  ],
 };
 const MODULE_QUICK_CREATE_BY_KEY: Record<string, QuickCreateItem[]> = {
   '/sparkery/dispatch': [
@@ -245,6 +252,13 @@ const MODULE_QUICK_CREATE_BY_KEY: Record<string, QuickCreateItem[]> = {
   '/sparkery/quote-calculator': [
     { id: 'qc-quote-en', label: 'Create EN Quote', targetPath: '/sparkery/quote-form-en' },
     { id: 'qc-quote-cn', label: 'Create CN Quote', targetPath: '/sparkery/quote-form-cn' },
+  ],
+  '/sparkery/content-creator': [
+    {
+      id: 'qc-content-creator',
+      label: 'Open Content Creator',
+      targetPath: '/sparkery/content-creator',
+    },
   ],
   '/sparkery/users': [
     { id: 'qc-user-manage', label: 'Manage Workspace Users', targetPath: '/sparkery/users' },
@@ -714,6 +728,28 @@ const SparkerySaasLayout: React.FC = () => {
             }),
             description: t('sparkery.saas.module.userManagementDesc', {
               defaultValue: 'Manage workspace members and roles',
+            }),
+          },
+        ],
+      },
+      {
+        key: 'tools',
+        icon: <ToolOutlined />,
+        label: t('sparkery.saas.nav.tools', {
+          defaultValue: 'Tools',
+        }),
+        description: t('sparkery.saas.nav.toolsDesc', {
+          defaultValue: 'Automation and growth utilities',
+        }),
+        children: [
+          {
+            key: '/sparkery/content-creator',
+            icon: <ThunderboltOutlined />,
+            label: t('sparkery.saas.nav.contentCreator', {
+              defaultValue: 'Content Creator',
+            }),
+            description: t('sparkery.saas.module.contentCreatorDesc', {
+              defaultValue: 'GUI control tower for n8n content workflows',
             }),
           },
         ],
@@ -1283,6 +1319,14 @@ const SparkerySaasLayout: React.FC = () => {
           }),
           icon: <TeamOutlined />,
           onClick: () => executeModuleNavigation('/sparkery/users'),
+        };
+      case '/sparkery/content-creator':
+        return {
+          label: t('sparkery.saas.actions.openContentCreator', {
+            defaultValue: 'Open Creator',
+          }),
+          icon: <ThunderboltOutlined />,
+          onClick: () => executeModuleNavigation('/sparkery/content-creator'),
         };
       default:
         return {
